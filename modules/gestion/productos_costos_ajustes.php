@@ -6,32 +6,14 @@ $pageTitle = "Ajustes de Costos de Productos";
 $currentPage = 'productos_costos_ajustes';
 $modudo_idx = 2;
 $pagina_idx = 82; // ID de página para Ajustes de Costos
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-chart-line me-2"></i>Ajustes de Costos de Productos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Costos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Ajustes de Costos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Ajustes de costos','fas fa-chart-line', '', ['Productos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -133,44 +115,39 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
-                                        <label for="producto_costo_ajuste_valor_tipo_id" class="form-label">Tipo de Valor</label>
+                                        <label for="producto_costo_ajuste_valor_tipo_id" class="form-label">Tipo de Valor <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="producto_costo_ajuste_valor_tipo_id" name="producto_costo_ajuste_valor_tipo_id">
                                             <option value="">Seleccione un tipo...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-3 mb-3">
-                                        <label for="valor_ajuste" class="form-label">Valor Ajuste</label>
+                                        <label for="valor_ajuste" class="form-label">Valor Ajuste <?= ui_ayuda('Opcional') ?></label>
                                         <input type="number" step="0.000001" class="form-control" id="valor_ajuste" 
                                             name="valor_ajuste">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
-                                        <label for="entidad_id" class="form-label">Entidad</label>
+                                        <label for="entidad_id" class="form-label">Entidad <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="entidad_id" name="entidad_id">
                                             <option value="">Seleccione una entidad...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
-                                        <label for="producto_id" class="form-label">Producto</label>
+                                        <label for="producto_id" class="form-label">Producto <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="producto_id" name="producto_id">
                                             <option value="">Seleccione un producto...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
-                                        <label for="proveedor_lista_costo_id" class="form-label">Lista de Costo Proveedor</label>
+                                        <label for="proveedor_lista_costo_id" class="form-label">Lista de Costo Proveedor <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="proveedor_lista_costo_id" name="proveedor_lista_costo_id">
                                             <option value="">Seleccione una lista...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
@@ -188,9 +165,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
-                                        <label for="f_vigencia_hasta" class="form-label">Vigencia Hasta</label>
+                                        <label for="f_vigencia_hasta" class="form-label">Vigencia Hasta <?= ui_ayuda('Opcional') ?></label>
                                         <input type="date" class="form-control" id="f_vigencia_hasta" name="f_vigencia_hasta">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-3 mb-3">
@@ -209,9 +185,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-12 mb-3">
-                                        <label for="observaciones" class="form-label">Observaciones</label>
+                                        <label for="observaciones" class="form-label">Observaciones <?= ui_ayuda('Opcional') ?></label>
                                         <textarea class="form-control" id="observaciones" name="observaciones" rows="3" maxlength="65535"></textarea>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
@@ -443,7 +418,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <td>${producto.producto_id}</td>
                                     <td>${escapeHtml(producto.producto_codigo || '')}</td>
                                     <td>${escapeHtml(producto.producto_nombre)}</td>
-                                    <td class="text-end">${parseFloat(producto.producto_precio || 0).toFixed(2)}</td>
+                                    <td class="text-end">${Fmt.numero(parseFloat(producto.producto_precio || 0), 2)}</td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-sm btn-primary btn-seleccionar-producto" 
                                             data-id="${producto.producto_id}"
@@ -588,10 +563,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     pageLength: 10,
                     lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
                     columns: [
-                        { data: 'producto_costo_ajuste_id', className: 'text-center fw-bold' },
+                        { data: 'producto_costo_ajuste_id', className: 'ui-detalle' },
                         { data: 'producto_costo_ajuste_tipo_nombre', render: function(data) { return data ? `<span class="badge bg-info">${escapeHtml(data)}</span>` : '<span class="text-muted">-</span>'; } },
                         { data: 'ajuste_descripcion', render: function(data) { return `<div class="fw-medium">${escapeHtml(data)}</div>`; } },
-                        { data: 'valor_ajuste', className: 'text-end', render: function(data) { return data ? parseFloat(data).toFixed(6) : '<span class="text-muted">-</span>'; } },
+                        { data: 'valor_ajuste', className: 'text-end', render: function(data) { return data ? Fmt.numero(parseFloat(data), 6) : '<span class="text-muted">-</span>'; } },
                         { data: 'producto_costo_ajuste_valor_tipo_nombre', render: function(data) { return data ? escapeHtml(data) : '<span class="text-muted">-</span>'; } },
                         { data: 'f_informado', render: function(data) { return data ? data : '<span class="text-muted">-</span>'; } },
                         { data: 'f_vigencia_desde', render: function(data) { return data ? data : '<span class="text-muted">-</span>'; } },
@@ -635,7 +610,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             return `<div class="btn-group" role="group">${botones}</div>`;
                         } }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     order: currentOrder,
                     responsive: true,
                     createdRow: function (row, data, dataIndex) {
@@ -1007,13 +982,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         });
     </script>
 
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

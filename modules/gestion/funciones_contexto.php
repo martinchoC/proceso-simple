@@ -284,7 +284,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                 },
                 order: [[1, 'asc']],
                 pageLength: 10,
@@ -529,7 +529,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

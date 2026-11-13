@@ -11,6 +11,7 @@ $pageTitle = "Accesos por Perfil a Sucursales y Bocas";
 $currentPage = 'accesos_perfiles';
 $modudo_idx = 2;
 $pagina_idx = 441;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -20,25 +21,7 @@ $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold">
-                        <i class="fas fa-shield-alt me-2 text-primary"></i>Accesos por Perfil
-                    </h3>
-                    <small class="text-muted">Asignación transversal de Sucursales, Bocas y Puntos de Venta a cada perfil de usuario</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="sucursales.php?empresa_id=<?= $empresa_id ?>">Sucursales</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Accesos por Perfil</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Accesos por perfil','fas fa-shield-alt', 'Asignación transversal de Sucursales, Bocas y Puntos de Venta a cada perfil de usuario', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -105,7 +88,7 @@ $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
                                     <label class="form-check-label form-label-sm" for="chkPredeterminado">Preseleccionar por defecto en combos</label>
                                 </div>
 
-                                <button type="button" id="btnAgregarGrant" class="btn btn-success btn-sm w-100 shadow-sm">
+                                <button type="button" id="btnAgregarGrant" data-funcion="agregar" class="btn btn-success btn-sm w-100 shadow-sm">
                                     <i class="fas fa-check me-1"></i>Otorgar Acceso
                                 </button>
                             </form>
@@ -149,7 +132,7 @@ $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script>window.ACCESOS_EMPRESA_ID = <?= (int)$empresa_id ?>;</script>
 <script src="accesos_perfiles.js?v=<?= filemtime(__DIR__ . '/accesos_perfiles.js') ?>"></script>
 

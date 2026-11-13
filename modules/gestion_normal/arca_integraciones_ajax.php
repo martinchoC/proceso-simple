@@ -39,7 +39,7 @@ if (empty($accion)) {
 $empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 0);
 // El pagina_idx no se toma del request: con él se valida el permiso, y un valor elegido por el
 // cliente permitiría validar contra cualquier otra página a la que el usuario tenga acceso.
-$pagina_idx = pagina_id_por_url($conn, 2, 'arca_integraciones.php');
+$pagina_idx = pagina_id_por_url($conn, 5, 'arca_integraciones.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');
@@ -96,10 +96,14 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             enviarRespuesta(agregarIntegracionEmpresa($conexion, $_POST, $empresa_idx, $pagina_idx, $usuario_id));
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['integracion_empresa_id'] ?? 0);
             if ($id <= 0) {
                 manejarError('ID no proporcionado', 400);
@@ -113,6 +117,8 @@ try {
             if ($id <= 0 || $accion_js === '') {
                 enviarRespuesta(['success' => false, 'message' => 'Datos incompletos']);
             }
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             enviarRespuesta(ejecutarTransicionEstado($conexion, $id, $accion_js, $empresa_idx, $pagina_idx));
             break;
 
@@ -123,6 +129,27 @@ try {
                 enviarRespuesta(['success' => false, 'message' => 'Datos incompletos']);
             }
             enviarRespuesta(ejecutarPruebaArca($conexion, $id, $operacion, $_POST, $empresa_idx, $pagina_idx));
+            break;
+
+        // ---- Delegación del certificado a otras empresas ----
+        case 'listar_delegaciones':
+            $id = intval($_GET['integracion_empresa_id'] ?? 0);
+            enviarRespuesta(obtenerDelegacionesIntegracion($conexion, $id, $empresa_idx, $pagina_idx));
+            break;
+
+        case 'empresas_delegables':
+            enviarRespuesta(['success' => true, 'data' => obtenerEmpresasDelegables($conexion, $usuario_id, $empresa_idx)]);
+            break;
+
+        case 'guardar_delegacion':
+            $id = intval($_POST['integracion_empresa_id'] ?? 0);
+            enviarRespuesta(guardarDelegacionIntegracion($conexion, $id, $_POST, $empresa_idx, $pagina_idx, $usuario_id));
+            break;
+
+        case 'revocar_delegacion':
+            $id = intval($_POST['integracion_empresa_id'] ?? 0);
+            $delegacion_id = intval($_POST['integracion_delegacion_id'] ?? 0);
+            enviarRespuesta(revocarDelegacionIntegracion($conexion, $id, $delegacion_id, $empresa_idx, $pagina_idx));
             break;
 
         case 'listar_resultados':

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * proveedores_ctacte_model.php
@@ -405,7 +406,7 @@ function ctacteSaldosProveedores($conexion, $empresa_id, array $filtros = [])
 /** Cabecera mínima del proveedor (nombre, CUIT, condición fiscal vigente). */
 function ctacteDatosProveedor($conexion, $entidad_id)
 {
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, e.es_proveedor,
+    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, IF(" . ent_sql_tiene_rol('e.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor,
                    cf.condicion_fiscal
             FROM gestion__entidades e
             LEFT JOIN gestion__entidades_condiciones_fiscales ecf
@@ -438,7 +439,7 @@ function ctacteBuscarProveedores($conexion, $texto, $limite = 30)
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia, cuit
             FROM gestion__entidades
             WHERE tabla_estado_registro_id IN (1, 2)
-              AND es_proveedor = 1
+              AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . "
               AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ?)
             ORDER BY entidad_nombre LIMIT $limite";
 

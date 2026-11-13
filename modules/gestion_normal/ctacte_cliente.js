@@ -9,6 +9,8 @@
  *   const w = CtacteCliente.crear('#contenedor', { empresaId: 2, mostrarCabecera: true });
  *   enSolapa: true (solapa de clientes.php) = sin botones Excel/PDF y con el buscador en la
  *   fila de filtros, después de "Filtrar".
+ *   exportar: barra Excel / PDF / Enviar por email en cada solapa (por defecto, fuera de la
+ *   solapa). El envío necesita csrfToken (csrf_token() de la página).
  *   w.cargar(entidadId);
  *   w.limpiar();
  */
@@ -20,12 +22,14 @@
     let contador = 0;
 
     function crear(selector, opciones) {
-        const opts = $.extend({ empresaId: 0, mostrarCabecera: false, enSolapa: false }, opciones || {});
+        const opts = $.extend({ empresaId: 0, mostrarCabecera: false, enSolapa: false, csrfToken: '' }, opciones || {});
+        if (opts.exportar === undefined) opts.exportar = !opts.enSolapa;
         const p = 'ctacte' + (++contador);
         const $root = $(selector);
         let entidadId = 0;
         let cargadas = {};
         let tablas = {};
+        let cliente = {};
 
         $root.html(
             '<div class="ctacte-widget">' +
@@ -51,7 +55,10 @@
             '  </ul>' +
             '  <div class="tab-content border rounded p-2">' +
             '    <div class="tab-pane fade show active" id="' + p + 'PaneDeuda" role="tabpanel">' +
-            '      <h6 class="small fw-bold text-uppercase text-warning mb-2">Comprobantes adeudados</h6>' +
+            '      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">' +
+            '        <h6 class="small fw-bold text-uppercase text-warning mb-0">Comprobantes adeudados</h6>' +
+                     barraExportar('deuda') +
+            '      </div>' +
             '      <table class="table table-sm table-striped table-bordered w-100 small" id="' + p + 'TablaDeuda">' +
             '        <thead class="table-light"><tr><th>Emisión</th><th>Vencimiento</th><th>Comprobante</th><th>Sucursal</th>' +
             '        <th class="text-end">Total</th><th class="text-end">Pendiente</th><th class="text-center">Atraso</th><th class="no-export"></th></tr></thead>' +
@@ -65,7 +72,7 @@
             '      </div>' +
             '    </div>' +
             '    <div class="tab-pane fade" id="' + p + 'PaneCta" role="tabpanel">' +
-                   filtrosFechas(p + 'Cta') +
+                   filtrosFechas(p + 'Cta', 'cta') +
             '      <div class="small mb-2" id="' + p + 'SaldoAnt"></div>' +
             '      <table class="table table-sm table-striped table-bordered w-100 small" id="' + p + 'TablaCta">' +
             '        <thead class="table-light"><tr><th>Fecha</th><th>Vencimiento</th><th>Comprobante</th><th>Sucursal</th>' +
@@ -75,7 +82,7 @@
             '      </table>' +
             '    </div>' +
             '    <div class="tab-pane fade" id="' + p + 'PaneComp" role="tabpanel">' +
-                   filtrosFechas(p + 'Comp') +
+                   filtrosFechas(p + 'Comp', 'comp') +
             '      <table class="table table-sm table-striped table-bordered w-100 small" id="' + p + 'TablaComp">' +
             '        <thead class="table-light"><tr><th>Emisión</th><th>Comprobante</th><th>Grupo</th><th>Sucursal</th>' +
             '        <th class="text-end">Total</th><th class="text-end">Saldo</th><th class="text-center">Estado</th><th class="no-export"></th></tr></thead><tbody></tbody>' +
@@ -103,7 +110,12 @@
                 ' data-bs-target="#' + pref + 'Pane' + clave + '" data-ctacte-tab="' + clave + '" role="tab">' + texto + '</button></li>';
         }
 
-        function filtrosFechas(pref) {
+        // Contenedor de Excel / PDF / Enviar por email de una solapa (los botones se agregan al crear su tabla)
+        function barraExportar(clave) {
+            return opts.exportar ? '<div class="d-flex flex-wrap gap-1 ctacte-exportar" id="' + p + 'Exp_' + clave + '"></div>' : '';
+        }
+
+        function filtrosFechas(pref, clave) {
             return '<div class="row g-2 align-items-end mb-2">' +
                 '<div class="col-auto"><label class="form-label small mb-0">Desde</label>' +
                 '<input type="date" class="form-control form-control-sm" id="' + pref + 'Desde"></div>' +
@@ -114,6 +126,7 @@
                     ? '<div class="col-auto"><label class="form-label small mb-0" for="' + pref + 'Buscar">Buscar:</label>' +
                       '<input type="search" class="form-control form-control-sm" id="' + pref + 'Buscar" data-ctacte-buscar="' + pref + '"></div>'
                     : '') +
+                (opts.exportar ? '<div class="col-auto ms-auto">' + barraExportar(clave) + '</div>' : '') +
                 '</div>';
         }
 
@@ -156,11 +169,119 @@
                 if (DOM_SOLAPA[clave] && !(extra && extra.dom)) conf.dom = DOM_SOLAPA[clave];
             }
             tablas[clave] = $tabla.DataTable(UI.opcionesTabla(conf));
+            agregarBotonesExportar(clave, tablas[clave]);
             if (opts.enSolapa) {
                 // Lo escrito antes de la primera carga también filtra
                 const $buscar = $('#' + p + (clave === 'cta' ? 'Cta' : 'Comp') + 'Buscar');
                 if ((clave === 'cta' || clave === 'comp') && $buscar.val()) tablas[clave].search($buscar.val()).draw();
             }
+        }
+
+        // Exportar / enviar ---------------------------------------------------------
+        const NOMBRES_SOLAPA = { deuda: 'Deuda', cta: 'Cuenta corriente', comp: 'Comprobantes emitidos' };
+
+        function periodoTexto(clave) {
+            if (clave === 'deuda') return '';
+            const pref = p + (clave === 'cta' ? 'Cta' : 'Comp');
+            const desde = $('#' + pref + 'Desde').val(), hasta = $('#' + pref + 'Hasta').val();
+            if (!desde && !hasta) return '';
+            return 'Período' + (desde ? ' desde ' + Fmt.fecha(desde) : '') + (hasta ? ' hasta ' + Fmt.fecha(hasta) : '');
+        }
+
+        function encabezadoExport(clave) {
+            const partes = [cliente.entidad_nombre || '', cliente.cuit ? 'CUIT ' + cliente.cuit : '', periodoTexto(clave)];
+            if (clave === 'cta' && $('#' + p + 'CtaDesde').val()) partes.push($('#' + p + 'SaldoAnt').text());
+            return partes.filter(Boolean).join(' · ');
+        }
+
+        function totalesExport(clave) {
+            if (clave === 'deuda') return 'Total adeudado: ' + $('#' + p + 'TotDeuda').text();
+            if (clave === 'cta') {
+                return 'Totales del período: Debe ' + $('#' + p + 'TotDebe').text() + ' · Haber ' + $('#' + p + 'TotHaber').text() +
+                    ' · Saldo ' + $('#' + p + 'TotSaldo').text();
+            }
+            return '';
+        }
+
+        function archivoExport(clave) {
+            const base = 'ctacte_' + NOMBRES_SOLAPA[clave] + '_' + (cliente.entidad_nombre || entidadId) + '_' + Fmt.hoyISO();
+            return base.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w\-]+/g, '_');
+        }
+
+        function agregarBotonesExportar(clave, tabla) {
+            if (!opts.exportar || !NOMBRES_SOLAPA[clave] || !$.fn.dataTable.Buttons) return;
+            const titulo = function () { return NOMBRES_SOLAPA[clave] + (cliente.entidad_nombre ? ' - ' + cliente.entidad_nombre : ''); };
+            const comunes = {
+                title: titulo,
+                messageTop: function () { return encabezadoExport(clave); },
+                messageBottom: function () { return totalesExport(clave); },
+                filename: function () { return archivoExport(clave); }
+            };
+            const botones = new $.fn.dataTable.Buttons(tabla, {
+                buttons: [
+                    // Excel con números de verdad (orthogonal 'export'); PDF con lo que se ve en pantalla
+                    $.extend({ extend: 'excelHtml5', text: '<i class="fas fa-file-excel me-1"></i>Excel', className: 'btn btn-sm btn-outline-success',
+                               exportOptions: { columns: ':not(.no-export)', orthogonal: 'export' } }, comunes),
+                    $.extend({ extend: 'pdfHtml5', text: '<i class="fas fa-file-pdf me-1"></i>PDF', className: 'btn btn-sm btn-outline-danger',
+                               orientation: 'landscape', pageSize: 'A4', exportOptions: { columns: ':not(.no-export)' } }, comunes),
+                    { text: '<i class="fas fa-envelope me-1"></i>Enviar por email', className: 'btn btn-sm btn-outline-primary',
+                      action: function () { enviarPorEmail(clave); } }
+                ]
+            });
+            botones.container().removeClass('btn-group').addClass('d-flex flex-wrap gap-1').appendTo('#' + p + 'Exp_' + clave);
+        }
+
+        function enviarPorEmail(clave) {
+            if (!entidadId) return;
+            $.getJSON(URL_AJAX, params({ accion: 'emails_cliente' })).always(function (res) {
+                const emails = (res && res.success && res.data) || [];
+                const opciones = emails.map(function (e) { return '<option value="' + UI.esc(e) + '">'; }).join('');
+                Swal.fire({
+                    title: 'Enviar ' + NOMBRES_SOLAPA[clave].toLowerCase() + ' por email',
+                    html: '<div class="text-start small">' +
+                        '<div class="mb-2 text-muted">' + UI.esc(encabezadoExport(clave)) + '</div>' +
+                        '<label class="form-label mb-0 ui-requerido" for="ctacteEmailPara">Para</label>' +
+                        '<input type="email" class="form-control form-control-sm mb-2" id="ctacteEmailPara" list="ctacteEmailLista" value="' + UI.esc(emails[0] || '') + '" placeholder="correo@cliente.com">' +
+                        '<datalist id="ctacteEmailLista">' + opciones + '</datalist>' +
+                        (emails.length ? '' : '<div class="text-warning mb-2">El cliente no tiene correo cargado en sus sucursales.</div>') +
+                        '<label class="form-label mb-0" for="ctacteEmailMensaje">Mensaje (opcional)</label>' +
+                        '<textarea class="form-control form-control-sm" id="ctacteEmailMensaje" rows="3" maxlength="2000"></textarea>' +
+                        '</div>',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-paper-plane me-1"></i>Enviar',
+                    cancelButtonText: 'Cancelar',
+                    focusConfirm: false,
+                    showLoaderOnConfirm: true,
+                    allowOutsideClick: function () { return !Swal.isLoading(); },
+                    preConfirm: function () {
+                        const para = $('#ctacteEmailPara').val().trim();
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(para)) {
+                            Swal.showValidationMessage('Ingresá un correo válido.');
+                            return false;
+                        }
+                        const pref = p + (clave === 'cta' ? 'Cta' : 'Comp');
+                        return $.ajax({
+                            url: URL_AJAX, type: 'POST', dataType: 'json',
+                            headers: { 'X-CSRF-Token': opts.csrfToken },
+                            data: params({
+                                accion: 'enviar_email', solapa: clave, para: para, mensaje: $('#ctacteEmailMensaje').val(),
+                                desde: clave === 'deuda' ? '' : $('#' + pref + 'Desde').val(),
+                                hasta: clave === 'deuda' ? '' : $('#' + pref + 'Hasta').val()
+                            })
+                        }).then(function (r) {
+                            if (!r.success) Swal.showValidationMessage(r.message || 'No se pudo enviar el correo.');
+                            return r.success ? r : false;
+                        }, function (xhr) {
+                            Swal.showValidationMessage((xhr.responseJSON && xhr.responseJSON.message) || 'Error de conexión con el servidor.');
+                            return false;
+                        });
+                    }
+                }).then(function (result) {
+                    if (result.isConfirmed && result.value) {
+                        Swal.fire({ icon: 'success', title: 'Enviado', text: result.value.message, timer: 2500, showConfirmButton: false });
+                    }
+                });
+            });
         }
 
         // -------------------------------------------------------------------------
@@ -196,8 +317,8 @@
                 $('#' + p + 'TotDeuda').text(UI.moneda(total));
 
                 dibujarTabla('deuda', $('#' + p + 'TablaDeuda'), d.deuda, [
-                    { data: 'f_emision', render: function (v, t) { return t === 'display' ? UI.fecha(v) : v; } },
-                    { data: 'f_vto', render: function (v, t, r) { const f = v || r.f_emision; return t === 'display' ? UI.fecha(f) : f; } },
+                    { data: 'f_emision', render: function (v, t) { return t === 'display' || t === 'export' ? UI.fecha(v) : v; } },
+                    { data: 'f_vto', render: function (v, t, r) { const f = v || r.f_emision; return t === 'display' || t === 'export' ? UI.fecha(f) : f; } },
                     { data: null, render: function (r) { return UI.esc(UI.numero(r)); } },
                     { data: 'sucursal_nombre', defaultContent: '' },
                     { data: 'importe_total', className: 'text-end', render: function (v, t, r) { return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v; } },
@@ -239,9 +360,10 @@
                             return UI.esc(UI.numero(r)) + (r.tipo_cambio !== 1 ?' <span class="badge bg-light text-dark border">' + UI.esc(r.moneda_simbolo) + ' TC ' + r.tipo_cambio + '</span>' : '');
                         } },
                         { data: 'sucursal_nombre', defaultContent: '' },
-                        { data: 'debe', className: 'text-end', render: function (v) { return v ? UI.moneda(v) : ''; } },
-                        { data: 'haber', className: 'text-end', render: function (v) { return v ? UI.moneda(v) : ''; } },
-                        { data: 'saldo', className: 'text-end fw-semibold', render: function (v) {
+                        { data: 'debe', className: 'text-end', render: function (v, t) { return t === 'export' ? (v || '') : (v ? UI.moneda(v) : ''); } },
+                        { data: 'haber', className: 'text-end', render: function (v, t) { return t === 'export' ? (v || '') : (v ? UI.moneda(v) : ''); } },
+                        { data: 'saldo', className: 'text-end fw-semibold', render: function (v, t) {
+                            if (t === 'export') return v;
                             return '<span class="' + (v > 0.009 ? 'text-danger' : (v < -0.009 ? 'text-success' : '')) + '">' + UI.moneda(v) + '</span>';
                         } },
                         { data: 'comprobante_id', className: 'text-center no-export', render: botonVer }
@@ -255,13 +377,17 @@
                     if (!res.success) { aviso(res.message); return; }
                     if (res.message) aviso(res.message);
                     dibujarTabla('comp', $('#' + p + 'TablaComp'), res.data, [
-                        { data: 'f_emision', render: function (v, t) { return t === 'display' ? UI.fecha(v) : v; } },
-                        { data: null, render: function (r) { return UI.esc(UI.numero(r)) + '<div class="text-muted">' + UI.esc(r.comprobante_tipo) + '</div>'; } },
+                        { data: 'f_emision', render: function (v, t) { return t === 'display' || t === 'export' ? UI.fecha(v) : v; } },
+                        { data: null, render: function (r, t) {
+                            if (t === 'export') return UI.numero(r) + ' - ' + (r.comprobante_tipo || '');
+                            // El espacio antes del div separa número y tipo en el PDF (que exporta el texto de pantalla)
+                            return UI.esc(UI.numero(r)) + ' <div class="text-muted">' + UI.esc(r.comprobante_tipo) + '</div>';
+                        } },
                         { data: 'comprobante_grupo', defaultContent: '' },
                         { data: 'sucursal_nombre', defaultContent: '' },
                         { data: 'importe_total', className: 'text-end', render: function (v, t, r) { return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v; } },
                         { data: 'saldo', className: 'text-end', render: function (v, t, r) {
-                            if (v === null) return t === 'display' ? '<span class="text-muted">-</span>' : '';
+                            if (v === null || v === undefined) return t === 'display' ? '<span class="text-muted">-</span>' : '';
                             return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v;
                         } },
                         { data: 'estado', className: 'text-center', render: function (v, t, r) { return t === 'display' ? UI.badgeEstado(r) : v; } },
@@ -305,9 +431,12 @@
                 cargadas = {};
                 aviso('');
                 if (!entidadId) { api.limpiar(); return; }
-                if (opts.mostrarCabecera) {
+                cliente = {};
+                if (opts.mostrarCabecera || opts.exportar) {
                     $.getJSON(URL_AJAX, params({ accion: 'cliente' })).done(function (res) {
                         if (!res.success) return;
+                        cliente = res.data;   // título de Excel / PDF / correo
+                        if (!opts.mostrarCabecera) return;
                         $('#' + p + 'Nombre').text(res.data.entidad_nombre);
                         $('#' + p + 'Datos').text([
                             res.data.entidad_fantasia, res.data.cuit ? 'CUIT ' + res.data.cuit : '', res.data.condicion_fiscal
@@ -320,6 +449,7 @@
             limpiar: function () {
                 entidadId = 0;
                 cargadas = {};
+                cliente = {};
                 Object.keys(tablas).forEach(function (k) { tablas[k].clear().draw(); });
                 $root.find('[id^="' + p + '"][id$="Sub"]').text('');
                 ['Saldo', 'Deuda', 'Vencido', 'Favor', 'Cobro'].forEach(function (k) {

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 /**
@@ -82,7 +83,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 // ✅ Obtener botones disponibles según el estado actual
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -107,7 +108,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // ✅ Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -321,15 +325,15 @@ function obtenerComprobantesFiscales($conexion, $empresa_idx)
 // ✅ Agregar nuevo tipo de comprobante
 function agregarComprobanteTipo($conexion, $data)
 {
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $comprobante_tipo = mysqli_real_escape_string($conexion, trim($data['comprobante_tipo'] ?? ''));
+    $codigo = trim($data['codigo'] ?? '');
+    $comprobante_tipo = trim($data['comprobante_tipo'] ?? '');
     $comprobante_grupo_id = intval($data['comprobante_grupo_id'] ?? 0);
     $comprobante_subgrupo_id = intval($data['comprobante_subgrupo_id'] ?? 0);
     $comprobante_fiscal_id = intval($data['comprobante_fiscal_id'] ?? 0);
-    $letra = mysqli_real_escape_string($conexion, trim($data['letra'] ?? ''));
-    $signo = mysqli_real_escape_string($conexion, $data['signo'] ?? '+');
+    $letra = trim($data['letra'] ?? '');
+    $signo = $data['signo'] ?? '+';
     $orden = intval($data['orden'] ?? 1);
-    $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
+    $comentario = trim($data['comentario'] ?? '');
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
     list($impacta_stock, $stock_signo) = normalizarStockComprobanteTipo($data);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
@@ -446,15 +450,15 @@ function agregarComprobanteTipo($conexion, $data)
 function editarComprobanteTipo($conexion, $id, $data)
 {
     $id = intval($id);
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $comprobante_tipo = mysqli_real_escape_string($conexion, trim($data['comprobante_tipo'] ?? ''));
+    $codigo = trim($data['codigo'] ?? '');
+    $comprobante_tipo = trim($data['comprobante_tipo'] ?? '');
     $comprobante_grupo_id = intval($data['comprobante_grupo_id'] ?? 0);
     $comprobante_subgrupo_id = intval($data['comprobante_subgrupo_id'] ?? 0);
     $comprobante_fiscal_id = intval($data['comprobante_fiscal_id'] ?? 0);
-    $letra = mysqli_real_escape_string($conexion, trim($data['letra'] ?? ''));
-    $signo = mysqli_real_escape_string($conexion, $data['signo'] ?? '+');
+    $letra = trim($data['letra'] ?? '');
+    $signo = $data['signo'] ?? '+';
     $orden = intval($data['orden'] ?? 1);
-    $comentario = mysqli_real_escape_string($conexion, trim($data['comentario'] ?? ''));
+    $comentario = trim($data['comentario'] ?? '');
     $impacta_stock = intval($data['impacta_stock'] ?? 0);
     list($impacta_stock, $stock_signo) = normalizarStockComprobanteTipo($data);
     $impacta_contabilidad = intval($data['impacta_contabilidad'] ?? 0);
@@ -771,119 +775,121 @@ function obtenerEstadosDisponibles($conexion)
 
     return $estados;
 }
-// ✅ Copiar tipo de comprobante existente
-function copiarComprobanteTipo($conexion, $id, $data)
+// ✅ Copiar tipo de comprobante existente: crea un tipo nuevo con los datos del formulario (precargado con el original
+// y editado por el usuario) y toma del original lo que el formulario no muestra (requiere_debito_cuenta).
+// Opcional: copia sus relaciones activas (cancelaciones y dependencias, en los dos sentidos) y sus puntos de venta.
+function copiarComprobanteTipo($conexion, $id, $data, $usuario_id = 0)
 {
     $id = intval($id);
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
-    
+    $usuario_id = intval($usuario_id);
+    error_log("=== INICIO copiarComprobanteTipo original: $id empresa: $empresa_idx ===");
+
     // Verificar que el tipo original exista
-    $sql_check = "SELECT * FROM gestion__comprobantes_tipos 
+    $sql_check = "SELECT * FROM gestion__comprobantes_tipos
                   WHERE comprobante_tipo_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql_check);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
-    
+
     mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_idx);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $original = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
-    
+
     if (!$original) {
         return ['resultado' => false, 'error' => 'Tipo de comprobante original no encontrado'];
     }
-    
-    // Validar datos del nuevo tipo
-    $codigo = mysqli_real_escape_string($conexion, trim($data['codigo'] ?? ''));
-    $comprobante_tipo = mysqli_real_escape_string($conexion, trim($data['comprobante_tipo'] ?? ''));
-    
-    if (empty($comprobante_tipo)) {
-        return ['resultado' => false, 'error' => 'El tipo de comprobante es obligatorio'];
-    }
-    
-    if (empty($codigo)) {
-        return ['resultado' => false, 'error' => 'El código es obligatorio'];
-    }
-    
-    if (strlen($comprobante_tipo) > 100) {
-        return ['resultado' => false, 'error' => 'El nombre no puede exceder los 100 caracteres'];
-    }
-    
-    if (strlen($codigo) > 10) {
-        return ['resultado' => false, 'error' => 'El código no puede exceder los 10 caracteres'];
-    }
-    
-    // Verificar que el nuevo código no exista
-    $sql_duplicate = "SELECT COUNT(*) as total FROM gestion__comprobantes_tipos 
-                      WHERE empresa_id = ? AND codigo = ?";
-    $stmt = mysqli_prepare($conexion, $sql_duplicate);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-    
-    mysqli_stmt_bind_param($stmt, "is", $empresa_idx, $codigo);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($result);
-    mysqli_stmt_close($stmt);
-    
-    if ($row['total'] > 0) {
-        return ['resultado' => false, 'error' => 'Ya existe un tipo de comprobante con este código'];
-    }
-    
-    $estado_inicial = obtenerEstadoInicial($conexion);
-    
-    // Insertar la copia del tipo de comprobante
-    $sql = "INSERT INTO gestion__comprobantes_tipos (
-                empresa_id,
-                comprobante_tipo,
-                codigo,
-                comprobante_grupo_id,
-                comprobante_subgrupo_id,
-                comprobante_fiscal_id,
-                letra,
-                signo,
-                orden,
-                comentario,
-                impacta_stock,
-                stock_signo,
-                impacta_contabilidad,
-                impacta_ctacte,
-                tabla_estado_registro_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt)
-        return ['resultado' => false, 'error' => 'Error en la consulta'];
-    
-    mysqli_stmt_bind_param($stmt, "issiiissisisiii", 
-        $empresa_idx,
-        $comprobante_tipo,
-        $codigo,
-        $original['comprobante_grupo_id'],
-        $original['comprobante_subgrupo_id'],
-        $original['comprobante_fiscal_id'],
-        $original['letra'],
-        $original['signo'],
-        $original['orden'],
-        $original['comentario'],
-        $original['impacta_stock'],
-        $original['stock_signo'],
-        $original['impacta_contabilidad'],
-        $original['impacta_ctacte'],
-        $estado_inicial
-    );
-    
-    $success = mysqli_stmt_execute($stmt);
-    
-    if ($success) {
-        $comprobante_tipo_id = mysqli_insert_id($conexion);
+
+    $copiar_relaciones = intval($data['copiar_relaciones'] ?? 0) === 1;
+    $copiar_puntos_venta = intval($data['copiar_puntos_venta'] ?? 0) === 1;
+    $copiados = ['cancelaciones' => 0, 'dependencias' => 0, 'puntos_venta' => 0];
+
+    mysqli_begin_transaction($conexion);
+    try {
+        // Mismas validaciones que el alta (código único, grupo, subgrupo, largos)
+        $alta = agregarComprobanteTipo($conexion, $data);
+        if (empty($alta['resultado'])) {
+            mysqli_rollback($conexion);
+            return $alta;
+        }
+        $nuevo_id = intval($alta['comprobante_tipo_id']);
+
+        $debito = intval($original['requiere_debito_cuenta']);
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_tipos SET requiere_debito_cuenta = ?
+                                           WHERE comprobante_tipo_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, "iii", $debito, $nuevo_id, $empresa_idx);
+        mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        return ['resultado' => true, 'comprobante_tipo_id' => $comprobante_tipo_id];
-    } else {
-        mysqli_stmt_close($stmt);
+
+        if ($copiar_relaciones) {
+            // Lo que el original cancela (si se cancela a sí mismo, la copia se cancela a sí misma)
+            $stmt = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__comprobantes_tipos_cancelaciones
+                    (empresa_id, comprobante_tipo_origen_id, comprobante_tipo_destino_id, exige_misma_entidad, tabla_estado_registro_id, usuario_id)
+                SELECT empresa_id, ?, IF(comprobante_tipo_destino_id = ?, ?, comprobante_tipo_destino_id), exige_misma_entidad, 1, ?
+                FROM gestion__comprobantes_tipos_cancelaciones
+                WHERE empresa_id = ? AND comprobante_tipo_origen_id = ? AND tabla_estado_registro_id = 1");
+            mysqli_stmt_bind_param($stmt, "iiiiii", $nuevo_id, $id, $nuevo_id, $usuario_id, $empresa_idx, $id);
+            mysqli_stmt_execute($stmt);
+            $copiados['cancelaciones'] += mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Los tipos que cancelan al original (recibos, NC...) también cancelan a la copia
+            $stmt = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__comprobantes_tipos_cancelaciones
+                    (empresa_id, comprobante_tipo_origen_id, comprobante_tipo_destino_id, exige_misma_entidad, tabla_estado_registro_id, usuario_id)
+                SELECT empresa_id, comprobante_tipo_origen_id, ?, exige_misma_entidad, 1, ?
+                FROM gestion__comprobantes_tipos_cancelaciones
+                WHERE empresa_id = ? AND comprobante_tipo_destino_id = ? AND comprobante_tipo_origen_id <> ? AND tabla_estado_registro_id = 1");
+            mysqli_stmt_bind_param($stmt, "iiiii", $nuevo_id, $usuario_id, $empresa_idx, $id, $id);
+            mysqli_stmt_execute($stmt);
+            $copiados['cancelaciones'] += mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Comprobantes padre del original
+            $stmt = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__comprobantes_tipos_dependencias
+                    (empresa_id, comprobante_tipo_id, comprobante_tipo_padre_id, tabla_estado_registro_id, usuario_id)
+                SELECT empresa_id, ?, comprobante_tipo_padre_id, 1, ?
+                FROM gestion__comprobantes_tipos_dependencias
+                WHERE empresa_id = ? AND comprobante_tipo_id = ? AND tabla_estado_registro_id = 1");
+            mysqli_stmt_bind_param($stmt, "iiii", $nuevo_id, $usuario_id, $empresa_idx, $id);
+            mysqli_stmt_execute($stmt);
+            $copiados['dependencias'] += mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+
+            // Los tipos que dependen del original (NC / ND) también pueden asociarse a la copia
+            $stmt = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__comprobantes_tipos_dependencias
+                    (empresa_id, comprobante_tipo_id, comprobante_tipo_padre_id, tabla_estado_registro_id, usuario_id)
+                SELECT empresa_id, comprobante_tipo_id, ?, 1, ?
+                FROM gestion__comprobantes_tipos_dependencias
+                WHERE empresa_id = ? AND comprobante_tipo_padre_id = ? AND tabla_estado_registro_id = 1");
+            mysqli_stmt_bind_param($stmt, "iiii", $nuevo_id, $usuario_id, $empresa_idx, $id);
+            mysqli_stmt_execute($stmt);
+            $copiados['dependencias'] += mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+        }
+
+        if ($copiar_puntos_venta) {
+            $stmt = mysqli_prepare($conexion, "INSERT IGNORE INTO gestion__puntos_venta_comprobantes
+                    (empresa_id, punto_venta_id, comprobante_tipo_id, requiere_afip, tabla_estado_registro_id)
+                SELECT empresa_id, punto_venta_id, ?, requiere_afip, 1
+                FROM gestion__puntos_venta_comprobantes
+                WHERE empresa_id = ? AND comprobante_tipo_id = ? AND tabla_estado_registro_id = 1");
+            mysqli_stmt_bind_param($stmt, "iii", $nuevo_id, $empresa_idx, $id);
+            mysqli_stmt_execute($stmt);
+            $copiados['puntos_venta'] = mysqli_stmt_affected_rows($stmt);
+            mysqli_stmt_close($stmt);
+        }
+
+        mysqli_commit($conexion);
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        error_log("=== ERROR copiarComprobanteTipo: " . $e->getMessage() . " ===");
         return ['resultado' => false, 'error' => 'Error al copiar el tipo de comprobante'];
     }
+
+    error_log("=== FIN copiarComprobanteTipo nuevo: $nuevo_id " . json_encode($copiados) . " ===");
+    return ['resultado' => true, 'comprobante_tipo_id' => $nuevo_id, 'copiados' => $copiados];
 }
 // Stock del tipo: stock_signo dice el sentido ('+', '-', '+/-') y impacta_stock se deriva de él.
 // Si el formulario no manda stock_signo (clientes viejos), se respeta impacta_stock sin sentido.

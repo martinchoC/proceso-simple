@@ -55,7 +55,7 @@ function entidades_listar(mysqli $conexion, int $empresa_id = 0, int $tipo_id = 
         $types .= "i";
     }
 
-    $sql .= " ORDER BY e.nombre ASC";
+    $sql .= " ORDER BY COALESCE(t.nombre, 'ZZZZ') ASC, COALESCE(emp.empresa, 'ZZZZ') ASC, et.nombre ASC, e.nombre ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!empty($params)) {
@@ -209,7 +209,7 @@ function entidades_transferir_titularidad(mysqli $conexion, int $entidad_id, int
                       SET vigente_hasta = ?, actualizado_en = NOW(), actualizado_por = ?
                       WHERE entidad_id = ? AND es_titular = 1 AND vigente_hasta IS NULL";
         $stmt_c = mysqli_prepare($conexion, $sql_close);
-        mysqli_stmt_bind_param($stmt_c, "siii", $fecha_transferencia, $usuario_id, $entidad_id);
+        mysqli_stmt_bind_param($stmt_c, "sii", $fecha_transferencia, $usuario_id, $entidad_id);
         mysqli_stmt_execute($stmt_c);
         mysqli_stmt_close($stmt_c);
 
@@ -245,7 +245,7 @@ function entidades_cambiar_ubicacion(mysqli $conexion, int $entidad_id, int $nue
                       SET vigente_hasta = ?, actualizado_en = NOW(), actualizado_por = ?
                       WHERE entidad_id = ? AND es_base = 1 AND vigente_hasta IS NULL";
         $stmt_c = mysqli_prepare($conexion, $sql_close);
-        mysqli_stmt_bind_param($stmt_c, "siii", $fecha_traslado, $usuario_id, $entidad_id);
+        mysqli_stmt_bind_param($stmt_c, "sii", $fecha_traslado, $usuario_id, $entidad_id);
         mysqli_stmt_execute($stmt_c);
         mysqli_stmt_close($stmt_c);
 

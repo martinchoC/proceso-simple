@@ -106,10 +106,12 @@ function obtenerPuntosVentaDepositoPorSucursal($conexion, $empresa_idx, $sucursa
 // de leerlo de la configuración real.
 function resolverAccionTransicion($conexion, $pagina_id, $estado_origen_id, $estado_destino_id)
 {
-    $botones = obtenerBotonesPorEstado($conexion, $pagina_id, $estado_origen_id);
-    foreach ($botones as $boton) {
-        if ($boton['estado_destino_id'] == $estado_destino_id) {
-            return $boton['accion_js'];
+    // Transición automática del sistema (no un botón): se busca en todas las funciones de la página,
+    // sin el filtro por perfil de obtenerBotonesPorEstado()
+    foreach (obtenerFuncionesPagina($conexion, $pagina_id) as $funcion) {
+        if ($funcion['tabla_estado_registro_origen_id'] == $estado_origen_id
+            && $funcion['tabla_estado_registro_destino_id'] == $estado_destino_id) {
+            return $funcion['accion_js'] ?? strtolower($funcion['nombre_funcion']);
         }
     }
     return null;
@@ -122,8 +124,9 @@ function actualizarCantidadDetallePedido($conexion, $venta_pedido_id, $venta_ped
     $cantidad = floatval($cantidad);
     $empresa_idx = intval($empresa_idx);
 
-    if ($cantidad <= 0) {
-        return ['success' => false, 'error' => 'La cantidad debe ser mayor a 0.'];
+    // 0 es válido: el producto queda en el pedido con cantidad 0 (el usuario lo confirma en pantalla).
+    if ($cantidad < 0) {
+        return ['success' => false, 'error' => 'La cantidad no puede ser negativa.'];
     }
 
     mysqli_begin_transaction($conexion);

@@ -6,7 +6,7 @@ function obtenerPedidosClientes($conexion, $empresa_idx = null)
 {
     $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $tipo_pc = emp_comprobante_tipo_id($conexion, $empresa_idx, 'PC');   // Pedido de Cliente de la empresa
-    $sql = "SELECT c.*, e.nombre as nombre_entidad 
+    $sql = "SELECT c.*, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) as nombre_entidad 
             FROM `gestion__comprobantes` c
             LEFT JOIN `gestion__entidades` e ON c.entidad_id = e.entidad_id
             WHERE c.empresa_id = $empresa_idx AND c.comprobante_tipo_id = $tipo_pc

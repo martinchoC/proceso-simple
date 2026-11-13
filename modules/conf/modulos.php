@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Tablas";
 $currentPage = 'tablas';
 $modudo_idx = 1;
+$pagina_idx = 15; // conf__paginas
+$ui_simple = true;
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 
@@ -11,19 +13,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Tablas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Tablas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Módulos', 'bi bi-grid-3x3-gap', 'Módulos del sistema: carpeta, prefijo de tablas e ícono.', ['Empresas y accesos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -265,7 +255,7 @@ $(document).ready(function(){
 });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
             require_once ROOT_PATH . '/templates/adminlte/footer1.php';
             ?>

@@ -43,6 +43,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-outline-secondary btn-sm float-end" id="btnRecargar">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
+                            <a href="empresas_vinculaciones.php" class="btn btn-outline-primary btn-sm float-end me-2">
+                                <i class="fas fa-handshake me-1"></i>Permisos Inter-Empresas
+                            </a>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">

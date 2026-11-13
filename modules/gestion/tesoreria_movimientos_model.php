@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/formato.php';
 /**
  * tesoreria_movimientos_model.php
  *
@@ -16,6 +17,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
 
 $conexion = $conn;
@@ -30,7 +32,7 @@ if (!defined('ESTADO_ANULADO'))    define('ESTADO_ANULADO', 38);
 /**
  * Obtiene el listado de transferencias internas de tesorería
  */
-function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
+function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [], $pagina_id = 0)
 {
     $empresa_id = intval($empresa_id);
 
@@ -110,7 +112,8 @@ function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
         $botones = '<div class="btn-group btn-group-sm" role="group">';
         $botones .= '<button type="button" class="btn btn-outline-info btn-ver" data-id="' . $id . '" title="Ver Detalle"><i class="fas fa-eye"></i></button>';
 
-        if ($estado_id === ESTADO_CONFIRMADO) {
+        // Solo si el perfil del usuario tiene la función Anular (core/permisos.php)
+        if ($estado_id === ESTADO_CONFIRMADO && intval($pagina_id) > 0 && permisos_puede($conexion, intval($pagina_id), 'anular')) {
             $botones .= '<button type="button" class="btn btn-outline-danger btn-anular" data-id="' . $id . '" data-nro="' . $comprobante_nro . '" title="Anular Transferencia"><i class="fas fa-ban"></i></button>';
         }
 
@@ -118,12 +121,12 @@ function obtenerTransferenciasListado($conexion, $empresa_id, $filtros = [])
 
         $datos[] = [
             'comprobante_id' => $id,
-            'f_emision'      => date('d/m/Y', strtotime($row['f_emision'])),
+            'f_emision'      => fmt_fecha($row['f_emision']),
             'numero'         => '<strong>' . $comprobante_nro . '</strong>',
             'sucursal'       => htmlspecialchars($row['sucursal']),
             'cuenta_origen'  => '<span class="badge bg-light text-danger border"><i class="fas fa-arrow-up me-1"></i>' . htmlspecialchars($row['cuenta_origen'] ?? 'Origen') . '</span>',
             'cuenta_destino' => '<span class="badge bg-light text-success border"><i class="fas fa-arrow-down me-1"></i>' . htmlspecialchars($row['cuenta_destino'] ?? 'Destino') . '</span>',
-            'importe'        => '<span class="fw-bold fs-6">$' . number_format(floatval($row['importe_total']), 2, ',', '.') . '</span>',
+            'importe'        => '<span class="fw-bold fs-6">$' . fmt_numero(floatval($row['importe_total']), 2) . '</span>',
             'observaciones'  => htmlspecialchars($row['observaciones'] ?? ''),
             'estado'         => $badge,
             'acciones'       => $botones
@@ -204,7 +207,7 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
 
     try {
         // Validar y bloquear cuenta origen
-        $sql_co = "SELECT tesoreria_cuenta_id, tesoreria_cuenta, cuenta_tipo, saldo_actual, cont_cuenta_id, empresa_id
+        $sql_co = "SELECT tesoreria_cuenta_id, tesoreria_cuenta, cuenta_tipo, saldo_actual, permite_saldo_negativo, cont_cuenta_id, empresa_id
                    FROM gestion__tesoreria_cuentas 
                    WHERE tesoreria_cuenta_id = ? AND empresa_id = ?
                    FOR UPDATE";
@@ -218,8 +221,8 @@ function registrarTransferenciaInterna($conexion, $datos, $empresa_id, $usuario_
 
         // Validar saldo origen
         $saldo_orig = floatval($cta_orig['saldo_actual']);
-        if ($saldo_orig < $importe) {
-            throw new Exception("Saldo insuficiente en cuenta origen '{$cta_orig['tesoreria_cuenta']}'. Saldo disponible: $" . number_format($saldo_orig, 2, ',', '.') . ", importe requerido: $" . number_format($importe, 2, ',', '.'));
+        if (intval($cta_orig['permite_saldo_negativo']) !== 1 && $saldo_orig < $importe) {
+            throw new Exception("Saldo insuficiente en cuenta origen '{$cta_orig['tesoreria_cuenta']}'. Saldo disponible: $" . fmt_numero($saldo_orig, 2) . ", importe requerido: $" . fmt_numero($importe, 2));
         }
 
         // Validar y bloquear cuenta destino
@@ -400,6 +403,7 @@ function anularTransferenciaInterna($conexion, $comprobante_id, $empresa_id, $us
         if (intval($comp['tabla_estado_registro_id']) === ESTADO_ANULADO) {
             throw new Exception("La transferencia ya se encuentra anulada.");
         }
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, $comprobante_id, 'anular la transferencia');
 
         $monto = floatval($comp['importe_total']);
         $origen_id = intval($comp['origen_id']);

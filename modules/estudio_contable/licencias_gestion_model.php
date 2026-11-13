@@ -96,7 +96,7 @@ function licencias_preview_tareas_afectadas(mysqli $conexion, int $empresa_id, i
             FROM estudio__tareas t
             INNER JOIN estudio__clientes c ON c.cliente_id = t.cliente_id
             WHERE t.empresa_id = ?
-              AND t.tabla_estado_registro_id IN (4, 5, 6)
+              AND t.tabla_estado_registro_id IN (17, 18, 19)
               AND (t.usuario_r_id = ? OR t.usuario_a_id = ?)
               AND t.f_limite >= ? AND t.f_inicio <= ?
             ORDER BY t.f_limite ASC";
@@ -143,7 +143,7 @@ function licencia_registrar_y_delegar(mysqli $conexion, int $empresa_id, array $
                     empresa_id, usuario_id, tipo_licencia, f_desde, f_hasta,
                     usuario_suplente_r_id, usuario_suplente_a_id, observaciones,
                     tabla_estado_registro_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 18, NOW())";
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param($stmt, "iisssiis", $empresa_id, $usuario_id, $tipo_licencia, $f_desde, $f_hasta, $suplente_r_id, $suplente_a_id, $observaciones);
         mysqli_stmt_execute($stmt);
@@ -154,51 +154,43 @@ function licencia_registrar_y_delegar(mysqli $conexion, int $empresa_id, array $
         $afectadas = licencias_preview_tareas_afectadas($conexion, $empresa_id, $usuario_id, $f_desde, $f_hasta);
         $delegaciones_creadas = 0;
 
+        $stmt_d = mysqli_prepare($conexion, "INSERT INTO estudio__licencias_delegaciones (
+                    empresa_id, licencia_id, tarea_id, rol_delegado,
+                    usuario_titular_id, usuario_suplente_id, f_traspaso, tabla_estado_registro_id
+                  ) VALUES (?, ?, ?, ?, ?, ?, NOW(), 1)");
+        $stmt_ut_r = mysqli_prepare($conexion, "UPDATE estudio__tareas SET usuario_r_id = ? WHERE empresa_id = ? AND tarea_id = ?");
+        $stmt_ut_a = mysqli_prepare($conexion, "UPDATE estudio__tareas SET usuario_a_id = ? WHERE empresa_id = ? AND tarea_id = ?");
+
         foreach ($afectadas as $t) {
             $tarea_id = intval($t['tarea_id']);
 
             // Traspaso de rol R
             if (intval($t['usuario_r_id']) === $usuario_id && $suplente_r_id && $suplente_r_id !== $usuario_id) {
-                // Registrar log de delegación
-                $sql_d = "INSERT INTO estudio__licencias_delegaciones (
-                            empresa_id, licencia_id, tarea_id, rol_delegado,
-                            usuario_titular_id, usuario_suplente_id, f_traspaso, tabla_estado_registro_id
-                          ) VALUES (?, ?, ?, 'R', ?, ?, NOW(), 1)";
-                $stmt_d = mysqli_prepare($conexion, $sql_d);
-                mysqli_stmt_bind_param($stmt_d, "iiiiii", $empresa_id, $licencia_id, $tarea_id, $usuario_id, $suplente_r_id);
+                $rolR = 'R';
+                mysqli_stmt_bind_param($stmt_d, "iiisii", $empresa_id, $licencia_id, $tarea_id, $rolR, $usuario_id, $suplente_r_id);
                 mysqli_stmt_execute($stmt_d);
-                mysqli_stmt_close($stmt_d);
 
-                // Reasignar titular en estudio__tareas
-                $sql_ut = "UPDATE estudio__tareas SET usuario_r_id = ? WHERE empresa_id = ? AND tarea_id = ?";
-                $stmt_ut = mysqli_prepare($conexion, $sql_ut);
-                mysqli_stmt_bind_param($stmt_ut, "iii", $suplente_r_id, $empresa_id, $tarea_id);
-                mysqli_stmt_execute($stmt_ut);
-                mysqli_stmt_close($stmt_ut);
+                mysqli_stmt_bind_param($stmt_ut_r, "iii", $suplente_r_id, $empresa_id, $tarea_id);
+                mysqli_stmt_execute($stmt_ut_r);
 
                 $delegaciones_creadas++;
             }
 
             // Traspaso de rol A
             if (intval($t['usuario_a_id']) === $usuario_id && $suplente_a_id && $suplente_a_id !== $usuario_id) {
-                $sql_d = "INSERT INTO estudio__licencias_delegaciones (
-                            empresa_id, licencia_id, tarea_id, rol_delegado,
-                            usuario_titular_id, usuario_suplente_id, f_traspaso, tabla_estado_registro_id
-                          ) VALUES (?, ?, ?, 'A', ?, ?, NOW(), 1)";
-                $stmt_d = mysqli_prepare($conexion, $sql_d);
-                mysqli_stmt_bind_param($stmt_d, "iiiiii", $empresa_id, $licencia_id, $tarea_id, $usuario_id, $suplente_a_id);
+                $rolA = 'A';
+                mysqli_stmt_bind_param($stmt_d, "iiisii", $empresa_id, $licencia_id, $tarea_id, $rolA, $usuario_id, $suplente_a_id);
                 mysqli_stmt_execute($stmt_d);
-                mysqli_stmt_close($stmt_d);
 
-                $sql_ut = "UPDATE estudio__tareas SET usuario_a_id = ? WHERE empresa_id = ? AND tarea_id = ?";
-                $stmt_ut = mysqli_prepare($conexion, $sql_ut);
-                mysqli_stmt_bind_param($stmt_ut, "iii", $suplente_a_id, $empresa_id, $tarea_id);
-                mysqli_stmt_execute($stmt_ut);
-                mysqli_stmt_close($stmt_ut);
+                mysqli_stmt_bind_param($stmt_ut_a, "iii", $suplente_a_id, $empresa_id, $tarea_id);
+                mysqli_stmt_execute($stmt_ut_a);
 
                 $delegaciones_creadas++;
             }
         }
+        if ($stmt_d) mysqli_stmt_close($stmt_d);
+        if ($stmt_ut_r) mysqli_stmt_close($stmt_ut_r);
+        if ($stmt_ut_a) mysqli_stmt_close($stmt_ut_a);
 
         mysqli_commit($conexion);
         return [
@@ -226,7 +218,7 @@ function licencia_revertir_delegaciones(mysqli $conexion, int $empresa_id, int $
         // Obtener delegaciones activas
         $sql = "SELECT delegacion_id, tarea_id, rol_delegado, usuario_titular_id, usuario_suplente_id
                 FROM estudio__licencias_delegaciones
-                WHERE empresa_id = ? AND licencia_id = ? AND tabla_estado_registro_id = 1
+                WHERE empresa_id = ? AND licencia_id = ? AND tabla_estado_registro_id = 18
                 FOR UPDATE";
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $licencia_id);
@@ -238,6 +230,10 @@ function licencia_revertir_delegaciones(mysqli $conexion, int $empresa_id, int $
         }
         mysqli_stmt_close($stmt);
 
+        $stmt_u_r = mysqli_prepare($conexion, "UPDATE estudio__tareas SET usuario_r_id = ? WHERE empresa_id = ? AND tarea_id = ?");
+        $stmt_u_a = mysqli_prepare($conexion, "UPDATE estudio__tareas SET usuario_a_id = ? WHERE empresa_id = ? AND tarea_id = ?");
+        $stmt_d_del = mysqli_prepare($conexion, "UPDATE estudio__licencias_delegaciones SET tabla_estado_registro_id = 2 WHERE delegacion_id = ?");
+
         $revertidas = 0;
         foreach ($delegaciones as $d) {
             $tarea_id = intval($d['tarea_id']);
@@ -245,27 +241,26 @@ function licencia_revertir_delegaciones(mysqli $conexion, int $empresa_id, int $
             $rol = $d['rol_delegado'];
 
             if ($rol === 'R') {
-                $sql_u = "UPDATE estudio__tareas SET usuario_r_id = ? WHERE empresa_id = ? AND tarea_id = ?";
+                mysqli_stmt_bind_param($stmt_u_r, "iii", $titular_id, $empresa_id, $tarea_id);
+                mysqli_stmt_execute($stmt_u_r);
             } else {
-                $sql_u = "UPDATE estudio__tareas SET usuario_a_id = ? WHERE empresa_id = ? AND tarea_id = ?";
+                mysqli_stmt_bind_param($stmt_u_a, "iii", $titular_id, $empresa_id, $tarea_id);
+                mysqli_stmt_execute($stmt_u_a);
             }
-            $stmt_u = mysqli_prepare($conexion, $sql_u);
-            mysqli_stmt_bind_param($stmt_u, "iii", $titular_id, $empresa_id, $tarea_id);
-            mysqli_stmt_execute($stmt_u);
-            mysqli_stmt_close($stmt_u);
 
             // Marcar delegación como finalizada / revertida
-            $sql_d = "UPDATE estudio__licencias_delegaciones SET tabla_estado_registro_id = 2 WHERE delegacion_id = ?";
-            $stmt_d = mysqli_prepare($conexion, $sql_d);
-            mysqli_stmt_bind_param($stmt_d, "i", $d['delegacion_id']);
-            mysqli_stmt_execute($stmt_d);
-            mysqli_stmt_close($stmt_d);
+            $del_id = (int)$d['delegacion_id'];
+            mysqli_stmt_bind_param($stmt_d_del, "i", $del_id);
+            mysqli_stmt_execute($stmt_d_del);
 
             $revertidas++;
         }
+        if ($stmt_u_r) mysqli_stmt_close($stmt_u_r);
+        if ($stmt_u_a) mysqli_stmt_close($stmt_u_a);
+        if ($stmt_d_del) mysqli_stmt_close($stmt_d_del);
 
         // Marcar licencia como finalizada
-        $sql_lic = "UPDATE estudio__licencias SET tabla_estado_registro_id = 2 WHERE empresa_id = ? AND licencia_id = ?";
+        $sql_lic = "UPDATE estudio__licencias SET tabla_estado_registro_id = 21 WHERE empresa_id = ? AND licencia_id = ?";
         $stmt_lic = mysqli_prepare($conexion, $sql_lic);
         mysqli_stmt_bind_param($stmt_lic, "ii", $empresa_id, $licencia_id);
         mysqli_stmt_execute($stmt_lic);

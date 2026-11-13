@@ -2,7 +2,7 @@
 /**
  * stock_niveles_core_model.php — Alertas de reposición por stock mínimo (por boca).
  *
- * Esquema y configuración: sql/mantenimiento/20261008_stock_niveles_0{1,2}_*.sql
+ * Esquema y configuración: _local/sql/mantenimiento/20261008_stock_niveles_0{1,2}_*.sql
  * - gestion__stock_niveles: mínimo / máximo por (empresa, boca, producto), carga manual.
  * - gestion__stock_alertas: alerta MATERIALIZADA. Única escritora: stockEvaluarNivel().
  *
@@ -15,7 +15,7 @@
  * (stockReevaluarNivel bloquea primero la fila de gestion__stock, igual que un movimiento).
  *
  * Mejora futura (documentada, no implementada): mínimo / máximo sugeridos por consumo histórico.
- * Ver docs/gestion/stock_niveles.md.
+ * Ver _local/docs/gestion/stock_niveles.md.
  */
 
 if (!defined('STOCK_ALERTA_PENDIENTE')) {

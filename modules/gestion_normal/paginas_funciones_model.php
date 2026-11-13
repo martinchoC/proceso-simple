@@ -14,7 +14,7 @@ function obtenerPaginasFunciones($conexion)
             LEFT JOIN conf__tablas_estados_registros ed ON pf.tabla_estado_registro_destino_id = ed.tabla_estado_registro_id
             LEFT JOIN conf__iconos i ON pf.icono_id = i.icono_id
             LEFT JOIN conf__colores c ON pf.color_id = c.color_id
-            WHERE p.modulo_id=2
+            WHERE p.modulo_id=5
             ORDER BY p.pagina, pf.orden";
     $res = mysqli_query($conexion, $sql);
     $data = [];
@@ -26,7 +26,7 @@ function obtenerPaginasFunciones($conexion)
 
 function obtenerPaginas($conexion)
 {
-    $sql = "SELECT pagina_id, pagina, tabla_id FROM conf__paginas WHERE modulo_id=2 ORDER BY pagina";
+    $sql = "SELECT pagina_id, pagina, tabla_id FROM conf__paginas WHERE modulo_id=5 ORDER BY pagina";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -66,7 +66,7 @@ function obtenerColores($conexion)
 function obtenerTablaPorPagina($conexion, $pagina_id)
 {
     $pagina_id = intval($pagina_id);
-    $sql = "SELECT tabla_id FROM conf__paginas WHERE modulo_id=2 AND pagina_id = $pagina_id";
+    $sql = "SELECT tabla_id FROM conf__paginas WHERE modulo_id=5 AND pagina_id = $pagina_id";
     $res = mysqli_query($conexion, $sql);
     $fila = mysqli_fetch_assoc($res);
     return $fila ? $fila['tabla_id'] : null;
@@ -74,7 +74,7 @@ function obtenerTablaPorPagina($conexion, $pagina_id)
 
 function obtenerTablas($conexion)
 {
-    $sql = "SELECT tabla_id, tabla_nombre FROM conf__tablas WHERE modulo_id=2 ORDER BY tabla_nombre";
+    $sql = "SELECT tabla_id, tabla_nombre FROM conf__tablas WHERE modulo_id=5 ORDER BY tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {

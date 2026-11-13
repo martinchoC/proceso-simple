@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/entidades_roles_helper.php';
 $conexion = $conn;
 
@@ -87,7 +89,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 // estado_actual_id que se compara contra el origen de cada función.
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $funciones_precargadas = null)
 {
-    $funciones = $funciones_precargadas !== null ? $funciones_precargadas : obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = $funciones_precargadas !== null ? $funciones_precargadas : permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -112,7 +114,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $func
 // ✅ Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -254,19 +259,26 @@ function obtenerTiposEntidad($conexion)
     return $tipos;
 }
 
-// ✅ Obtener todas las localidades
-function obtenerLocalidades($conexion)
+// ✅ Obtener localidades filtradas por provincia
+function obtenerLocalidades($conexion, $provincia_id = 0)
 {
+    $provincia_id = intval($provincia_id);
+    if ($provincia_id <= 0) {
+        return [];
+    }
+
     $sql = "SELECT l.*, er.estado_registro
             FROM conf__localidades l
             LEFT JOIN conf__estados_registros er ON l.tabla_estado_registro_id = er.estado_registro_id
-            WHERE l.tabla_estado_registro_id IN (1, 2) -- Activos o similares
+            WHERE l.provincia_id = ?
+            AND l.tabla_estado_registro_id IN (1, 2) -- Activos o similares
             ORDER BY l.localidad";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return [];
 
+    mysqli_stmt_bind_param($stmt, "i", $provincia_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -379,7 +391,7 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
         }
     }
 
-    $sql = "SELECT e.*,
+    $sql = "SELECT e.*, " . ent_sql_roles_select('e.entidad_id') . ",
                    er.$estado_column as estado_registro,
                    er.codigo_estandar,
                    ec.color_clase, ec.bg_clase, ec.text_clase,
@@ -423,8 +435,8 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
                    )
             LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE e.empresa_id = ?
-              AND e.es_cliente = 1
-            ORDER BY e.entidad_nombre";
+              AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "
+            ORDER BY COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -438,7 +450,7 @@ function obtenerEntidades($conexion, $empresa_idx, $pagina_id)
     // obtenerBotonesPorEstado) y repetía la misma consulta a
     // conf__paginas_funciones por cada cliente listado (N+1) — con 300
     // clientes eran 300 consultas idénticas de más.
-    $funciones_pagina = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones_pagina = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
 
     $data = [];
     while ($fila = mysqli_fetch_assoc($result)) {
@@ -511,7 +523,7 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
     $order_dir = (isset($params['order_dir']) && strtoupper($params['order_dir']) === 'DESC') ? 'DESC' : 'ASC';
 
     // 1. Total de clientes sin filtrar
-    $sql_total = "SELECT COUNT(*) as total FROM gestion__entidades WHERE empresa_id = ? AND es_cliente = 1";
+    $sql_total = "SELECT COUNT(*) as total FROM gestion__entidades WHERE empresa_id = ? AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI');
     $stmt_total = mysqli_prepare($conexion, $sql_total);
     $total_records = 0;
     if ($stmt_total) {
@@ -527,17 +539,20 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
     // 2. Ordenamiento
     $map_columns = [
         0 => 'e.entidad_id',
-        1 => 'e.entidad_nombre',
-        2 => 'et.entidad_tipo',
-        3 => 'e.cuit',
-        4 => 'cf.condicion_fiscal',
-        5 => 'cond.condicion_pago',
-        6 => "er.$estado_column"
+        1 => "COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre)",
+        2 => 'e.cuit',
+        3 => 'cf.condicion_fiscal',
+        4 => 'cond.condicion_pago',
+        5 => 'sp.sucursal_direccion',
+        6 => 'sl.localidad',
+        7 => 'sprov.provincia',
+        8 => 'sp.sucursal_telefono',
+        9 => "er.$estado_column"
     ];
-    $order_by = $map_columns[$order_column_idx] ?? 'e.entidad_nombre';
+    $order_by = $map_columns[$order_column_idx] ?? "COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre)";
 
     // 3. JOINs y filtros
-    $where_sql = " WHERE e.empresa_id = ? AND e.es_cliente = 1";
+    $where_sql = " WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "";
     $bind_types = "i";
     $bind_params = [$empresa_idx];
 
@@ -552,16 +567,22 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
             e.entidad_fantasia LIKE ? OR 
             e.cuit LIKE ? OR 
             REPLACE(e.cuit, '-', '') LIKE ? OR
-            et.entidad_tipo LIKE ? OR 
+            sp.sucursal_direccion LIKE ? OR
+            sl.localidad LIKE ? OR
+            sprov.provincia LIKE ? OR
+            sp.sucursal_telefono LIKE ? OR
             cf.condicion_fiscal LIKE ? OR 
             cf.condicion_fiscal_codigo LIKE ? OR 
             cond.condicion_pago LIKE ?
         )";
-        $bind_types .= "ssssssss";
+        $bind_types .= "sssssssssss";
         $bind_params[] = $like_val;
         $bind_params[] = $like_val;
         $bind_params[] = $like_val;
         $bind_params[] = $like_clean;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
+        $bind_params[] = $like_val;
         $bind_params[] = $like_val;
         $bind_params[] = $like_val;
         $bind_params[] = $like_val;
@@ -573,6 +594,18 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
         LEFT JOIN conf__colores ec ON er.color_id = ec.color_id
         LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
         LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
+        LEFT JOIN gestion__entidades_sucursales sp
+               ON sp.sucursal_id = (
+                    -- Sucursal principal: la activa de menor número (1 = Casa Central) y, sin número, la primera cargada
+                    SELECT sp2.sucursal_id
+                    FROM gestion__entidades_sucursales sp2
+                    WHERE sp2.entidad_id = e.entidad_id
+                      AND sp2.tabla_estado_registro_id = 1
+                    ORDER BY COALESCE(sp2.sucursal_numero, 65535), sp2.sucursal_id
+                    LIMIT 1
+               )
+        LEFT JOIN conf__localidades sl ON sl.localidad_id = sp.localidad_id
+        LEFT JOIN conf__provincias sprov ON sprov.provincia_id = sl.provincia_id
         LEFT JOIN gestion__entidades_condiciones_clientes cc
                ON cc.entidad_condicion_cliente_id = (
                     SELECT cc2.entidad_condicion_cliente_id
@@ -616,12 +649,16 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
         $records_filtered = $total_records;
     }
 
-    $select_fields = "SELECT e.*,
+    $select_fields = "SELECT e.*, " . ent_sql_roles_select('e.entidad_id') . ",
                er.$estado_column as estado_registro,
                er.codigo_estandar,
                ec.color_clase, ec.bg_clase, ec.text_clase,
                et.entidad_tipo,
                l.localidad,
+               sp.sucursal_direccion,
+               sl.localidad AS sucursal_localidad,
+               sprov.provincia AS sucursal_provincia,
+               sp.sucursal_telefono,
                cc.limite_credito,
                cc.cliente_descuento_general,
                cc.f_desde AS condicion_cliente_f_desde,
@@ -646,7 +683,7 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
         mysqli_stmt_execute($stmt_data);
         $result = mysqli_stmt_get_result($stmt_data);
 
-        $funciones_pagina = obtenerFuncionesPagina($conexion, $pagina_id);
+        $funciones_pagina = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
 
         while ($fila = mysqli_fetch_assoc($result)) {
             $color_clase = $fila['color_clase'] ?? 'btn-dark';
@@ -773,8 +810,13 @@ function obtenerSucursalesEntidad($conexion, $empresa_idx, $entidad_id, $pagina_
 function agregarEntidad($conexion, $data)
 {
     $empresa_id = intval($data['empresa_id'] ?? 0);
-    $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
-    $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
+    $entidad_nombre_raw = trim($data['entidad_nombre'] ?? '');
+    $entidad_fantasia_raw = trim($data['entidad_fantasia'] ?? '');
+    if ($entidad_fantasia_raw === '') {
+        $entidad_fantasia_raw = $entidad_nombre_raw;
+    }
+    $entidad_nombre = mysqli_real_escape_string($conexion, $entidad_nombre_raw);
+    $entidad_fantasia = mysqli_real_escape_string($conexion, $entidad_fantasia_raw);
     $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
     $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
     $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
@@ -824,14 +866,14 @@ function agregarEntidad($conexion, $data)
     // Insertar nueva entidad - SIN CAMPOS DE DESCUENTO
     $sql = "INSERT INTO gestion__entidades 
             (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, sitio_web, 
-             domicilio_legal, localidad_id, cont_cuenta_id_proveedor, cont_cuenta_id_cliente, es_proveedor, es_cliente, observaciones, tabla_estado_registro_id) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+             domicilio_legal, localidad_id, observaciones, tabla_estado_registro_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "issiissiiiissi", 
+    mysqli_stmt_bind_param($stmt, "issiissisi", 
         $empresa_id, 
         $entidad_nombre, 
         $entidad_fantasia, 
@@ -840,10 +882,6 @@ function agregarEntidad($conexion, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
-        $cont_cuenta_id_proveedor,
-        $cont_cuenta_id_cliente,
-        $es_proveedor,
-        $es_cliente,
         $observaciones,
         $estado_inicial
     );
@@ -883,8 +921,13 @@ function editarEntidad($conexion, $id, $data)
 {
     $id = intval($id);
     $empresa_idx = intval($data['empresa_idx'] ?? 0);
-    $entidad_nombre = mysqli_real_escape_string($conexion, trim($data['entidad_nombre'] ?? ''));
-    $entidad_fantasia = mysqli_real_escape_string($conexion, trim($data['entidad_fantasia'] ?? ''));
+    $entidad_nombre_raw = trim($data['entidad_nombre'] ?? '');
+    $entidad_fantasia_raw = trim($data['entidad_fantasia'] ?? '');
+    if ($entidad_fantasia_raw === '') {
+        $entidad_fantasia_raw = $entidad_nombre_raw;
+    }
+    $entidad_nombre = mysqli_real_escape_string($conexion, $entidad_nombre_raw);
+    $entidad_fantasia = mysqli_real_escape_string($conexion, $entidad_fantasia_raw);
     $entidad_tipo_id = $data['entidad_tipo_id'] ? intval($data['entidad_tipo_id']) : null;
     $cont_cuenta_id_proveedor = $data['cont_cuenta_id_proveedor'] ? intval($data['cont_cuenta_id_proveedor']) : null;
     $cont_cuenta_id_cliente = $data['cont_cuenta_id_cliente'] ? intval($data['cont_cuenta_id_cliente']) : null;
@@ -955,10 +998,6 @@ function editarEntidad($conexion, $id, $data)
                 sitio_web = ?, 
                 domicilio_legal = ?, 
                 localidad_id = ?,
-                cont_cuenta_id_proveedor = ?,
-                cont_cuenta_id_cliente = ?, 
-                es_proveedor = ?, 
-                es_cliente = ?, 
                 observaciones = ?
             WHERE entidad_id = ?";
 
@@ -966,7 +1005,7 @@ function editarEntidad($conexion, $id, $data)
     if (!$stmt)
         return ['resultado' => false, 'error' => 'Error en la consulta'];
 
-    mysqli_stmt_bind_param($stmt, "ssiissiiiissi", 
+    mysqli_stmt_bind_param($stmt, "ssiissisi", 
         $entidad_nombre, 
         $entidad_fantasia, 
         $entidad_tipo_id,
@@ -974,10 +1013,6 @@ function editarEntidad($conexion, $id, $data)
         $sitio_web,
         $domicilio_legal,
         $localidad_id,
-        $cont_cuenta_id_proveedor,
-        $cont_cuenta_id_cliente,
-        $es_proveedor,
-        $es_cliente,
         $observaciones,
         $id
     );
@@ -1243,7 +1278,7 @@ function obtenerEntidadPorId($conexion, $id, $empresa_idx)
         }
     }
 
-    $sql = "SELECT e.*, er.$estado_column as estado_registro, er.codigo_estandar,
+    $sql = "SELECT e.*, " . ent_sql_roles_select('e.entidad_id') . ",er.$estado_column as estado_registro, er.codigo_estandar,
                    et.entidad_tipo, l.localidad, l.cp, l.provincia_id, p.provincia
             FROM gestion__entidades e
             LEFT JOIN conf__estados_registros er ON e.tabla_estado_registro_id = er.estado_registro_id
@@ -1598,7 +1633,7 @@ function agregarCondicionCliente($conexion, $data) {
     
     if ($ultima) {
         if ($f_desde < $ultima['f_desde']) {
-            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . fmt_fecha($ultima['f_desde']) . ')'];
         }
     }
     
@@ -1659,7 +1694,7 @@ function agregarCondicionCliente($conexion, $data) {
         mysqli_commit($conexion);
         
         $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
-            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . fmt_fecha($f_desde) . ' y desactivada.' 
             : 'Condición creada correctamente.';
         
         return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
@@ -1716,7 +1751,7 @@ function agregarCondicionProveedor($conexion, $data) {
     
     if ($ultima) {
         if ($f_desde < $ultima['f_desde']) {
-            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . date('d/m/Y', strtotime($ultima['f_desde'])) . ')'];
+            return ['resultado' => false, 'error' => 'La nueva fecha no puede ser menor a la fecha de la condición anterior (' . fmt_fecha($ultima['f_desde']) . ')'];
         }
     }
     
@@ -1770,7 +1805,7 @@ function agregarCondicionProveedor($conexion, $data) {
         mysqli_commit($conexion);
         
         $mensaje = ($ultima && $f_desde > $ultima['f_desde']) 
-            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . date('d/m/Y', strtotime($f_desde)) . ' y desactivada.' 
+            ? 'Condición creada correctamente. La condición anterior ha sido cerrada con fecha hasta ' . fmt_fecha($f_desde) . ' y desactivada.' 
             : 'Condición creada correctamente.';
         
         return ['resultado' => true, 'condicion_id' => $condicion_id, 'message' => $mensaje];
@@ -1936,6 +1971,11 @@ function obtenerCondicionProveedorVigente($conexion, $entidad_id) {
     }
     
     return $condicion;
+}
+
+// Obtener HISTÓRICO de condiciones de proveedor (todas, en cualquier estado, la más nueva primero)
+function obtenerHistorialCondicionesProveedor($conexion, $entidad_id) {
+    return obtenerCondicionesProveedor($conexion, 0, $entidad_id, 0);
 }
 
 // Obtener HISTÓRICO de condiciones de cliente - CON TIPO DE CLIENTE Y ACCESO WEB
@@ -2760,6 +2800,13 @@ function obtenerHistorialCondicionesFiscales($conexion, $entidad_id)
 
     $historial = [];
     while ($row = mysqli_fetch_assoc($result)) {
+        $activo = (int)$row['tabla_estado_registro_id'] === 1;
+        $row['estado_info'] = [
+            'estado_registro' => $row['estado_registro'] ?? ($activo ? 'Activo' : 'Inactivo'),
+            'codigo_estandar' => $row['codigo_estandar'] ?? ($activo ? 'ACTIVO' : 'INACTIVO'),
+            'bg_clase' => $activo ? 'bg-success' : 'bg-secondary',
+            'text_clase' => 'text-white'
+        ];
         $historial[] = $row;
     }
     mysqli_stmt_close($stmt);
@@ -3227,7 +3274,7 @@ function registrarCambioSituacionFiscal($conexion, $nivel, $entidad_id, $vigente
     }
 
     if ($vigente && !empty($vigente['f_desde']) && $vigente['f_desde'] > $f_desde) {
-        return ['resultado' => false, 'error' => 'La ' . $etiqueta . ' vigente rige desde el ' . date('d/m/Y', strtotime($vigente['f_desde']))
+        return ['resultado' => false, 'error' => 'La ' . $etiqueta . ' vigente rige desde el ' . fmt_fecha($vigente['f_desde'])
             . ': el cambio no puede tener una fecha anterior (para corregir fechas usá el Historial)'];
     }
 

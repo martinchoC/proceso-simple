@@ -2,13 +2,13 @@
 /**
  * Vista: Mini-Gestión de Clientes
  * Módulo 4: Estudio Contable (minigestion.php)
- * Página ID: 412
+ * Página ID: 417
  */
 
 $pageTitle = "Mini-Gestión de Clientes";
 $currentPage = 'minigestion';
 $modudo_idx = 4;
-$pagina_idx = 412;
+$pagina_idx = 417;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -16,7 +16,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 // Obtener clientes para el selector inicial
 require_once __DIR__ . '/../../db.php';
@@ -193,7 +193,7 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
                         <div class="tab-pane fade show active" id="tab-ventas" role="tabpanel">
                             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                                 <div>
-                                    <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevaVenta" style="display: none;">
+                                    <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevaVenta" data-funcion="agregar" style="display: none;">
                                         <i class="fas fa-plus me-1"></i>+ Cargar Comprobante de Venta
                                     </button>
                                     <span id="badgeAvisoErpVentas" class="badge bg-success py-2 px-3 fs-7" style="display: none;">
@@ -246,7 +246,7 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
                         <div class="tab-pane fade" id="tab-compras" role="tabpanel">
                             <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                                 <div>
-                                    <button class="btn btn-success btn-sm shadow-sm" id="btnNuevaCompra" style="display: none;">
+                                    <button class="btn btn-success btn-sm shadow-sm" id="btnNuevaCompra" data-funcion="agregar" style="display: none;">
                                         <i class="fas fa-plus me-1"></i>+ Cargar Comprobante de Compra
                                     </button>
                                     <span id="badgeAvisoErpCompras" class="badge bg-success py-2 px-3 fs-7" style="display: none;">
@@ -326,14 +326,28 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
                                                     <td class="text-end fw-bold fs-6" id="resSaldoTecnico">$ 0,00</td>
                                                 </tr>
                                                 <tr>
-                                                    <td class="text-muted">(-) Retenciones y Percepciones:</td>
+                                                    <td class="text-muted">(-) Percepciones de IVA sufridas:</td>
                                                     <td class="text-end fw-bold text-info" id="resPercepciones">$ 0,00</td>
                                                 </tr>
                                                 <tr class="border-top table-active">
                                                     <td class="fw-bold fs-6">(=) Posición Fiscal a Ingresar / (Favor):</td>
                                                     <td class="text-end fw-bold fs-5" id="resPosicionFinal">$ 0,00</td>
                                                 </tr>
+                                                <tr>
+                                                    <td class="text-muted small">Percepciones de IIBB sufridas (van a la liquidación de IIBB, no al IVA):</td>
+                                                    <td class="text-end small" id="resPercepcionesIibb">$ 0,00</td>
+                                                </tr>
+                                                <tr id="filaPercSinDiscriminar" style="display:none">
+                                                    <td class="text-muted small">Otros impuestos del ERP sin discriminar (no se restan del IVA):</td>
+                                                    <td class="text-end small" id="resPercepcionesSinDisc">$ 0,00</td>
+                                                </tr>
                                             </table>
+                                            <h6 class="fw-bold mt-3 mb-1 small">Detalle por alícuota</h6>
+                                            <table class="table table-sm mb-0" id="tablaPorAlicuota">
+                                                <thead><tr class="small text-muted"><th>Alícuota</th><th class="text-end">Neto ventas</th><th class="text-end">IVA débito</th><th class="text-end">Neto compras</th><th class="text-end">IVA crédito</th></tr></thead>
+                                                <tbody></tbody>
+                                            </table>
+                                            <div class="small text-muted mt-1" id="avisoPorAlicuotaErp" style="display:none">En modo ERP no se discrimina por alícuota: se muestran solo los totales.</div>
                                         </div>
                                     </div>
                                 </div>
@@ -356,6 +370,35 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
                                                 </a>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border shadow-none mt-4" id="cardLiquidacion">
+                                <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0 fw-bold text-dark"><i class="fas fa-calculator me-1 text-danger"></i>Liquidación mensual de IVA</h6>
+                                    <span id="liqEstado" class="badge bg-secondary">Sin período</span>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div id="liqAvisoPeriodo" class="text-muted small">Elegí un cliente y un período (mes) en los filtros para liquidar.</div>
+                                    <div id="liqCuerpo" style="display:none">
+                                        <table class="table table-sm table-borderless mb-2">
+                                            <tr><td class="text-muted">Débito fiscal</td><td class="text-end fw-bold" id="liqDebito">$ 0,00</td></tr>
+                                            <tr><td class="text-muted">(-) Crédito fiscal computable (letras A / M)</td><td class="text-end fw-bold" id="liqCredito">$ 0,00</td></tr>
+                                            <tr><td class="text-muted">(-) Percepciones de IVA sufridas</td><td class="text-end fw-bold" id="liqPercepciones">$ 0,00</td></tr>
+                                            <tr>
+                                                <td class="text-muted">(-) Retenciones / pagos a cuenta de IVA</td>
+                                                <td class="text-end" style="width:180px"><input type="number" step="0.01" min="0" id="liqRetenciones" class="form-control form-control-sm text-end" value="0.00"></td>
+                                            </tr>
+                                            <tr><td class="text-muted">(-) Saldo a favor del período anterior <small id="liqAntPeriodo"></small></td><td class="text-end fw-bold" id="liqAnterior">$ 0,00</td></tr>
+                                            <tr class="border-top table-active"><td class="fw-bold" id="liqResultadoLabel">Saldo a ingresar</td><td class="text-end fw-bold fs-5" id="liqResultado">$ 0,00</td></tr>
+                                        </table>
+                                        <div class="mb-2"><input type="text" maxlength="255" id="liqObs" class="form-control form-control-sm" placeholder="Observaciones (opcional)"></div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-danger btn-sm" id="btnLiquidarIva" data-funcion="liquidar_iva"><i class="fas fa-lock me-1"></i>Liquidar período</button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAnularLiquidacion" data-funcion="liquidar_iva" style="display:none"><i class="fas fa-undo me-1"></i>Anular liquidación</button>
+                                        </div>
+                                        <div class="small text-muted mt-2" id="liqNotaErp" style="display:none">Cliente en modo ERP: el IVA se liquida en la Posición de IVA de su empresa.</div>
                                     </div>
                                 </div>
                             </div>
@@ -425,44 +468,41 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
                         </div>
                     </div>
 
+                    <input type="hidden" id="comp_iva_detalle" name="iva_detalle" value="[]">
+                    <input type="hidden" id="comp_percepciones" name="percepciones" value="[]">
+
                     <div class="p-2 border rounded bg-light mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold">IVA por alícuota</span>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddLineaIva"><i class="fas fa-plus me-1"></i>Agregar alícuota</button>
+                        </div>
+                        <table class="table table-sm table-borderless align-middle mb-1" id="tablaLineasIva">
+                            <thead><tr class="small text-muted"><th style="width:28%">Alícuota</th><th class="text-end">Neto gravado ($)</th><th class="text-end">IVA ($)</th><th style="width:40px"></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                         <div class="row g-2 align-items-center">
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">Neto Gravado ($)</label>
-                                <input type="number" step="0.01" id="comp_neto" name="neto_gravado" class="form-control form-control-sm text-end fw-bold" value="0.00" required>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">Alícuota IVA</label>
-                                <select id="comp_alicuota" name="alicuota_iva" class="form-select form-select-sm">
-                                    <option value="21.00">21,00 %</option>
-                                    <option value="10.50">10,50 %</option>
-                                    <option value="27.00">27,00 %</option>
-                                    <option value="0.00">0,00 % (Exento)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">IVA Liquidado ($)</label>
-                                <input type="number" step="0.01" id="comp_iva" name="importe_iva" class="form-control form-control-sm text-end fw-bold text-danger" value="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">No Gravado / Exento ($)</label>
+                            <div class="col-md-6">
+                                <label class="form-label form-label-sm mb-1 fw-bold">No gravado / Exento ($)</label>
                                 <input type="number" step="0.01" id="comp_nograv" name="no_gravado_exento" class="form-control form-control-sm text-end" value="0.00">
                             </div>
                         </div>
+                    </div>
 
-                        <div class="row g-2 align-items-center mt-1">
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">Percep. IIBB ($)</label>
-                                <input type="number" step="0.01" id="comp_percep_iibb" name="percepcion_iibb" class="form-control form-control-sm text-end" value="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label form-label-sm mb-1 fw-bold">Percep. IVA ($)</label>
-                                <input type="number" step="0.01" id="comp_percep_iva" name="percepcion_iva" class="form-control form-control-sm text-end" value="0.00">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label form-label-sm mb-1 fw-bold text-primary">Importe Total ($)</label>
-                                <input type="number" step="0.01" id="comp_total" name="importe_total" class="form-control form-control-sm text-end fw-bold fs-6 text-primary" value="0.00" required>
-                            </div>
+                    <div class="p-2 border rounded bg-light mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold">Percepciones</span>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddPercepcion"><i class="fas fa-plus me-1"></i>Agregar percepción</button>
+                        </div>
+                        <table class="table table-sm table-borderless align-middle mb-0" id="tablaPercepciones">
+                            <thead><tr class="small text-muted"><th style="width:28%">Tipo</th><th>Jurisdicción</th><th class="text-end">Importe ($)</th><th style="width:40px"></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <div class="row g-2 align-items-center mb-2">
+                        <div class="col-md-4 ms-auto">
+                            <label class="form-label form-label-sm mb-1 fw-bold text-primary">Importe total ($) <small class="text-muted fw-normal">(calculado)</small></label>
+                            <input type="number" step="0.01" id="comp_total" class="form-control form-control-sm text-end fw-bold fs-6 text-primary" value="0.00" readonly tabindex="-1">
                         </div>
                     </div>
 
@@ -484,5 +524,6 @@ $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit, empresa_vin
     </div>
 </div>
 
-<script src="minigestion.js"></script>
+<?php require_once __DIR__ . '/estudio_cliente_activo.php'; estudio_cliente_activo_script((int) $current_empresa_id); ?>
+<script src="minigestion.js?v=<?= (int) @filemtime(__DIR__ . '/minigestion.js') ?>"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

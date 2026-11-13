@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
             lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
             dom: '<"row mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json'
             },
             ajax: {
                 url: ajaxUrl,
@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 data: function (d) {
                     d.accion = 'listar';
                     d.empresa_idx = empresaIdx;
+                    d.filtro_posicion = $('#filtroPosicion').val();
                     d.filtro_usuario = $('#filtroUsuario').val();
                     d.filtro_rol = $('#filtroRol').val();
                     d.filtro_entidad = $('#filtroEntidad').val();
@@ -91,6 +92,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 {
                     data: null,
                     render: function (data) {
+                        if (data.posicion_nombre) {
+                            return `<div>
+                                        <i class="fas fa-sitemap text-primary me-1"></i>
+                                        <strong class="text-dark">${data.posicion_nombre}</strong>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <span class="badge bg-light text-dark border me-1">${data.posicion_codigo}</span>
+                                        ${data.posicion_area || ''}
+                                    </div>`;
+                        }
+                        return '<span class="text-muted small fst-italic">Sin cargo asociado</span>';
+                    }
+                },
+                {
+                    data: null,
+                    render: function (data) {
                         return `<div><i class="fas fa-user text-muted me-1"></i><span class="fw-semibold">${data.usuario_nombre}</span></div>
                                 <div class="small text-muted">${data.usuario_email || ''}</div>`;
                     }
@@ -134,6 +151,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     $ent.append(`<option value="${e.entidad_id}">${e.nombre} (${e.codigo})</option>`);
                 });
 
+                // Posiciones filtro y modal
+                const $fPos = $('#filtroPosicion');
+                const $rPos = $('#raciPosicionId');
+                $fPos.empty().append('<option value="">-- Todos los cargos --</option>');
+                $rPos.empty().append('<option value="">-- Seleccionar cargo o definir por usuario --</option>');
+                if (res.posiciones) {
+                    res.posiciones.forEach(p => {
+                        const titularTxt = p.titular_nombre ? ` [Titular: ${p.titular_nombre}]` : ' [Vacante]';
+                        $fPos.append(`<option value="${p.posicion_id}">${p.nombre} (${p.codigo}) - ${p.area_departamento}</option>`);
+                        $rPos.append(`<option value="${p.posicion_id}" data-titular-id="${p.titular_id || ''}">${p.nombre} (${p.codigo})${titularTxt}</option>`);
+                    });
+                }
+
                 // Usuarios filtro
                 const $usr = $('#filtroUsuario');
                 $usr.empty().append('<option value="">-- Todos los usuarios --</option>');
@@ -166,15 +196,70 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Filtros
-    $('#filtroUsuario, #filtroRol, #filtroEntidad').on('change', function () {
+    $('#filtroPosicion, #filtroUsuario, #filtroRol, #filtroEntidad').on('change', function () {
         tablaRaci.ajax.reload();
+    });
+
+    // Control de cambios en Rol del Modal Asignar RACI
+    $('#raciRolId').on('change', function () {
+        const rol = parseInt($(this).val(), 10);
+        if (rol === 2) {
+            // A - Aprobador: mostrar opción de supervisor automático
+            $('#boxSupervisorAuto').slideDown(150);
+        } else {
+            $('#boxSupervisorAuto').slideUp(150);
+            $('#chkUsarSupervisor').prop('checked', false).trigger('change');
+        }
+    });
+
+    // Checkbox Supervisor Automático
+    $('#chkUsarSupervisor').on('change', function () {
+        const checked = $(this).is(':checked');
+        if (checked) {
+            $('#boxPosicion').slideUp(150);
+            $('#boxUsuario').slideUp(150);
+            $('#raciUsuarioId').prop('required', false);
+        } else {
+            $('#boxPosicion').slideDown(150);
+            $('#boxUsuario').slideDown(150);
+            $('#raciUsuarioId').prop('required', true);
+        }
+    });
+
+    // Cambio en Posición del modal: sugerir el titular
+    $('#raciPosicionId').on('change', function () {
+        const posId = $(this).val();
+        if (!posId) return;
+
+        const titularId = $(this).find('option:selected').data('titular-id');
+        if (titularId) {
+            $('#raciUsuarioId').val(titularId);
+        } else {
+            // Consultar vía AJAX
+            $.ajax({
+                url: ajaxUrl,
+                type: 'GET',
+                data: { accion: 'obtener_info_posicion', posicion_id: posId, empresa_idx: empresaIdx },
+                dataType: 'json',
+                success: function (res) {
+                    if (res.success && res.titular && res.titular.usuario_id) {
+                        $('#raciUsuarioId').val(res.titular.usuario_id);
+                    }
+                }
+            });
+        }
     });
 
     // Abrir Modal Asignar Rol RACI
     $('#btnNuevaAsignacion').on('click', function () {
         $('#raciTareaId').val('');
-        $('#raciRolId').val('1');
-        $('#raciUsuarioId').val('');
+        $('#raciRolId').val('1').trigger('change');
+        $('#raciPosicionId').val('');
+        $('#raciUsuarioId').val('').prop('required', true);
+        $('#chkUsarSupervisor').prop('checked', false);
+        $('#boxSupervisorAuto').hide();
+        $('#boxPosicion').show();
+        $('#boxUsuario').show();
         $('#modalAsignarRaci').modal('show');
     });
 

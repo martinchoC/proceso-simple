@@ -6,30 +6,13 @@ $pageTitle = "Tipos de Comprobantes";
 $currentPage = 'comprobantes_tipos';
 $modudo_idx = 5;
 $pagina_idx = 545; // ID de página para tipos de comprobantes
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<div class="app-content-header">
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-sm-6">
-                <h3 class="mb-0">
-                    <i class="fas fa-file-alt me-2"></i>Tipos de Comprobantes
-                </h3>
-                <small class="text-muted">Sistema Declarativo Multiempresa</small>
-            </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="#">Home</a></li>
-                    <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Tipos de Comprobantes</li>
-                </ol>
-            </div>
-        </div>
-    </div>
-</div>
+<?php ui_encabezado('Tipos de comprobante','fas fa-file-alt', '', ['Tablas']); ?>
 
 <div class="app-content">
     <div class="container-fluid">
@@ -159,7 +142,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <div class="modal-body">
                         <form id="formComprobanteTipo" class="needs-validation" novalidate>
                             <input type="hidden" id="comprobante_tipo_id" name="comprobante_tipo_id" />
-                            
+                            <input type="hidden" id="copia_de_id" name="copia_de_id" />
+
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="codigo" class="form-label">Código *</label>
@@ -168,11 +152,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="invalid-feedback">El código es obligatorio (max 10 caracteres)</div>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label for="comprobante_tipo" class="form-label">Tipo de Comprobante *</label>
+                                    <label for="comprobante_tipo" class="form-label">Tipo de Comprobante * <?= ui_ayuda('Máximo 100 caracteres') ?></label>
                                     <input type="text" class="form-control" id="comprobante_tipo"
                                         name="comprobante_tipo" maxlength="100" required>
                                     <div class="invalid-feedback">El nombre del tipo es obligatorio</div>
-                                    <div class="form-text">Máximo 100 caracteres</div>
+                                    
                                 </div>
                             </div>
 
@@ -204,9 +188,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </select>
                                 </div>
                                 <div class="col-md-4 mb-3">
-                                    <label for="letra" class="form-label">Letra</label>
+                                    <label for="letra" class="form-label">Letra <?= ui_ayuda('Ej: A, B, C, etc.') ?></label>
                                     <input type="text" class="form-control" id="letra" name="letra" maxlength="1">
-                                    <div class="form-text">Ej: A, B, C, etc.</div>
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <label for="signo" class="form-label">Signo *</label>
@@ -221,14 +204,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                             <div class="row">
                                 <div class="col-md-4 mb-3">
-                                    <label for="stock_signo" class="form-label">Stock</label>
+                                    <label for="stock_signo" class="form-label">Stock <?= ui_ayuda('Independiente del signo de cta. cte.: una factura de venta es (+) pero resta stock.') ?></label>
                                     <select class="form-select" id="stock_signo" name="stock_signo">
                                         <option value="">No mueve stock</option>
                                         <option value="+">Suma stock (+)</option>
                                         <option value="-">Resta stock (-)</option>
                                         <option value="+/-">Según cada línea (+/-)</option>
                                     </select>
-                                    <div class="form-text">Independiente del signo de cta. cte.: una factura de venta es (+) pero resta stock.</div>
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <div class="form-check">
@@ -246,14 +228,29 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="orden" class="form-label">Orden</label>
+                                    <label for="orden" class="form-label">Orden <?= ui_ayuda('Orden de visualización') ?></label>
                                     <input type="number" class="form-control" id="orden" name="orden" min="1" value="1">
-                                    <div class="form-text">Orden de visualización</div>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label for="comentario" class="form-label">Comentario</label>
+                                    <label for="comentario" class="form-label">Comentario <?= ui_ayuda('Máximo 255 caracteres') ?></label>
                                     <input type="text" class="form-control" id="comentario" name="comentario" maxlength="255">
-                                    <div class="form-text">Máximo 255 caracteres</div>
+                                </div>
+                            </div>
+
+                            <!-- Solo al copiar: qué más se lleva la copia del tipo original -->
+                            <div class="row d-none" id="seccionCopia">
+                                <div class="col-12 mb-2 text-muted small">Copia de <strong id="copiaDeNombre"></strong></div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="copiar_relaciones" value="1" checked>
+                                        <label class="form-check-label" for="copiar_relaciones">Copiar relaciones <?= ui_ayuda('Qué tipos cancela y lo cancelan, y de qué comprobante padre depende, igual que el original.') ?></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="copiar_puntos_venta" value="1" checked>
+                                        <label class="form-check-label" for="copiar_puntos_venta">Habilitar en los mismos puntos de venta <?= ui_ayuda('Sin puntos de venta, el tipo no se ofrece al cargar comprobantes.') ?></label>
+                                    </div>
                                 </div>
                             </div>
                         </form>
@@ -324,7 +321,55 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         transition: transform 0.15s ease-in-out;
     }
 </style>
-<link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.dataTables.min.css">
+<link rel="stylesheet" href="<?= asset_local('css/datatables-rowgroup-1.4.1/rowGroup.dataTables.min.css') ?>">
+
+<!-- Modal Relaciones del tipo: qué cancela y de qué comprobante padre depende (comprobantes_tipos_relaciones.js) -->
+<div class="modal fade" id="modalRelacionesTipo" tabindex="-1" aria-labelledby="modalRelacionesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="modalRelacionesLabel"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Relaciones de <span id="relTipoNombre"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <input type="search" class="form-control form-control-sm" id="relFiltro" placeholder="Filtrar tipos por código, nombre o subgrupo">
+                    </div>
+                    <div class="col-md-6 small text-muted d-flex align-items-center" id="relInversas"></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-lg-7">
+                        <h6 class="fw-bold mb-1">Cancela a</h6>
+                        <p class="small text-muted mb-2">Comprobantes cuyo saldo puede cancelar este tipo (p. ej. un recibo cancela facturas y notas de débito).
+                            Define qué figura en las cuentas corrientes y qué se imputa.</p>
+                        <div class="border rounded" style="max-height: 55vh; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light sticky-top"><tr><th style="width: 40px"></th><th>Tipo</th><th>Subgrupo</th><th class="text-center">Misma entidad</th></tr></thead>
+                                <tbody id="relCancelaBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-lg-5">
+                        <h6 class="fw-bold mb-1">Comprobante padre</h6>
+                        <p class="small text-muted mb-2">Tipos a los que este se asocia (p. ej. una nota de crédito A a una factura A). Un tipo con padre no
+                            es raíz: se emite desde su comprobante.</p>
+                        <div class="border rounded" style="max-height: 55vh; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0 align-middle">
+                                <thead class="table-light sticky-top"><tr><th style="width: 40px"></th><th>Tipo</th><th>Subgrupo</th></tr></thead>
+                                <tbody id="relPadresBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="fas fa-times me-1"></i>Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarRelaciones"><i class="fas fa-save me-1"></i>Guardar relaciones</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     $(document).ready(function () {
@@ -701,7 +746,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 columns: [
                     {
                         data: 'comprobante_tipo_id',
-                        className: 'text-center fw-bold'
+                        className: 'ui-detalle'
                     },
                     {
                         data: 'codigo',
@@ -835,7 +880,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                 },
                 order: currentOrder,
                 // Grupo y Subgrupo siempre mandan como criterio primario de orden,
@@ -1063,6 +1108,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var tipo = $(this).data('tipo');
             if (accionJs === 'editar') {
                 cargarTipoParaEditar(tipoId);
+            } else if (accionJs === 'copiar') {
+                cargarTipoParaEditar(tipoId, true);
+            } else if (accionJs === 'relaciones') {
+                window.abrirRelacionesTipo(tipoId);   // comprobantes_tipos_relaciones.js
             } else if (confirmable == 1) {
                 Swal.fire({
                     title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
@@ -1137,8 +1186,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }, 'json');
         }
 
-        // Función para cargar tipo en modal de edición
-        function cargarTipoParaEditar(tipoId) {
+        // Función para cargar tipo en modal de edición (o de copia: mismo formulario precargado, sin id y con código nuevo)
+        function cargarTipoParaEditar(tipoId, esCopia = false) {
             $.get('comprobantes_tipos_ajax.php', {
                 accion: 'obtener',
                 comprobante_tipo_id: tipoId,
@@ -1146,9 +1195,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }, function (res) {
                 if (res && res.comprobante_tipo_id) {
                     resetModal();
-                    $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
-                    $('#codigo').val(res.codigo);
-                    $('#comprobante_tipo').val(res.comprobante_tipo);
+                    if (esCopia) {
+                        $('#copia_de_id').val(res.comprobante_tipo_id);
+                        $('#codigo').val('');
+                        $('#comprobante_tipo').val((res.comprobante_tipo + ' (copia)').substring(0, 100));
+                        $('#copiaDeNombre').text(res.codigo + ' - ' + res.comprobante_tipo);
+                        $('#seccionCopia').removeClass('d-none');
+                    } else {
+                        $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
+                        $('#codigo').val(res.codigo);
+                        $('#comprobante_tipo').val(res.comprobante_tipo);
+                    }
                     $('#letra').val(res.letra || '');
                     $('#signo').val(res.signo || '+');
                     $('#orden').val(res.orden || 1);
@@ -1175,9 +1232,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 $('#comprobante_fiscal_id').val(res.comprobante_fiscal_id);
                             }
                             
-                            $('#modalLabel').text('Editar Tipo de Comprobante');
+                            $('#modalLabel').text(esCopia ? 'Copiar Tipo de Comprobante' : 'Editar Tipo de Comprobante');
                             var modal = new bootstrap.Modal(document.getElementById('modalComprobanteTipo'));
                             modal.show();
+                            if (esCopia) {
+                                $('#modalComprobanteTipo').one('shown.bs.modal', function () { $('#codigo').focus(); });
+                            }
                         }, 100);
                     });
                 } else {
@@ -1195,6 +1255,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         function resetModal() {
             $('#formComprobanteTipo')[0].reset();
             $('#comprobante_tipo_id').val('');
+            $('#copia_de_id').val('');
+            $('#seccionCopia').addClass('d-none');
+            $('#copiar_relaciones, #copiar_puntos_venta').prop('checked', true);
             $('#formComprobanteTipo').removeClass('was-validated');
             $('#signo').val('+');
             $('#orden').val(1);
@@ -1211,7 +1274,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 return false;
             }
             var id = $('#comprobante_tipo_id').val();
-            var accionBackend = id ? 'editar' : 'agregar';
+            var copiaDeId = $('#copia_de_id').val();
+            var accionBackend = copiaDeId ? 'copiar' : (id ? 'editar' : 'agregar');
             var codigo = $('#codigo').val().trim();
             var comprobanteTipo = $('#comprobante_tipo').val().trim();
             var grupoId = $('#comprobante_grupo_id').val();
@@ -1220,7 +1284,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var letra = $('#letra').val().trim();
             var signo = $('#signo').val();
             var orden = $('#orden').val() || 1;
-            var comentario = $('#comprobante_tipo').val().trim();
+            var comentario = $('#comentario').val().trim();
             var stockSigno = $('#stock_signo').val() || '';
             var impactaStock = stockSigno !== '' ? 1 : 0;
             var impactaContabilidad = $('#impacta_contabilidad').is(':checked') ? 1 : 0;
@@ -1279,11 +1343,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     stock_signo: stockSigno,
                     impacta_contabilidad: impactaContabilidad,
                     impacta_ctacte: impactaCtacte,
+                    copia_de_id: copiaDeId,
+                    copiar_relaciones: $('#copiar_relaciones').is(':checked') ? 1 : 0,
+                    copiar_puntos_venta: $('#copiar_puntos_venta').is(':checked') ? 1 : 0,
                     empresa_idx: empresa_idx,
                     pagina_idx: pagina_idx
                 },
                 success: function (res) {
                     if (res.resultado) {
+                        // La copia queda resaltada como un tipo más: se sigue editando con "Editar"
+                        if (copiaDeId) id = res.comprobante_tipo_id;
                         tabla.ajax.reload(function (json) {
                             if (savedState.page !== undefined) {
                                 tabla.page(savedState.page).draw('page');
@@ -1305,8 +1374,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             btnGuardar.prop('disabled', false).html(originalText);
                             Swal.fire({
                                 icon: "success",
-                                title: "¡Guardado!",
-                                text: "Tipo de comprobante guardado correctamente",
+                                title: copiaDeId ? "Copia creada" : "¡Guardado!",
+                                text: copiaDeId ? "Podés seguir ajustándola con Editar" : "Tipo de comprobante guardado correctamente",
                                 showConfirmButton: false,
                                 timer: 1500,
                                 toast: true,
@@ -1375,8 +1444,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </script>
 
 <!-- Librerías adicionales necesarias -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/datatables-rowgroup-1.4.1/dataTables.rowGroup.min.js') ?>"></script>
+<script src="comprobantes_tipos_relaciones.js?v=<?= filemtime(__DIR__ . '/comprobantes_tipos_relaciones.js') ?>"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

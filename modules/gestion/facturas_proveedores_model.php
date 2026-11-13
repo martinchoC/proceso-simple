@@ -1,8 +1,14 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/productos_proveedores.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 require_once __DIR__ . '/precios_core_model.php';
+require_once __DIR__ . '/periodos_fiscales_core_model.php';
+require_once __DIR__ . '/../../core/cont_periodos.php';
 // ========== FUNCIONES AUXILIARES (AGREGAR ESTAS FUNCIONES AL INICIO) ==========
 function obtenerAnioMes($fecha) {
     $timestamp = strtotime($fecha);
@@ -14,7 +20,7 @@ function obtenerAnioMes($fecha) {
 
 // Función para formatear números (si la necesitas)
 function formatearNumero($numero, $decimales = 2) {
-    return number_format($numero, $decimales, ',', '.');
+    return fmt_numero($numero, $decimales);
 }
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -48,31 +54,15 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
 
 function obtenerInfoEstado($conexion, $estado_registro_id)
 {
-    $sql_check = "SHOW COLUMNS FROM conf__estados_registros";
-    $result = mysqli_query($conexion, $sql_check);
-    $columns = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $columns[] = $row['Field'];
+    static $cacheEstados = [];
+    $estado_registro_id = (int)$estado_registro_id;
+    if (isset($cacheEstados[$estado_registro_id])) {
+        return $cacheEstados[$estado_registro_id];
     }
 
-    if (in_array('estado_registro', $columns)) {
-        $sql = "SELECT estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
-                WHERE estado_registro_id = ?";
-    } elseif (in_array('nombre_estado', $columns)) {
-        $sql = "SELECT nombre_estado as estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
-                WHERE estado_registro_id = ?";
-    } elseif (in_array('descripcion', $columns)) {
-        $sql = "SELECT descripcion as estado_registro, codigo_estandar 
-                FROM conf__estados_registros 
-                WHERE estado_registro_id = ?";
-    } else {
-        return [
-            'estado_registro' => 'Estado ' . $estado_registro_id,
-            'codigo_estandar' => 'ESTADO_' . $estado_registro_id
-        ];
-    }
+    $sql = "SELECT estado_registro, codigo_estandar 
+            FROM conf__estados_registros 
+            WHERE estado_registro_id = ?";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
@@ -84,12 +74,13 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
     $info = mysqli_fetch_assoc($result);
 
     mysqli_stmt_close($stmt);
+    $cacheEstados[$estado_registro_id] = $info;
     return $info;
 }
 
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -122,7 +113,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -220,6 +214,16 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
 
     if ($estado_destino_id == $estado_actual_id) {
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+
+    // Períodos fiscales cerrados (Tesorería > Cierres Fiscales): entrar a Confirmado o salir de él
+    if ((intval($estado_destino_id) === 5) !== (intval($estado_actual_id) === 5)) {
+        try {
+            pfExigirDocumentoAbierto($conexion, $empresa_idx, 'COMPRA', $factura_proveedor_id,
+                                     intval($estado_destino_id) === 5 ? 'confirmar el comprobante' : 'anular el comprobante');
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     // INICIAR TRANSACCIÓN
@@ -362,7 +366,7 @@ function ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, 
     }
 }
 
-function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id)
+function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id, $filtro_estado = '')
 {
     $pagina_id = intval($pagina_id);
 
@@ -401,6 +405,18 @@ function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id)
         LEFT JOIN gestion__bocas d ON fp.deposito_id = d.boca_id AND fp.empresa_id = d.empresa_id
         WHERE fp.empresa_id = ?";
 
+    $types = "i";
+    $params = [intval($empresa_idx)];
+
+    $filtro_estado = trim((string)$filtro_estado);
+    if ($filtro_estado === '' || $filtro_estado === 'sin_eliminados') {
+        $sql .= " AND fp.tabla_estado_registro_id <> 6 AND COALESCE(er.codigo_estandar, '') <> 'ELIMINADO'";
+    } elseif ($filtro_estado !== 'todos' && ctype_digit($filtro_estado) && intval($filtro_estado) > 0) {
+        $sql .= " AND fp.tabla_estado_registro_id = ?";
+        $types .= "i";
+        $params[] = intval($filtro_estado);
+    }
+
     if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
         require_once __DIR__ . '/../../core/accesos_sucursales.php';
         $uid = intval($_SESSION['usuario_id'] ?? 0);
@@ -415,7 +431,7 @@ function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id)
     if (!$stmt)
         return [];
 
-    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -439,6 +455,29 @@ function obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_id)
 
     mysqli_stmt_close($stmt);
     return $data;
+}
+
+// Vencimiento cuando no viene cargado: emisión + días de la condición de compra y, si la condición no
+// tiene días (o no hay condición), la fecha del día (nunca antes de la emisión).
+function fpVencimientoPorDefecto($conexion, $empresa_id, $condicion_pago_id, $f_emision)
+{
+    $f_emision = substr((string) $f_emision, 0, 10);
+    $dias = 0;
+    if (intval($condicion_pago_id) > 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT dias_primer_vencimiento FROM gestion__condiciones_pago WHERE condicion_pago_id = ? AND empresa_id = ?");
+        $cp_id = intval($condicion_pago_id);
+        $emp_id = intval($empresa_id);
+        mysqli_stmt_bind_param($stmt, "ii", $cp_id, $emp_id);
+        mysqli_stmt_execute($stmt);
+        $dias = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['dias_primer_vencimiento'] ?? 0);
+        mysqli_stmt_close($stmt);
+    }
+    $emision_ok = preg_match('/^\d{4}-\d{2}-\d{2}$/', $f_emision) === 1;
+    if ($dias > 0 && $emision_ok) {
+        return date('Y-m-d', strtotime($f_emision . " +$dias days"));
+    }
+    $hoy = date('Y-m-d');
+    return ($emision_ok && $f_emision > $hoy) ? $f_emision : $hoy;
 }
 
 function agregarFacturaProveedor($conexion, $data)
@@ -476,9 +515,10 @@ function agregarFacturaProveedor($conexion, $data)
     mysqli_begin_transaction($conexion);
 
     try {
-        // Verificar duplicados (incluyendo proveedor / entidad_id)
+        // Verificar duplicados (incluyendo proveedor / entidad_id, excluyendo facturas eliminadas)
         $sql_check = "SELECT COUNT(*) as total FROM gestion__facturas_proveedores 
-                      WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ? AND entidad_id = ?";
+                      WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ? AND entidad_id = ?
+                        AND tabla_estado_registro_id <> 6";
         $stmt = mysqli_prepare($conexion, $sql_check);
         if (!$stmt) {
             throw new Exception("Error preparando consulta duplicados: " . mysqli_error($conexion));
@@ -516,6 +556,9 @@ function agregarFacturaProveedor($conexion, $data)
         // Manejar valores NULL
         $f_vencimiento = (!empty($data['f_vencimiento'])) ? $data['f_vencimiento'] : null;
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
+        if ($f_vencimiento === null) {
+            $f_vencimiento = fpVencimientoPorDefecto($conexion, intval($data['empresa_idx'] ?? 0), $condicion_pago_id, $data['f_emision'] ?? '');
+        }
         $tipo_cambio = (!empty($data['tipo_cambio'])) ? floatval($data['tipo_cambio']) : 1.000000;
         $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
         $sucursal_id = (!empty($data['sucursal_id']) && $data['sucursal_id'] > 0) ? intval($data['sucursal_id']) : null;
@@ -571,23 +614,27 @@ function agregarFacturaProveedor($conexion, $data)
         $descuento_general_pct_val = $descuento_general_pct;
         $observaciones_val = $observaciones;
         $estado_inicial_val = intval($estado_inicial);
+        $modalidad_descuento_factura_val = !empty($data['modalidad_descuento_factura']) ? trim($data['modalidad_descuento_factura']) : 'EN_FACTURA_GLOBAL';
+        $precio_compra_contempla_descuento_val = isset($data['precio_compra_contempla_descuento']) ? intval($data['precio_compra_contempla_descuento']) : 1;
+        $descuento_nc_pct_val = isset($data['descuento_nc_pct']) ? floatval($data['descuento_nc_pct']) : 0.0;
 
-        // Insertar factura con otros_impuestos
+        // Insertar factura con otros_impuestos y condiciones de descuento
         $sql = "INSERT INTO gestion__facturas_proveedores 
                 (empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_pv, comprobante_nro, 
                  entidad_id, entidad_sucursal_id, f_emision, f_contabilidad, f_vencimiento, f_entrega_estimada,
                  condicion_pago_id, moneda_id, tipo_cambio, direccion_entrega, 
                  subtotal, no_gravado, exento, descuentos, impuestos, otros_impuestos, total, 
-                 descuento_general_pct, observaciones, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                 descuento_general_pct, observaciones, tabla_estado_registro_id,
+                 modalidad_descuento_factura, precio_compra_contempla_descuento, descuento_nc_pct) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
             throw new Exception("Error preparando insert: " . mysqli_error($conexion));
         }
 
-        // Cadena de tipos: 26 parámetros
-        $types = "iiiiiiiissssiidsddddddddsi";
+        // Cadena de tipos: 29 parámetros (26 previos + s, i, d)
+        $types = "iiiiiiiissssiidsddddddddsisid";
         mysqli_stmt_bind_param($stmt, $types,
             $empresa_id_val,
             $sucursal_id_val,
@@ -614,7 +661,10 @@ function agregarFacturaProveedor($conexion, $data)
             $total_val,
             $descuento_general_pct_val,
             $observaciones_val,
-            $estado_inicial_val
+            $estado_inicial_val,
+            $modalidad_descuento_factura_val,
+            $precio_compra_contempla_descuento_val,
+            $descuento_nc_pct_val
         );
 
         if (!mysqli_stmt_execute($stmt)) {
@@ -677,6 +727,7 @@ function agregarFacturaProveedor($conexion, $data)
         list($orden_compra_id, $data['detalles']) = fpValidarVinculoOC(
             $conexion, $empresa_id_val, $entidad_id_val, $data['orden_compra_id'] ?? 0, $data['detalles']);
         fpGuardarOrdenCompraFactura($conexion, $factura_proveedor_id, $orden_compra_id);
+        fpGuardarCertificacionFactura($conexion, $empresa_id_val, $entidad_id_val, $factura_proveedor_id, intval($data['certificacion_id'] ?? 0));
         fpGuardarComprobanteAsociado($conexion, $empresa_id_val, $factura_proveedor_id, $comprobante_tipo_id_val, $entidad_id_val,
                                      intval($data['comprobante_asociado_id'] ?? 0));
         fpGuardarCuentaDebito($conexion, $empresa_id_val, $factura_proveedor_id, $comprobante_tipo_id_val, $moneda_id_val,
@@ -744,6 +795,9 @@ function editarFacturaProveedor($conexion, $id, $data)
         // Manejar valores NULL
         $f_vencimiento = (!empty($data['f_vencimiento'])) ? $data['f_vencimiento'] : null;
         $condicion_pago_id = (!empty($data['condicion_pago_id']) && $data['condicion_pago_id'] > 0) ? intval($data['condicion_pago_id']) : null;
+        if ($f_vencimiento === null) {
+            $f_vencimiento = fpVencimientoPorDefecto($conexion, intval($data['empresa_idx'] ?? 0), $condicion_pago_id, $data['f_emision'] ?? '');
+        }
         $tipo_cambio = floatval($data['tipo_cambio'] ?? 1.000000);
         $entidad_sucursal_id = (!empty($data['entidad_sucursal_id']) && $data['entidad_sucursal_id'] > 0) ? intval($data['entidad_sucursal_id']) : null;
         $sucursal_id = (!empty($data['sucursal_id']) && $data['sucursal_id'] > 0) ? intval($data['sucursal_id']) : null;
@@ -754,9 +808,34 @@ function editarFacturaProveedor($conexion, $id, $data)
         // Asegurar valores para campos que ahora son INT
         $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
         $comprobante_nro = intval($data['comprobante_nro'] ?? 0);
+        $comprobante_tipo_id_val = intval($data['comprobante_tipo_id'] ?? 0);
+        $entidad_id_val = intval($data['entidad_id'] ?? 0);
+
+        // Verificar duplicados si se edita el comprobante (excluyendo la propia factura y eliminadas)
+        $sql_check_dup = "SELECT COUNT(*) as total FROM gestion__facturas_proveedores 
+                          WHERE comprobante_pv = ? AND comprobante_nro = ? AND comprobante_tipo_id = ? AND empresa_id = ? AND entidad_id = ?
+                            AND factura_proveedor_id <> ? AND tabla_estado_registro_id <> 6";
+        $stmt_dup = mysqli_prepare($conexion, $sql_check_dup);
+        if ($stmt_dup) {
+            mysqli_stmt_bind_param($stmt_dup, "iiiiii",
+                $comprobante_pv,
+                $comprobante_nro,
+                $comprobante_tipo_id_val,
+                $empresa_chk,
+                $entidad_id_val,
+                $id
+            );
+            mysqli_stmt_execute($stmt_dup);
+            $res_dup = mysqli_stmt_get_result($stmt_dup);
+            $row_dup = mysqli_fetch_assoc($res_dup);
+            mysqli_stmt_close($stmt_dup);
+            if ($row_dup && intval($row_dup['total']) > 0) {
+                throw new Exception('Ya existe una factura de este proveedor con este número de comprobante');
+            }
+        }
 
         
-        // Actualizar la factura - CORREGIDO
+        // Actualizar la factura con opciones de descuento
         $sql = "UPDATE gestion__facturas_proveedores 
             SET sucursal_id = ?,
                 deposito_id = ?, 
@@ -781,7 +860,10 @@ function editarFacturaProveedor($conexion, $id, $data)
                 otros_impuestos = ?,
                 total = ?,
                 descuento_general_pct = ?,
-                observaciones = ?
+                observaciones = ?,
+                modalidad_descuento_factura = ?,
+                precio_compra_contempla_descuento = ?,
+                descuento_nc_pct = ?
             WHERE factura_proveedor_id = ? AND empresa_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
@@ -789,7 +871,7 @@ function editarFacturaProveedor($conexion, $id, $data)
             throw new Exception("Error preparando update: " . mysqli_error($conexion));
         }
 
-        // Asignar variables (incluir $descuento_general_pct_val)
+        // Asignar variables (incluir $descuento_general_pct_val y nuevos campos)
         $sucursal_id_val = $sucursal_id;
         $deposito_id_val = isset($data['deposito_id']) ? intval($data['deposito_id']) : null;
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
@@ -814,11 +896,14 @@ function editarFacturaProveedor($conexion, $id, $data)
         $total_val = round($subtotal_val + $no_gravado_val + $exento_val + $impuestos_val + $otros_impuestos_val, 2);
         $descuento_general_pct_val = $descuento_general_pct;
         $observaciones_val = $observaciones;
+        $modalidad_descuento_factura_val = !empty($data['modalidad_descuento_factura']) ? trim($data['modalidad_descuento_factura']) : 'EN_FACTURA_GLOBAL';
+        $precio_compra_contempla_descuento_val = isset($data['precio_compra_contempla_descuento']) ? intval($data['precio_compra_contempla_descuento']) : 1;
+        $descuento_nc_pct_val = isset($data['descuento_nc_pct']) ? floatval($data['descuento_nc_pct']) : 0.0;
         $id_val = $id;
         $empresa_idx_val = intval($data['empresa_idx']);
 
-        // Cadena de tipos: 26 parámetros (24 SET + 2 WHERE)
-        $types = "iiiiiiissssiidsddddddddsii";
+        // Cadena de tipos: 29 parámetros (27 SET + 2 WHERE)
+        $types = "iiiiiiissssiidsddddddddssidii";
         mysqli_stmt_bind_param($stmt, $types,
             $sucursal_id_val,
             $deposito_id_val,
@@ -844,6 +929,9 @@ function editarFacturaProveedor($conexion, $id, $data)
             $total_val,
             $descuento_general_pct_val,
             $observaciones_val,
+            $modalidad_descuento_factura_val,
+            $precio_compra_contempla_descuento_val,
+            $descuento_nc_pct_val,
             $id_val,
             $empresa_idx_val
         );
@@ -933,6 +1021,7 @@ function editarFacturaProveedor($conexion, $id, $data)
                 $conexion, $empresa_idx_val, $entidad_id_val, $data['orden_compra_id'] ?? 0, $data['detalles'],
                 intval($actual['orden_compra_id'] ?? 0));
             fpGuardarOrdenCompraFactura($conexion, $id, $orden_compra_id);
+            fpGuardarCertificacionFactura($conexion, $empresa_idx_val, $entidad_id_val, $id, intval($data['certificacion_id'] ?? 0));
             fpGuardarComprobanteAsociado($conexion, $empresa_idx_val, $id, $comprobante_tipo_id_val, $entidad_id_val,
                                          intval($data['comprobante_asociado_id'] ?? 0));
             fpGuardarCuentaDebito($conexion, $empresa_idx_val, $id, $comprobante_tipo_id_val, $moneda_id_val,
@@ -1022,9 +1111,13 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx = null){
                 ct.comprobante_tipo,
                 e.entidad_nombre, e.entidad_fantasia,
                 m.moneda, m.simbolo,
-                oc.comprobante_nro AS orden_compra_nro
+                oc.comprobante_nro AS orden_compra_nro,
+                cert.nro_certificado, cert.periodo_mes AS cert_periodo_mes,
+                cert.avance_acumulado_pct AS cert_avance_acumulado_pct,
+                cert.monto_neto_facturable AS cert_monto_neto
             FROM gestion__facturas_proveedores fp
             LEFT JOIN gestion__ordenes_compra oc ON oc.orden_compra_id = fp.orden_compra_id AND oc.empresa_id = fp.empresa_id
+            LEFT JOIN gestion__ordenes_compra_certificaciones cert ON cert.certificacion_id = fp.certificacion_id
             LEFT JOIN conf__estados_registros er ON fp.tabla_estado_registro_id = er.estado_registro_id
             LEFT JOIN gestion__comprobantes_tipos ct ON fp.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON fp.entidad_id = e.entidad_id
@@ -1081,6 +1174,7 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx = null){
             'factura_proveedor_detalle_id' => intval($detalle['factura_proveedor_detalle_id']),
             'producto_id' => intval($detalle['producto_id']),
             'producto_nombre' => $detalle['producto_nombre'] . ' (' . $detalle['producto_codigo'] . ')',
+            'producto_codigo' => (string)($detalle['producto_codigo'] ?? ''),
             'cantidad' => floatval($detalle['cantidad']),
             'precio_unitario' => floatval($detalle['precio_unitario']),
             'precio_unitario_neto' => floatval($detalle['precio_unitario_neto'] ?? 0),  // NUEVO
@@ -1136,7 +1230,7 @@ function obtenerProveedores($conexion, $empresa_idx)
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia 
             FROM gestion__entidades 
             WHERE empresa_id = ? 
-            AND es_proveedor = 1
+            AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . "
             AND tabla_estado_registro_id = 1 
             ORDER BY entidad_nombre";
     
@@ -1438,6 +1532,8 @@ function agregarProductoRapido($conexion, $data)
         mysqli_stmt_close($stmt);
 
         recalcularProveedoresBusqueda($conexion, $producto_id);
+        // Primer proveedor del producto = principal (core/productos_proveedores.php)
+        pp_asegurar_principal($conexion, $empresa_id, $producto_id);
         mysqli_commit($conexion);
 
         return ['success' => true, 'producto_id' => $producto_id];
@@ -1509,6 +1605,71 @@ function buscarProductosPorProveedor($conexion, $empresa_idx, $entidad_id, $q)
 
     mysqli_stmt_close($stmt);
     return $productos;
+}
+
+/**
+ * Obtiene el catálogo completo de productos/servicios para compra de la empresa,
+ * estructurado con categorías, tipo, cuenta contable e IVA para el selector modal.
+ */
+function obtenerCatalogoProductosCompra($conexion, $empresa_idx, $entidad_id = 0)
+{
+    $empresa_idx = intval($empresa_idx);
+    $entidad_id = intval($entidad_id);
+
+    $sql = "SELECT p.producto_id, p.producto_codigo, p.producto_nombre, p.es_servicio,
+                   COALESCE(c.producto_categoria_nombre, 'General') AS categoria_nombre,
+                   COALESCE(t.producto_tipo, IF(p.es_servicio = 1, 'Servicio', 'Producto')) AS tipo_nombre,
+                   cc_c.codigo AS cuenta_codigo, cc_c.nombre AS cuenta_nombre,
+                   p.iva_alicuota_id, iva.porcentaje AS iva_porcentaje,
+                   iva.iva_alicuota AS iva_nombre,
+                   pp.codigo_proveedor,
+                   IF(pp.producto_id IS NULL, 0, 1) AS vinculado
+            FROM gestion__productos p
+            LEFT JOIN gestion__productos_categorias c ON c.producto_categoria_id = p.producto_categoria_id
+            LEFT JOIN gestion__productos_tipos t ON t.producto_tipo_id = p.producto_tipo_id
+            LEFT JOIN gestion__cont_cuentas cc_c ON cc_c.cont_cuenta_id = p.cont_cuenta_compra_id
+            LEFT JOIN gestion__impuestos__iva_alicuotas iva ON p.iva_alicuota_id = iva.iva_alicuota_id AND iva.empresa_id = p.empresa_id
+            LEFT JOIN (
+                SELECT producto_id, MAX(codigo_proveedor) AS codigo_proveedor
+                FROM gestion__productos_proveedores
+                WHERE empresa_id = ? AND entidad_id = ? AND tabla_estado_registro_id = 1
+                GROUP BY producto_id
+            ) pp ON pp.producto_id = p.producto_id
+            WHERE p.empresa_id = ?
+              AND p.tabla_estado_registro_id = 1
+              AND p.aplica_compra = 1
+            ORDER BY vinculado DESC, p.es_servicio ASC, c.producto_categoria_nombre ASC, p.producto_nombre ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando obtenerCatalogoProductosCompra: " . mysqli_error($conexion));
+        return [];
+    }
+
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_idx, $entidad_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $catalogo = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $catalogo[] = [
+            'producto_id' => intval($fila['producto_id']),
+            'producto_codigo' => $fila['producto_codigo'],
+            'producto_nombre' => $fila['producto_nombre'],
+            'es_servicio' => intval($fila['es_servicio']),
+            'categoria_nombre' => $fila['categoria_nombre'],
+            'tipo_nombre' => $fila['tipo_nombre'],
+            'cuenta_codigo' => $fila['cuenta_codigo'] ?? '',
+            'cuenta_nombre' => $fila['cuenta_nombre'] ?? '',
+            'iva_alicuota_id' => intval($fila['iva_alicuota_id']),
+            'iva_porcentaje' => floatval($fila['iva_porcentaje'] ?? 21),
+            'iva_nombre' => $fila['iva_nombre'] ?? 'IVA 21%',
+            'codigo_proveedor' => $fila['codigo_proveedor'] ?? '',
+            'vinculado' => intval($fila['vinculado'])
+        ];
+    }
+    mysqli_stmt_close($stmt);
+    return $catalogo;
 }
 
 /* =========================================================================
@@ -1604,6 +1765,8 @@ function vincularProductoProveedor($conexion, $data)
         }
 
         recalcularProveedoresBusqueda($conexion, $producto_id);
+        // Primer proveedor del producto = principal (core/productos_proveedores.php)
+        pp_asegurar_principal($conexion, $empresa_id, $producto_id);
         mysqli_commit($conexion);
 
         return [
@@ -1730,12 +1893,27 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         return false;
     }
     
+    $sql_insert_det = "INSERT INTO gestion__facturas_proveedores_detalle 
+        (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
+        precio_unitario, precio_unitario_neto, descuento_item_pct, descuento_general_pct, 
+        precio_unitario_bruto, descuento, descuento_general, descuento_item,
+        neto_gravado, no_gravado, exento, 
+        iva_alicuota_id, iva_porcentaje, iva_importe, total_linea, ordenes_compra_detalle_id)
+        VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt_insert_det = mysqli_prepare($conexion, $sql_insert_det);
+    if (!$stmt_insert_det) {
+        error_log("Error preparando insert detalle: " . mysqli_error($conexion));
+        return false;
+    }
+
     $insertados = 0;
     
     foreach ($detalles as $index => $detalle) {
         // Validar campos requeridos
         if (empty($detalle['producto_id'])) {
             error_log("Error: producto_id vacío en detalle $index");
+            mysqli_stmt_close($stmt_insert_det);
             return false;
         }
         
@@ -1744,11 +1922,13 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         
         if ($cantidad <= 0) {
             error_log("Error: cantidad inválida en detalle $index: $cantidad");
+            mysqli_stmt_close($stmt_insert_det);
             return false;
         }
         
         if ($precio_unitario <= 0) {
             error_log("Error: precio_unitario inválido en detalle $index: $precio_unitario");
+            mysqli_stmt_close($stmt_insert_det);
             return false;
         }
         
@@ -1766,13 +1946,9 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         $exento = floatval($detalle['exento'] ?? 0);
         
         // CALCULAR PRECIO UNITARIO NETO (valor final por unidad)
-        // precio_unitario_neto = (neto_gravado + no_gravado + exento) / cantidad
-        
         $iva_alicuota_id = !empty($detalle['iva_alicuota_id']) ? intval($detalle['iva_alicuota_id']) : 0;
         $iva_porcentaje = floatval($detalle['iva_porcentaje'] ?? 0);
 
-        // Alícuota No gravado / Exento: la base de la línea no es neto gravado (Libro IVA). El front nuevo ya la manda
-        // en no_gravado / exento con neto 0; el viejo la mandaba como neto gravado al 0 %.
         if (isset($alicuotas_sin_iva[$iva_alicuota_id]) && $neto_gravado > 0) {
             $campo = $alicuotas_sin_iva[$iva_alicuota_id];
             $actual = ($campo === 'no_gravado') ? $no_gravado : $exento;
@@ -1786,66 +1962,43 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         $precio_unitario_neto = ($neto_gravado + $no_gravado + $exento) / $cantidad;
         $iva_importe = $neto_gravado * ($iva_porcentaje / 100);
         $total_linea = $neto_gravado + $iva_importe + $no_gravado + $exento;
-        
-        // Insertar detalle con todos los campos (incluyendo precio_unitario_neto)
-        $sql = "INSERT INTO gestion__facturas_proveedores_detalle 
-            (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, 
-            precio_unitario, precio_unitario_neto, descuento_item_pct, descuento_general_pct, 
-            precio_unitario_bruto, descuento, descuento_general, descuento_item,
-            neto_gravado, no_gravado, exento, 
-            iva_alicuota_id, iva_porcentaje, iva_importe, total_linea, ordenes_compra_detalle_id)
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-         $stmt = mysqli_prepare($conexion, $sql);
-        if (!$stmt) {
-            error_log("Error preparando insert detalle: " . mysqli_error($conexion));
-            return false;
-        }
-
-        // Tipos: 3 integers + 16 doubles = 19 caracteres
-        // "i i d d d d d d d d d d d d d i d d d"
-        // "i i d d d d d d d d d d d d d i d d d" = 19
-        $types = "iiidddddddddddddddd";
-        // Posiciones: 1,2,3 = i, luego 4-16 = d? No, revisemos...
-        // Mejor usar la forma explícita:
 
         $oc_detalle_id = !empty($detalle['ordenes_compra_detalle_id']) ? intval($detalle['ordenes_compra_detalle_id']) : null;
 
-        mysqli_stmt_bind_param($stmt, "iiiddddddddddddidddi",  
-            $factura_proveedor_id,  // 1 - i
-            $empresa_id,            // 2 - i
-            $detalle['producto_id'], // 3 - i
-            $cantidad,              // 4 - d
-            $precio_unitario,       // 5 - d (corresponde a posición 6 en VALUES)
-            $precio_unitario_neto,  // 6 - d (posición 7)
-            $descuento_item_pct,    // 7 - d (posición 8)
-            $descuento_general_pct, // 8 - d (posición 9)
-            $precio_unitario_bruto, // 9 - d (posición 10)
-            $descuento_total,       // 10 - d (posición 11)
-            $descuento_general,     // 11 - d (posición 12)
-            $descuento_item,        // 12 - d (posición 13)
-            $neto_gravado,          // 13 - d (posición 14)
-            $no_gravado,            // 14 - d (posición 15)
-            $exento,                // 15 - d (posición 16)
-            $iva_alicuota_id,       // 16 - i (posición 17)
-            $iva_porcentaje,        // 17 - d (posición 18)
-            $iva_importe,           // 18 - d (posición 19)
-            $total_linea,           // 19 - d (posición 20)
-            $oc_detalle_id          // 20 - i (línea de OC o NULL)
+        mysqli_stmt_bind_param($stmt_insert_det, "iiiddddddddddddidddi",  
+            $factura_proveedor_id,
+            $empresa_id,
+            $detalle['producto_id'],
+            $cantidad,
+            $precio_unitario,
+            $precio_unitario_neto,
+            $descuento_item_pct,
+            $descuento_general_pct,
+            $precio_unitario_bruto,
+            $descuento_total,
+            $descuento_general,
+            $descuento_item,
+            $neto_gravado,
+            $no_gravado,
+            $exento,
+            $iva_alicuota_id,
+            $iva_porcentaje,
+            $iva_importe,
+            $total_linea,
+            $oc_detalle_id
         );
         
-        if (!mysqli_stmt_execute($stmt)) {
-            $error = mysqli_stmt_error($stmt);
+        if (!mysqli_stmt_execute($stmt_insert_det)) {
+            $error = mysqli_stmt_error($stmt_insert_det);
             error_log("Error ejecutando insert detalle $index: " . $error);
-            mysqli_stmt_close($stmt);
+            mysqli_stmt_close($stmt_insert_det);
             return false;
         }
         
         $detalle_id = mysqli_insert_id($conexion);
-        error_log("Detalle $index insertado con ID: $detalle_id, precio_unitario_neto: $precio_unitario_neto");
         $insertados++;
-        mysqli_stmt_close($stmt);
     }
+    mysqli_stmt_close($stmt_insert_det);
     
     error_log("Se insertaron $insertados detalles correctamente");
     return $insertados === count($detalles);
@@ -1885,7 +2038,7 @@ function obtenerCondicionesProveedor($conexion, $entidad_id, $empresa_idx) {
     $entidad_id = intval($entidad_id);
     $empresa_idx = intval($empresa_idx);
     
-    $sql = "SELECT condicion_pago_id, proveedor_descuento_general 
+    $sql = "SELECT condicion_pago_id, proveedor_descuento_general, modalidad_descuento_factura, precio_compra_contempla_descuento 
             FROM gestion__entidades_condiciones_proveedores 
             WHERE entidad_id = ? 
             AND tabla_estado_registro_id = 1
@@ -1918,7 +2071,8 @@ function registrarStockFacturaProveedor($conexion, $factura_proveedor_id, $compr
     error_log("=== INICIO registrarStockFacturaProveedor factura_id: $factura_proveedor_id, estado: $estado_id ===");
     require_once __DIR__ . '/stock_core_model.php';
 
-    $stmt = mysqli_prepare($conexion, "SELECT empresa_id, deposito_id, comprobante_tipo_id, comprobante_pv, comprobante_nro
+    $stmt = mysqli_prepare($conexion, "SELECT empresa_id, deposito_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
+                                              modalidad_descuento_factura, precio_compra_contempla_descuento, descuento_nc_pct, descuento_general_pct
                                        FROM gestion__facturas_proveedores WHERE factura_proveedor_id = ?");
     mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
@@ -1928,20 +2082,38 @@ function registrarStockFacturaProveedor($conexion, $factura_proveedor_id, $compr
         return ['success' => false, 'message' => 'Factura no encontrada'];
     }
     $empresa_id = intval($factura['empresa_id']);
+    $modalidad = $factura['modalidad_descuento_factura'] ?? 'EN_FACTURA_GLOBAL';
+    $contempla = isset($factura['precio_compra_contempla_descuento']) ? intval($factura['precio_compra_contempla_descuento']) : 1;
+    $nc_pct = floatval($factura['descuento_nc_pct'] ?? 0);
+    $dto_gral_pct = floatval($factura['descuento_general_pct'] ?? 0);
 
-    // precio_unitario_neto es el costo de la compra
-    $stmt = mysqli_prepare($conexion, "SELECT factura_proveedor_detalle_id, producto_id, cantidad, precio_unitario_neto
+    // precio_unitario_neto es el costo de la compra registrado en la línea
+    $stmt = mysqli_prepare($conexion, "SELECT factura_proveedor_detalle_id, producto_id, cantidad, precio_unitario, precio_unitario_neto,
+                                              descuento_item_pct, descuento_general_pct, precio_unitario_bruto
                                        FROM gestion__facturas_proveedores_detalle WHERE factura_proveedor_id = ?");
     mysqli_stmt_bind_param($stmt, "i", $factura_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $lineas = [];
     while ($row = mysqli_fetch_assoc($result)) {
+        $costo = floatval($row['precio_unitario_neto'] ?? 0);
+        if ($contempla === 1) {
+            if ($modalidad === 'NOTA_CREDITO' && $nc_pct > 0) {
+                // Factura vino sin descuento al pie porque será bonificada luego por NC; se deduce del costo de compra
+                $costo = round($costo * (1 - $nc_pct / 100), 4);
+            }
+        } else {
+            // No contempla descuento general en el costo: costo a precio bruto/lista (retiene sólo descuento por ítem si existiera)
+            $precio_base = floatval($row['precio_unitario_bruto'] ?? $row['precio_unitario'] ?? $costo);
+            $dto_it_pct = floatval($row['descuento_item_pct'] ?? 0);
+            $costo = ($dto_it_pct > 0) ? round($precio_base * (1 - $dto_it_pct / 100), 4) : $precio_base;
+        }
+
         $lineas[] = [
             'registro_detalle_id' => intval($row['factura_proveedor_detalle_id']),
             'producto_id' => intval($row['producto_id']),
             'cantidad' => floatval($row['cantidad']),
-            'costo_unitario' => floatval($row['precio_unitario_neto'] ?? 0),
+            'costo_unitario' => $costo,
         ];
     }
     mysqli_stmt_close($stmt);
@@ -2705,7 +2877,7 @@ function buildExecutableSQL($sql, $types, $params) {
 }
 // Asiento de una factura / NC / ND de proveedor. Un solo importe con signo por renglón (> 0 Debe, < 0 Haber).
 // Cuentas (sin ids fijos):
-//   proveedor: entidad.cont_cuenta_id_proveedor -> gestion__cont_parametros.cuenta_proveedores_id (default de la empresa)
+//   proveedor: cuenta del rol PRO de la entidad (gestion__entidades_roles) -> gestion__cont_parametros.cuenta_proveedores_id (default de la empresa)
 //   compra:    producto.cont_cuenta_compra_id -> producto.cont_cuenta_id -> tipo de producto.cont_cuenta_compra_default_id
 //   IVA:       alícuota de la línea.cont_cuenta_compra_id
 //   impuestos adicionales: gestion__empresas_impuestos_config.cont_cuenta_id
@@ -2719,7 +2891,7 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
     error_log("=== generarAsientoContableFactura INICIO factura: $factura_proveedor_id, empresa: $empresa_id ===");
 
     $stmt = mysqli_prepare($conexion, "SELECT fp.*, ct.comprobante_tipo, ct.signo AS tipo_signo, ct.impacta_contabilidad,
-                                              e.entidad_nombre, e.cont_cuenta_id_proveedor, cp.cuenta_proveedores_id, cp.cuenta_gastos_defecto_id
+                                              e.entidad_nombre, " . ent_sql_cuenta_rol('e.entidad_id', 'PRO') . " AS cont_cuenta_id_proveedor, cp.cuenta_proveedores_id, cp.cuenta_gastos_defecto_id
                                        FROM gestion__facturas_proveedores fp
                                        LEFT JOIN gestion__comprobantes_tipos ct ON fp.comprobante_tipo_id = ct.comprobante_tipo_id
                                        LEFT JOIN gestion__entidades e ON fp.entidad_id = e.entidad_id
@@ -2922,6 +3094,9 @@ function generarAsientoContableFactura($conexion, $factura_proveedor_id, $empres
         // Todas las cuentas tienen que ser del plan de cuentas de la empresa
         emp_validar_cuentas_asiento($conexion, $empresa_id, array_column($detalles_asiento, 'cuenta_id'));
         $f_asiento = $factura['f_contabilidad'] ?: $factura['f_emision'];
+        // Período contable abierto, para la fecha del asiento y para el asiento anterior del comprobante
+        cont_periodo_exigir_abierto($conexion, $empresa_id, $f_asiento, 'generar el asiento del comprobante');
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, $comprobante_id, 'modificar el asiento del comprobante');
         $timestamp = strtotime($f_asiento);
         $anio = intval(date('Y', $timestamp));
         $mes = intval(date('m', $timestamp));
@@ -3055,7 +3230,7 @@ function obtenerTablaOrigenPorPagina($conexion, $pagina_id)
 
 /* =========================================================================
  * ORDEN DE COMPRA -> FACTURA DE PROVEEDOR
- * (sql/mantenimiento/20261008_compras_oc_factura_01_vinculo.sql)
+ * (_local/sql/mantenimiento/20261008_compras_oc_factura_01_vinculo.sql)
  *
  * La factura importa las líneas pendientes de una OC del mismo proveedor:
  * cabecera orden_compra_id + ordenes_compra_detalle_id por línea. Puede
@@ -3254,6 +3429,60 @@ function fpGuardarOrdenCompraFactura($conexion, $factura_proveedor_id, $orden_co
     mysqli_stmt_close($stmt);
 }
 
+function fpGuardarCertificacionFactura($conexion, $empresa_id, $entidad_id, $factura_proveedor_id, $certificacion_id)
+{
+    // Liga la factura a un certificado de avance aprobado (core/contratos/contratos_service.php) y lo marca Facturado (12).
+    // Si la factura tenía otro certificado, ese vuelve a Aprobado (5). Corre dentro de la transacción del llamador.
+    $empresa_id = intval($empresa_id);
+    $entidad_id = intval($entidad_id);
+    $factura_proveedor_id = intval($factura_proveedor_id);
+    $certificacion_id = intval($certificacion_id);
+
+    if ($certificacion_id > 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT c.tabla_estado_registro_id, c.factura_proveedor_id
+                                           FROM gestion__ordenes_compra_certificaciones c
+                                           INNER JOIN gestion__ordenes_compra oc ON oc.orden_compra_id = c.orden_compra_id AND oc.empresa_id = c.empresa_id
+                                           WHERE c.certificacion_id = ? AND c.empresa_id = ? AND oc.entidad_id = ?
+                                           FOR UPDATE");
+        mysqli_stmt_bind_param($stmt, "iii", $certificacion_id, $empresa_id, $entidad_id);
+        mysqli_stmt_execute($stmt);
+        $cert = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$cert) {
+            throw new Exception('El certificado de avance no existe o no es de este proveedor.');
+        }
+        $ya_es_de_esta = intval($cert['factura_proveedor_id']) === $factura_proveedor_id;
+        if (!$ya_es_de_esta && (intval($cert['tabla_estado_registro_id']) !== 5 || intval($cert['factura_proveedor_id']) > 0)) {
+            throw new Exception('El certificado de avance no está aprobado o ya tiene una factura.');
+        }
+    }
+
+    // Libera el certificado anterior de esta factura si cambió
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__ordenes_compra_certificaciones
+                                       SET factura_proveedor_id = NULL, tabla_estado_registro_id = 5
+                                       WHERE empresa_id = ? AND factura_proveedor_id = ? AND certificacion_id <> ?");
+    mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $factura_proveedor_id, $certificacion_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    $cert_id_db = $certificacion_id > 0 ? $certificacion_id : null;
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET certificacion_id = ? WHERE factura_proveedor_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "iii", $cert_id_db, $factura_proveedor_id, $empresa_id);
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception('Error al vincular el certificado de avance: ' . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+
+    if ($certificacion_id > 0) {
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__ordenes_compra_certificaciones
+                                           SET factura_proveedor_id = ?, tabla_estado_registro_id = 12
+                                           WHERE certificacion_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, "iii", $factura_proveedor_id, $certificacion_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+    }
+}
+
 /**
  * Recalcula cantidad_recibida de cada línea de la OC (suma de las líneas de
  * facturas CONFIRMADAS vinculadas) y su estado derivado. Idempotente.
@@ -3356,7 +3585,7 @@ function ocRecalcularRecepcionPorFactura($conexion, $factura_proveedor_id)
 
 /* =========================================================================
  * NOTAS DE CRÉDITO DE PROVEEDOR (decisión Pablo 2026-10-09)
- * sql/mantenimiento/20261009_notas_credito_aplicacion_01.sql
+ * _local/sql/mantenimiento/20261009_notas_credito_aplicacion_01.sql
  *
  * Igual que en ventas (ventas_facturas_model.php): la NC/ND guarda su comprobante asociado; al confirmarse,
  * una NC cuyo asociado tiene saldo se le aplica (imputación directa) con una OP en $0 que la documenta.
@@ -3470,7 +3699,7 @@ function fpAplicarNotasCredito($conexion, $empresa_id, $destino_comprobante_id, 
                                          WHERE c.comprobante_id = $nc_id")->fetch_assoc();
                 $detalle[] = ($nc ? $nc['comprobante_tipo'] . ' ' . str_pad($nc['comprobante_pv'], 4, '0', STR_PAD_LEFT) . '-'
                                     . str_pad($nc['comprobante_nro'], 8, '0', STR_PAD_LEFT) : "NC #$nc_id")
-                           . ' por $' . number_format($importe, 2, ',', '.');
+                           . ' por $' . fmt_numero($importe, 2);
             }
         }
         if ($aplicado_total <= 0) throw new Exception('No había saldo para aplicar.');
@@ -3487,7 +3716,7 @@ function fpAplicarNotasCredito($conexion, $empresa_id, $destino_comprobante_id, 
 
         if (!$en_transaccion) mysqli_commit($conexion);
         return ['success' => true, 'aplicado' => round($aplicado_total, 2), 'pago_id' => $pago_id, 'op_nro' => $op['comprobante_nro'] ?? null,
-                'message' => 'Notas de crédito aplicadas por $' . number_format($aplicado_total, 2, ',', '.') . ' (OP en $0 N° ' . ($op['comprobante_nro'] ?? '') . ').'];
+                'message' => 'Notas de crédito aplicadas por $' . fmt_numero($aplicado_total, 2) . ' (OP en $0 N° ' . ($op['comprobante_nro'] ?? '') . ').'];
     } catch (Exception $e) {
         if (!$en_transaccion) mysqli_rollback($conexion);
         if ($en_transaccion) throw $e;
@@ -3514,7 +3743,7 @@ function fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa
     $sql = "SELECT fp.factura_proveedor_id, fp.empresa_id, fp.sucursal_id, fp.comprobante_id,
                    fp.comprobante_tipo_id, fp.comprobante_pv, fp.comprobante_nro,
                    fp.entidad_id, fp.f_emision, fp.f_contabilidad, fp.moneda_id, fp.tipo_cambio,
-                   fp.total, c.importe_pendiente, ct.comprobante_tipo
+                   fp.total, fp.op_punto_venta_id, c.importe_pendiente, ct.comprobante_tipo
             FROM gestion__facturas_proveedores fp
             JOIN gestion__comprobantes c ON c.comprobante_id = fp.comprobante_id
             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = fp.comprobante_tipo_id
@@ -3590,6 +3819,8 @@ function fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa
     $pago_data = [
         'empresa_id'     => $empresa_id,
         'sucursal_id'    => $sucursal_id,
+        // PV de la OP elegido al generar (Gastos Bancarios); 0 = el que resuelve pagoResolverPuntoVenta
+        'comprobante_pv' => intval($f['op_punto_venta_id'] ?? 0),
         'entidad_id'     => intval($f['entidad_id']),
         'moneda_id'      => $moneda_id,
         'tipo_cambio'    => $tipo_cambio,
@@ -3639,7 +3870,7 @@ function fpGenerarOrdenPagoAutomatica($conexion, $factura_proveedor_id, $empresa
         'comprobante_id' => $res_conf['comprobante_id'] ?? null,
         'op_nro'         => $res_conf['comprobante_nro'] ?? null,
         'message'        => "Orden de Pago automática emitida " . ($debito ? "por débito en " . $caja['tesoreria_cuenta'] : "en efectivo")
-                            . " (OP N° " . ($res_conf['comprobante_nro'] ?? '') . ") por $" . number_format($saldo, 2, ',', '.') . "."
+                            . " (OP N° " . ($res_conf['comprobante_nro'] ?? '') . ") por $" . fmt_numero($saldo, 2) . "."
     ];
 }
 
@@ -3756,6 +3987,7 @@ function fpAnularComprobanteConfirmado($conexion, $factura_proveedor_id, $compro
             throw new Exception('El período de IVA ' . $liq['periodo'] . ' ya está liquidado: anule la liquidación (IVA - Posición Mensual) antes de anular el comprobante.');
         }
     }
+    cont_periodo_exigir_comprobante($conexion, $empresa_id, $comprobante_id, 'anular el comprobante');
 
     // 1) OP automática
     $r = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__facturas_proveedores LIKE 'pago_automatico_id'");
@@ -4096,5 +4328,660 @@ function fpObtenerAsientoFactura($conexion, $factura_proveedor_id, $empresa_id)
     $asiento['total_debe'] = round($total_debe, 2);
     $asiento['total_haber'] = round($total_haber, 2);
     return $asiento;
+}
+
+// =============================================================================================
+// SUBSISTEMA DE IMPORTACIÓN DE COMPROBANTES RECIBIDOS DE ARCA / AFIP
+// =============================================================================================
+
+/*
+ * Formato: el Excel / CSV de "Mis Comprobantes Recibidos" (una fila por comprobante; desde 2025 con neto e IVA
+ * por alícuota: "Neto Grav. IVA 21%", "IVA 21%"...). El JS solo lee las celdas (leerFilaArca en el navegador)
+ * y la previsualización y la importación vuelven a interpretar cada fila acá con fpArcaNormalizarFila: la
+ * importación nunca usa tipos, proveedores ni importes calculados en el navegador.
+ * Cada comprobante entra en el estado inicial de la página (Borrador), con una línea por alícuota imputada al
+ * producto sin stock de la última compra del proveedor o, si no tiene, a "Gastos varios" (FP_ARCA_GASTOS_VARIOS,
+ * que se crea en la empresa la primera vez); se revisa y se confirma como cualquier otro.
+ */
+
+/** Código del producto "Gastos varios" al que se imputan las compras de proveedores sin imputación previa. */
+const FP_ARCA_GASTOS_VARIOS = 'GASTOS-VARIOS';
+
+/** Tiques del controlador fiscal → factura / nota equivalente, si la empresa no tiene tipo con el código del tique. */
+const FP_ARCA_TIQUES_EQUIVALENTES = [
+    81 => 1, 82 => 6, 111 => 11, 118 => 51,     // Tique Factura A / B / C / M
+    115 => 2, 116 => 7, 117 => 12, 120 => 52,   // Tique Nota de Débito
+    112 => 3, 113 => 8, 114 => 13, 119 => 53,   // Tique Nota de Crédito
+];
+
+/** Tolerancia de redondeo entre el total de ARCA y la suma de sus componentes. */
+const FP_ARCA_TOLERANCIA = 0.05;
+
+/** Importe de ARCA: número, "1234.56" o "1.234,56". */
+function fpArcaNumero($valor)
+{
+    if (is_int($valor) || is_float($valor)) return round(floatval($valor), 2);
+    $s = trim(str_replace(['$', ' '], '', (string)$valor));
+    if ($s === '') return 0.0;
+    if (strpos($s, ',') !== false) {
+        $s = str_replace(['.', ','], ['', '.'], $s);
+    }
+    return is_numeric($s) ? round(floatval($s), 2) : 0.0;
+}
+
+/** Tipo de compras de la empresa (subgrupo FC) para "1 - Factura A"; por código ARCA, con los tiques a su equivalente. */
+function fpArcaTipoComprobante($conexion, $empresa_id, $tipo_raw)
+{
+    static $cache = [];
+    if (!preg_match('/^\s*(\d+)\s*-/', (string)$tipo_raw, $m)) return null;
+    $codigo = intval($m[1]);
+    $clave = "$empresa_id:$codigo";
+    if (array_key_exists($clave, $cache)) return $cache[$clave];
+
+    $subgrupo_id = emp_subgrupo_id($conexion, $empresa_id, 'FC');
+    $buscar = function ($cod) use ($conexion, $empresa_id, $subgrupo_id) {
+        $stmt = mysqli_prepare($conexion, "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, ct.letra, ct.signo
+                FROM gestion__comprobantes_tipos ct
+                JOIN gestion__comprobantes_fiscales cf ON cf.comprobante_fiscal_id = ct.comprobante_fiscal_id
+               WHERE ct.empresa_id = ? AND ct.comprobante_subgrupo_id = ? AND cf.codigo = ?
+                 AND ct.tabla_estado_registro_id = 1
+               ORDER BY ct.comprobante_tipo_id LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $subgrupo_id, $cod);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        return $row ?: null;
+    };
+
+    $tipo = null;
+    if ($codigo > 0 && $subgrupo_id > 0) {
+        $tipo = $buscar($codigo);
+        if (!$tipo && isset(FP_ARCA_TIQUES_EQUIVALENTES[$codigo])) {
+            $tipo = $buscar(FP_ARCA_TIQUES_EQUIVALENTES[$codigo]);
+            if ($tipo) {
+                $tipo['aviso'] = 'Se registra como ' . $tipo['comprobante_tipo'] . ': la empresa no tiene un tipo de compras con el código ARCA ' . $codigo . '.';
+            }
+        }
+    }
+    return $cache[$clave] = $tipo;
+}
+
+/** Alícuotas de IVA de la empresa: gravadas por porcentaje, más la de no gravado y la de exento. */
+function fpArcaAlicuotas($conexion, $empresa_id)
+{
+    static $cache = [];
+    if (isset($cache[$empresa_id])) return $cache[$empresa_id];
+    $out = ['gravadas' => [], 'no_gravado' => 0, 'exento' => 0];
+    $stmt = mysqli_prepare($conexion, "SELECT iva_alicuota_id, porcentaje, es_gravado, es_no_gravado, es_exento
+            FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = ? AND tabla_estado_registro_id = 1 ORDER BY iva_alicuota_id");
+    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($a = mysqli_fetch_assoc($res)) {
+        $id = intval($a['iva_alicuota_id']);
+        if (intval($a['es_no_gravado']) === 1) {
+            $out['no_gravado'] = $out['no_gravado'] ?: $id;
+        } elseif (intval($a['es_exento']) === 1) {
+            $out['exento'] = $out['exento'] ?: $id;
+        } elseif (intval($a['es_gravado']) === 1) {
+            $clave = number_format(floatval($a['porcentaje']), 2, '.', '');
+            $out['gravadas'][$clave] = $out['gravadas'][$clave] ?? $id;
+        }
+    }
+    mysqli_stmt_close($stmt);
+    return $cache[$empresa_id] = $out;
+}
+
+/** Proveedor de la empresa por CUIT (prefiere el que ya tiene rol PRO); null si no existe. */
+function fpArcaBuscarProveedor($conexion, $empresa_id, $cuit)
+{
+    $stmt = mysqli_prepare($conexion, "SELECT e.entidad_id, e.entidad_nombre FROM gestion__entidades e
+            WHERE e.empresa_id = ? AND e.cuit = ? AND e.tabla_estado_registro_id = 1
+            ORDER BY " . ent_sql_tiene_rol('e.entidad_id', 'PRO') . " DESC, e.entidad_id LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "is", $empresa_id, $cuit);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return $row ?: null;
+}
+
+/**
+ * Imputación de la última compra del proveedor: el producto de la línea de mayor importe de su último comprobante
+ * (no eliminado) entre los productos de compra sin stock. Los que controlan stock no se usan: la línea va con
+ * cantidad 1 por todo el neto y movería stock y costo. null si no tiene.
+ */
+function fpArcaUltimaImputacion($conexion, $empresa_id, $entidad_id)
+{
+    if ($entidad_id <= 0) return null;
+    $stmt = mysqli_prepare($conexion, "SELECT p.producto_id, p.producto_nombre
+            FROM gestion__facturas_proveedores f
+            JOIN gestion__facturas_proveedores_detalle d ON d.factura_proveedor_id = f.factura_proveedor_id
+            JOIN gestion__productos p ON p.producto_id = d.producto_id AND p.empresa_id = f.empresa_id
+           WHERE f.empresa_id = ? AND f.entidad_id = ? AND f.tabla_estado_registro_id <> 6
+             AND p.controla_stock = 0 AND p.aplica_compra = 1 AND p.tabla_estado_registro_id = 1
+           ORDER BY f.f_emision DESC, f.factura_proveedor_id DESC,
+                    (d.neto_gravado + d.no_gravado + d.exento) DESC, d.factura_proveedor_detalle_id
+           LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return $row ?: null;
+}
+
+/**
+ * Producto "Gastos varios" de la empresa (servicio de compra sin stock, cuenta de compra = concepto GASTOS_GENERALES).
+ * Con $crear lo da de alta (o lo reactiva) si falta; sin $crear devuelve null si no existe activo.
+ */
+function fpArcaGastosVarios($conexion, $empresa_id, bool $crear)
+{
+    $codigo = FP_ARCA_GASTOS_VARIOS;
+    $stmt = mysqli_prepare($conexion, "SELECT producto_id, producto_nombre, tabla_estado_registro_id FROM gestion__productos
+            WHERE empresa_id = ? AND producto_codigo = ? LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "is", $empresa_id, $codigo);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if ($row && intval($row['tabla_estado_registro_id']) === 1) {
+        return ['producto_id' => intval($row['producto_id']), 'producto_nombre' => $row['producto_nombre']];
+    }
+    if (!$crear) return null;
+
+    if ($row) {   // existe inactivo: el código es único por empresa, se reactiva
+        $producto_id = intval($row['producto_id']);
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__productos SET tabla_estado_registro_id = 1, aplica_compra = 1, controla_stock = 0
+                WHERE producto_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        error_log("fpArcaGastosVarios: reactivado producto $producto_id empresa $empresa_id");
+        return ['producto_id' => $producto_id, 'producto_nombre' => $row['producto_nombre']];
+    }
+
+    $cuenta_id = emp_cuenta_id($conexion, $empresa_id, 'GASTOS_GENERALES');   // sin concepto: error para el usuario
+    $producto_tipo_id = emp_producto_tipo_id($conexion, $empresa_id, false);
+    $iva_alicuota_id = emp_iva_alicuota_id($conexion, $empresa_id, 21.0);
+    $stmt = mysqli_prepare($conexion, "SELECT producto_categoria_id FROM gestion__productos_categorias
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+            ORDER BY (producto_tipo_id = ?) DESC, producto_categoria_id LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $producto_tipo_id);
+    mysqli_stmt_execute($stmt);
+    $cat = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$cat) {
+        throw new RuntimeException('La empresa no tiene categorías de productos: no se puede crear "Gastos varios".');
+    }
+    $categoria_id = intval($cat['producto_categoria_id']);
+
+    $nombre = 'Gastos varios';
+    $descripcion = 'Compras y gastos sin imputación previa del proveedor (importación de ARCA)';
+    $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__productos
+            (empresa_id, producto_codigo, producto_nombre, producto_descripcion, producto_categoria_id, cont_cuenta_id,
+             cont_cuenta_compra_id, producto_tipo_id, unidad_medida_id, iva_alicuota_id, controla_stock, es_servicio,
+             aplica_venta, aplica_compra, tabla_estado_registro_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 1, 0, 1, 1)");
+    mysqli_stmt_bind_param($stmt, "isssiiiii", $empresa_id, $codigo, $nombre, $descripcion, $categoria_id,
+                           $cuenta_id, $cuenta_id, $producto_tipo_id, $iva_alicuota_id);
+    mysqli_stmt_execute($stmt);
+    $producto_id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($stmt);
+    error_log("fpArcaGastosVarios: creado producto $producto_id empresa $empresa_id");
+    return ['producto_id' => $producto_id, 'producto_nombre' => $nombre];
+}
+
+/**
+ * Interpreta una fila del archivo: tipo, proveedor, duplicado y líneas por alícuota.
+ * Devuelve el ítem con estado 'listo' | 'nuevo_proveedor' | 'duplicado' | 'error', mensaje y avisos.
+ * $vistos acumula las claves del lote para marcar como duplicada la segunda aparición del mismo comprobante.
+ */
+function fpArcaNormalizarFila($conexion, $empresa_id, array $f, bool $crear_proveedores, array &$vistos)
+{
+    $errores = [];
+    $avisos = [];
+
+    $fecha = trim((string)($f['fecha'] ?? ''));
+    $f_emision = '';
+    if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/', $fecha, $dm) && checkdate((int)$dm[2], (int)$dm[1], (int)$dm[3])) {
+        $f_emision = sprintf('%04d-%02d-%02d', $dm[3], $dm[2], $dm[1]);
+    } elseif (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fecha, $dm) && checkdate((int)$dm[2], (int)$dm[3], (int)$dm[1])) {
+        $f_emision = $fecha;
+    } else {
+        $errores[] = 'Fecha inválida (' . $fecha . ')';
+    }
+
+    $tipo_raw = trim((string)($f['tipo'] ?? ''));
+    $pv = intval($f['pv'] ?? 0);
+    $nro = intval($f['nro'] ?? 0);
+    $nro_hasta = intval($f['nro_hasta'] ?? 0);
+    $cuit = preg_replace('/\D/', '', (string)($f['cuit'] ?? ''));
+    $cuit_receptor = preg_replace('/\D/', '', (string)($f['cuit_receptor'] ?? ''));
+    $denominacion = trim((string)($f['razon_social'] ?? ''));
+    $cae = preg_replace('/\D/', '', (string)($f['cae'] ?? ''));
+    $moneda = strtoupper(trim((string)($f['moneda'] ?? '')));
+
+    if ($pv <= 0 || $nro <= 0) $errores[] = 'Punto de venta o número inválido';
+    if ($nro_hasta > $nro) $errores[] = 'La fila agrupa los números ' . $nro . ' a ' . $nro_hasta . '; cárguelos a mano';
+    if (strlen($cuit) !== 11) $errores[] = 'CUIT del emisor inválido (' . $cuit . ')';
+    if ($moneda !== '' && !in_array($moneda, ['$', 'PES', 'ARS'], true)) $errores[] = 'Moneda ' . $moneda . ' no soportada: solo pesos';
+
+    $cuit_empresa = emp_cuit($conexion, $empresa_id);
+    if ($cuit_receptor !== '' && $cuit_empresa !== '' && $cuit_receptor !== $cuit_empresa) {
+        $errores[] = 'El receptor (CUIT ' . $cuit_receptor . ') no es esta empresa';
+    }
+
+    $tipo = fpArcaTipoComprobante($conexion, $empresa_id, $tipo_raw);
+    if (!$tipo) {
+        $errores[] = 'Tipo de comprobante sin equivalente en Facturas de Compra (' . $tipo_raw . ')';
+    } elseif (!empty($tipo['aviso'])) {
+        $avisos[] = $tipo['aviso'];
+    }
+    $letra = $tipo ? strtoupper((string)$tipo['letra']) : '';
+
+    // Importes. Las líneas gravadas salen de las columnas por alícuota; con el formato viejo (un solo neto e IVA)
+    // se deduce la alícuota del cociente.
+    $alic = fpArcaAlicuotas($conexion, $empresa_id);
+    $no_gravado = fpArcaNumero($f['no_gravado'] ?? 0);
+    $exento = fpArcaNumero($f['exento'] ?? 0);
+    $otros = fpArcaNumero($f['otros_tributos'] ?? 0);
+    $total = fpArcaNumero($f['total'] ?? 0);
+
+    $gravadas = [];
+    foreach ((array)($f['alicuotas'] ?? []) as $a) {
+        $neto_a = fpArcaNumero($a['neto'] ?? 0);
+        $iva_a = fpArcaNumero($a['iva'] ?? 0);
+        if (abs($neto_a) < 0.005 && abs($iva_a) < 0.005) continue;
+        $gravadas[] = ['porcentaje' => floatval($a['porcentaje'] ?? 0), 'neto' => $neto_a, 'iva' => $iva_a];
+    }
+    $neto_total = fpArcaNumero($f['neto'] ?? 0);
+    $iva_total = fpArcaNumero($f['iva'] ?? 0);
+    if (!$gravadas && ($neto_total > 0 || $iva_total > 0)) {
+        $pct_deducido = null;
+        if ($neto_total > 0) {
+            foreach ([0, 2.5, 5, 10.5, 21, 27] as $p) {
+                if (abs($neto_total * $p / 100 - $iva_total) <= FP_ARCA_TOLERANCIA) { $pct_deducido = $p; break; }
+            }
+        }
+        if ($pct_deducido === null) {
+            $errores[] = 'No se puede deducir la alícuota de IVA (neto ' . $neto_total . ', IVA ' . $iva_total . '); use el formato con columnas por alícuota';
+        } else {
+            $gravadas[] = ['porcentaje' => $pct_deducido, 'neto' => $neto_total, 'iva' => $iva_total];
+        }
+    }
+
+    $lineas = [];
+    $subtotal = 0.0;
+    $iva = 0.0;
+    foreach ($gravadas as $g) {
+        $clave = number_format($g['porcentaje'], 2, '.', '');
+        $alicuota_id = $alic['gravadas'][$clave] ?? 0;
+        if (!$alicuota_id) {
+            $errores[] = 'La empresa no tiene configurada la alícuota de IVA del ' . rtrim(rtrim($clave, '0'), '.') . '%';
+            continue;
+        }
+        $lineas[] = ['tipo' => 'gravado', 'iva_alicuota_id' => $alicuota_id, 'iva_porcentaje' => $g['porcentaje'],
+                     'neto_gravado' => $g['neto'], 'no_gravado' => 0.0, 'exento' => 0.0, 'iva_importe' => $g['iva']];
+        $subtotal += $g['neto'];
+        $iva += $g['iva'];
+    }
+
+    // Lo que no está en ningún componente (en Factura C es todo el total; en los tiques de combustible, los
+    // impuestos internos que ARCA no informa) va a no gravado para que el total quede igual al de ARCA.
+    $diferencia = round($total - ($subtotal + $iva + $no_gravado + $exento + $otros), 2);
+    if ($diferencia > FP_ARCA_TOLERANCIA) {
+        if (in_array($letra, ['A', 'M'], true) || $subtotal > 0) {
+            $avisos[] = 'El total supera la suma de neto, IVA, exento y otros tributos en $' . fmt_numero($diferencia, 2)
+                      . ' (impuestos internos u otros conceptos que ARCA no detalla): se carga como no gravado.';
+        }
+        $no_gravado = round($no_gravado + $diferencia, 2);
+    } elseif ($diferencia < -FP_ARCA_TOLERANCIA) {
+        $errores[] = 'Los componentes suman más que el total (diferencia $' . fmt_numero(-$diferencia, 2) . ')';
+    }
+    if ($no_gravado > 0) {
+        if (!$alic['no_gravado']) $errores[] = 'La empresa no tiene la alícuota de IVA "No gravado"';
+        $lineas[] = ['tipo' => 'no_gravado', 'iva_alicuota_id' => $alic['no_gravado'], 'iva_porcentaje' => 0,
+                     'neto_gravado' => 0.0, 'no_gravado' => $no_gravado, 'exento' => 0.0, 'iva_importe' => 0.0];
+    }
+    if ($exento > 0) {
+        if (!$alic['exento']) $errores[] = 'La empresa no tiene la alícuota de IVA "Exento"';
+        $lineas[] = ['tipo' => 'exento', 'iva_alicuota_id' => $alic['exento'], 'iva_porcentaje' => 0,
+                     'neto_gravado' => 0.0, 'no_gravado' => 0.0, 'exento' => $exento, 'iva_importe' => 0.0];
+    }
+    if ($otros > 0) {
+        $avisos[] = 'Otros tributos $' . fmt_numero($otros, 2) . ': cargue el detalle de percepciones antes de confirmar.';
+    }
+    // Total que se graba: el de los componentes (iguala el de ARCA salvo centavos de redondeo).
+    $total_comp = round($subtotal + $iva + $no_gravado + $exento + $otros, 2);
+    if ($total_comp <= 0) $errores[] = 'Comprobante sin importe';
+
+    // Proveedor y duplicados (en la base y dentro del mismo archivo)
+    $prov = strlen($cuit) === 11 ? fpArcaBuscarProveedor($conexion, $empresa_id, $cuit) : null;
+    $entidad_id = $prov ? intval($prov['entidad_id']) : 0;
+    $duplicado = false;
+    if ($tipo && $pv > 0 && $nro > 0 && strlen($cuit) === 11) {
+        $clave_lote = $cuit . '|' . $tipo['comprobante_tipo_id'] . '|' . $pv . '|' . $nro;
+        $duplicado = isset($vistos[$clave_lote]);
+        $vistos[$clave_lote] = true;
+        if (!$duplicado && $entidad_id > 0) {
+            $tipo_id = intval($tipo['comprobante_tipo_id']);
+            $stmt = mysqli_prepare($conexion, "SELECT 1 FROM gestion__facturas_proveedores
+                    WHERE empresa_id = ? AND entidad_id = ? AND comprobante_tipo_id = ? AND comprobante_pv = ? AND comprobante_nro = ?
+                      AND tabla_estado_registro_id <> 6 LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "iiiii", $empresa_id, $entidad_id, $tipo_id, $pv, $nro);
+            mysqli_stmt_execute($stmt);
+            $duplicado = (bool)mysqli_fetch_row(mysqli_stmt_get_result($stmt));
+            mysqli_stmt_close($stmt);
+        }
+    }
+
+    if ($errores) {
+        $estado = 'error';
+        $mensaje = implode('. ', $errores);
+    } elseif ($duplicado) {
+        $estado = 'duplicado';
+        $mensaje = 'Ya está cargado (o repetido en el archivo): se omite';
+    } elseif (!$prov && !$crear_proveedores) {
+        $estado = 'error';
+        $mensaje = 'El proveedor no existe y no está marcada el alta automática';
+    } elseif (!$prov) {
+        $estado = 'nuevo_proveedor';
+        $mensaje = 'Proveedor nuevo: se da de alta al importar';
+    } else {
+        $estado = 'listo';
+        $mensaje = 'Listo para importar';
+    }
+
+    // Imputación: la de la última compra del proveedor; si no tiene, Gastos varios (producto_id 0 = se crea al importar)
+    $imputacion = fpArcaUltimaImputacion($conexion, $empresa_id, $entidad_id);
+    $imputacion_origen = 'ultima';
+    if (!$imputacion) {
+        $imputacion = fpArcaGastosVarios($conexion, $empresa_id, false) ?: ['producto_id' => 0, 'producto_nombre' => 'Gastos varios (se crea)'];
+        $imputacion_origen = 'gastos_varios';
+    }
+
+    return [
+        'f_emision' => $f_emision,
+        'f_emision_formato' => $f_emision ? fmt_fecha($f_emision) : $fecha,
+        'tipo_raw' => $tipo_raw,
+        'comprobante_tipo_id' => $tipo ? intval($tipo['comprobante_tipo_id']) : 0,
+        'comprobante_tipo_nombre' => $tipo ? $tipo['comprobante_tipo'] : $tipo_raw,
+        'letra' => $letra,
+        'pv' => $pv,
+        'pv_formato' => str_pad((string)$pv, 5, '0', STR_PAD_LEFT),   // PV del proveedor (tabla 84): se muestra tal cual
+        'nro' => $nro,
+        'nro_formato' => str_pad((string)$nro, 8, '0', STR_PAD_LEFT),
+        'cuit' => $cuit,
+        'razon_social' => $prov ? $prov['entidad_nombre'] : $denominacion,
+        'denominacion_arca' => $denominacion,
+        'proveedor_id' => $entidad_id,
+        'cae' => $cae,
+        'neto' => round($subtotal, 2),
+        'iva' => round($iva, 2),
+        'no_gravado' => $no_gravado,
+        'exento' => $exento,
+        'otros_tributos' => $otros,
+        'total' => $total_comp,
+        'total_arca' => $total,
+        'lineas' => $lineas,
+        'producto_id' => intval($imputacion['producto_id']),
+        'producto_nombre' => $imputacion['producto_nombre'],
+        'imputacion_origen' => $imputacion_origen,
+        'estado' => $estado,
+        'mensaje' => $mensaje,
+        'avisos' => $avisos,
+    ];
+}
+
+/**
+ * Proveedor por CUIT; si no existe lo crea (rol PRO, sucursal Casa Central, condición de pago elegida y, si emite
+ * A / M, Responsable Inscripto).
+ */
+function fpAsegurarProveedorArca($conexion, $empresa_id, $cuit, $denominacion, $condicion_pago_id, $letra, $usuario_id)
+{
+    $prov = fpArcaBuscarProveedor($conexion, $empresa_id, $cuit);
+    $creado = false;
+    if ($prov) {
+        $entidad_id = intval($prov['entidad_id']);
+        if (!ent_tiene_rol($conexion, $entidad_id, 'PRO')) {
+            actualizarRolIndividualEntidad($conexion, $entidad_id, 'PRO', 1, null, $empresa_id);
+        }
+    } else {
+        $denominacion = $denominacion !== '' ? mb_substr($denominacion, 0, 255) : 'CUIT ' . $cuit;
+        $entidad_tipo_id = in_array(substr($cuit, 0, 2), ['30', '33', '34'], true) ? 2 : 1;   // persona jurídica / física
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__entidades
+                (empresa_id, entidad_nombre, entidad_fantasia, entidad_tipo_id, cuit, domicilio_legal, fecha_alta, usuario_alta, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, '', NOW(), ?, 1)");
+        mysqli_stmt_bind_param($stmt, "issisi", $empresa_id, $denominacion, $denominacion, $entidad_tipo_id, $cuit, $usuario_id);
+        mysqli_stmt_execute($stmt);
+        $entidad_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+        actualizarRolIndividualEntidad($conexion, $entidad_id, 'PRO', 1, null, $empresa_id);
+
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__entidades_condiciones_proveedores
+                (entidad_id, condicion_pago_id, proveedor_descuento_general, f_desde, tabla_estado_registro_id)
+                VALUES (?, ?, 0, CURDATE(), 1)");
+        mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $condicion_pago_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        if (in_array($letra, ['A', 'M'], true)) {   // condición fiscal global: 1 = Responsable Inscripto
+            $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__entidades_condiciones_fiscales
+                    (entidad_id, condicion_fiscal_id, f_desde, tabla_estado_registro_id) VALUES (?, 1, CURDATE(), 1)");
+            mysqli_stmt_bind_param($stmt, "i", $entidad_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        $creado = true;
+    }
+
+    $stmt = mysqli_prepare($conexion, "SELECT sucursal_id FROM gestion__entidades_sucursales
+            WHERE entidad_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1 ORDER BY sucursal_id LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $suc = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    $entidad_sucursal_id = $suc ? intval($suc['sucursal_id']) : 0;
+    if (!$entidad_sucursal_id) {
+        $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__entidades_sucursales
+                (entidad_id, empresa_id, sucursal_numero, sucursal_nombre, sucursal_direccion, tabla_estado_registro_id)
+                VALUES (?, ?, 1, 'Casa Central', '', 1)");
+        mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $entidad_sucursal_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt);
+    }
+
+    return ['entidad_id' => $entidad_id, 'entidad_sucursal_id' => $entidad_sucursal_id, 'creado' => $creado];
+}
+
+/** Previsualización: interpreta las filas sin escribir nada. */
+function fpPrevisualizarImportacionArca($conexion, $empresa_id, $filas, $crear_proveedores = true)
+{
+    $empresa_id = intval($empresa_id);
+    if (!is_array($filas)) return ['success' => false, 'error' => 'Formato de datos no válido.'];
+
+    $resultado = ['success' => true, 'total_filas' => count($filas), 'listos' => 0, 'duplicados' => 0,
+                  'proveedores_nuevos' => 0, 'errores' => 0, 'con_avisos' => 0, 'items' => []];
+    $vistos = [];
+    $cuits_nuevos = [];
+    foreach ($filas as $idx => $f) {
+        $item = fpArcaNormalizarFila($conexion, $empresa_id, is_array($f) ? $f : [], (bool)$crear_proveedores, $vistos);
+        $item['indice'] = $idx;
+        unset($item['lineas']);
+        switch ($item['estado']) {
+            case 'error': $resultado['errores']++; break;
+            case 'duplicado': $resultado['duplicados']++; break;
+            case 'nuevo_proveedor': $cuits_nuevos[$item['cuit']] = true; // sigue
+            default: $resultado['listos']++;
+        }
+        if ($item['avisos'] && in_array($item['estado'], ['listo', 'nuevo_proveedor'], true)) $resultado['con_avisos']++;
+        $resultado['items'][] = $item;
+    }
+    $resultado['proveedores_nuevos'] = count($cuits_nuevos);
+    return $resultado;
+}
+
+/**
+ * Importación: vuelve a interpretar las filas del archivo (no usa lo que calculó el navegador) y graba en una sola
+ * transacción las que quedan listas. $opciones: sucursal_id, deposito_id, condicion_pago_id,
+ * crear_proveedores_auto, pagina_idx (para el estado inicial).
+ */
+function fpImportarComprobantesArca($conexion, $empresa_id, $filas, $opciones, $usuario_id)
+{
+    $empresa_id = intval($empresa_id);
+    $usuario_id = intval($usuario_id);
+    error_log("=== INICIO fpImportarComprobantesArca empresa $empresa_id, " . count((array)$filas) . " filas ===");
+    if (!is_array($filas) || !$filas) {
+        return ['success' => false, 'error' => 'No hay comprobantes para importar.'];
+    }
+
+    $sucursal_id = intval($opciones['sucursal_id'] ?? 0);
+    $deposito_id = intval($opciones['deposito_id'] ?? 0) ?: null;
+    $condicion_pago_id = intval($opciones['condicion_pago_id'] ?? 0);
+    $crear_proveedores = !empty($opciones['crear_proveedores_auto']);
+    $pagina_idx = intval($opciones['pagina_idx'] ?? 0);
+
+    // Opciones: todas de la empresa
+    $sucursales = array_column(obtenerSucursalesEmpresa($conexion, $empresa_id), 'sucursal_id');
+    if (!$sucursal_id || !in_array($sucursal_id, array_map('intval', $sucursales), true)) {
+        return ['success' => false, 'error' => 'Seleccione una sucursal de la empresa.'];
+    }
+    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id, $sucursal_id, $usuario_id);
+    }
+    if ($deposito_id && !in_array($deposito_id, array_map('intval', array_column(obtenerDepositosPorSucursal($conexion, $sucursal_id, $empresa_id), 'deposito_id')), true)) {
+        return ['success' => false, 'error' => 'El depósito no pertenece a la sucursal.'];
+    }
+    $condicion = null;
+    foreach (obtenerCondicionesPago($conexion, $empresa_id) as $c) {
+        if (intval($c['condicion_pago_id']) === $condicion_pago_id) $condicion = $c;
+    }
+    if (!$condicion) {
+        return ['success' => false, 'error' => 'Seleccione una condición de pago de la empresa.'];
+    }
+    $dias_vto = intval($condicion['dias_primer_vencimiento'] ?? 0);
+    $moneda_id = emp_moneda_base_id($conexion, $empresa_id);
+    $estado_inicial = intval(obtenerEstadoInicialPagina($conexion, $pagina_idx)) ?: 3;
+
+    $importados = 0;
+    $duplicados = 0;
+    $omitidos = [];
+    $proveedores_creados = 0;
+    $vistos = [];
+
+    mysqli_begin_transaction($conexion);
+    try {
+        foreach ($filas as $idx => $f) {
+            $item = fpArcaNormalizarFila($conexion, $empresa_id, is_array($f) ? $f : [], $crear_proveedores, $vistos);
+            if ($item['estado'] === 'duplicado') { $duplicados++; continue; }
+            if ($item['estado'] === 'error') {
+                $omitidos[] = 'Fila ' . ($idx + 1) . ': ' . $item['mensaje'];
+                continue;
+            }
+
+            $prov = fpAsegurarProveedorArca($conexion, $empresa_id, $item['cuit'], $item['denominacion_arca'],
+                                            $condicion_pago_id, $item['letra'], $usuario_id);
+            if ($prov['creado']) $proveedores_creados++;
+            $entidad_id = $prov['entidad_id'];
+            $entidad_sucursal_id = $prov['entidad_sucursal_id'];
+            $producto_id = $item['producto_id'] ?: fpArcaGastosVarios($conexion, $empresa_id, true)['producto_id'];
+
+            $tipo_id = $item['comprobante_tipo_id'];
+            $pv = $item['pv'];
+            $nro = $item['nro'];
+            $f_emision = $item['f_emision'];
+            $f_vencimiento = date('Y-m-d', strtotime("$f_emision +$dias_vto days"));
+            $cae = $item['cae'] !== '' ? $item['cae'] : null;
+            $obs = 'Importado de ARCA - Mis Comprobantes Recibidos (' . $item['tipo_raw'] . ')';
+            if ($item['avisos']) $obs .= '. ' . implode(' ', $item['avisos']);
+            $tipo_cambio = 1.0;
+
+            $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__facturas_proveedores
+                    (empresa_id, sucursal_id, deposito_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
+                     entidad_id, entidad_sucursal_id, f_emision, f_contabilidad, f_vencimiento,
+                     condicion_pago_id, moneda_id, tipo_cambio, direccion_entrega, subtotal,
+                     no_gravado, exento, descuentos, impuestos, otros_impuestos, total,
+                     descuento_general_pct, observaciones, CAE, tabla_estado_registro_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, 0, ?, ?, ?, 0, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt, "iiiiiiiisssiidddddddssi",
+                $empresa_id, $sucursal_id, $deposito_id, $tipo_id, $pv, $nro,
+                $entidad_id, $entidad_sucursal_id, $f_emision, $f_emision, $f_vencimiento,
+                $condicion_pago_id, $moneda_id, $tipo_cambio, $item['neto'],
+                $item['no_gravado'], $item['exento'], $item['iva'], $item['otros_tributos'], $item['total'],
+                $obs, $cae, $estado_inicial);
+            mysqli_stmt_execute($stmt);
+            $factura_proveedor_id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt);
+
+            // Una línea por alícuota (más no gravado y exento), cantidad 1 sobre el producto de la imputación
+            $stmt_det = mysqli_prepare($conexion, "INSERT INTO gestion__facturas_proveedores_detalle
+                    (factura_proveedor_id, empresa_id, producto_id, cantidad, cantidad_recibida, precio_unitario,
+                     descuento_item_pct, descuento_general_pct, precio_unitario_bruto, precio_unitario_neto,
+                     descuento, descuento_general, descuento_item, neto_gravado, no_gravado, exento,
+                     iva_alicuota_id, iva_porcentaje, iva_importe, total_linea, tabla_estado_registro_id)
+                    VALUES (?, ?, ?, 1, 0, ?, 0, 0, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?, 1)");
+            foreach ($item['lineas'] as $l) {
+                $base = round($l['neto_gravado'] + $l['no_gravado'] + $l['exento'], 2);
+                $total_linea = round($base + $l['iva_importe'], 2);
+                $iva_alicuota_id = intval($l['iva_alicuota_id']);
+                $iva_porcentaje = floatval($l['iva_porcentaje']);
+                mysqli_stmt_bind_param($stmt_det, "iiiddddddiddd",
+                    $factura_proveedor_id, $empresa_id, $producto_id, $base, $base, $base,
+                    $l['neto_gravado'], $l['no_gravado'], $l['exento'],
+                    $iva_alicuota_id, $iva_porcentaje, $l['iva_importe'], $total_linea);
+                mysqli_stmt_execute($stmt_det);
+            }
+            mysqli_stmt_close($stmt_det);
+
+            $comprobante_id = syncComprobante($conexion, [
+                'empresa_id' => $empresa_id,
+                'sucursal_id' => $sucursal_id,
+                'comprobante_pv' => $pv,
+                'comprobante_tipo_id' => $tipo_id,
+                'comprobante_nro' => $nro,
+                'entidad_id' => $entidad_id,
+                'entidad_sucursal_id' => $entidad_sucursal_id,
+                'f_emision' => $f_emision,
+                'f_contabilidad' => $f_emision,
+                'f_vto' => $f_vencimiento,
+                'moneda_id' => $moneda_id,
+                'tipo_cambio' => $tipo_cambio,
+                'registro_origen_id' => $factura_proveedor_id,
+                'tabla_estado_registro_id' => $estado_inicial,
+                'usuario_id' => $usuario_id,
+                'observaciones' => $obs,
+                'importe_neto' => $item['neto'],
+                'descuento_general' => 0,
+                'importe_no_gravado' => $item['no_gravado'],
+                'importe_exento' => $item['exento'],
+                'importe_iva' => $item['iva'],
+                'importe_otros_impuestos' => $item['otros_tributos'],
+                'importe_total' => $item['total'],
+            ], EMP_TABLA_FACTURAS_PROVEEDORES);
+            if (!$comprobante_id) {
+                throw new RuntimeException('No se pudo registrar el comprobante ' . $item['pv_formato'] . '-' . $item['nro_formato'] . ' de ' . $item['razon_social']);
+            }
+            $stmt = mysqli_prepare($conexion, "UPDATE gestion__facturas_proveedores SET comprobante_id = ? WHERE factura_proveedor_id = ? AND empresa_id = ?");
+            mysqli_stmt_bind_param($stmt, "iii", $comprobante_id, $factura_proveedor_id, $empresa_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+
+            $importados++;
+        }
+        mysqli_commit($conexion);
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("fpImportarComprobantesArca: " . $e->getMessage());
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+
+    error_log("=== FIN fpImportarComprobantesArca: $importados importados, $duplicados duplicados, " . count($omitidos) . " omitidos ===");
+    return [
+        'success' => true,
+        'importados' => $importados,
+        'duplicados' => $duplicados,
+        'proveedores_creados' => $proveedores_creados,
+        'errores' => $omitidos,
+    ];
 }
 ?>

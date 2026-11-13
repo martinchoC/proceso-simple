@@ -1,6 +1,6 @@
 $(document).ready(function () {
-    const empresa_id = window.CONT_TIPOS_ASIENTOS_CTX.empresa_id;
-    const pagina_id = window.CONT_TIPOS_ASIENTOS_CTX.pagina_id;
+    const empresa_id = window.CONT_TIPOS_ASIENTOS_CTX ? window.CONT_TIPOS_ASIENTOS_CTX.empresa_id : window.EMPRESA_ID;
+    const pagina_id = window.CONT_TIPOS_ASIENTOS_CTX ? window.CONT_TIPOS_ASIENTOS_CTX.pagina_id : 87;
     
     var tabla;
     var currentPage = 0;
@@ -78,7 +78,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'cont_tipo_asiento_id',
-                    className: 'text-center'
+                    className: 'ui-detalle'
                 },
                 {
                     data: 'codigo',
@@ -179,7 +179,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'
             },
             order: currentOrder,
             responsive: true,
@@ -204,16 +204,12 @@ $(document).ready(function () {
                 });
 
                 setTimeout(function() {
-                    var lengthControl = $('#tablaTiposAsientos_length').detach();
-                    $('#tablaTiposAsientos_length').replaceWith(lengthControl);
-                    var filterControl = $('#tablaTiposAsientos_filter').detach();
-                    $('#tablaTiposAsientos_filter').replaceWith(filterControl);
                     
                     $('#tablaTiposAsientos_length').addClass('dataTables_length_custom');
                     $('#tablaTiposAsientos_filter').addClass('dataTables_filter_custom');
                     
                     if ($('#tablaTiposAsientos_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaTiposAsientos_length" aria-controls="tablaTiposAsientos" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        var selectHtml = '<label title="Filas por página"><select name="tablaTiposAsientos_length" aria-controls="tablaTiposAsientos" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select></label>';
                         $('#tablaTiposAsientos_length').html(selectHtml);
                         $('#tablaTiposAsientos_length select').on('change', function() {
                             tabla.page.len($(this).val()).draw();
@@ -221,7 +217,7 @@ $(document).ready(function () {
                     }
                     
                     if ($('#tablaTiposAsientos_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaTiposAsientos"></label>';
+                        var filterHtml = '<label><input type="search" class="form-control form-control-sm" placeholder="Buscar…" aria-controls="tablaTiposAsientos"></label>';
                         $('#tablaTiposAsientos_filter').html(filterHtml);
                         $('#tablaTiposAsientos_filter input').on('keyup', function() {
                             tabla.search($(this).val()).draw();

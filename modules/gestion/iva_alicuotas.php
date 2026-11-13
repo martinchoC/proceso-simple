@@ -8,43 +8,25 @@ $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 65; // ID de página para IVA alícuotas
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $pagina_idx = $pagina_id;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <!-- Estilos y librerías requeridas (Select2 y DataTables Buttons) -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+<link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+<link rel="stylesheet" href="<?= asset_local('css/select2-4.1.0-rc.0/select2.min.css') ?>" />
+<link rel="stylesheet" href="<?= asset_local('css/select2-bootstrap-5-theme-1.3.0/select2-bootstrap-5-theme.min.css') ?>" />
 
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+<script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/select2.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/i18n/es.js') ?>"></script>
 
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-percentage me-2"></i>IVA Alícuotas
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Impuestos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">IVA Alícuotas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Alícuotas de IVA','fas fa-percentage', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -149,29 +131,27 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-md-12 mb-3">
-                                        <label for="iva_alicuota" class="form-label">Descripción *</label>
+                                        <label for="iva_alicuota" class="form-label">Descripción * <?= ui_ayuda('Máximo 100 caracteres') ?></label>
                                         <input type="text" class="form-control" id="iva_alicuota" 
                                             name="iva_alicuota" maxlength="100" required>
                                         <div class="invalid-feedback">La descripción es obligatoria</div>
-                                        <div class="form-text">Máximo 100 caracteres</div>
+                                        
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <!-- Campos Cuentas Contables (Compras y Ventas) -->
                                     <div class="col-md-6 mb-3">
-                                        <label for="cont_cuenta_compra_id" class="form-label">Cta. Contable Compras (Crédito Fiscal)</label>
+                                        <label for="cont_cuenta_compra_id" class="form-label">Cta. Contable Compras (Crédito Fiscal) <?= ui_ayuda('Cuenta de Crédito Fiscal IVA para compras') ?></label>
                                         <select class="form-select select2-cuenta" id="cont_cuenta_compra_id" name="cont_cuenta_compra_id">
                                             <option value="">Seleccione cuenta contable...</option>
                                         </select>
-                                        <div class="form-text">Cuenta de Crédito Fiscal IVA para compras</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="cont_cuenta_venta_id" class="form-label">Cta. Contable Ventas (Débito Fiscal)</label>
+                                        <label for="cont_cuenta_venta_id" class="form-label">Cta. Contable Ventas (Débito Fiscal) <?= ui_ayuda('Cuenta de Débito Fiscal IVA para ventas') ?></label>
                                         <select class="form-select select2-cuenta" id="cont_cuenta_venta_id" name="cont_cuenta_venta_id">
                                             <option value="">Seleccione cuenta contable...</option>
                                         </select>
-                                        <div class="form-text">Cuenta de Débito Fiscal IVA para ventas</div>
                                     </div>
                                 </div>
 
@@ -492,7 +472,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'iva_alicuota_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'codigo',

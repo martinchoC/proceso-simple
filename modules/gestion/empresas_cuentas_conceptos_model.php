@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 // Mapeo oficial de descripciones legibles según especificación D35 (§4.10)
@@ -60,6 +61,21 @@ const CONCEPTOS_DESCRIPCIONES = [
         'titulo'      => 'IVA Saldo a Favor',
         'subtitulo'   => 'Posición mensual de IVA',
         'descripcion' => 'Saldo técnico a favor que deja la liquidación de IVA del mes (página IVA - Posición Mensual) y que se consume en el siguiente.'
+    ],
+    'IIBB_GASTO' => [
+        'titulo'      => 'Impuesto sobre los Ingresos Brutos',
+        'subtitulo'   => 'Liquidación mensual de IIBB',
+        'descripcion' => 'Debe del impuesto determinado en la liquidación mensual de Ingresos Brutos (Control Fiscal > Ingresos Brutos).'
+    ],
+    'IIBB_A_PAGAR' => [
+        'titulo'      => 'Ingresos Brutos a Pagar',
+        'subtitulo'   => 'Liquidación mensual de IIBB',
+        'descripcion' => 'Haber del saldo a pagar de la liquidación de Ingresos Brutos; la I_LIQ se cancela contra esta cuenta desde Órdenes de Pago.'
+    ],
+    'IIBB_SALDO_FAVOR' => [
+        'titulo'      => 'Ingresos Brutos Saldo a Favor',
+        'subtitulo'   => 'Liquidación mensual de IIBB',
+        'descripcion' => 'Saldo a favor que deja la liquidación de Ingresos Brutos de una jurisdicción y que se consume en el período siguiente.'
     ],
     'EMPLEADOS' => [
         'titulo'      => 'Empleados - Anticipos y Rendiciones',
@@ -127,7 +143,7 @@ function obtenerConceptosEmpresa($conexion, $empresa_id, $pagina_id = 101)
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
 
-    $funciones = obtenerFuncionesPaginaConceptos($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPaginaConceptos($conexion, $pagina_id));
 
     $datos = [];
     while ($row = mysqli_fetch_assoc($res)) {

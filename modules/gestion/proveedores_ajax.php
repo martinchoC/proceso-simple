@@ -17,6 +17,8 @@ $empresa_idx = intval($ctx['empresa_id']);
 // y lo manda siempre en cada llamada, así que si llega vacío es porque la
 // página no se abrió con el pagina_id correcto.
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0);
+// Solo una página de este módulo (si no, la de proveedores.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'proveedores.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -24,6 +26,22 @@ header('Content-Type: application/json; charset=utf-8');
 if (!$conexion) {
     echo json_encode(['error' => 'Error de conexión a la base de datos'], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+/**
+ * Preferencia de la carga de facturas desde archivo (producto por producto o una línea por alícuota), después de
+ * guardar la entidad. Solo si el formulario la mandó; un error no deshace el guardado, se informa en 'aviso'.
+ */
+function proveedoresGuardarLecturaItems($conexion, $empresa_idx, array &$resultado, $entidad_id)
+{
+    if (empty($resultado['resultado']) || !isset($_POST['compra_lectura_items']) || intval($entidad_id) <= 0) return;
+    require_once __DIR__ . '/../../core/facturas_lectura/fp_lectura_preferencias.php';
+    try {
+        fplGuardarLecturaItemsProveedor($conexion, $empresa_idx, $entidad_id, intval($_POST['compra_lectura_items']) === 1);
+    } catch (Throwable $ex) {
+        error_log('proveedoresGuardarLecturaItems: ' . $ex->getMessage());
+        $resultado['aviso'] = 'No se pudo guardar la opción de carga de facturas desde archivo.';
+    }
 }
 
 try {
@@ -90,7 +108,8 @@ try {
             break;
 
         case 'obtener_localidades':
-            $localidades = obtenerLocalidades($conexion);
+            $provincia_id = intval($_GET['provincia_id'] ?? $_POST['provincia_id'] ?? 0);
+            $localidades = obtenerLocalidades($conexion, $provincia_id);
             echo json_encode($localidades, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -113,10 +132,15 @@ try {
             break;
 
         case 'agregar_entidad':
+            $entidad_nombre_post = trim($_POST['entidad_nombre'] ?? '');
+            $entidad_fantasia_post = trim($_POST['entidad_fantasia'] ?? '');
+            if ($entidad_fantasia_post === '') {
+                $entidad_fantasia_post = $entidad_nombre_post;
+            }
             $data = [
                 'empresa_id' => $empresa_idx,
-                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_nombre' => $entidad_nombre_post,
+                'entidad_fantasia' => $entidad_fantasia_post,
                 'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
                 'cont_cuenta_id_proveedor' => !empty($_POST['cont_cuenta_id_proveedor']) ? intval($_POST['cont_cuenta_id_proveedor']) : null,
                 'cont_cuenta_id_cliente' => !empty($_POST['cont_cuenta_id_cliente']) ? intval($_POST['cont_cuenta_id_cliente']) : null,
@@ -139,14 +163,20 @@ try {
                 'fiscal_f_desde' => trim($_POST['fiscal_f_desde'] ?? '')
             ];
             $resultado = guardarEntidadConSituacionFiscal($conexion, null, $data, $fiscal);
+            proveedoresGuardarLecturaItems($conexion, $empresa_idx, $resultado, intval($resultado['entidad_id'] ?? 0));
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar_entidad':
             $id = intval($_POST['entidad_id'] ?? 0);
+            $entidad_nombre_post = trim($_POST['entidad_nombre'] ?? '');
+            $entidad_fantasia_post = trim($_POST['entidad_fantasia'] ?? '');
+            if ($entidad_fantasia_post === '') {
+                $entidad_fantasia_post = $entidad_nombre_post;
+            }
             $data = [
-                'entidad_nombre' => trim($_POST['entidad_nombre'] ?? ''),
-                'entidad_fantasia' => trim($_POST['entidad_fantasia'] ?? ''),
+                'entidad_nombre' => $entidad_nombre_post,
+                'entidad_fantasia' => $entidad_fantasia_post,
                 'entidad_tipo_id' => intval($_POST['entidad_tipo_id'] ?? 0),
                 'cont_cuenta_id_proveedor' => !empty($_POST['cont_cuenta_id_proveedor']) ? intval($_POST['cont_cuenta_id_proveedor']) : null,
                 'cont_cuenta_id_cliente' => !empty($_POST['cont_cuenta_id_cliente']) ? intval($_POST['cont_cuenta_id_cliente']) : null,
@@ -169,6 +199,7 @@ try {
                 'fiscal_f_desde' => trim($_POST['fiscal_f_desde'] ?? '')
             ];
             $resultado = guardarEntidadConSituacionFiscal($conexion, $id, $data, $fiscal);
+            proveedoresGuardarLecturaItems($conexion, $empresa_idx, $resultado, $id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -216,6 +247,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $entidad_id, $accion_js, $empresa_idx, $pagina_idx, 'entidad');
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -230,6 +263,8 @@ try {
             }
 
             $p_idx = $pagina_idx > 0 ? $pagina_idx : pagina_id_por_url($conexion, $ctx['modulo_id'], 'proveedores.php', 0);
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($p_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $sucursal_id, $accion_js, $empresa_idx, $p_idx, 'sucursal');
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -408,13 +443,31 @@ case 'listar_condiciones_proveedor':
         $data = [
             'entidad_id' => intval($_POST['entidad_id'] ?? 0),
             'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
-            'proveedor_categoria_id' => $_POST['proveedor_categoria_id'] ? intval($_POST['proveedor_categoria_id']) : null,
+            'proveedor_categoria_id' => !empty($_POST['proveedor_categoria_id']) ? intval($_POST['proveedor_categoria_id']) : null,
             'proveedor_descuento_general' => $_POST['proveedor_descuento_general'] ?? null,
+            'modalidad_descuento_factura' => $_POST['modalidad_descuento_factura'] ?? 'EN_FACTURA_GLOBAL',
+            'precio_compra_contempla_descuento' => isset($_POST['precio_compra_contempla_descuento']) ? intval($_POST['precio_compra_contempla_descuento']) : 1,
             'f_desde' => $_POST['f_desde'] ?? '',
             'f_hasta' => $_POST['f_hasta'] ?? null
         ];
         
         $resultado = agregarCondicionProveedor($conexion, $data);
+        echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+        break;
+
+    case 'editar_condicion_proveedor':
+        $id = intval($_POST['condicion_proveedor_id'] ?? 0);
+        $data = [
+            'entidad_id' => intval($_POST['entidad_id'] ?? 0),
+            'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
+            'proveedor_categoria_id' => !empty($_POST['proveedor_categoria_id']) ? intval($_POST['proveedor_categoria_id']) : null,
+            'proveedor_descuento_general' => $_POST['proveedor_descuento_general'] ?? null,
+            'modalidad_descuento_factura' => $_POST['modalidad_descuento_factura'] ?? 'EN_FACTURA_GLOBAL',
+            'precio_compra_contempla_descuento' => isset($_POST['precio_compra_contempla_descuento']) ? intval($_POST['precio_compra_contempla_descuento']) : 1,
+            'f_desde' => $_POST['f_desde'] ?? '',
+            'f_hasta' => $_POST['f_hasta'] ?? null
+        ];
+        $resultado = editarCondicionProveedor($conexion, $id, $data);
         echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
         break;
 

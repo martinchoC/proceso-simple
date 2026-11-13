@@ -6,8 +6,8 @@
 
 $(document).ready(function () {
     // Variables de contexto MULTIEMPRESA
-    const empresa_id = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 68; // ID de página para plan de cuentas
+    const empresa_id = window.PLAN_CUENTAS_CTX ? window.PLAN_CUENTAS_CTX.empresa_id : window.EMPRESA_ID; // empresa activa (header1.php)
+    const pagina_idx = window.PLAN_CUENTAS_CTX ? window.PLAN_CUENTAS_CTX.pagina_idx : 68; // ID de página para plan de cuentas
 
     // Variables para mantener el estado del DataTable y jerarquía
     var tabla;
@@ -318,7 +318,7 @@ $(document).ready(function () {
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             ordering: false,
             columns: [
-                { data: 'cont_cuenta_id', className: 'text-center fw-bold' },
+                { data: 'cont_cuenta_id', className: 'ui-detalle' },
                 { data: 'codigo', className: 'text-center' },
                 { 
                     data: null,
@@ -423,7 +423,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json',
             },
             order: [],
             responsive: true,
@@ -593,6 +593,11 @@ $(document).ready(function () {
             accion: 'obtener_boton_agregar',
             pagina_idx: pagina_idx
         }, function (botonAgregar) {
+            // Sin la función de alta asignada al perfil no se muestra el botón
+            if (!botonAgregar || !botonAgregar.nombre_funcion) {
+                $('#contenedor-boton-agregar').empty();
+                return;
+            }
             var colorClase = botonAgregar?.bg_clase || botonAgregar?.color_clase || 'btn-primary';
             var icono = botonAgregar?.icono_clase ? `<i class="${botonAgregar.icono_clase} me-1"></i>` : '<i class="fas fa-plus me-1"></i>';
             var texto = botonAgregar?.nombre_funcion || 'Agregar Cuenta';
@@ -600,11 +605,7 @@ $(document).ready(function () {
             $('#contenedor-boton-agregar').html(
                 `<button type="button" class="btn ${colorClase}" id="btnNuevo">${icono}${texto}</button>`
             );
-        }, 'json').fail(function () {
-            $('#contenedor-boton-agregar').html(
-                '<button type="button" class="btn btn-primary" id="btnNuevo"><i class="fas fa-plus me-1"></i>Agregar Cuenta</button>'
-            );
-        });
+        }, 'json');
     }
 
     // Cargar cuentas padre para el select del modal

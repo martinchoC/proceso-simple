@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 /**
@@ -67,7 +68,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id) {
  * Obtiene los botones habilitados para un estado de registro
  */
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
@@ -95,7 +96,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
  * Obtiene el botón "Agregar" para la página
  */
 function obtenerBotonAgregar($conexion, $pagina_id) {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [

@@ -2,6 +2,7 @@
 // Configuración de la página
 $pageTitle = "Gestión de Listas de Precios - Productos";
 $currentPage = 'paginas';
+$ui_simple = true;
 $modudo_idx = 5;
 $empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
@@ -107,19 +108,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </style>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Listas de Precios - Productos</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active">Listas Precios Productos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Precios por lista','', '', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -141,35 +130,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <!-- Fila 1: Filtros por compatibilidad -->
+                            <!-- Fila 1: Filtro por tipo (productos / servicios) -->
                             <div class="row mb-2">
                                 <div class="col-md-3">
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text" title="Marca"><i class="fas fa-trademark"></i></span>
-                                        <select class="form-select" id="filtroMarca">
-                                            <option value="">Todas las marcas</option>
+                                        <span class="input-group-text" title="Tipo"><i class="fas fa-tags"></i></span>
+                                        <select class="form-select" id="filtroTipo">
+                                            <option value="">Productos y servicios</option>
+                                            <option value="P">Solo productos</option>
+                                            <option value="S">Solo servicios</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text" title="Modelo"><i class="fas fa-car"></i></span>
-                                        <select class="form-select" id="filtroModelo" disabled>
-                                            <option value="">Todos los modelos</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text" title="Submodelo"><i class="fas fa-cube"></i></span>
-                                        <select class="form-select" id="filtroSubmodelo" disabled>
-                                            <option value="">Todos los submodelos</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 d-flex align-items-end justify-content-end">
-                                    <button class="btn btn-primary me-2" id="btnNuevo">Nuevo Precio</button>
-                                    <button class="btn btn-success" id="btnImportarExcel">Importar Excel</button>
+                                <div class="col-md-9 d-flex align-items-end justify-content-end">
+                                    <button class="btn btn-primary me-2" id="btnNuevo" data-funcion="agregar">Nuevo Precio</button>
+                                    <button class="btn btn-success" id="btnImportarExcel" data-funcion="agregar">Importar Excel</button>
                                 </div>
                             </div>
                             <!-- Fila 2: Filtros de lista + buscador combinado -->
@@ -184,9 +159,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
                                 <div class="col-md-9">
                                     <div class="input-group input-group-sm">
-                                        <span class="input-group-text" title="Buscar por código, producto o compatibilidad"><i class="fas fa-search"></i></span>
+                                        <span class="input-group-text" title="Buscar por código, nombre o descripción"><i class="fas fa-search"></i></span>
                                         <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
-                                            <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Buscar código, producto, marca, modelo, submodelo o año...">
+                                            <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Buscar código, producto o servicio...">
                                         </div>
                                         <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todos los filtros">
                                             <i class="fas fa-times"></i>
@@ -205,8 +180,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <tr>
                                         <th>Lista</th>
                                         <th>Código</th>
-                                        <th>Producto</th>
-                                        <th>Compatibilidad</th>
+                                        <th>Producto / Servicio</th>
+                                        <th>Tipo</th>
                                         <th>Ubicación</th>
                                         <th width="70" class="text-center">Imagen</th>
                                         <th class="text-end">Precio Unitario</th>
@@ -327,7 +302,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div style="position: relative; height: 300px;">
                                     <canvas id="chartMeses"></canvas>
                                 </div>
-                                <small class="text-muted">Hacé click en una barra para ver el listado de ese mes.</small>
+                                <?= ui_ayuda('Hacé click en una barra para ver el listado de ese mes.') ?>
                             </div>
                         </div>
                     </div>
@@ -340,7 +315,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div style="position: relative; height: 300px;">
                                     <canvas id="chartAntiguedad"></canvas>
                                 </div>
-                                <small class="text-muted">Click en una barra para ver el detalle.</small>
+                                <?= ui_ayuda('Click en una barra para ver el detalle.') ?>
                             </div>
                         </div>
                     </div>
@@ -409,9 +384,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx)</label>
+                            <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx) <?= ui_ayuda('El archivo debe tener la columna A con el código del producto y la columna C con el precio.') ?></label>
                             <input type="file" class="form-control" id="archivoExcel" accept=".xlsx, .xls" required>
-                            <small class="text-muted">El archivo debe tener la columna A con el código del producto y la columna C con el precio.</small>
                         </div>
                         <div id="importProgress" style="display: none;">
                             <div class="progress">
@@ -434,7 +408,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Precio de Producto en Lista</h5>
+                    <h5 class="modal-title">Precio de Producto / Servicio en Lista</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -449,17 +423,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="invalid-feedback">Seleccione una lista</div>
                             </div>
                             <div class="col-md-6">
-                                <label>Producto *</label>
+                                <label>Producto / Servicio *</label>
                                 <select class="form-control" id="producto_id" required>
-                                    <option value="">Seleccionar producto...</option>
+                                    <option value="">Seleccionar producto o servicio...</option>
                                 </select>
-                                <div class="invalid-feedback">Seleccione un producto</div>
+                                <div class="invalid-feedback">Seleccione un producto o servicio</div>
                             </div>
                             <div class="col-md-6">
                                 <label>Precio Unitario *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="precio_unitario" step="0.01" min="0" required>
+                                    <input type="number" class="form-control" id="precio_unitario" step="0.0001" min="0" required>
                                 </div>
                                 <div class="invalid-feedback">El precio es obligatorio</div>
                             </div>
@@ -496,12 +470,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
 
         function cargarProductos() {
+            // Servicios y productos en grupos separados del selector
             $.get('listas_precios_productos_ajax.php', {accion: 'obtener_productos'}, function(res){
-                let options = '<option value="">Seleccionar producto...</option>';
-                res.forEach(p => {
-                    options += `<option value="${p.producto_id}">${p.producto_codigo} - ${p.producto_nombre}</option>`;
-                });
-                $('#producto_id').html(options);
+                const esc = t => $('<div>').text(t == null ? '' : t).html();
+                const grupo = (titulo, filas) => filas.length
+                    ? `<optgroup label="${titulo}">` + filas.map(p => `<option value="${p.producto_id}">${esc(p.producto_codigo)} - ${esc(p.producto_nombre)}</option>`).join('') + '</optgroup>'
+                    : '';
+                $('#producto_id').html('<option value="">Seleccionar producto o servicio...</option>'
+                    + grupo('Servicios', res.filter(p => p.es_servicio == 1))
+                    + grupo('Productos', res.filter(p => p.es_servicio != 1)));
             });
         }
 
@@ -518,47 +495,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             });
         }
 
-        function cargarMarcas() {
-            $.get('productos_ajax.php', {accion: 'obtener_marcas', empresa_idx}, function(marcas){
-                let select = $('#filtroMarca');
-                select.html('<option value="">Todas las marcas</option>');
-                marcas.forEach(m => select.append(`<option value="${m.marca_id}">${m.marca_nombre}</option>`));
-            });
-        }
-
-        function cargarModelos(marcaId) {
-            if (!marcaId) {
-                $('#filtroModelo').html('<option value="">Todos los modelos</option>').prop('disabled', true);
-                $('#filtroSubmodelo').html('<option value="">Todos los submodelos</option>').prop('disabled', true);
-                return;
-            }
-            $.get('productos_ajax.php', {accion: 'obtener_modelos', empresa_idx, marca_id: marcaId}, function(modelos){
-                let select = $('#filtroModelo');
-                select.html('<option value="">Todos los modelos</option>');
-                if (modelos.length) {
-                    select.prop('disabled', false);
-                    modelos.forEach(m => select.append(`<option value="${m.modelo_id}">${m.modelo_nombre}</option>`));
-                } else select.prop('disabled', true);
-                $('#filtroSubmodelo').html('<option value="">Todos los submodelos</option>').prop('disabled', true);
-            });
-        }
-
-        function cargarSubmodelos(modeloId) {
-            if (!modeloId) {
-                $('#filtroSubmodelo').html('<option value="">Todos los submodelos</option>').prop('disabled', true);
-                return;
-            }
-            $.get('productos_ajax.php', {accion: 'obtener_submodelos', empresa_idx, modelo_id: modeloId}, function(submodelos){
-                let select = $('#filtroSubmodelo');
-                select.html('<option value="">Todos los submodelos</option>');
-                if (submodelos.length) {
-                    select.prop('disabled', false);
-                    submodelos.forEach(s => select.append(`<option value="${s.submodelo_id}">${s.submodelo_nombre}</option>`));
-                } else select.prop('disabled', false);
-            });
-        }
-
-        // ========== BUSCADOR POR TAGS (código, producto y compatibilidad) ==========
+        // ========== BUSCADOR POR TAGS (código, nombre y descripción) ==========
         var tags = [];
         var tagsInput, tagsContainer;
         var terminoBusquedaActual = ''; // se manda al servidor en cada ajax (ver ejecutarBusquedaTags)
@@ -631,8 +568,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // VERSION 2026-09-05: antes usaba tabla.search() (búsqueda "smart"
             // de DataTables sobre lo ya cargado en el navegador). Ahora la
             // tabla es server-side: cada palabra se manda al backend y se
-            // exige (AND) contra código, producto, compatibilidad_busqueda y
-            // lista, sin traer de antemano todo el catálogo al navegador.
+            // exige (AND) contra código, nombre, descripción y lista, sin
+            // traer de antemano todo el catálogo al navegador.
             terminoBusquedaActual = tags.join(' ');
             if (tags.length > 0) {
                 $('#buscadorTagsContainer').attr('title', 'Buscando ' + tags.length + ' palabra(s): ' + tags.join(', '));
@@ -706,14 +643,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         function actualizarIndicadorFiltros() {
             var lista = $('#filtroLista').val();
-            var marca = $('#filtroMarca').val();
-            var modelo = $('#filtroModelo').val();
-            var submodelo = $('#filtroSubmodelo').val();
+            var tipo = $('#filtroTipo').val();
             var total = 0;
             if (lista) total++;
-            if (marca) total++;
-            if (modelo) total++;
-            if (submodelo) total++;
+            if (tipo) total++;
             if (tags.length > 0) total++;
 
             // La X del buscador ahora limpia TODOS los filtros, no solo el
@@ -779,8 +712,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // búsqueda/orden/paginación en el navegador). Con ~5.000 filas la
             // carga completa se sentía cada vez más lenta apenas se agregaban
             // listas/productos; ahora cada draw pide sólo la página actual, y
-            // el texto libre se busca en el servidor contra
-            // p.compatibilidad_busqueda (materializada), no en el navegador.
+            // el texto libre se busca en el servidor, no en el navegador.
             //
             // OJO exportación: los botones Excel/PDF de DataTables sólo
             // pueden exportar lo que hay cargado en el navegador, y con
@@ -810,22 +742,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 data: function(d) {
                     d.accion = 'listar';
                     d.filtro_lista = $('#filtroLista').val();
-                    d.filtro_marca = $('#filtroMarca').val();
-                    d.filtro_modelo = $('#filtroModelo').val();
-                    d.filtro_submodelo = $('#filtroSubmodelo').val();
+                    d.filtro_tipo = $('#filtroTipo').val();
                     d.busqueda = terminoBusquedaActual;
                 }
             },
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
             drawCallback: function(settings) {
                 // Server-side: el total ya viene filtrado desde el backend
                 // (recordsFiltered), no se recuenta en el navegador.
                 var total = this.api().page.info().recordsDisplay;
                 var lista = $('#filtroLista').val();
-                var marca = $('#filtroMarca').val();
-                var modelo = $('#filtroModelo').val();
-                var submodelo = $('#filtroSubmodelo').val();
-                var filtroActivo = lista || marca || modelo || submodelo || tags.length > 0;
+                var tipo = $('#filtroTipo').val();
+                var filtroActivo = lista || tipo || tags.length > 0;
 
                 if (filtroActivo && total > 0) {
                     $('#infoFiltros').show().html('<i class="fas fa-filter text-primary me-1"></i> ' + total + ' resultados');
@@ -841,22 +769,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 { data: 'producto_codigo', responsivePriority: 1 },
                 { data: 'producto_nombre', responsivePriority: 2 },
                 {
-                    data: 'compatibilidad',
+                    data: 'es_servicio',
                     responsivePriority: 9,
-                    render: {
-                        // '_' es lo que usa DataTables para buscar/ordenar.
-                        // Se usa compatibilidad_busqueda (materializada con
-                        // cada año del rango expandido, ej: "...2015 2016
-                        // 2017 2018..."), NO el texto legible — así buscar
-                        // "2018" encuentra un producto compatible con un
-                        // rango "2015-2020", que nunca contiene "2018" como
-                        // substring del texto mostrado.
-                        _: function(data, type, row) { return row.compatibilidad_busqueda || data || ''; },
-                        display: function(data) {
-                            if (!data) return '<span class="text-muted">-</span>';
-                            var esc = $('<div>').text(data).html();
-                            return '<span title="' + esc + '">' + esc + '</span>';
-                        }
+                    render: function(data, type) {
+                        var texto = data == 1 ? 'Servicio' : 'Producto';
+                        if (type !== 'display') return texto;
+                        return data == 1
+                            ? '<span class="badge bg-info text-dark">Servicio</span>'
+                            : '<span class="badge bg-light text-dark border">Producto</span>';
                     }
                 },
                 {
@@ -910,7 +830,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: 'precio_unitario',
                     className: 'text-end',
                     responsivePriority: 3,
-                    render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    render: data => '$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 },
                 {
                     data: 'precio_con_iva',
@@ -920,17 +840,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     render: function(data, type, row) {
                         if (type !== 'display') return data;
                         var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
-                        var formateado = parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        var formateado = Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         return '<span title="IVA ' + iva + '%">$ ' + formateado + '</span>';
                     }
                 },
-                { data: 'f_actualizacion', responsivePriority: 7, render: data => data ? new Date(data).toLocaleString() : '-' },
+                { data: 'f_actualizacion', responsivePriority: 7, render: data => data ? Fmt.fechaHora(data) : '-' },
                 {
                     data: null, orderable: false, className: "text-center",
                     responsivePriority: 1,
                     render: data => `<div class="btn-group btn-group-sm">
-                                        <button class="btn btn-primary btnEditar"><i class="fa fa-edit"></i></button>
-                                        <button class="btn btn-danger btnEliminar"><i class="fa fa-trash"></i></button>
+                                        <button class="btn btn-primary btnEditar" data-funcion="editar"><i class="fa fa-edit"></i></button>
+                                        <button class="btn btn-danger btnEliminar" data-funcion="inactivar"><i class="fa fa-trash"></i></button>
                                     </div>`
                 }
             ]
@@ -938,17 +858,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         cargarListasPrecios();
         cargarProductos();
-        cargarMarcas();
         inicializarBuscadorTags();
 
-        $('#filtroMarca').change(function(){ cargarModelos($(this).val()); tabla.ajax.reload(); });
-        $('#filtroModelo').change(function(){ cargarSubmodelos($(this).val()); tabla.ajax.reload(); });
-        $('#filtroSubmodelo').change(() => tabla.ajax.reload());
-        $('#filtroLista').change(() => tabla.ajax.reload());
+        $('#filtroTipo, #filtroLista').change(() => tabla.ajax.reload());
 
         $('#btnLimpiarTags').click(function(){
-            $('#filtroLista, #filtroMarca').val('');
-            $('#filtroModelo, #filtroSubmodelo').val('').prop('disabled', true);
+            $('#filtroLista, #filtroTipo').val('');
             limpiarTags();
             ejecutarBusquedaTags();
             tabla.ajax.reload();
@@ -967,9 +882,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
                     $('#lista_precio_id').val(res.lista_precio_id);
                     $('#producto_id').val(res.producto_id);
-                    // toFixed(2): la base guarda más decimales de precisión, pero
-                    // para editar a mano alcanza con 2 (evita ver "1500.000000").
-                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
+                    // toFixed(4): la base guarda 6 decimales; 4 alcanzan para cargar netos
+                    // que con el IVA cierren al centavo (evita ver "1500.000000").
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(4));
                     $('#ajuste_id').val(res.ajuste_id);
                     new bootstrap.Modal(document.getElementById('modalListaPrecioProducto')).show();
                 } else Swal.fire('Error', 'Error al obtener datos', 'error');
@@ -1029,7 +944,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         // Inicializar funciones de carga
         cargarListasPrecios();
         cargarProductos();
-        cargarMarcas();
         cargarListasPreciosImport(); // Cargar para el modal de importación
 
         // --- Botón para abrir el modal de importación ---
@@ -1242,7 +1156,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     });
     </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="<?= asset_local('js/chart.js-4.4.1/chart.umd.min.js') ?>"></script>
     <script>
     // ========== DASHBOARD (pestaña) ==========
     // VERSION 2026-09-30. Se carga recién la primera vez que se abre la
@@ -1257,11 +1171,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         let tablaDetalle = null;
         let totalListasActual = 0;
 
-        const fmtNum = n => (n || 0).toLocaleString('es-AR');
+        const fmtNum = n => Fmt.numero((n || 0));
         const fmtMoneda = n => (n === null || n === undefined || n === '') ? '-' :
-            '$ ' + parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const fmtPct = (parte, total) => total > 0 ? (parte * 100 / total).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%' : '-';
-        const fmtFecha = f => f ? new Date(f.replace(' ', 'T')).toLocaleString('es-AR') : '-';
+            '$ ' + Fmt.numero(parseFloat(n), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtPct = (parte, total) => total > 0 ? Fmt.numero((parte * 100 / total), { maximumFractionDigits: 1 }) + '%' : '-';
+        const fmtFecha = f => f ? Fmt.fechaHora(f) : '-';
         const esc = t => $('<div>').text(t === null || t === undefined ? '' : String(t)).html();
 
         function etiquetaMes(mes) {
@@ -1337,7 +1251,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             $('#kpiPrecios').text(fmtNum(k.precios_activos));
             $('#kpiPreciosSub').text(k.margen_promedio !== null
-                ? 'Margen promedio s/costo: ' + k.margen_promedio.toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%'
+                ? 'Margen promedio s/costo: ' + Fmt.numero(k.margen_promedio, { maximumFractionDigits: 1 }) + '%'
                 : 'Sin costos cargados para calcular margen');
 
             $('#kpiAct30').text(fmtNum(k.actualizados_30));
@@ -1503,7 +1417,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     { title: 'Listas con precio', data: 'listas_con_precio', className: 'text-center',
                       render: (d, t) => t === 'display' ? d + ' de ' + totalListas : d },
                     { title: '', data: null, orderable: false, className: 'text-center',
-                      render: () => '<button class="btn btn-success btn-sm btnDashCargarPrecio" title="Cargar precio"><i class="fas fa-plus"></i></button>' }
+                      render: () => '<button class="btn btn-success btn-sm btnDashCargarPrecio" data-funcion="agregar" title="Cargar precio"><i class="fas fa-plus"></i></button>' }
                 ];
                 orden = [[0, 'asc']];
             } else {
@@ -1518,12 +1432,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                           if (t !== 'display') return d === null ? -99999 : parseFloat(d);
                           if (d === null) return '-';
                           const v = parseFloat(d);
-                          return `<span class="${v < 0 ? 'text-danger fw-semibold' : ''}">${v.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%</span>`;
+                          return `<span class="${v < 0 ? 'text-danger fw-semibold' : ''}">${Fmt.numero(v, { maximumFractionDigits: 1 })}%</span>`;
                       } },
                     { title: 'Últ. actualización', data: 'f_actualizacion', render: (d, t) => t === 'display' ? fmtFecha(d) : d },
                     { title: 'Días', data: 'dias', className: 'text-end' },
                     { title: '', data: null, orderable: false, className: 'text-center',
-                      render: () => '<button class="btn btn-primary btn-sm btnDashEditarPrecio" title="Editar precio"><i class="fa fa-edit"></i></button>' }
+                      render: () => '<button class="btn btn-primary btn-sm btnDashEditarPrecio" data-funcion="editar" title="Editar precio"><i class="fa fa-edit"></i></button>' }
                 ];
                 orden = [[7, 'desc']];
             }
@@ -1539,7 +1453,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm',
                       title: titulo, exportOptions: { columns: columnasExport } }
                 ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' }
+                language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' }
             });
             $('#tablaDashDetalle').data('lista-contexto', listaId);
         }
@@ -1574,7 +1488,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
                     $('#lista_precio_id').val(res.lista_precio_id);
                     $('#producto_id').val(res.producto_id);
-                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(4));
                     $('#ajuste_id').val(res.ajuste_id);
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalListaPrecioProducto')).show();
                 });
@@ -1620,13 +1534,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     });
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+     <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
      <!-- Plugin Responsive de DataTables: no asumo que ya esté cargado en el
           template compartido (no tengo header1.php/footer para confirmarlo),
           así que lo incluyo acá para que "responsive: true" funcione seguro. -->
-     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 </main>
 
 <?php

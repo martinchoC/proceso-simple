@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 /**
@@ -47,36 +48,54 @@ function obtenerPaises($conexion) {
     return $paises;
 }
 
-// Obtener provincias por país
-function obtenerProvincias($conexion, $pais_id) {
+// Obtener provincias (por país o todas las activas)
+function obtenerProvincias($conexion, $pais_id = 0) {
     $pais_id = intval($pais_id);
     
+    if ($pais_id > 0) {
+        $sql = "SELECT provincia_id, provincia 
+                FROM conf__provincias 
+                WHERE pais_id = ? AND tabla_estado_registro_id = 1
+                ORDER BY provincia";
+        
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            return [];
+        }
+        
+        mysqli_stmt_bind_param($stmt, "i", $pais_id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        
+        $provincias = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $provincias[] = $row;
+        }
+        
+        mysqli_stmt_close($stmt);
+        return $provincias;
+    }
+
     $sql = "SELECT provincia_id, provincia 
             FROM conf__provincias 
-            WHERE pais_id = ? AND tabla_estado_registro_id = 1
+            WHERE tabla_estado_registro_id = 1
             ORDER BY provincia";
-    
-    $stmt = mysqli_prepare($conexion, $sql);
-    if (!$stmt) {
-        return [];
-    }
-    
-    mysqli_stmt_bind_param($stmt, "i", $pais_id);
-    mysqli_stmt_execute($stmt);
-    $result = mysqli_stmt_get_result($stmt);
-    
+    $result = mysqli_query($conexion, $sql);
     $provincias = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $provincias[] = $row;
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $provincias[] = $row;
+        }
     }
-    
-    mysqli_stmt_close($stmt);
     return $provincias;
 }
 
 // Obtener localidades por provincia
 function obtenerLocalidades($conexion, $provincia_id) {
     $provincia_id = intval($provincia_id);
+    if ($provincia_id <= 0) {
+        return [];
+    }
     
     $sql = "SELECT localidad_id, localidad 
             FROM conf__localidades 
@@ -176,7 +195,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 // Obtener botones disponibles según el estado actual
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -201,7 +220,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // Obtener botón "Agregar" específico para la página
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -541,7 +563,10 @@ function obtenerJurisdiccionPorId($conexion, $id)
 {
     $id = intval($id);
 
-    $sql = "SELECT * FROM gestion__jurisdicciones WHERE jurisdiccion_id = ?";
+    $sql = "SELECT j.*, COALESCE(j.provincia_id, l.provincia_id) AS provincia_id
+            FROM gestion__jurisdicciones j
+            LEFT JOIN conf__localidades l ON j.localidad_id = l.localidad_id
+            WHERE j.jurisdiccion_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)
         return null;

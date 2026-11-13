@@ -55,16 +55,22 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             if (!snvFuncionCreacionExiste($conexion, $pagina_idx, 'agregar')) snvResponder(false, null, 'Acción no habilitada', 403);
             snvResponder(true, snvAgregar($conexion, $empresa_id, $usuario_id, $_POST), 'Nivel cargado');
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             snvEditar($conexion, $empresa_id, $usuario_id, $pagina_idx, (int)($_POST['stock_nivel_id'] ?? 0), $_POST);
             snvResponder(true, null, 'Nivel actualizado');
             break;
 
         case 'ejecutar_accion':
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)((string)($_POST['accion_js'] ?? '')));
             $nombre = snvEjecutarAccion($conexion, $empresa_id, $usuario_id, $pagina_idx,
                 (int)($_POST['stock_nivel_id'] ?? 0), (string)($_POST['accion_js'] ?? ''));
             snvResponder(true, null, "$nombre: listo");

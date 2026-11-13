@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 // ABM "Productos - Generales": alta/edición de productos y servicios sobre
@@ -251,7 +252,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     static $cache = [];
     if (!isset($cache[$pagina_id])) {
-        $cache[$pagina_id] = obtenerFuncionesPagina($conexion, $pagina_id);
+        $cache[$pagina_id] = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     }
 
     $botones = [];
@@ -282,7 +283,11 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // ✅ Obtener botón "Agregar" específico para la página (función con origen 0)
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    foreach (obtenerFuncionesPagina($conexion, $pagina_id) as $funcion) {
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
+    foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [
                 'nombre_funcion' => $funcion['nombre_funcion'],

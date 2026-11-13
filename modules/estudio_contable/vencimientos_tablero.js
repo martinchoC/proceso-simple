@@ -12,6 +12,7 @@ $(document).ready(function () {
     iniciarDataTable();
 
     $('#filtroPeriodo, #filtroCliente, #filtroObligacion, #filtroEstado').on('change', function () {
+        if (this.id === 'filtroCliente' && window.EstudioCliente) { EstudioCliente.guardar($(this).val()); }
         cargarKpis();
         recargarTabla();
     });
@@ -27,6 +28,11 @@ $(document).ready(function () {
                 optCli += `<option value="${c.cliente_id}">${c.razon_social} (${c.cuit})</option>`;
             });
             $('#filtroCliente').html(optCli);
+            // Cliente activo del estudio (estudio_cliente_activo.js): ?cliente_id=N o el último elegido
+            const activo = window.EstudioCliente ? EstudioCliente.inicial() : 0;
+            if (activo > 0 && $('#filtroCliente option[value="' + activo + '"]').length) {
+                $('#filtroCliente').val(String(activo)).trigger('change');
+            }
 
             // Obligaciones
             let optOb = '<option value="">-- Todas las obligaciones --</option>';
@@ -125,7 +131,7 @@ $(document).ready(function () {
                     className: 'text-end',
                     render: function (data) {
                         let num = parseFloat(data || 0);
-                        return `<strong class="text-primary fs-7">$ ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+                        return `<strong class="text-primary fs-7">$ ${Fmt.numero(num, 2)}</strong>`;
                     }
                 },
                 {
@@ -142,11 +148,11 @@ $(document).ready(function () {
                     render: function (data, type, row) {
                         let st = parseInt(row.tabla_estado_registro_id);
                         let bClass = 'bg-secondary';
-                        if (st === 4) bClass = 'bg-warning text-dark';
+                        if (st === 18) bClass = 'bg-warning text-dark';
                         if (st === 5) bClass = 'bg-info text-white';
-                        if (st === 6) bClass = 'bg-primary text-white';
-                        if (st === 7) bClass = 'bg-success text-white';
-                        if (st === 8) bClass = 'bg-danger text-white';
+                        if (st === 28) bClass = 'bg-primary text-white';
+                        if (st === 35) bClass = 'bg-success text-white';
+                        if (st === 38) bClass = 'bg-danger text-white';
                         return `<span class="badge ${bClass}">${data || 'Borrador'}</span>`;
                     }
                 },
@@ -157,25 +163,25 @@ $(document).ready(function () {
                     render: function (data, type, row) {
                         return `
                             <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-primary btn-liquidar" data-id="${row.vencimiento_id}" title="Gestionar Liquidación">
+                                <button type="button" class="btn btn-outline-primary btn-liquidar" data-funcion="editar" data-id="${row.vencimiento_id}" title="Gestionar Liquidación">
                                     <i class="fas fa-file-invoice-dollar"></i>
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end fs-7">
-                                    <li><a class="dropdown-item btn-transicion" href="#" data-id="${row.vencimiento_id}" data-estado="4"><i class="fas fa-calculator text-warning me-2"></i>En Liquidación</a></li>
-                                    <li><a class="dropdown-item btn-transicion" href="#" data-id="${row.vencimiento_id}" data-estado="5"><i class="fas fa-clipboard-check text-info me-2"></i>Listo p/ Presentar</a></li>
-                                    <li><a class="dropdown-item btn-transicion" href="#" data-id="${row.vencimiento_id}" data-estado="6"><i class="fas fa-paper-plane text-primary me-2"></i>Presentado</a></li>
-                                    <li><a class="dropdown-item btn-transicion" href="#" data-id="${row.vencimiento_id}" data-estado="7"><i class="fas fa-check-circle text-success me-2"></i>Pagado</a></li>
+                                    <li><a class="dropdown-item btn-transicion" href="#" data-funcion="editar" data-id="${row.vencimiento_id}" data-estado="18"><i class="fas fa-calculator text-warning me-2"></i>En Liquidación</a></li>
+                                    <li><a class="dropdown-item btn-transicion" href="#" data-funcion="editar" data-id="${row.vencimiento_id}" data-estado="5"><i class="fas fa-clipboard-check text-info me-2"></i>Listo p/ Presentar</a></li>
+                                    <li><a class="dropdown-item btn-transicion" href="#" data-funcion="editar" data-id="${row.vencimiento_id}" data-estado="28"><i class="fas fa-paper-plane text-primary me-2"></i>Presentado</a></li>
+                                    <li><a class="dropdown-item btn-transicion" href="#" data-funcion="editar" data-id="${row.vencimiento_id}" data-estado="35"><i class="fas fa-check-circle text-success me-2"></i>Pagado</a></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item btn-transicion text-danger" href="#" data-id="${row.vencimiento_id}" data-estado="8"><i class="fas fa-ban me-2"></i>Anular</a></li>
+                                    <li><a class="dropdown-item btn-transicion text-danger" href="#" data-funcion="inhabilitar" data-id="${row.vencimiento_id}" data-estado="38"><i class="fas fa-ban me-2"></i>Anular</a></li>
                                 </ul>
                             </div>
                         `;
                     }
                 }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             dom: '<"row align-items-center p-2 mb-0"<"col-12 col-md-6"l><"col-12 col-md-6 text-end"f>>' +
                  '<"row"<"col-12"tr>>' +
                  '<"row align-items-center p-2 mt-2"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-end"p>>',

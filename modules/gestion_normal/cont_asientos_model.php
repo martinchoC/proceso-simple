@@ -1,9 +1,25 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../../core/cont_periodos.php';
+require_once __DIR__ . '/../../core/cont_asientos_edicion.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 // ========== FUNCIONES AUXILIARES ==========
+/** Mensaje si el asiento existente o la fecha caen en un período contable cerrado (core/cont_periodos.php); null si está abierto. */
+function caPeriodoCerrado($conexion, $empresa_id, $asiento_id, $fecha, $que)
+{
+    try {
+        cont_periodo_exigir_asiento($conexion, $empresa_id, $asiento_id, $que);
+        cont_periodo_exigir_abierto($conexion, $empresa_id, $fecha, $que);
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    }
+    return null;
+}
+
 function obtenerAnioMes($fecha) {
     $timestamp = strtotime($fecha);
     return [
@@ -124,7 +140,11 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
                    ctas.cont_tipo_asiento,
                    ter.tabla_estado_registro as estado_desc,
                    c.bg_clase as estado_bg_clase,
-                   c.color_clase as estado_color
+                   c.color_clase as estado_color,
+                   " . cae_sql_es_automatico('ctas') . " AS es_automatico,
+                   (SELECT COUNT(*) FROM gestion__cont_asientos_detalles dp
+                     WHERE dp.cont_asiento_id = a.cont_asiento_id AND dp.producto_id > 0
+                       AND IFNULL(dp.estado, 'activo') = 'activo') AS lineas_producto
             FROM gestion__cont_asientos a
             LEFT JOIN gestion__monedas m ON a.moneda_id = m.moneda_id
             LEFT JOIN gestion__sucursales s ON a.sucursal_id = s.sucursal_id
@@ -147,6 +167,7 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
     $result = mysqli_stmt_get_result($stmt);
 
     $data = [];
+    $motivos_mes = [];   // cierre del período contable, consultado una vez por mes
     while ($fila = mysqli_fetch_assoc($result)) {
         $totales = obtenerTotalesAsiento($conexion, $fila['cont_asiento_id']);
         $fila['total_debe'] = $totales['total_debe'];
@@ -178,7 +199,26 @@ function obtenerAsientosContables($conexion, $empresa_idx, $pagina_id)
         
         // Agregar botones según estado actual
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
-        
+
+        // Editar (core/cont_asientos_edicion.php): no anulado, período contable abierto y, si es automático,
+        // con renglones de productos (lo único que se le puede cambiar es la cuenta de esos renglones)
+        $fila['es_automatico'] = (int) $fila['es_automatico'] === 1;
+        $mes_clave = substr((string) $fila['f_asiento'], 0, 7);
+        if (!array_key_exists($mes_clave, $motivos_mes)) {
+            $motivos_mes[$mes_clave] = cae_motivo_no_editable($conexion, $empresa_idx, ['estado_id' => 1, 'f_asiento' => $fila['f_asiento']]);
+        }
+        $motivo = in_array((int) $fila['tabla_estado_registro_id'], CAE_ESTADOS_EDITABLES, true)
+            ? $motivos_mes[$mes_clave] : 'El asiento está anulado o eliminado: no se puede editar.';
+        if ($motivo === null && $fila['es_automatico'] && (int) $fila['lineas_producto'] === 0) {
+            $motivo = 'Asiento automático sin renglones de productos: no tiene cuentas para cambiar.';
+        }
+        $fila['motivo_no_editable'] = $motivo;
+        if ($motivo !== null) {
+            $fila['botones'] = array_values(array_filter($fila['botones'], function ($b) {
+                return ($b['accion_js'] ?? '') !== 'editar';
+            }));
+        }
+
         $data[] = $fila;
     }
 
@@ -258,6 +298,11 @@ function obtenerAsientoPorId($conexion, $id, $empresa_idx, $pagina_id)
             4, 6 => 'anulado',
             default => 'borrador'
         };
+        // Reglas de edición (core/cont_asientos_edicion.php)
+        $cab = cae_asiento($conexion, $empresa_idx, $id);
+        $asiento['es_automatico'] = $cab ? $cab['es_automatico'] : false;
+        $asiento['motivo_no_editable'] = $cab ? cae_motivo_no_editable($conexion, $empresa_idx, $cab) : 'Asiento no encontrado.';
+        $asiento['editable'] = $asiento['motivo_no_editable'] === null;
     }
 
     return $asiento;
@@ -295,6 +340,11 @@ function agregarAsiento($conexion, $data)
     $anio = $fecha_data['anio'];
     $mes = $fecha_data['mes'];
     
+    $msg_periodo = caPeriodoCerrado($conexion, intval($data['empresa_idx'] ?? 0), 0, $data['fecha'], 'agregar el asiento');
+    if ($msg_periodo !== null) {
+        return ['resultado' => false, 'error' => $msg_periodo];
+    }
+
     try {
         $tipo_asiento_id = emp_tipo_asiento_id($conexion, intval($data['empresa_idx'] ?? 0), 'MAN');
     } catch (RuntimeException $e) {
@@ -391,6 +441,17 @@ function editarAsiento($conexion, $id, $data)
     $fecha_data = obtenerAnioMes($data['fecha']);
     $anio = $fecha_data['anio'];
     $mes = $fecha_data['mes'];
+
+    // No anulado, manual (un automático solo cambia cuentas de productos) y período abierto en la fecha actual y la nueva
+    try {
+        cae_exigir_edicion_manual($conexion, intval($data['empresa_idx'] ?? 0), $id);
+    } catch (RuntimeException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+    $msg_periodo = caPeriodoCerrado($conexion, intval($data['empresa_idx'] ?? 0), $id, $data['fecha'], 'editar el asiento');
+    if ($msg_periodo !== null) {
+        return ['resultado' => false, 'error' => $msg_periodo];
+    }
     
     mysqli_begin_transaction($conexion);
 
@@ -462,6 +523,11 @@ function eliminarAsiento($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
+
+    $msg_periodo = caPeriodoCerrado($conexion, $empresa_idx, $id, null, 'eliminar el asiento');
+    if ($msg_periodo !== null) {
+        return ['success' => false, 'error' => $msg_periodo];
+    }
     
     mysqli_begin_transaction($conexion);
     
@@ -491,6 +557,11 @@ function anularAsiento($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
+
+    $msg_periodo = caPeriodoCerrado($conexion, $empresa_idx, $id, null, 'anular el asiento');
+    if ($msg_periodo !== null) {
+        return ['success' => false, 'error' => $msg_periodo];
+    }
     
     $sql = "UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 4 
             WHERE cont_asiento_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 3";
@@ -515,6 +586,11 @@ function registrarAsiento($conexion, $id, $empresa_idx)
 {
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
+
+    $msg_periodo = caPeriodoCerrado($conexion, $empresa_idx, $id, null, 'registrar el asiento');
+    if ($msg_periodo !== null) {
+        return ['success' => false, 'error' => $msg_periodo];
+    }
     
     $totales = obtenerTotalesAsiento($conexion, $id);
     if (abs($totales['total_debe'] - $totales['total_haber']) > 0.01) {
@@ -544,6 +620,10 @@ function registrarAsiento($conexion, $id, $empresa_idx)
 function obtenerDetallesAsiento($conexion, $cont_asiento_id, $empresa_idx)
 {
     $cont_asiento_id = intval($cont_asiento_id);
+    $cab = cae_asiento($conexion, intval($empresa_idx), $cont_asiento_id);   // también valida que sea de la empresa
+    if (!$cab) {
+        return [];
+    }
 
     $sql = "SELECT d.*, 
                    c.codigo as cuenta_codigo, 
@@ -572,6 +652,9 @@ function obtenerDetallesAsiento($conexion, $cont_asiento_id, $empresa_idx)
         $fila['importe_local_haber'] = $fila['importe_local'] < 0 ? abs($fila['importe_local']) : 0;
         // Asegurar que tipo tenga valor por defecto 'M'
         $fila['tipo'] = $fila['tipo'] ?? 'M';
+        // Clave del renglón y si se le puede cambiar la cuenta (en un automático, solo los de productos)
+        $fila['clave'] = cae_linea_clave($fila);
+        $fila['cuenta_editable'] = cae_linea_cuenta_editable($cab, $fila);
         $data[] = $fila;
     }
 
@@ -642,6 +725,8 @@ function agregarDetalleAsiento($conexion, $data)
             return ['resultado' => false, 'error' => 'Asiento no encontrado'];
         }
         emp_validar_cuentas_asiento($conexion, $empresa_det, [$data['cuenta_id']]);
+        cont_periodo_exigir_asiento($conexion, $empresa_det, intval($data['cont_asiento_id']), 'modificar el asiento');
+        cae_exigir_edicion_manual($conexion, $empresa_det, intval($data['cont_asiento_id']));
     } catch (RuntimeException $e) {
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
@@ -753,7 +838,7 @@ function agregarDetalleAsiento($conexion, $data)
         }
 
         $sql_update = "UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 3 
-                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id = 1";
+                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id IN (1, 5)";
         $stmt_up = mysqli_prepare($conexion, $sql_update);
         if ($stmt_up) {
             mysqli_stmt_bind_param($stmt_up, "i", $data['cont_asiento_id']);
@@ -778,6 +863,16 @@ function editarDetalleAsiento($conexion, $id, $data)
     $cuenta_id = intval($data['cuenta_id']);
     
     error_log("=== INICIO editarDetalleAsiento - Asiento: $cont_asiento_id, Cuenta: $cuenta_id ===");
+
+    $msg_periodo = caPeriodoCerrado($conexion, intval($data['empresa_idx'] ?? 0), $cont_asiento_id, null, 'modificar el asiento');
+    if ($msg_periodo !== null) {
+        return ['resultado' => false, 'error' => $msg_periodo];
+    }
+    try {
+        cae_exigir_edicion_manual($conexion, intval($data['empresa_idx'] ?? 0), $cont_asiento_id);
+    } catch (RuntimeException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
 
     $importeDebe = floatval($data['importe_local_debe'] ?? 0);
     $importeHaber = floatval($data['importe_local_haber'] ?? 0);
@@ -811,7 +906,7 @@ function editarDetalleAsiento($conexion, $id, $data)
         mysqli_stmt_close($stmt);
 
         $sql_update = "UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 3 
-                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id = 1";
+                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id IN (1, 5)";
         $stmt_up = mysqli_prepare($conexion, $sql_update);
         if ($stmt_up) {
             mysqli_stmt_bind_param($stmt_up, "i", $cont_asiento_id);
@@ -827,6 +922,18 @@ function editarDetalleAsiento($conexion, $id, $data)
         error_log("ERROR en editarDetalleAsiento: " . $e->getMessage());
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
+}
+
+/** Cambia la cuenta de un renglón; en un asiento automático, solo los de productos (core/cont_asientos_edicion.php). */
+function cambiarCuentaDetalleAsiento($conexion, $empresa_idx, $usuario_id, $cont_asiento_id, $clave, $cuenta_id)
+{
+    try {
+        $r = cae_cambiar_cuentas($conexion, intval($empresa_idx), intval($usuario_id), intval($cont_asiento_id),
+            [['clave' => (string) $clave, 'cuenta_id' => intval($cuenta_id)]]);
+    } catch (RuntimeException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+    return ['resultado' => true, 'message' => $r['cambiados'] > 0 ? 'Cuenta cambiada' : 'Sin cambios'];
 }
 
 function eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empresa_idx)
@@ -845,6 +952,16 @@ function eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empres
     
     if ($cont_asiento_id <= 0) {
         return ['success' => false, 'error' => 'ID de asiento no válido'];
+    }
+
+    $msg_periodo = caPeriodoCerrado($conexion, intval($empresa_idx), $cont_asiento_id, null, 'modificar el asiento');
+    if ($msg_periodo !== null) {
+        return ['success' => false, 'error' => $msg_periodo];
+    }
+    try {
+        cae_exigir_edicion_manual($conexion, intval($empresa_idx), $cont_asiento_id);
+    } catch (RuntimeException $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
     }
     
     mysqli_begin_transaction($conexion);
@@ -892,7 +1009,7 @@ function eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empres
         
         // Si el asiento estaba registrado, volver a borrador
         $sql_update = "UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 3 
-                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id = 1";
+                       WHERE cont_asiento_id = ? AND tabla_estado_registro_id IN (1, 5)";
         $stmt_up = mysqli_prepare($conexion, $sql_update);
         if ($stmt_up) {
             mysqli_stmt_bind_param($stmt_up, "i", $cont_asiento_id);
@@ -935,7 +1052,7 @@ function obtenerComprobantes($conexion, $empresa_idx)
     
     $comprobantes = [];
     while ($fila = mysqli_fetch_assoc($result)) {
-        $fecha = $fila['f_emision'] ? date('d/m/Y', strtotime($fila['f_emision'])) : '';
+        $fecha = $fila['f_emision'] ? fmt_fecha($fila['f_emision']) : '';
         $fila['comprobante_nombre_completo'] = $fila['comprobante_tipo_nombre'] . ' ' . 
             ($fila['comprobante_pv'] ? $fila['comprobante_pv'] . '-' : '') . 
             $fila['comprobante_nro'] . ($fecha ? ' - ' . $fecha : '');
@@ -1162,7 +1279,7 @@ function obtenerEntidades($conexion, $empresa_idx)
 
    function obtenerBotonesPorEstado($conexion, $pagina_id, $tabla_estado_registro_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -1197,7 +1314,10 @@ function obtenerEntidades($conexion, $empresa_idx)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -1267,6 +1387,11 @@ function ejecutarTransicionEstado($conexion, $tabla_id, $registro_id, $accion_js
         return ['success' => false, 'error' => 'Registro no encontrado en ' . $nombre_tabla . ' con ID ' . $registro_id];
     }
     
+    $msg_periodo = caPeriodoCerrado($conexion, intval($registro['empresa_id']), 0, $registro['f_asiento'], 'modificar el asiento');
+    if ($msg_periodo !== null) {
+        return ['success' => false, 'error' => $msg_periodo];
+    }
+
     // El estado actual es tabla_estado_registro_id (de la tabla de datos)
     $tabla_estado_actual_id = $registro['tabla_estado_registro_id'];
     
@@ -1306,9 +1431,9 @@ function ejecutarTransicionEstado($conexion, $tabla_id, $registro_id, $accion_js
         if (abs($total_debe - $total_haber) > 0.01) {
             return [
                 'success' => false, 
-                'error' => 'No se puede confirmar el asiento: El Debe (' . number_format($total_debe, 2) . 
-                           ') debe ser igual al Haber (' . number_format($total_haber, 2) . '). Diferencia: ' . 
-                           number_format(abs($total_debe - $total_haber), 2)
+                'error' => 'No se puede confirmar el asiento: El Debe (' . fmt_numero($total_debe, 2) . 
+                           ') debe ser igual al Haber (' . fmt_numero($total_haber, 2) . '). Diferencia: ' . 
+                           fmt_numero(abs($total_debe - $total_haber), 2)
             ];
         }
     }

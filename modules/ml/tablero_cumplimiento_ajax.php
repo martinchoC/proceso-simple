@@ -33,7 +33,7 @@ if ($empresa_idx <= 0) {
     exit;
 }
 
-if (!usuario_tiene_acceso_pagina($conexion, $usuario_id, $empresa_idx, $pagina_idx)) {
+if (!usuario_tiene_acceso_pagina($conexion, $usuario_id, $empresa_idx, 355) && !usuario_tiene_acceso_pagina($conexion, $usuario_id, $empresa_idx, 64)) {
     echo json_encode(['success' => false, 'message' => 'Acceso denegado a esta página.']);
     exit;
 }

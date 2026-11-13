@@ -51,6 +51,11 @@ $model = new AccesosPerfilesModel($conn);
 $accion = (string)($_POST['accion'] ?? $_GET['accion'] ?? '');
 
 try {
+    // Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+    permisos_exigir_accion($conn, pagina_id_por_url($conn, 2, 'accesos_perfiles.php'), (string)$accion, [
+        'agregar_grant' => 'agregar',
+        'eliminar_grant' => 'inactivar',
+    ]);
     switch ($accion) {
         case 'listar_perfiles':
             responderOk(['data' => $model->listarPerfiles($empresaId)]);

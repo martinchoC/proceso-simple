@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Funciones de Páginas";
 $currentPage = 'paginas_funciones';
 $modudo_idx = 1;
+$pagina_idx = 24; // conf__paginas
+$ui_simple = true;
 
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -167,22 +169,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <main class="app-main">
     <!--begin::App Content Header-->
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Funciones de Páginas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Funciones de Páginas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!--end::App Content Header-->
-    
-    <!--begin::App Content-->
+    <?php ui_encabezado('Funciones de páginas', 'bi bi-ui-checks', 'Botones de cada página y la transición que hacen: en qué estado del registro se ofrecen y a qué estado lo llevan.', ['Estructura del sistema']); ?>
+
     <div class="app-content">
         <div class="container-fluid">
             <div class="content-wrapper">
@@ -408,9 +396,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/jstree-3.3.12/jstree.min.js') ?>"></script>
+<link rel="stylesheet" href="<?= asset_local('css/jstree-3.3.12/themes/default/style.min.css') ?>" />
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
 <script>
 // ============================================================

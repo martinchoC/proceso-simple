@@ -1,7 +1,7 @@
 <?php
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
-$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['productos.php']]);
+$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => defined('PRODUCTOS_CONSULTA') ? ['productos_consulta.php'] : ['productos.php']]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -27,6 +27,7 @@ ob_start();
 require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
 require_once __DIR__ . '/stock_niveles_model.php';
+require_once __DIR__ . '/../../core/productos_presentaciones.php';
 
 /**
  * Stock mínimo / máximo por boca cargado en el modal de productos.php.
@@ -66,7 +67,8 @@ if (empty($accion)) {
 
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 540);
+// Página fija (no del request): la de la consulta o la del ABM
+$pagina_idx = defined('PRODUCTOS_CONSULTA') ? 598 : 540;
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');
@@ -126,21 +128,34 @@ try {
             break;
 
         case 'agregar':
-            $resultado = agregarProducto($conexion, $_POST, $empresa_idx, $pagina_idx);
+        case 'editar':
+            // Si la página tiene la función, el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)$pagina_idx, $accion, true);
+            $producto_id = $accion === 'editar' ? intval($_POST['producto_id'] ?? 0) : 0;
+            // Las presentaciones se validan ANTES: con un error, el producto no se guarda
+            try {
+                $presentaciones = prpr_procesar_formulario($conexion, $empresa_idx, $producto_id, $_POST);
+            } catch (InvalidArgumentException $e) {
+                enviarRespuesta(['success' => false, 'message' => $e->getMessage()]);
+            }
+            $resultado = $accion === 'editar'
+                ? editarProducto($conexion, $_POST, $empresa_idx, $pagina_idx)
+                : agregarProducto($conexion, $_POST, $empresa_idx, $pagina_idx);
             if (!empty($resultado['success'])) {
-                $aviso = productosGuardarNivelesStock($conexion, $ctx, intval($resultado['producto_id'] ?? 0));
-                if ($aviso) $resultado['aviso'] = $aviso;
+                if ($accion === 'agregar') $producto_id = intval($resultado['producto_id'] ?? 0);
+                $aviso_niveles = productosGuardarNivelesStock($conexion, $ctx, $producto_id);
+                $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $producto_id, $presentaciones);
+                $avisos = array_filter([$aviso_niveles, $aviso_pres]);
+                $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
+                if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }
             enviarRespuesta($resultado);
             break;
 
-        case 'editar':
-            $resultado = editarProducto($conexion, $_POST, $empresa_idx, $pagina_idx);
-            if (!empty($resultado['success'])) {
-                $aviso = productosGuardarNivelesStock($conexion, $ctx, intval($_POST['producto_id'] ?? 0));
-                if ($aviso) $resultado['aviso'] = $aviso;
-            }
-            enviarRespuesta($resultado);
+        case 'obtener_presentaciones':
+            enviarRespuesta(['success' => true, 'data' => prpr_empresa_usa($conexion, $empresa_idx)
+                ? prpr_listar($conexion, $empresa_idx, intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0))
+                : []]);
             break;
 
         case 'obtener_niveles_stock':

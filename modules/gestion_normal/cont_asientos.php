@@ -8,31 +8,14 @@ $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 
 $pageTitle = "Asientos Contables";
 $currentPage = 'cont_asientos';
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-book me-2"></i>Asientos Contables
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Contabilidad</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Asientos Contables</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Asientos contables','fas fa-book', '', ['Contabilidad']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -141,12 +124,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             
                                            <div class="row mb-2">
                                                 <div class="col-md-3">
-                                                    <label class="form-label small mb-1">N° Asiento</label>
+                                                    <label class="form-label small mb-1">N° Asiento <?= ui_ayuda('Se genera automáticamente al guardar') ?></label>
                                                     <input type="text" class="form-control form-control-sm bg-light" 
                                                         id="numero_asiento" name="numero_asiento" readonly 
                                                         style="background-color: #e9ecef !important; font-weight: bold;"
                                                         placeholder="Se generará automáticamente">
-                                                    <div class="form-text small text-muted">Se genera automáticamente al guardar</div>
                                                 </div>
                                                 <div class="col-md-3">
                                                     <label class="form-label small mb-1">Fecha *</label>
@@ -273,13 +255,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="mb-3">
                                             <div class="row mb-2">
                                                 <div class="col-md-6">
-                                                    <small class="text-muted">Líneas del asiento (Debe = Haber)</small>
+                                                    <?= ui_ayuda('Líneas del asiento (Debe = Haber)') ?>
                                                 </div>
                                                 <div class="col-md-6 text-end">
                                                     <button type="button" class="btn btn-sm btn-success" id="btnNuevoDetalle">
                                                         <i class="fas fa-plus me-1"></i>Agregar Línea
                                                     </button>
                                                 </div>
+                                            </div>
+                                            <div class="alert alert-info py-2 small mb-0 d-none" id="avisoAsientoAutomatico">
+                                                Asiento automático: solo se puede cambiar la cuenta de los renglones de productos
+                                                (<i class="fas fa-exchange-alt"></i>). Si el comprobante se vuelve a contabilizar, el asiento se rehace y el cambio se pierde.
                                             </div>
                                         </div>
                                         <div class="table-responsive">
@@ -331,12 +317,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             
                             <div class="row mb-2">
                                 <div class="col-md-12">
-                                    <label class="form-label small mb-1">Cuenta Contable *</label>
+                                    <label class="form-label small mb-1">Cuenta Contable * <?= ui_ayuda('Escriba para buscar por código o nombre') ?></label>
                                     <select class="form-select form-select-sm" id="cuenta_id" name="cuenta_id" required style="width: 100%;">
                                         <option value="">Seleccionar cuenta</option>
                                     </select>
                                     <div class="invalid-feedback small">Cuenta obligatoria</div>
-                                    <small class="text-muted">Escriba para buscar por código o nombre</small>
+                                    
                                 </div>
                             </div>
 
@@ -426,23 +412,23 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
     <!-- Agregar CSS de Select2 -->
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<link href="<?= asset_local('css/select2-4.1.0-rc.0/select2.min.css') ?>" rel="stylesheet" />
+<link href="<?= asset_local('css/select2-bootstrap-5-theme-1.3.0/select2-bootstrap-5-theme.min.css') ?>" rel="stylesheet" />
 
 <!-- Agregar JS de Select2 -->
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/select2.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/i18n/es.js') ?>"></script>
     
     <script>
         const empresa_id = <?php echo $empresa_id; ?>;

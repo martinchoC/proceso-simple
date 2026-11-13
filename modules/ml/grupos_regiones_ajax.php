@@ -242,8 +242,14 @@ switch ($accion) {
 
         foreach ($lista as $row) {
             $botones = [];
-            if (isset($funciones_permitidas['asignar_empresa']) && intval($row['es_activa']) === 1) {
-                $botones[] = '<button type="button" class="btn btn-sm btn-outline-warning btn-cerrar-vigencia me-1" data-id="' . $row['empresa_region_id'] . '" data-empresa="' . htmlspecialchars($row['empresa_nombre']) . '" title="Cerrar vigencia en la región"><i class="fas fa-calendar-times"></i></button>';
+            if (isset($funciones_permitidas['asignar_empresa'])) {
+                $botones[] = '<button type="button" class="btn btn-sm btn-outline-primary btn-editar-empresa-region me-1" data-id="' . $row['empresa_region_id'] . '" title="Editar asignación"><i class="fas fa-edit"></i></button>';
+
+                if (intval($row['es_activa']) === 1) {
+                    $botones[] = '<button type="button" class="btn btn-sm btn-outline-warning btn-cerrar-vigencia me-1" data-id="' . $row['empresa_region_id'] . '" data-empresa="' . htmlspecialchars($row['empresa_nombre']) . '" title="Cerrar vigencia en la región"><i class="fas fa-calendar-times"></i></button>';
+                }
+
+                $botones[] = '<button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-empresa-region me-1" data-id="' . $row['empresa_region_id'] . '" data-empresa="' . htmlspecialchars($row['empresa_nombre']) . '" title="Eliminar asignación"><i class="fas fa-trash"></i></button>';
             }
 
             $row['acciones'] = '<div class="btn-group btn-group-sm" role="group">' . implode('', $botones) . '</div>';
@@ -253,19 +259,35 @@ switch ($accion) {
         echo json_encode(['success' => true, 'data' => $data]);
         break;
 
+    case 'obtener_empresa_region':
+        $id = intval($_GET['empresa_region_id'] ?? 0);
+        $asig = empresas_regiones_obtener_por_id($conexion, $id);
+        if ($asig) {
+            echo json_encode(['success' => true, 'data' => $asig]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Asignación no encontrada.']);
+        }
+        break;
+
     case 'asignar_empresa':
         if (!isset($funciones_permitidas['asignar_empresa'])) {
-            echo json_encode(['success' => false, 'message' => 'Permiso denegado para vincular empresas a regiones.']);
+            echo json_encode(['success' => false, 'message' => 'Permiso denegado para vincular o editar empresas en regiones.']);
             exit;
         }
 
+        $empresa_region_id = intval($_POST['empresa_region_id'] ?? 0);
         $datos = [
             'empresa_id' => intval($_POST['empresa_id'] ?? 0),
             'region_grupo_id' => intval($_POST['region_grupo_id'] ?? 0),
             'vigente_desde' => trim($_POST['vigente_desde'] ?? ''),
             'vigente_hasta' => trim($_POST['vigente_hasta'] ?? '')
         ];
-        $res = empresas_regiones_asignar($conexion, $datos, $usuario_id);
+
+        if ($empresa_region_id > 0) {
+            $res = empresas_regiones_actualizar($conexion, $empresa_region_id, $datos, $usuario_id);
+        } else {
+            $res = empresas_regiones_asignar($conexion, $datos, $usuario_id);
+        }
         echo json_encode($res);
         break;
 
@@ -278,6 +300,17 @@ switch ($accion) {
         $id = intval($_POST['empresa_region_id'] ?? 0);
         $fecha = trim($_POST['fecha_cierre'] ?? date('Y-m-d'));
         $res = empresas_regiones_cerrar_vigencia($conexion, $id, $fecha, $usuario_id);
+        echo json_encode($res);
+        break;
+
+    case 'eliminar_empresa_region':
+        if (!isset($funciones_permitidas['asignar_empresa'])) {
+            echo json_encode(['success' => false, 'message' => 'Permiso denegado para eliminar asignaciones.']);
+            exit;
+        }
+
+        $id = intval($_POST['empresa_region_id'] ?? 0);
+        $res = empresas_regiones_eliminar($conexion, $id);
         echo json_encode($res);
         break;
 

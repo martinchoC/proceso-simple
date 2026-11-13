@@ -8,11 +8,7 @@ $(document).ready(function() {
     let tablaCompras = null;
     let clienteActual = null;
 
-    const formatoMoneda = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
-    });
+    const formatoMoneda = { format: v => Fmt.moneda(v) };
 
     // Inicializar DataTables con el patrón canónico sin botones de texto por defecto
     function initDataTables() {
@@ -21,7 +17,7 @@ $(document).ready(function() {
                           '<"row align-items-center p-2 mt-2"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-end"p>>';
 
         const languageConfig = {
-            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json',
+            url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json',
             emptyTable: 'No hay comprobantes registrados para este cliente y período'
         };
 
@@ -212,9 +208,18 @@ $(document).ready(function() {
 
     initDataTables();
 
+    // Cliente activo del estudio (estudio_cliente_activo.js): ?cliente_id=N o el último elegido en otra página
+    (function () {
+        const id = window.EstudioCliente ? EstudioCliente.inicial() : 0;
+        if (id > 0 && $('#selCliente option[value="' + id + '"]').length) {
+            setTimeout(function () { $('#selCliente').val(String(id)).trigger('change'); }, 0);
+        }
+    })();
+
     // Eventos de Filtro
     $('#selCliente').on('change', function() {
         const clienteId = $(this).val();
+        if (window.EstudioCliente) { EstudioCliente.guardar(clienteId); }
         if (!clienteId) {
             $('#bannerModo').hide();
             limpiarTablas();
@@ -264,6 +269,7 @@ $(document).ready(function() {
                     cargarVentas(clienteId, periodo);
                     cargarCompras(clienteId, periodo);
                     cargarTotales(clienteId, periodo);
+                    cargarLiquidacion();
                 } else {
                     Swal.fire('Error', resp.message || 'No se pudo obtener la información del cliente.', 'error');
                 }
@@ -358,10 +364,29 @@ $(document).ready(function() {
                     $('#resComprasNeto').text(formatoMoneda.format(t.compras_neto));
                     $('#resIvaCredito').text(formatoMoneda.format(t.iva_credito));
                     $('#resSaldoTecnico').text(formatoMoneda.format(t.saldo_tecnico));
-                    $('#resPercepciones').text(formatoMoneda.format(t.percepciones));
+                    $('#resPercepciones').text(formatoMoneda.format(t.percepciones_iva || 0));
+                    $('#resPercepcionesIibb').text(formatoMoneda.format(t.percepciones_iibb || 0));
+                    $('#resPercepcionesSinDisc').text(formatoMoneda.format(t.percepciones_sin_discriminar || 0));
+                    $('#filaPercSinDiscriminar').toggle(Math.abs(t.percepciones_sin_discriminar || 0) > 0);
+                    renderPorAlicuota(t);
                     $('#resPosicionFinal').text(formatoMoneda.format(t.posicion_final));
                 }
             }
+        });
+    }
+
+    // Detalle por alícuota (solo clientes MANUAL: el ERP no discrimina en esta lectura)
+    function renderPorAlicuota(t) {
+        const $tb = $('#tablaPorAlicuota tbody').empty();
+        $('#avisoPorAlicuotaErp').toggle(t.modo === 'ERP');
+        const mapa = {};
+        (t.ventas_por_alicuota || []).forEach(r => { (mapa[r.alicuota] = mapa[r.alicuota] || {}).v = r; });
+        (t.compras_por_alicuota || []).forEach(r => { (mapa[r.alicuota] = mapa[r.alicuota] || {}).c = r; });
+        Object.keys(mapa).map(Number).sort((a, b) => b - a).forEach(al => {
+            const v = mapa[al].v || { neto: 0, iva: 0 }, c = mapa[al].c || { neto: 0, iva: 0 };
+            $tb.append(`<tr><td>${Fmt.numero(al, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %</td>
+                <td class="text-end">${formatoMoneda.format(v.neto)}</td><td class="text-end text-danger">${formatoMoneda.format(v.iva)}</td>
+                <td class="text-end">${formatoMoneda.format(c.neto)}</td><td class="text-end text-success">${formatoMoneda.format(c.iva)}</td></tr>`);
         });
     }
 
@@ -373,6 +398,89 @@ $(document).ready(function() {
         $('#kpiSaldoDetalle').removeClass('bg-success bg-danger').addClass('bg-secondary').text('Sin selección');
     }
 
+
+    // ---------------------------------------------------------------- Liquidación mensual de IVA
+    let liqActual = null;
+
+    function periodoSeleccionado() { return ($('#filtroPeriodo').val() || '').replace('-', ''); }
+
+    function cargarLiquidacion() {
+        const clienteId = $('#selCliente').val();
+        const periodo = periodoSeleccionado();
+        if (!clienteId || !/^\d{6}$/.test(periodo)) {
+            liqActual = null;
+            $('#liqCuerpo').hide();
+            $('#liqAvisoPeriodo').show();
+            $('#liqEstado').removeClass('bg-success bg-danger bg-warning').addClass('bg-secondary').text('Sin período');
+            return;
+        }
+        $.getJSON('minigestion_ajax.php', { accion: 'calcular_liquidacion_iva', cliente_id: clienteId, periodo_fiscal: periodo,
+                                            retenciones_iva: $('#liqRetenciones').val() || 0 }, function(resp) {
+            if (!resp.success) { $('#liqAvisoPeriodo').text(resp.error || resp.message).show(); $('#liqCuerpo').hide(); return; }
+            pintarLiquidacion(resp.data);
+        });
+    }
+
+    function pintarLiquidacion(l) {
+        liqActual = l;
+        const m = v => formatoMoneda.format(v || 0);
+        const vig = l.vigente;
+        $('#liqAvisoPeriodo').hide();
+        $('#liqCuerpo').show();
+        $('#liqDebito').text(m(l.debito_fiscal));
+        $('#liqCredito').text(m(l.credito_fiscal));
+        $('#liqPercepciones').text(m(l.percepciones_iva));
+        $('#liqAnterior').text(m(l.saldo_favor_anterior));
+        $('#liqAntPeriodo').text(l.saldo_favor_anterior_periodo ? '(' + String(l.saldo_favor_anterior_periodo).replace(/^(\d{4})(\d{2})$/, '$2/$1') + ')' : '');
+        if (vig) $('#liqRetenciones').val(Number(vig.retenciones_iva).toFixed(2));
+        $('#liqRetenciones').prop('disabled', !!vig || l.modo === 'ERP');
+        $('#liqObs').prop('disabled', !!vig || l.modo === 'ERP').val(vig ? (vig.observaciones || '') : $('#liqObs').val());
+        if (l.saldo_a_pagar > 0) { $('#liqResultadoLabel').text('Saldo a ingresar'); $('#liqResultado').text(m(l.saldo_a_pagar)).attr('class', 'text-end fw-bold fs-5 text-danger'); }
+        else if (l.saldo_a_favor > 0) { $('#liqResultadoLabel').text('Saldo a favor (pasa al período siguiente)'); $('#liqResultado').text(m(l.saldo_a_favor)).attr('class', 'text-end fw-bold fs-5 text-success'); }
+        else { $('#liqResultadoLabel').text('Saldo'); $('#liqResultado').text(m(0)).attr('class', 'text-end fw-bold fs-5'); }
+        $('#liqEstado').removeClass('bg-secondary bg-success bg-danger bg-warning')
+            .addClass(vig ? 'bg-success' : 'bg-warning').text(vig ? 'Liquidado' : 'Sin liquidar');
+        const erp = l.modo === 'ERP';
+        $('#liqNotaErp').toggle(erp);
+        $('#btnLiquidarIva').toggle(!vig && !erp);
+        $('#btnAnularLiquidacion').toggle(!!vig && !erp);
+    }
+
+    // Recalcula al tipear las retenciones (el servidor es el que manda: esto es solo vista previa)
+    let liqTimer = null;
+    $('#liqRetenciones').on('input', function() { clearTimeout(liqTimer); liqTimer = setTimeout(cargarLiquidacion, 300); });
+    $('#filtroPeriodo').on('change', cargarLiquidacion);
+    $('a[data-bs-target="#tab-resumen"], #tab-resumen-btn').on('shown.bs.tab click', cargarLiquidacion);
+
+    $('#btnLiquidarIva').on('click', function() {
+        if (!liqActual) return;
+        const m = v => formatoMoneda.format(v || 0);
+        const res = liqActual.saldo_a_pagar > 0 ? 'a ingresar ' + m(liqActual.saldo_a_pagar) : 'a favor ' + m(liqActual.saldo_a_favor);
+        Swal.fire({
+            title: '¿Liquidar el período?',
+            html: 'Saldo ' + res + '.<br>Mientras esté liquidado no se pueden cargar, editar ni anular comprobantes de ese mes.',
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, liquidar', cancelButtonText: 'Cancelar'
+        }).then(r => {
+            if (!r.isConfirmed) return;
+            $.post('minigestion_ajax.php?accion=liquidar_iva', { cliente_id: $('#selCliente').val(), periodo_fiscal: periodoSeleccionado(),
+                retenciones_iva: $('#liqRetenciones').val() || 0, observaciones: $('#liqObs').val() }, function(resp) {
+                if (resp.success) { Swal.fire('Liquidado', 'El período quedó liquidado.', 'success'); cargarLiquidacion(); }
+                else Swal.fire('No se pudo liquidar', resp.error || resp.message, 'error');
+            }, 'json').fail(() => Swal.fire('Error', 'Fallo al procesar la solicitud.', 'error'));
+        });
+    });
+
+    $('#btnAnularLiquidacion').on('click', function() {
+        Swal.fire({ title: '¿Anular la liquidación?', text: 'El período vuelve a quedar abierto para modificar sus comprobantes.', icon: 'warning',
+                    showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar' }).then(r => {
+            if (!r.isConfirmed) return;
+            $.post('minigestion_ajax.php?accion=anular_liquidacion_iva', { cliente_id: $('#selCliente').val(), periodo_fiscal: periodoSeleccionado() }, function(resp) {
+                if (resp.success) { Swal.fire('Anulada', 'La liquidación fue anulada.', 'success'); cargarLiquidacion(); }
+                else Swal.fire('No se pudo anular', resp.error || resp.message, 'error');
+            }, 'json').fail(() => Swal.fire('Error', 'Fallo al procesar la solicitud.', 'error'));
+        });
+    });
+
     // Modal de Carga de Comprobante Manual
     $('#btnNuevaVenta').on('click', function() {
         abrirModalComprobante('VENTA');
@@ -382,6 +490,45 @@ $(document).ready(function() {
         abrirModalComprobante('COMPRA');
     });
 
+    const ALICUOTAS = [27, 21, 10.5, 5, 2.5, 0];
+    const TIPOS_PERCEPCION = [['IIBB', 'Ingresos Brutos'], ['IVA', 'IVA'], ['GANANCIAS', 'Ganancias'], ['SUSS', 'SUSS'], ['MUNICIPAL', 'Municipal'], ['OTRA', 'Otra']];
+    let jurisdiccionesCliente = [];
+
+    function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
+    function redondear(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+    function agregarLineaIva(alicuota = 21, neto = 0) {
+        const opts = ALICUOTAS.map(a => `<option value="${a}" ${Number(a) === Number(alicuota) ? 'selected' : ''}>${String(a).replace('.', ',')} %</option>`).join('');
+        $('#tablaLineasIva tbody').append(`<tr>
+            <td><select class="form-select form-select-sm li-alicuota">${opts}</select></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm text-end li-neto" value="${Number(neto).toFixed(2)}"></td>
+            <td class="text-end li-iva fw-bold text-danger">0,00</td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger li-quitar" title="Quitar"><i class="fas fa-times"></i></button></td></tr>`);
+        recalcularTotalModal();
+    }
+
+    function agregarPercepcion(tipo = 'IIBB', jurId = 0, importe = 0) {
+        const opts = TIPOS_PERCEPCION.map(([v, n]) => `<option value="${v}" ${v === tipo ? 'selected' : ''}>${n}</option>`).join('');
+        const jur = ['<option value="0">—</option>'].concat(jurisdiccionesCliente.map(j =>
+            `<option value="${j.jurisdiccion_id}" ${Number(j.jurisdiccion_id) === Number(jurId) ? 'selected' : ''}>${esc(j.jurisdiccion_nombre || ('Jurisdicción ' + j.jurisdiccion_id))}</option>`)).join('');
+        $('#tablaPercepciones tbody').append(`<tr>
+            <td><select class="form-select form-select-sm pe-tipo">${opts}</select></td>
+            <td><select class="form-select form-select-sm pe-jur">${jur}</select></td>
+            <td><input type="number" step="0.01" class="form-control form-control-sm text-end pe-importe" value="${Number(importe).toFixed(2)}"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger pe-quitar" title="Quitar"><i class="fas fa-times"></i></button></td></tr>`);
+        actualizarJurisdiccionesHabilitadas();
+        recalcularTotalModal();
+    }
+
+    // La jurisdicción solo aplica a IIBB y Municipal
+    function actualizarJurisdiccionesHabilitadas() {
+        $('#tablaPercepciones tbody tr').each(function() {
+            const aplica = ['IIBB', 'MUNICIPAL'].includes($(this).find('.pe-tipo').val());
+            $(this).find('.pe-jur').prop('disabled', !aplica);
+            if (!aplica) $(this).find('.pe-jur').val('0');
+        });
+    }
+
     function abrirModalComprobante(tipo, datos = null) {
         if (!clienteActual) {
             Swal.fire('Atención', 'Seleccione un cliente primero.', 'warning');
@@ -389,6 +536,7 @@ $(document).ready(function() {
         }
 
         $('#formComprobante')[0].reset();
+        $('#tablaLineasIva tbody, #tablaPercepciones tbody').empty();
         $('#comp_id').val(datos ? datos.comprobante_id : 0);
         $('#comp_cliente_id').val(clienteActual.cliente_id);
         $('#comp_tipo_operacion').val(tipo);
@@ -404,52 +552,73 @@ $(document).ready(function() {
             $('#lblContraparteNombre').text('Razón Social Proveedor Emisor');
         }
 
-        if (datos) {
-            $('#comp_f_emision').val(datos.f_emision);
-            $('#comp_tipo_id').val(datos.comprobante_tipo_id);
-            $('#comp_letra').val(datos.comprobante_letra);
-            $('#comp_pv').val(datos.punto_venta);
-            $('#comp_nro').val(datos.comprobante_nro);
-            $('#comp_cuit').val(datos.cuit_contraparte);
-            $('#comp_razon').val(datos.razon_social_contraparte);
-            $('#comp_neto').val(datos.neto_gravado);
-            $('#comp_alicuota').val(datos.alicuota_iva);
-            $('#comp_iva').val(datos.importe_iva);
-            $('#comp_nograv').val(datos.no_gravado_exento);
-            $('#comp_percep_iibb').val(datos.percepcion_iibb);
-            $('#comp_percep_iva').val(datos.percepcion_iva);
-            $('#comp_total').val(datos.importe_total);
-            $('#comp_obs').val(datos.observaciones || '');
-        } else {
-            $('#comp_f_emision').val(new Date().toISOString().substring(0, 10));
-            $('#comp_pv').val(1);
-            $('#comp_neto, #comp_iva, #comp_nograv, #comp_percep_iibb, #comp_percep_iva, #comp_total').val('0.00');
-        }
-
-        $('#modalComprobante').modal('show');
+        // Jurisdicciones del cliente para las percepciones de IIBB, y recién después se arman las filas
+        $.getJSON('minigestion_ajax.php', { accion: 'obtener_jurisdicciones_cliente', cliente_id: clienteActual.cliente_id }, function(resp) {
+            jurisdiccionesCliente = (resp && resp.success && resp.data) ? resp.data : [];
+        }).always(function() {
+            if (datos) {
+                $('#comp_f_emision').val(datos.f_emision);
+                $('#comp_tipo_id').val(datos.comprobante_tipo_id);
+                $('#comp_letra').val(datos.comprobante_letra);
+                $('#comp_pv').val(datos.punto_venta);
+                $('#comp_nro').val(datos.comprobante_nro);
+                $('#comp_cuit').val(datos.cuit_contraparte);
+                $('#comp_razon').val(datos.razon_social_contraparte || '');
+                $('#comp_nograv').val(Number(datos.no_gravado_exento || 0).toFixed(2));
+                $('#comp_obs').val(datos.observaciones || '');
+                (datos.iva_detalle || []).forEach(l => agregarLineaIva(Number(l.alicuota), Number(l.neto)));
+                (datos.percepciones || []).forEach(p => agregarPercepcion(p.tipo, p.jurisdiccion_id || 0, Number(p.importe)));
+                if (!(datos.iva_detalle || []).length) agregarLineaIva(21, 0);
+            } else {
+                $('#comp_f_emision').val(new Date().toISOString().substring(0, 10));
+                $('#comp_pv').val(1);
+                $('#comp_nograv').val('0.00');
+                agregarLineaIva(21, 0);
+            }
+            recalcularTotalModal();
+            $('#modalComprobante').modal('show');
+        });
     }
 
-    // Auto-cálculo de IVA y Totales en Modal
-    $('#comp_neto, #comp_alicuota').on('input change', function() {
-        const neto = parseFloat($('#comp_neto').val()) || 0;
-        const alic = parseFloat($('#comp_alicuota').val()) || 0;
-        const iva = Math.round((neto * alic / 100) * 100) / 100;
-        $('#comp_iva').val(iva.toFixed(2));
-        recalcularTotalModal();
-    });
+    // Líneas dinámicas: el IVA de cada línea y el total se calculan acá solo para mostrar; el servidor los recalcula.
+    $('#btnAddLineaIva').on('click', () => agregarLineaIva(21, 0));
+    $('#btnAddPercepcion').on('click', () => agregarPercepcion('IIBB', 0, 0));
+    $('#tablaLineasIva').on('input change', '.li-alicuota, .li-neto', recalcularTotalModal);
+    $('#tablaLineasIva').on('click', '.li-quitar', function() { $(this).closest('tr').remove(); recalcularTotalModal(); });
+    $('#tablaPercepciones').on('input change', '.pe-importe', recalcularTotalModal);
+    $('#tablaPercepciones').on('change', '.pe-tipo', function() { actualizarJurisdiccionesHabilitadas(); });
+    $('#tablaPercepciones').on('click', '.pe-quitar', function() { $(this).closest('tr').remove(); recalcularTotalModal(); });
+    $('#comp_nograv').on('input change', recalcularTotalModal);
 
-    $('#comp_nograv, #comp_percep_iibb, #comp_percep_iva, #comp_iva').on('input change', function() {
-        recalcularTotalModal();
-    });
+    function leerLineasIva() {
+        const out = [];
+        $('#tablaLineasIva tbody tr').each(function() {
+            out.push({ alicuota: parseFloat($(this).find('.li-alicuota').val()), neto: parseFloat($(this).find('.li-neto').val()) || 0 });
+        });
+        return out;
+    }
+    function leerPercepciones() {
+        const out = [];
+        $('#tablaPercepciones tbody tr').each(function() {
+            out.push({ tipo: $(this).find('.pe-tipo').val(), jurisdiccion_id: parseInt($(this).find('.pe-jur').val(), 10) || 0,
+                       importe: parseFloat($(this).find('.pe-importe').val()) || 0 });
+        });
+        return out;
+    }
 
     function recalcularTotalModal() {
-        const neto = parseFloat($('#comp_neto').val()) || 0;
-        const iva = parseFloat($('#comp_iva').val()) || 0;
+        let neto = 0, iva = 0;
+        $('#tablaLineasIva tbody tr').each(function() {
+            const n = parseFloat($(this).find('.li-neto').val()) || 0;
+            const a = parseFloat($(this).find('.li-alicuota').val()) || 0;
+            const i = redondear(n * a / 100);
+            $(this).find('.li-iva').text(Fmt.numero(i, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            neto += n; iva += i;
+        });
         const nograv = parseFloat($('#comp_nograv').val()) || 0;
-        const pIibb = parseFloat($('#comp_percep_iibb').val()) || 0;
-        const pIva = parseFloat($('#comp_percep_iva').val()) || 0;
-        const tot = neto + iva + nograv + pIibb + pIva;
-        $('#comp_total').val(tot.toFixed(2));
+        let perc = 0;
+        leerPercepciones().forEach(p => perc += p.importe);
+        $('#comp_total').val(redondear(neto + iva + nograv + perc).toFixed(2));
     }
 
     $('#comp_tipo_id').on('change', function() {
@@ -461,6 +630,12 @@ $(document).ready(function() {
     $('#formComprobante').on('submit', function(e) {
         e.preventDefault();
 
+        if (!leerLineasIva().some(l => l.neto !== 0) && !(parseFloat($('#comp_nograv').val()) || 0)) {
+            Swal.fire('Atención', 'Cargá al menos un neto gravado o un importe no gravado / exento.', 'warning');
+            return;
+        }
+        $('#comp_iva_detalle').val(JSON.stringify(leerLineasIva()));
+        $('#comp_percepciones').val(JSON.stringify(leerPercepciones()));
         const formData = $(this).serialize();
         $('#btnGuardarComprobante').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
 
@@ -476,7 +651,7 @@ $(document).ready(function() {
                     Swal.fire('Guardado', 'Comprobante registrado exitosamente.', 'success');
                     cargarDatos();
                 } else {
-                    Swal.fire('Error', resp.message || 'No se pudo guardar el comprobante.', 'error');
+                    Swal.fire('No se pudo guardar', resp.error || resp.message || 'No se pudo guardar el comprobante.', 'error');
                 }
             },
             error: function() {
@@ -528,7 +703,7 @@ $(document).ready(function() {
                             Swal.fire('Anulado', 'El comprobante ha sido anulado.', 'success');
                             cargarDatos();
                         } else {
-                            Swal.fire('Error', resp.message || 'No se pudo anular.', 'error');
+                            Swal.fire('No se pudo anular', resp.error || resp.message || 'No se pudo anular.', 'error');
                         }
                     }
                 });

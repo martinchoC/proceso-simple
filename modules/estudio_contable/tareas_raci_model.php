@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../core/formato.php';
+
 /**
  * Combos para filtros y carga de tareas
  */
@@ -36,7 +38,7 @@ function tareas_raci_combos(mysqli $conexion, int $empresa_id): array
     }
     mysqli_stmt_close($stmt_c);
 
-    // Estados de tabla 419 (Pendiente: 4, En Proceso: 5, En Revision: 6, Finalizada: 7, Cancelada: 8)
+    // Estados de tabla 419, ids genéricos (Pendiente 17, En Proceso 18, En Revisión 19, Finalizada 21, Cancelada 26)
     $res_e = mysqli_query($conexion, "SELECT estado_registro_id, tabla_estado_registro, color_id FROM conf__tablas_estados_registros WHERE tabla_id = 419 ORDER BY orden");
     while ($r = mysqli_fetch_assoc($res_e)) {
         $combos['estados'][] = $r;
@@ -126,7 +128,7 @@ function tarea_raci_guardar(mysqli $conexion, int $empresa_id, array $datos, int
     $contactos_c = trim($datos['contactos_c'] ?? '');
     $contactos_i = trim($datos['contactos_i'] ?? '');
     $horas_estimadas = floatval($datos['horas_estimadas'] ?? 1.0);
-    $tabla_estado_registro_id = intval($datos['tabla_estado_registro_id'] ?? 4);
+    $tabla_estado_registro_id = intval($datos['tabla_estado_registro_id'] ?? 17);
 
     if ($cliente_id <= 0 || empty($titulo) || $usuario_r_id <= 0 || $usuario_a_id <= 0) {
         return ['success' => false, 'message' => 'Cliente, título y usuarios R y A son obligatorios.', 'data' => null, 'error' => 'VALIDATION'];
@@ -213,7 +215,7 @@ function tarea_raci_guardar(mysqli $conexion, int $empresa_id, array $datos, int
 }
 
 /**
- * Transición de estado de tarea (4: Pendiente -> 5: En Proceso -> 6: En Revision -> 7: Finalizada)
+ * Transición de estado de tarea (17 Pendiente -> 18 En Proceso -> 19 En Revisión -> 21 Finalizada)
  */
 function tarea_raci_cambiar_estado(mysqli $conexion, int $empresa_id, int $tarea_id, int $nuevo_estado_id): array
 {
@@ -268,7 +270,7 @@ function tarea_tiempo_registrar(mysqli $conexion, int $empresa_id, int $tarea_id
         mysqli_stmt_close($stmt_u);
 
         mysqli_commit($conexion);
-        return ['success' => true, 'message' => "Se registraron {$minutos} minutos. Horas acumuladas: " . number_format($total_horas, 2), 'data' => ['total_horas' => $total_horas], 'error' => null];
+        return ['success' => true, 'message' => "Se registraron {$minutos} minutos. Horas acumuladas: " . fmt_numero($total_horas, 2), 'data' => ['total_horas' => $total_horas], 'error' => null];
     } catch (Throwable $e) {
         mysqli_rollback($conexion);
         return ['success' => false, 'message' => 'Error: ' . $e->getMessage(), 'data' => null, 'error' => $e->getMessage()];

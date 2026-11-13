@@ -15,53 +15,58 @@ define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
+<!-- Estilos ClickUp para Matriz Legal -->
+<link rel="stylesheet" href="../../assets/css/clickup-ml.css?v=<?= time() ?>">
+
 <main class="app-main">
-    <div class="app-content-header">
+    <div class="app-content-header py-2 border-bottom bg-white">
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-clipboard-check me-2 text-primary"></i>Matriz de Obligaciones
-                    </h3>
+                    <h4 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-clipboard-check me-2" style="color: var(--cu-purple);"></i>Matriz de Obligaciones
+                    </h4>
                     <small class="text-muted">Requerimientos ejecutables derivados de normas, reglas de periodicidad y aplicabilidad por entidad</small>
                 </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Matriz Legal</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Obligaciones</li>
-                    </ol>
+                <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
+                    <a href="ciclos_tareas.php" class="btn btn-sm btn-outline-secondary me-2">
+                        <i class="fas fa-tasks me-1"></i>Bandeja de Tareas
+                    </a>
+                    <a href="index.php" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Tablero
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="app-content">
+    <div class="app-content pt-3">
         <div class="container-fluid">
-            <!-- Barra de Filtros -->
-            <div class="card card-outline card-primary mb-3">
-                <div class="card-body py-2">
+            <!-- Barra de Filtros Estilo ClickUp -->
+            <div class="cu-filter-card mb-3">
+                <div class="card-body py-2 px-3">
                     <div class="row g-2 align-items-center">
                         <div class="col-md-3 col-sm-6">
-                            <label class="form-label form-label-sm mb-1 text-muted">Norma de Origen</label>
-                            <select id="filtroNorma" class="form-select form-select-sm">
+                            <label class="form-label form-label-sm mb-1 text-muted fw-semibold" style="font-size: 0.75rem;">Norma de Origen</label>
+                            <select id="filtroNorma" class="form-select form-select-sm shadow-none">
                                 <option value="">-- Todas las normas --</option>
                             </select>
                         </div>
                         <div class="col-md-2 col-sm-6">
-                            <label class="form-label form-label-sm mb-1 text-muted">Periodicidad</label>
-                            <select id="filtroPeriodicidad" class="form-select form-select-sm">
+                            <label class="form-label form-label-sm mb-1 text-muted fw-semibold" style="font-size: 0.75rem;">Periodicidad</label>
+                            <select id="filtroPeriodicidad" class="form-select form-select-sm shadow-none">
                                 <option value="">-- Todas --</option>
                             </select>
                         </div>
                         <div class="col-md-2 col-sm-6">
-                            <label class="form-label form-label-sm mb-1 text-muted">Criticidad</label>
-                            <select id="filtroCriticidad" class="form-select form-select-sm">
+                            <label class="form-label form-label-sm mb-1 text-muted fw-semibold" style="font-size: 0.75rem;">Criticidad</label>
+                            <select id="filtroCriticidad" class="form-select form-select-sm shadow-none">
                                 <option value="">-- Todas --</option>
                             </select>
                         </div>
                         <div class="col-md-2 col-sm-6">
-                            <label class="form-label form-label-sm mb-1 text-muted">Estado</label>
-                            <select id="filtroEstado" class="form-select form-select-sm">
+                            <label class="form-label form-label-sm mb-1 text-muted fw-semibold" style="font-size: 0.75rem;">Estado</label>
+                            <select id="filtroEstado" class="form-select form-select-sm shadow-none">
                                 <option value="">-- Todos los estados --</option>
                                 <option value="2061">Borrador</option>
                                 <option value="2062">Pendiente de Aprobación</option>
@@ -71,7 +76,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         </div>
                         <div class="col-md-3 col-sm-12 text-md-end mt-3 mt-md-auto">
                             <div id="btn-container-obligacion" class="d-inline-block me-1"></div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Refrescar">
+                            <button type="button" class="btn btn-sm btn-outline-secondary shadow-none" id="btnRecargar" title="Refrescar">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
@@ -80,7 +85,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
 
             <!-- Tabla de Obligaciones -->
-            <div class="card shadow-sm">
+            <div class="card shadow-sm border-0" style="border: 1px solid var(--cu-border) !important; border-radius: 10px;">
                 <div class="card-body p-3">
                     <div class="table-responsive">
                         <table id="tablaObligaciones" class="table table-sm table-striped table-hover align-middle mb-0 w-100">
@@ -334,7 +339,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="obligaciones.js"></script>
 
 <?php

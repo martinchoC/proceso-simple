@@ -114,7 +114,7 @@ $(document).ready(function () {
             if (result.isConfirmed) {
                 Swal.fire({
                     title: 'Procesando lote...',
-                    text: 'Creando registros en tabla de proceso largo con estado Borrador',
+                    text: 'Creando registros en tabla de proceso largo con estado Sin Iniciar',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });

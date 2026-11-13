@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Alta de empresa desde la constancia de CUIT</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-success { background: #d1e7dd; color: #0f5132; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-warning { background: var(--amarillo); color: #212529; }
+    .badge-secondary { background: #6c757d; }
+    .badge-danger { background: var(--rojo); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; white-space: nowrap; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-gris { background: #fff; border-color: #6c757d; color: #6c757d; }
+    .boton-info { background: #fff; border-color: #0dcaf0; color: #087990; }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.78rem; }
+    .flujo-caja.verde { border-color: var(--verde); background: #e8f5ee; }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .req { color: var(--rojo); font-weight: 700; }
+    ol.pasos > li { margin-bottom: 8px; }
+    details { border: 1px solid var(--gris-borde); border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+    details summary { cursor: pointer; font-weight: 600; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al índice</a>
+
+<h1>Manual de usuario: Alta de una empresa nueva desde la constancia de CUIT</h1>
+<p class="subtitulo">Cómo crear una empresa nueva en el sistema a partir de la Constancia de Inscripción de ARCA, sin tipear los datos: la IA lee la constancia, vos revisás y el sistema deja la empresa lista para configurarla.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Para qué sirve?</a></li>
+        <li><a href="#antes">Antes de empezar</a></li>
+        <li><a href="#flujo">El proceso completo de un vistazo</a></li>
+        <li><a href="#paso-1">Paso 1 — Iniciar el alta</a></li>
+        <li><a href="#paso-2">Paso 2 — Elegir la constancia</a></li>
+        <li><a href="#paso-3">Paso 3 — Revisar lo que leyó la IA</a></li>
+        <li><a href="#paso-4">Paso 4 — Completar y corregir el formulario «Nueva empresa»</a></li>
+        <li><a href="#paso-5">Paso 5 — Crear la empresa</a></li>
+        <li><a href="#paso-6">Paso 6 — Configurar la empresa nueva</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="que-es">¿Para qué sirve?</h2>
+<p>Desde la página <strong>Inicio de empresa</strong> (menú <em>Seteo Empresas</em>) podés dar de alta otra empresa con el botón <span class="boton-ejemplo boton-primario">Nueva empresa desde constancia de CUIT</span>.</p>
+<p>En lugar de cargar a mano la razón social, el CUIT, la condición de IVA y el domicilio fiscal, subís la <strong>Constancia de Inscripción de ARCA</strong> (en PDF o como foto) y el sistema:</p>
+<ul>
+    <li>lee los datos de la constancia con inteligencia artificial,</li>
+    <li>te los muestra para que los revises y corrijas,</li>
+    <li>crea la empresa con sus perfiles de usuario y te deja a vos como <strong>Administrador</strong>,</li>
+    <li>y, si querés, prepara todo para <strong>copiar la configuración</strong> de la empresa en la que estás trabajando (plan de cuentas, comprobantes, tesorería, etc.).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="antes">Antes de empezar</h2>
+<table class="tabla-referencia">
+    <tr><th>Qué necesitás</th><th>Detalle</th></tr>
+    <tr>
+        <td><strong>Permiso para dar de alta empresas</strong></td>
+        <td>El botón <span class="boton-ejemplo boton-primario">Nueva empresa desde constancia de CUIT</span> sólo aparece si tu perfil tiene habilitada la función de alta de empresas en esta página. Si no lo ves, pedile a quien administra los perfiles que te la habilite.</td>
+    </tr>
+    <tr>
+        <td><strong>La constancia de inscripción</strong></td>
+        <td>Descargala desde la web de ARCA (Constancia de Inscripción). Puede ser un <strong>PDF</strong> o una <strong>imagen JPG, PNG o WEBP</strong> (por ejemplo, una foto con el celular), de hasta <strong>5 MB</strong>.</td>
+    </tr>
+    <tr>
+        <td><strong>Estar parado en la empresa correcta</strong></td>
+        <td>La lectura con IA se hace con la configuración de IA de la <strong>empresa activa</strong> (la que tenés elegida en este momento). Además, si querés copiar la configuración, se copia <strong>de la empresa activa</strong>. Antes de empezar, elegí como empresa activa la que querés usar de modelo.</td>
+    </tr>
+    <tr>
+        <td><strong>Permiso para autorizar copias</strong> (opcional)</td>
+        <td>Para tildar «Copiar la configuración de…» tu perfil tiene que poder otorgar <a href="#preguntas-frecuentes">autorizaciones de copia</a> en la empresa activa. Si no lo tiene, podés crear la empresa igual, destildando esa opción.</td>
+    </tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="flujo">El proceso completo de un vistazo</h2>
+<div class="flujo">
+    <div class="flujo-caja">1. Botón «Nueva empresa»<small>en Inicio de empresa</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">2. Elegir constancia<small>PDF o foto</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">3. Revisar lo leído<small>Datos de la constancia</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">4. Completar formulario<small>Nueva empresa</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja verde">5. Crear empresa<small>resumen de pasos</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja verde">6. Configurar la nueva<small>copia + checklist</small></div>
+</div>
+<div class="alert alert-info">Hasta que no apretás <span class="boton-ejemplo boton-primario">Crear empresa</span> en el paso 5 <strong>no se graba nada</strong>. Podés cancelar en cualquier momento antes sin consecuencias.</div>
+
+<!-- ============================================================ -->
+<h2 id="paso-1">Paso 1 — Iniciar el alta</h2>
+<ol class="pasos">
+    <li>Entrá a <strong>Seteo Empresas → Inicio de empresa</strong>.</li>
+    <li>Arriba a la derecha, en el encabezado de la página, hacé clic en <span class="boton-ejemplo boton-primario">Nueva empresa desde constancia de CUIT</span>.</li>
+</ol>
+<p class="nota-lateral">El resto de la página (el puntaje de configuración, la copia asistida y la lista de verificación) sigue funcionando igual que siempre para la empresa activa; este botón sólo agrega la posibilidad de crear <em>otra</em> empresa.</p>
+
+<!-- ============================================================ -->
+<h2 id="paso-2">Paso 2 — Elegir la constancia</h2>
+<ol class="pasos">
+    <li>Se abre la ventana del explorador de archivos de tu computadora (o la galería/cámara en el celular).</li>
+    <li>Elegí el archivo de la constancia.</li>
+    <li>Aparece el mensaje <strong>«Leyendo la constancia…»</strong>. La IA puede tardar unos segundos: no cierres la página.</li>
+</ol>
+<div class="alert alert-warning"><strong>Consejo:</strong> si usás una foto, que se vea completa, derecha, sin reflejos y con buena luz. Mientras más nítida, menos datos vas a tener que corregir.</div>
+
+<!-- ============================================================ -->
+<h2 id="paso-3">Paso 3 — Revisar lo que leyó la IA</h2>
+<p>Se muestra la ventana <strong>«Datos de la constancia»</strong> con un resumen de lo leído:</p>
+<table class="tabla-referencia">
+    <tr><th>Dato</th><th>Qué es</th></tr>
+    <tr><td>Razón social</td><td>Nombre o razón social del contribuyente.</td></tr>
+    <tr><td>CUIT</td><td>Número de CUIT.</td></tr>
+    <tr><td>Condición IVA</td><td>Responsable Inscripto, Monotributo (con su categoría), Exento, etc.</td></tr>
+    <tr><td>Domicilio fiscal y Localidad</td><td>Calle, número, localidad, código postal y provincia.</td></tr>
+    <tr><td>Impuestos</td><td>Impuestos en los que está inscripto.</td></tr>
+    <tr><td>Actividad</td><td>Actividad principal.</td></tr>
+    <tr><td>Cierre de ejercicio</td><td>Mes de cierre del ejercicio comercial, si figura.</td></tr>
+</table>
+<p>Debajo pueden aparecer <strong>avisos en amarillo</strong> (por ejemplo, que no se encontró la localidad o que el CUIT leído no es válido). Tomá nota: los vas a poder corregir en el paso siguiente.</p>
+<p>Si el CUIT ya pertenece a una empresa del sistema, vas a ver el aviso <em>«Ya existe la empresa … con este CUIT: no se va a poder crear otra»</em>. En ese caso, no sigas: la empresa ya está dada de alta (ver <a href="#preguntas-frecuentes">preguntas frecuentes</a>).</p>
+<p>Botones:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">Completar el formulario</span> — pasa los datos al formulario de alta.</li>
+    <li><span class="boton-ejemplo boton-gris">Cancelar</span> — descarta la lectura. No se graba nada.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="paso-4">Paso 4 — Completar y corregir el formulario «Nueva empresa»</h2>
+<p>Se abre el formulario <strong>Nueva empresa</strong> con los datos ya cargados. Arriba repite los avisos de la lectura y la leyenda <em>«Datos leídos con IA de la constancia: revisalos antes de crear la empresa»</em>.</p>
+<div class="alert alert-warning"><strong>Importante:</strong> la IA puede equivocarse. Revisá cada dato contra la constancia antes de crear la empresa. Los campos marcados con <span class="req">*</span> son obligatorios.</div>
+
+<h3 id="campos-empresa">Sección «Empresa»</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Qué cargar / revisar</th></tr>
+    <tr><td>Razón social <span class="req">*</span></td><td>Viene de la constancia. Corregí mayúsculas, abreviaturas o letras mal leídas.</td></tr>
+    <tr><td>CUIT <span class="req">*</span></td><td>11 dígitos (con o sin guiones). El sistema verifica que sea un CUIT válido.</td></tr>
+    <tr><td>Condición frente al IVA <span class="req">*</span></td><td>Se propone la de la constancia. Si quedó vacía, elegila de la lista.</td></tr>
+    <tr><td>Tipo de operación <span class="req">*</span></td><td>
+        Define qué <strong>perfiles de usuario</strong> se crean automáticamente para la empresa nueva. Por defecto viene en <strong>Bienes y servicios</strong>; elegí el que corresponda:
+        <ul>
+            <li><strong>Servicios</strong>: los perfiles no muestran pedidos, remitos ni stock (estudios, consultoras, profesionales).</li>
+            <li><strong>Venta de bienes</strong>: comercios y empresas que venden mercadería.</li>
+            <li><strong>Bienes y servicios</strong>: ambas cosas.</li>
+        </ul>
+        Ante la duda, pasá el mouse por el ícono de ayuda <strong>(?)</strong> al lado del campo.
+    </td></tr>
+</table>
+
+<h3 id="campos-domicilio">Sección «Domicilio fiscal»</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Qué cargar / revisar</th></tr>
+    <tr><td>Domicilio</td><td>Calle y número, tal como figura en la constancia.</td></tr>
+    <tr><td>Provincia <span class="req">*</span></td><td>Se elige sola si la IA la reconoció. Si no, elegila a mano.</td></tr>
+    <tr><td>Localidad <span class="req">*</span></td><td>Se carga después de elegir la provincia (muestra el código postal entre paréntesis). Si el aviso decía <em>«No se encontró la localidad…»</em>, buscala en la lista.</td></tr>
+</table>
+
+<h3 id="campos-fiscales">Sección «Datos fiscales»</h3>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Qué cargar / revisar</th></tr>
+    <tr><td>Régimen de Ingresos Brutos</td><td><strong>La constancia de ARCA no informa Ingresos Brutos</strong>: el sistema propone el primer régimen de la lista. Revisalo siempre y elegí el correcto (local, Convenio Multilateral, etc.).</td></tr>
+    <tr><td>Jurisdicción sede</td><td>Se propone según la provincia del domicilio. Puede quedar «Sin definir».</td></tr>
+    <tr><td>Inicio de actividades</td><td>La constancia no lo imprime: el sistema <strong>propone la fecha de alta más antigua</strong> de los impuestos. Confirmala o corregila.</td></tr>
+    <tr><td>Mes de cierre del ejercicio</td><td>Viene de la constancia; si no figura, se propone <strong>Diciembre</strong>.</td></tr>
+</table>
+
+<h3 id="copiar-configuracion">Casilla «Copiar la configuración de <em>[empresa activa]</em>»</h3>
+<p>Aparece tildada por defecto con el nombre de la empresa en la que estás trabajando.</p>
+<ul>
+    <li><strong>Tildada:</strong> la empresa activa <strong>autoriza</strong> a la nueva a copiar su configuración. <u>La copia todavía no se hace</u>: se hace después, desde el asistente de la empresa nueva, donde primero vas a poder ver qué se copia (<a href="#paso-6">paso 6</a>).</li>
+    <li><strong>Destildada:</strong> la empresa nueva arranca vacía y la configurás desde cero (o con otra autorización de copia más adelante).</li>
+</ul>
+
+<h3 id="botones-formulario">Botones del formulario</h3>
+<ul>
+    <li><span class="boton-ejemplo boton-gris">Leer otra constancia</span> — cierra el formulario y vuelve al <a href="#paso-2">paso 2</a> para elegir otro archivo (por ejemplo, si subiste la constancia equivocada o la foto salió mal).</li>
+    <li><span class="boton-ejemplo boton-gris">Cancelar</span> — cierra sin crear nada.</li>
+    <li><span class="boton-ejemplo boton-primario">Crear empresa</span> — da de alta la empresa (<a href="#paso-5">paso 5</a>).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="paso-5">Paso 5 — Crear la empresa</h2>
+<p>Al hacer clic en <span class="boton-ejemplo boton-primario">Crear empresa</span>, si falta algún dato obligatorio vas a ver <strong>«Revisá los datos»</strong> con lo que falta. Completalo y volvé a intentar.</p>
+<p>Si todo está bien, el sistema hace automáticamente lo siguiente:</p>
+<table class="tabla-referencia">
+    <tr><th>#</th><th>Paso que se informa</th><th>Qué hace</th></tr>
+    <tr><td>1</td><td>Empresa</td><td>Crea la empresa con sus datos y sus Parámetros de Empresa iniciales (condición fiscal, Ingresos Brutos, inicio de actividades y mes de cierre).</td></tr>
+    <tr><td>2</td><td>Módulo de gestión</td><td>Habilita el módulo de gestión para la empresa nueva, para que aparezca en el selector de empresas.</td></tr>
+    <tr><td>3</td><td>Perfiles predefinidos</td><td>Crea los perfiles de usuario estándar según el <strong>tipo de operación</strong> elegido, con acceso a todas las sucursales.</td></tr>
+    <tr><td>4</td><td>Tu acceso</td><td>Te asigna a vos como <strong>Administrador</strong> de la empresa nueva, para que puedas entrar y configurarla.</td></tr>
+    <tr><td>5</td><td>Autorización de copia</td><td>Sólo si tildaste «Copiar la configuración…»: la empresa activa autoriza a la nueva a copiar plan de cuentas, conceptos contables, roles de cuentas, tipos de comprobante, condiciones de pago, sucursales y bocas, listas de precios, parámetros, datos básicos, tesorería, configuración de impuestos y productos.</td></tr>
+</table>
+<p>Al terminar aparece una ventana con el resultado de cada paso:</p>
+<ul>
+    <li><span class="badge badge-success">✔</span> en verde: el paso se hizo bien.</li>
+    <li><span class="badge badge-warning">⚠</span> en amarillo: el paso quedó pendiente; el texto te dice dónde completarlo (por ejemplo, <em>«No se pudo asignar: hacelo en Perfiles - Usuarios»</em>).</li>
+</ul>
+<div class="alert alert-info">Si algún paso queda pendiente, <strong>la empresa igual queda creada</strong> (el título dice <em>«La empresa se creó, pero N paso(s) quedaron pendientes»</em>). No la vuelvas a dar de alta: completá lo que falta desde la página indicada o desde el asistente de inicio de la empresa nueva.</div>
+<p>Hacé clic en <span class="boton-ejemplo boton-primario">Configurar la empresa nueva</span>: el sistema te lleva directamente a la página <strong>Inicio de empresa</strong> de la empresa recién creada.</p>
+
+<!-- ============================================================ -->
+<h2 id="paso-6">Paso 6 — Configurar la empresa nueva</h2>
+<p>Ya estás dentro de la empresa nueva, en su asistente de inicio. El puntaje de configuración va a estar bajo: es normal, todavía no tiene nada cargado.</p>
+
+<h3 id="copiar-datos">Si autorizaste la copia</h3>
+<p>En el recuadro verde <strong>«Copia Asistida de Datos Iniciales (Desde Empresa Autorizada)»</strong> la empresa de origen ya aparece <strong>seleccionada</strong>.</p>
+<ol class="pasos">
+    <li>Marcá los componentes que querés traer (plan de cuentas, tipos de comprobante, tesorería, etc.).</li>
+    <li>Hacé clic en <span class="boton-ejemplo boton-info">Previsualizar</span> para ver qué se va a copiar.</li>
+    <li>Si está todo bien, hacé clic en <span class="boton-ejemplo boton-exito">Copiar Datos Iniciales</span> y confirmá con <strong>«Sí, ejecutar copia»</strong>.</li>
+</ol>
+
+<h3 id="checklist">Completar la lista de verificación</h3>
+<p>Debajo de la copia, la lista de verificación te muestra qué falta para operar (sucursales, bocas, puntos de venta, comprobantes, accesos, plan de cuentas, parámetros, monedas, IVA, tesorería, medios de pago, impuestos, productos…). Cada ítem tiene un botón para ir a la página donde se carga. Cuando el puntaje llega a <strong>«Excelente»</strong>, la empresa está lista para emitir comprobantes y operar.</p>
+<p class="nota-lateral">Recordá revisar en <a href="empresas_parametros.html">Parámetros de Empresa</a> los datos fiscales que la constancia no trae (régimen de Ingresos Brutos e inicio de actividades) y, si corresponde, la habilitación de factura electrónica con ARCA.</p>
+
+<!-- ============================================================ -->
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Archivo muy grande — La constancia no puede superar los 5 MB.</td><td>Achicá la imagen o descargá de nuevo el PDF desde ARCA.</td></tr>
+    <tr><td>La constancia tiene que ser un PDF o una imagen (JPG, PNG o WEBP).</td><td>Elegiste otro tipo de archivo. Volvé a intentar con el formato correcto.</td></tr>
+    <tr><td>No se pudo leer la constancia</td><td>La IA no pudo interpretar el archivo, o la IA no está disponible para la empresa activa. Probá con un archivo más nítido; si persiste, consultá al administrador del sistema.</td></tr>
+    <tr><td>No se pudo leer el CUIT / la razón social.</td><td>Completalos a mano en el formulario.</td></tr>
+    <tr><td>El CUIT leído (…) no es válido: revisalo.</td><td>Algún dígito se leyó mal. Corregilo mirando la constancia.</td></tr>
+    <tr><td>No se encontró la provincia / la localidad «…»: elegila a mano.</td><td>Elegí la provincia y la localidad en las listas del formulario.</td></tr>
+    <tr><td>Inicio de actividades estimado con el alta más antigua de los impuestos: confirmalo.</td><td>Revisá la fecha propuesta; corregila si no es la real.</td></tr>
+    <tr><td>Revisá los datos — Falta …</td><td>Hay campos obligatorios vacíos (razón social, CUIT de 11 dígitos, condición frente al IVA, provincia y localidad).</td></tr>
+    <tr><td>La empresa ya existe</td><td>Ya hay una empresa con ese CUIT. Si tenés acceso, el botón <span class="boton-ejemplo boton-primario">Abrir esa empresa</span> te lleva a su asistente de inicio. Si no, pedí acceso al administrador.</td></tr>
+    <tr><td>Tu perfil no puede otorgar autorizaciones de copia en la empresa activa: destildá «Copiar la configuración».</td><td>Destildá la casilla y creá la empresa. La autorización de copia la puede dar después alguien con permiso, desde <em>Autorizaciones de copia</em>.</td></tr>
+    <tr><td>La empresa se creó, pero N paso(s) quedaron pendientes.</td><td>La empresa existe. Leé el detalle de los pasos en amarillo y completalos donde se indica.</td></tr>
+    <tr><td>No se pudo crear la empresa.</td><td>No se grabó nada. Reintentá; si se repite, avisá al administrador del sistema.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+
+<details>
+    <summary>No veo el botón «Nueva empresa desde constancia de CUIT».</summary>
+    <p>Tu perfil no tiene habilitada la función de alta de empresas en la página Inicio de empresa. Pedile al administrador que la habilite en la configuración de perfiles.</p>
+</details>
+
+<details>
+    <summary>¿De qué empresa se copia la configuración?</summary>
+    <p>De la <strong>empresa activa</strong> en el momento en que hacés el alta (su nombre aparece en la casilla «Copiar la configuración de…»). Si querés usar otra como modelo, cambiá primero la empresa activa y después empezá el alta.</p>
+</details>
+
+<details>
+    <summary>¿Al crear la empresa ya se copia el plan de cuentas y lo demás?</summary>
+    <p>No. Al crear la empresa sólo queda la <strong>autorización</strong>. La copia la hacés vos en el paso 6, desde la empresa nueva, eligiendo qué componentes traer y previsualizándolos antes.</p>
+</details>
+
+<details>
+    <summary>¿Qué es una autorización de copia?</summary>
+    <p>Es el permiso que una empresa le da a otra para que copie su configuración (plan de cuentas, comprobantes, tesorería, etc.). Se administran en <em>Seteo Empresas → Autorizaciones de copia</em>. El alta desde la constancia la crea automáticamente si dejás tildada la casilla.</p>
+</details>
+
+<details>
+    <summary>Elegí mal el tipo de operación, ¿cómo lo cambio?</summary>
+    <p>En el asistente de inicio de la empresa nueva, en la sección <strong>Perfiles</strong> de la lista de verificación, podés cambiar el tipo de operación, crear los perfiles predefinidos que falten o quitar las funciones de pedidos, remitos y stock si la empresa es sólo de servicios.</p>
+</details>
+
+<details>
+    <summary>¿Puedo cargar la empresa sin constancia?</summary>
+    <p>Este botón necesita la constancia. Si no la tenés, la empresa se puede dar de alta de la forma tradicional desde la administración de empresas, cargando los datos a mano.</p>
+</details>
+
+<details>
+    <summary>Se creó la empresa pero no aparece en mi selector de empresas.</summary>
+    <p>Revisá en el resumen del paso 5 si quedaron pendientes «Módulo de gestión» o «Tu acceso». Si es así, pedile al administrador que habilite el módulo para la empresa o que te asigne un perfil en <em>Perfiles - Usuarios</em>.</p>
+</details>
+
+<details>
+    <summary>¿La IA guarda la constancia?</summary>
+    <p>No. La constancia se usa sólo para leer los datos y precargar el formulario; nada se graba hasta que apretás <strong>Crear empresa</strong>.</p>
+</details>
+
+<footer>
+    Manual de usuario — Inicio de empresa: alta de empresa desde la constancia de CUIT. Ver también: <a href="empresas_parametros.html">Parámetros de Empresa</a> · <a href="accesos_perfiles.html">Accesos de perfiles</a>.
+</footer>
+
+</body>
+</html>

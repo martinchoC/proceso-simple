@@ -12,8 +12,9 @@ let maestrosPago = {
     bancos: [],
     cheques_en_cartera: [],
     chequeras: [],
-    impuestos_ret: [],
-    sucursales: []
+    retenciones_config: [],
+    sucursales: [],
+    puntos_venta: []
 };
 
 let tablaPagosDT = null;
@@ -83,6 +84,11 @@ async function cargarMaestrosPago() {
             maestrosPago = res.data;
             poblarSelectProveedores();
             poblarSelectSucursales();
+            poblarSelectPuntosVenta();
+            poblarSelectsLote();
+            abrirPagoDesdeUrl();
+            // "Calcular retenciones" solo si la empresa es agente de retención de algún impuesto
+            document.getElementById('btnCalcularRetenciones')?.classList.toggle('d-none', !(maestrosPago.retenciones_config || []).length);
         } else {
             console.error('Error cargando maestros de pagos:', res.error);
         }
@@ -99,17 +105,17 @@ function poblarSelectProveedores() {
     const selectModal = document.getElementById('selectProveedor');
 
     if (selectFiltro) {
-        let opts = '<option value="">-- Todos los Proveedores --</option>';
+        let opts = '<option value="">-- Todos los beneficiarios --</option>';
         (maestrosPago.proveedores || []).forEach(p => {
-            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${(+p.es_cliente === 1 && +p.es_proveedor !== 1) ? ' · cliente (devolución de NC)' : ''}</option>`;
+            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${rolBeneficiario(p)}</option>`;
         });
         selectFiltro.innerHTML = opts;
     }
 
     if (selectModal) {
-        let opts = '<option value="">-- Seleccionar Proveedor --</option>';
+        let opts = '<option value="">-- Seleccionar beneficiario --</option>';
         (maestrosPago.proveedores || []).forEach(p => {
-            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${(+p.es_cliente === 1 && +p.es_proveedor !== 1) ? ' · cliente (devolución de NC)' : ''}</option>`;
+            opts += `<option value="${p.entidad_id}">${escapeHtml(p.entidad_nombre)} (CUIT: ${p.cuit || 'S/D'})${rolBeneficiario(p)}</option>`;
         });
         selectModal.innerHTML = opts;
     }
@@ -127,6 +133,31 @@ function poblarSelectSucursales() {
         opts += `<option value="${s.sucursal_id}">${escapeHtml(s.sucursal_nombre)}</option>`;
     });
     select.innerHTML = opts;
+}
+
+/**
+ * Llena el select de puntos de venta de la OP: solo los que tienen habilitada la Orden de Pago.
+ * Si la empresa no habilitó ninguno, queda "Automático" y el servidor lo asigna (PV de tesorería de la sucursal).
+ */
+function poblarSelectPuntosVenta() {
+    const select = document.getElementById('selectPuntoVenta');
+    if (!select) return;
+    const pvs = maestrosPago.puntos_venta || [];
+    select.innerHTML = pvs.length
+        ? pvs.map(pv => `<option value="${pv.punto_venta_id}" data-sucursal="${pv.sucursal_id}">${escapeHtml(String(pv.codigo_fiscal).padStart(5, '0') + ' - ' + pv.nombre)}</option>`).join('')
+        : '<option value="">Automático</option>';
+    select.disabled = !pvs.length;
+    select.title = pvs.length ? '' : 'Ningún punto de venta tiene habilitada la Orden de Pago: se asigna solo.';
+}
+
+/** Elige el primer punto de venta habilitado de la sucursal (o el primero de la lista). */
+function elegirPuntoVentaDeSucursal() {
+    const select = document.getElementById('selectPuntoVenta');
+    const pvs = maestrosPago.puntos_venta || [];
+    if (!select || !pvs.length) return;
+    const suc = document.getElementById('selectSucursal').value;
+    const pv = pvs.find(x => String(x.sucursal_id) === String(suc)) || pvs[0];
+    select.value = pv.punto_venta_id;
 }
 
 /**
@@ -201,6 +232,14 @@ function configurarEventosPagos() {
         }
     };
 
+    // Punto de venta de la OP: al cambiar la sucursal se propone su PV; al elegir un PV, su sucursal
+    document.getElementById('selectSucursal')?.addEventListener('change', elegirPuntoVentaDeSucursal);
+    document.getElementById('selectPuntoVenta')?.addEventListener('change', function () {
+        const suc = this.selectedOptions[0]?.dataset.sucursal;
+        const selSuc = document.getElementById('selectSucursal');
+        if (suc && [...selSuc.options].some(o => o.value === suc)) selSuc.value = suc;
+    });
+
     document.getElementById('formFiltros')?.addEventListener('submit', function (e) {
         e.preventDefault();
         recargarTablaPagos();
@@ -229,6 +268,7 @@ function configurarEventosPagos() {
 
     document.getElementById('btnNuevoPago')?.addEventListener('click', abrirModalNuevoPago);
     document.getElementById('btnAgregarMedio')?.addEventListener('click', () => agregarFilaMedioPago());
+    document.getElementById('btnCalcularRetenciones')?.addEventListener('click', calcularRetencionesPago);
 
     document.getElementById('selectProveedor')?.addEventListener('change', function () {
         cargarComprobantesPendientesProveedor(this.value);
@@ -269,6 +309,8 @@ function configurarEventosPagos() {
             abrirModalAnularPago(id);
         } else if (accion === 'eliminar') {
             eliminarBorradorPago(id);
+        } else if (accion === 'aprobar' || accion === 'rechazar') {
+            aprobarRechazarPago(id, accion);
         }
     });
 
@@ -287,6 +329,7 @@ function abrirModalNuevoPago() {
     const hoy = new Date().toISOString().split('T')[0];
     document.getElementById('inputFechaEmision').value = hoy;
     document.getElementById('inputFechaContable').value = hoy;
+    elegirPuntoVentaDeSucursal();
 
     const tbodyMedios = document.getElementById('tbodyMedios');
     tbodyMedios.innerHTML = '';
@@ -308,7 +351,7 @@ function limpiarSeccionPendientesProveedor() {
     document.getElementById('contenedorTablaPendientes').classList.add('d-none');
     document.getElementById('spinnerPendientes').classList.add('d-none');
     document.getElementById('vacioPendientes').classList.remove('d-none');
-    document.getElementById('vacioPendientes').innerText = 'Seleccione un proveedor para ver sus facturas pendientes de pago.';
+    document.getElementById('vacioPendientes').innerText = 'Elegí el beneficiario para ver sus facturas y obligaciones pendientes de pago.';
 }
 
 /**
@@ -344,7 +387,9 @@ async function cargarComprobantesPendientesProveedor(entidadId, imputacionesPrev
             res.data.forEach(c => {
                 const compId = c.comprobante_id;
                 const pendiente = parseFloat(c.importe_pendiente);
-                const nroFormateado = `${escapeHtml(c.comprobante_tipo)} ${String(c.comprobante_pv).padStart(4, '0')}-${String(c.comprobante_nro).padStart(8, '0')}`;
+                const nroFormateado = `${escapeHtml(c.comprobante_codigo || c.comprobante_tipo)} ${String(c.comprobante_pv).padStart(4, '0')}-${String(c.comprobante_nro).padStart(8, '0')}`
+                    + (c.obligacion_tipo ? `<br><span class="badge bg-light text-dark border">${escapeHtml(c.obligacion_tipo)}</span>`
+                        + (c.obligacion_clase === 'ANTICIPO' ? ' <span class="small text-info" title="El pago queda como saldo a favor del beneficiario, para aplicarlo después">anticipo</span>' : '') : '');
 
                 let montoImputarPrev = 0.0;
                 if (imputacionesPrevias.length > 0) {
@@ -402,7 +447,7 @@ async function cargarComprobantesPendientesProveedor(entidadId, imputacionesPrev
 
         } else {
             vacio.classList.remove('d-none');
-            vacio.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i> El proveedor no registra facturas pendientes de pago. Todo pago ingresado quedará como <strong>anticipo</strong>.`;
+            vacio.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i> El beneficiario no tiene facturas ni obligaciones pendientes de pago. Todo pago ingresado quedará como <strong>anticipo</strong>.`;
             recalcularBalancePago();
         }
     } catch (e) {
@@ -416,18 +461,23 @@ async function cargarComprobantesPendientesProveedor(entidadId, imputacionesPrev
 /**
  * Agrega una fila de medio de pago
  */
-function agregarFilaMedioPago(tipoDefecto = null) {
+function opcionesMediosPago(medioPagoId = null, codigoDefecto = null) {
+    let optionsMedios = '';
+    maestrosPago.medios_pago.forEach(m => {
+        const selected = ((medioPagoId && parseInt(m.medio_pago_id) === parseInt(medioPagoId)) || (!medioPagoId && codigoDefecto && m.codigo === codigoDefecto)) ? 'selected' : '';
+        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" data-impuesto="${m.impuesto_tipo_id || ''}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
+    });
+    return optionsMedios;
+}
+
+function agregarFilaMedioPago(tipoDefecto = null, medioPagoId = null, datosPrevios = null) {
     indiceMedioPago++;
     const tbody = document.getElementById('tbodyMedios');
     const tr = document.createElement('tr');
     tr.id = `fila_medio_pago_${indiceMedioPago}`;
     tr.dataset.indice = indiceMedioPago;
 
-    let optionsMedios = '';
-    maestrosPago.medios_pago.forEach(m => {
-        const selected = (tipoDefecto && m.codigo === tipoDefecto) ? 'selected' : '';
-        optionsMedios += `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}" data-codigo="${m.codigo}" data-impuesto="${m.impuesto_tipo_id || ''}" ${selected}>${escapeHtml(m.medio_pago)}</option>`;
-    });
+    const optionsMedios = opcionesMediosPago(medioPagoId, tipoDefecto);
 
     tr.innerHTML = `
         <td>
@@ -459,7 +509,84 @@ function agregarFilaMedioPago(tipoDefecto = null) {
         recalcularBalancePago();
     });
 
-    renderizarCamposEspecificosMedioPago(tr);
+    renderizarCamposEspecificosMedioPago(tr, datosPrevios);
+    return tr;
+}
+
+/** Nombre de una retención configurada: en IIBB lleva la jurisdicción. */
+function nombreRetencionConfig(c) {
+    return parseInt(c.es_iibb) === 1 && c.jurisdiccion_nombre ? `${c.impuesto_tipo} - ${c.jurisdiccion_nombre}` : c.impuesto_tipo;
+}
+
+/**
+ * Calcula las retenciones del pago con la configuración del agente (Impuestos Adic. - Conf) sobre los
+ * comprobantes imputados, y carga o actualiza una línea RETENCION por impuesto / jurisdicción.
+ */
+async function calcularRetencionesPago() {
+    const entidadId = parseInt(document.getElementById('selectProveedor').value) || 0;
+    if (entidadId <= 0) {
+        Swal.fire('Atención', 'Seleccione el proveedor.', 'warning');
+        return;
+    }
+    const imputaciones = [];
+    document.querySelectorAll('.input-imputar').forEach(inp => {
+        const monto = parseFloat(inp.value) || 0;
+        if (monto > 0.001) imputaciones.push({ comprobante_destino_id: parseInt(inp.dataset.id), importe_imputado: monto });
+    });
+    try {
+        const resp = await fetch(`pagos_ajax.php?accion=calcular_retenciones&empresa_idx=${getEmpresaId()}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entidad_id: entidadId, f_emision: document.getElementById('inputFechaEmision').value, imputaciones })
+        });
+        const res = await resp.json();
+        if (!res.success) {
+            Swal.fire('Error', res.error || res.message || 'No se pudieron calcular las retenciones.', 'error');
+            return;
+        }
+        const { retenciones, avisos } = res.data;
+        retenciones.forEach(r => {
+            const datos = {
+                impuesto_tipo_id: r.impuesto_tipo_id,
+                jurisdiccion_id: r.jurisdiccion_id,
+                retencion_base_imponible: r.retencion_base_imponible,
+                retencion_alicuota: r.retencion_alicuota
+            };
+            // Si ya hay una línea para ese impuesto / jurisdicción se actualiza (conserva el certificado)
+            let tr = Array.from(document.querySelectorAll('#tbodyMedios tr')).find(fila => {
+                const opt = fila.querySelector('.input-retencion-tipo')?.selectedOptions[0];
+                return opt && parseInt(opt.dataset.impuesto) === parseInt(r.impuesto_tipo_id)
+                    && (parseInt(opt.dataset.jurisdiccion) || 0) === (parseInt(r.jurisdiccion_id) || 0);
+            });
+            if (tr) {
+                datos.retencion_certificado_nro = tr.querySelector('.input-retencion-cert')?.value || '';
+                renderizarCamposEspecificosMedioPago(tr, datos);
+            } else {
+                tr = agregarFilaMedioPago(null, r.medio_pago_id, datos);
+            }
+            tr.querySelector('.input-medio-importe').value = parseFloat(r.importe).toFixed(2);
+        });
+        recalcularBalancePago();
+
+        const origenes = { PADRON: ' (padrón)', ESCALA: ' (escala)' };
+        const lineas = retenciones.map(r => {
+            let txt = `${escapeHtml(nombreRetencionConfig(r))}: base $ ${formatearMoneda(r.retencion_base_imponible)} × ${r.retencion_alicuota}% = <b>$ ${formatearMoneda(r.importe)}</b>${origenes[r.origen] || ''}`;
+            if (r.regimen) txt += `<div class="text-muted">Régimen ${escapeHtml(r.regimen)}${r.condicion ? ' · ' + escapeHtml(r.condicion.replace('_', ' ').toLowerCase()) : ''}</div>`;
+            if (r.base_acumulada_mes !== null && r.base_acumulada_mes !== undefined) {
+                txt += `<div class="text-muted">Acumulado del mes $ ${formatearMoneda(r.base_acumulada_mes)}; ya retenido $ ${formatearMoneda(r.retenciones_previas_mes || 0)}</div>`;
+            }
+            if (r.porcentaje_exclusion) txt += `<div class="text-muted">Exclusión ${r.porcentaje_exclusion} %</div>`;
+            return `<li>${txt}</li>`;
+        }).join('');
+        const notas = (avisos || []).map(a => `<li class="text-muted">${escapeHtml(a)}</li>`).join('');
+        Swal.fire({
+            icon: retenciones.length ? 'success' : 'info',
+            title: retenciones.length ? 'Retenciones calculadas' : 'No corresponde retener',
+            html: `<ul class="text-start small mb-0">${lineas}${notas}</ul>` + (retenciones.length ? '<div class="small mt-2">El certificado de cada retención se numera al confirmar la orden de pago.</div>' : '')
+        });
+    } catch (e) {
+        Swal.fire('Error', e.message || 'Error al calcular retenciones.', 'error');
+    }
 }
 
 /**
@@ -565,52 +692,47 @@ function renderizarCamposEspecificosMedioPago(tr, datosPrevios = null) {
             }
         });
     } else if (tipo === 'RETENCION') {
-        let impuestoMedio = parseInt(opt?.dataset.impuesto) || 0;
-        // Mapeo por familia si el medio de pago proviene de cobros o tiene código estándar
-        if (impuestoMedio === 5 || codigo === 'RET_IVA' || codigo === 'RET_IVA_P') {
-            const itIva = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 15 || it.impuesto_tipo.toLowerCase().includes('iva'));
-            if (itIva) impuestoMedio = parseInt(itIva.impuesto_tipo_id);
-        } else if (impuestoMedio === 21 || codigo === 'RET_GAN' || codigo === 'RET_GAN_P') {
-            const itGan = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 14 || it.impuesto_tipo.toLowerCase().includes('ganancia'));
-            if (itGan) impuestoMedio = parseInt(itGan.impuesto_tipo_id);
-        } else if (impuestoMedio === 4 || codigo === 'RET_IIBB' || codigo === 'RET_IIBB_P') {
-            const itIibb = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 16 || it.impuesto_tipo.toLowerCase().includes('iibb'));
-            if (itIibb) impuestoMedio = parseInt(itIibb.impuesto_tipo_id);
-        } else if (codigo === 'RET_SUSS' || codigo === 'RET_SUSS_P') {
-            const itSuss = maestrosPago.impuestos_ret.find(it => parseInt(it.impuesto_tipo_id) === 17 || it.impuesto_tipo.toLowerCase().includes('suss'));
-            if (itSuss) impuestoMedio = parseInt(itSuss.impuesto_tipo_id);
-        }
+        // Solo los impuestos (y en IIBB las jurisdicciones) de los que la empresa es agente de retención
+        const impuestoMedio = parseInt(opt?.dataset.impuesto) || 0;
+        const configs = maestrosPago.retenciones_config.filter(c => !impuestoMedio || parseInt(c.impuesto_tipo_id) === impuestoMedio);
+        const impPrevio = datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) || 0 : 0;
+        const jurPrevia = datosPrevios ? parseInt(datosPrevios.jurisdiccion_id) || 0 : 0;
 
-        let defaultImpTipoId = impuestoMedio || (datosPrevios ? parseInt(datosPrevios.impuesto_tipo_id) || 0 : 0);
-
-        let optionsImp = '<option value="">-- Retención Practicada --</option>';
-        maestrosPago.impuestos_ret.forEach(it => {
-            const itId = parseInt(it.impuesto_tipo_id);
-            const sel = (defaultImpTipoId && defaultImpTipoId === itId) ? 'selected' : '';
-            if (!impuestoMedio || impuestoMedio === itId) {
-                optionsImp += `<option value="${it.impuesto_tipo_id}" ${sel}>${escapeHtml(it.impuesto_tipo)}</option>`;
-            }
+        let optionsImp = configs.length === 1 ? '' : `<option value="">-- ${configs.some(c => parseInt(c.es_iibb) === 1) ? 'Jurisdicción' : 'Retención Practicada'} --</option>`;
+        configs.forEach(c => {
+            const esIibb = parseInt(c.es_iibb) === 1;
+            const jur = esIibb ? parseInt(c.jurisdiccion_id) || 0 : 0;
+            const sel = (configs.length === 1 || (impPrevio === parseInt(c.impuesto_tipo_id) && (!esIibb || jurPrevia === jur))) ? 'selected' : '';
+            const texto = impuestoMedio && esIibb ? c.jurisdiccion_nombre : nombreRetencionConfig(c);
+            optionsImp += `<option value="${c.empresa_impuesto_config_id}" data-impuesto="${c.impuesto_tipo_id}" data-jurisdiccion="${jur || ''}" data-alicuota="${parseFloat(c.alicuota) || 0}" ${sel}>${escapeHtml(texto)}</option>`;
         });
+        if (!configs.length) optionsImp = '<option value="">La empresa no es agente de este impuesto</option>';
 
         const nroCert = datosPrevios ? escapeHtml(datosPrevios.retencion_certificado_nro || '') : '';
         const base = datosPrevios ? (datosPrevios.retencion_base_imponible || '') : '';
         const ali = datosPrevios ? (datosPrevios.retencion_alicuota || '') : '';
+        const motivo = datosPrevios ? escapeHtml(datosPrevios.retencion_motivo_ajuste || '') : '';
 
         contenedor.innerHTML = `
             <div class="row g-1">
                 <div class="col-sm-4">
-                    <select class="form-select form-select-sm input-retencion-tipo" required ${impuestoMedio ? 'disabled' : ''}>
+                    <select class="form-select form-select-sm input-retencion-tipo" required ${configs.length === 1 ? 'disabled' : ''}>
                         ${optionsImp}
                     </select>
                 </div>
                 <div class="col-sm-3">
-                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="N° Certificado" value="${nroCert}" required>
+                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="Certificado al confirmar" value="${nroCert}" readonly
+                           title="El certificado se numera automáticamente al confirmar la orden de pago">
                 </div>
                 <div class="col-sm-3">
                     <input type="number" step="0.01" class="form-control form-control-sm input-retencion-base" placeholder="Base Imp." value="${base}">
                 </div>
                 <div class="col-sm-2">
                     <input type="number" step="0.01" class="form-control form-control-sm input-retencion-ali" placeholder="%" value="${ali}">
+                </div>
+                <div class="col-12">
+                    <input type="text" maxlength="255" class="form-control form-control-sm input-retencion-motivo" value="${motivo}"
+                           placeholder="Motivo del ajuste (obligatorio si el importe difiere del calculado)">
                 </div>
             </div>
         `;
@@ -629,6 +751,14 @@ function renderizarCamposEspecificosMedioPago(tr, datosPrevios = null) {
         };
         if (inpBase) inpBase.addEventListener('input', recalcularMontoRet);
         if (inpAli) inpAli.addEventListener('input', recalcularMontoRet);
+        // Alícuota genérica de la config como sugerencia (el padrón la ajusta con "Calcular retenciones")
+        const selRet = contenedor.querySelector('.input-retencion-tipo');
+        const sugerirAlicuota = () => {
+            const o = selRet.selectedOptions[0];
+            if (inpAli && !inpAli.value && o && parseFloat(o.dataset.alicuota) > 0) inpAli.value = o.dataset.alicuota;
+        };
+        selRet.addEventListener('change', sugerirAlicuota);
+        sugerirAlicuota();
     }
 }
 
@@ -751,12 +881,13 @@ function recopilarDatosPago() {
     const pagoId = parseInt(document.getElementById('pago_id').value) || 0;
     const entidadId = parseInt(document.getElementById('selectProveedor').value) || 0;
     const sucursalId = parseInt(document.getElementById('selectSucursal').value) || 1;
+    const puntoVentaId = parseInt(document.getElementById('selectPuntoVenta')?.value) || 0;
     const fEmision = document.getElementById('inputFechaEmision').value;
     const fContabilidad = document.getElementById('inputFechaContable').value || fEmision;
     const observaciones = document.getElementById('inputObservaciones').value.trim();
 
     if (entidadId <= 0) {
-        Swal.fire('Atención', 'Debe seleccionar un proveedor.', 'warning');
+        Swal.fire('Atención', 'Elegí el beneficiario.', 'warning');
         return null;
     }
 
@@ -819,20 +950,22 @@ function recopilarDatosPago() {
             medioObj.cheque_tercero_id = parseInt(selEndoso.value);
         } else if (tipo === 'RETENCION') {
             const selImp = tr.querySelector('.input-retencion-tipo');
-            const inpCert = tr.querySelector('.input-retencion-cert');
             const inpBase = tr.querySelector('.input-retencion-base');
             const inpAli = tr.querySelector('.input-retencion-ali');
+            const inpMotivo = tr.querySelector('.input-retencion-motivo');
 
-            const optSel = selectTipo.options[selectTipo.selectedIndex];
-            const impId = parseInt(selImp?.value) || parseInt(optSel?.dataset.impuesto) || 0;
+            const optRet = selImp?.selectedOptions[0];
+            const impId = parseInt(optRet?.dataset.impuesto) || 0;
 
-            if (!impId || !inpCert.value) {
-                Swal.fire('Atención', 'Complete el tipo y número de certificado de la retención.', 'warning');
+            if (!impId) {
+                Swal.fire('Atención', 'Complete el impuesto de la retención (en IIBB, la jurisdicción).', 'warning');
                 return null;
             }
 
+            // El certificado lo numera el servidor al confirmar; el importe se controla contra el calculado
             medioObj.impuesto_tipo_id = impId;
-            medioObj.retencion_certificado_nro = inpCert.value.trim();
+            medioObj.jurisdiccion_id = parseInt(optRet.dataset.jurisdiccion) || null;
+            medioObj.retencion_motivo_ajuste = inpMotivo ? inpMotivo.value.trim() : '';
             medioObj.retencion_base_imponible = parseFloat(inpBase.value) || 0;
             medioObj.retencion_alicuota = parseFloat(inpAli.value) || 0;
         }
@@ -864,6 +997,7 @@ function recopilarDatosPago() {
         pago_id: pagoId,
         entidad_id: entidadId,
         sucursal_id: sucursalId,
+        comprobante_pv: puntoVentaId,
         f_emision: fEmision,
         f_contabilidad: fContabilidad,
         observaciones: observaciones,
@@ -931,14 +1065,15 @@ async function guardarPago(confirmarInmediato = false) {
             }
 
             Swal.fire({
-                title: '¡Orden de Pago Emitida!',
+                title: resC.pendiente_aprobacion ? 'Pendiente de aprobación' : '¡Orden de Pago Emitida!',
                 html: `<strong>${resC.message}</strong>`,
-                icon: 'success'
+                icon: resC.pendiente_aprobacion ? 'info' : 'success'
             });
 
             ocultarModal('modalPago');
             tablaPagosDT.ajax.reload();
-            verPago(idGenerado);
+            recargarPendientesPago();
+            if (!resC.pendiente_aprobacion) verPago(idGenerado);
         } else {
             Swal.fire('Guardado', 'El borrador de Orden de Pago fue guardado correctamente.', 'success');
             ocultarModal('modalPago');
@@ -979,6 +1114,13 @@ async function editarBorradorPago(id) {
 
         document.getElementById('selectProveedor').value = cabecera.entidad_id;
         document.getElementById('selectSucursal').value = cabecera.sucursal_id;
+        // El PV guardado, si sigue habilitado para la OP; si no, el de la sucursal
+        const selPv = document.getElementById('selectPuntoVenta');
+        if ((maestrosPago.puntos_venta || []).some(x => String(x.punto_venta_id) === String(cabecera.comprobante_pv))) {
+            selPv.value = cabecera.comprobante_pv;
+        } else {
+            elegirPuntoVentaDeSucursal();
+        }
         document.getElementById('inputFechaEmision').value = cabecera.f_emision;
         document.getElementById('inputFechaContable').value = cabecera.f_contabilidad || cabecera.f_emision;
         document.getElementById('inputObservaciones').value = cabecera.observaciones || '';
@@ -993,11 +1135,7 @@ async function editarBorradorPago(id) {
             tr.id = `fila_medio_pago_${indiceMedioPago}`;
             tr.dataset.indice = indiceMedioPago;
 
-            let optionsMedios = '';
-            maestrosPago.medios_pago.forEach(mp => {
-                const sel = (parseInt(mp.medio_pago_id) === parseInt(m.medio_pago_id)) ? 'selected' : '';
-                optionsMedios += `<option value="${mp.medio_pago_id}" data-tipo="${mp.medio_pago_tipo}" data-codigo="${mp.codigo}" ${sel}>${escapeHtml(mp.medio_pago)}</option>`;
-            });
+            const optionsMedios = opcionesMediosPago(m.medio_pago_id);
 
             tr.innerHTML = `
                 <td>
@@ -1073,12 +1211,13 @@ async function confirmarPagoDirecto(id) {
 
         if (res.success) {
             Swal.fire({
-                title: '¡Orden de Pago Confirmada!',
+                title: res.pendiente_aprobacion ? 'Pendiente de aprobación' : '¡Orden de Pago Confirmada!',
                 html: `<strong>${res.message}</strong>`,
-                icon: 'success'
+                icon: res.pendiente_aprobacion ? 'info' : 'success'
             });
             tablaPagosDT.ajax.reload();
-            verPago(id);
+            recargarPendientesPago();
+            if (!res.pendiente_aprobacion) verPago(id);
         } else {
             Swal.fire('Error', res.error || 'No se pudo confirmar la orden de pago.', 'error');
         }
@@ -1123,6 +1262,7 @@ async function verPago(id) {
         let tablaMediosHtml = '';
         medios.forEach(m => {
             let detalle = m.medio_pago;
+            let linkCertificado = '';
             if (m.medio_pago_tipo === 'EFECTIVO' && m.tesoreria_cuenta) {
                 detalle += ` (${m.tesoreria_cuenta})`;
             } else if (m.medio_pago_tipo === 'TRANSFERENCIA') {
@@ -1132,12 +1272,18 @@ async function verPago(id) {
             } else if (m.medio_pago_tipo === 'CHEQUE_TERCERO') {
                 detalle += ` (Endoso Cheque Tercero: ${m.cheque_banco || 'Banco'} N° ${m.cheque_nro || 'S/N'} Vto: ${m.cheque_f_pago || '-'})`;
             } else if (m.medio_pago_tipo === 'RETENCION') {
-                detalle += ` (Retención Certificado: ${m.retencion_certificado_nro || 'S/N'})`;
+                const imp = m.impuesto_tipo ? `${m.impuesto_tipo}${m.jurisdiccion_nombre ? ' - ' + m.jurisdiccion_nombre : ''} - ` : '';
+                detalle += ` (${imp}Certificado: ${m.retencion_certificado_nro || 'al confirmar'})`;
+                if (m.retencion_motivo_ajuste) detalle += ` - Ajuste: ${m.retencion_motivo_ajuste}`;
+                if (m.retencion_id && m.retencion_certificado_nro) {
+                    linkCertificado = ` <a href="pagos_retencion_print.php?retencion_id=${parseInt(m.retencion_id)}&empresa_idx=${getEmpresaId()}" target="_blank"
+                        class="btn btn-xs btn-outline-secondary ms-1 d-print-none" title="Imprimir certificado de retención"><i class="fas fa-print"></i></a>`;
+                }
             }
 
             tablaMediosHtml += `
                 <tr>
-                    <td>${escapeHtml(detalle)}</td>
+                    <td>${escapeHtml(detalle)}${linkCertificado}</td>
                     <td class="text-end fw-bold">$ ${formatearMoneda(m.importe_comprobante)}</td>
                 </tr>
             `;
@@ -1170,8 +1316,8 @@ async function verPago(id) {
             <div class="border p-4 bg-white shadow-sm" style="font-family: Arial, sans-serif;">
                 <div class="row align-items-center border-bottom pb-3 mb-3">
                     <div class="col-sm-7">
-                        <h4 class="fw-bold mb-0 text-dark">CASA LUCHO</h4>
-                        <small class="text-muted d-block">Distribuidora Mayorista de Autopartes</small>
+                        <h4 class="fw-bold mb-0 text-dark">${escapeHtml(cabecera.empresa_nombre || '')}</h4>
+                        <small class="text-muted d-block">${cabecera.empresa_cuit ? 'CUIT: ' + escapeHtml(cabecera.empresa_cuit) : ''}${cabecera.empresa_cuit && cabecera.empresa_domicilio ? ' · ' : ''}${escapeHtml(cabecera.empresa_domicilio || '')}</small>
                         <small class="text-muted">Sucursal: ${escapeHtml(cabecera.sucursal_nombre)}</small>
                     </div>
                     <div class="col-sm-5 text-end">
@@ -1343,7 +1489,7 @@ async function eliminarBorradorPago(id) {
 
 function formatearMoneda(val) {
     const num = parseFloat(val) || 0;
-    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Fmt.numero(num, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function escapeHtml(text) {
@@ -1355,3 +1501,199 @@ function escapeHtml(text) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+/* =========================================================================================================
+ * Beneficiarios, aprobación de OP, apertura desde Obligaciones de Pago y pago en lote
+ * (_local/docs/gestion/13_obligaciones_de_pago.md)
+ * ========================================================================================================= */
+
+function rolBeneficiario(p) {
+    if (+p.es_proveedor === 1) return '';
+    if (+p.es_empleado === 1) return ' · empleado';
+    if (+p.es_organismo === 1) return ' · organismo';
+    if (+p.es_cliente === 1) return ' · cliente (devolución de NC)';
+    return '';
+}
+
+async function aprobarRechazarPago(id, accion) {
+    let motivo = '';
+    if (accion === 'rechazar') {
+        const r = await Swal.fire({
+            title: '¿Rechazar la orden de pago?', text: 'Vuelve a Borrador para corregirla.', icon: 'question', input: 'text',
+            inputPlaceholder: 'Motivo', showCancelButton: true, confirmButtonText: 'Rechazar', cancelButtonText: 'Cancelar',
+            inputValidator: (v) => (!v || !v.trim()) ? 'Indicá el motivo.' : undefined
+        });
+        if (!r.isConfirmed) return;
+        motivo = r.value;
+    } else {
+        const r = await Swal.fire({
+            title: '¿Aprobar la orden de pago?', text: 'Si es la última aprobación que falta, se emite: sale el dinero y se cancelan los comprobantes.',
+            icon: 'question', showCancelButton: true, confirmButtonText: 'Aprobar', cancelButtonText: 'Cancelar'
+        });
+        if (!r.isConfirmed) return;
+    }
+    try {
+        const resp = await fetch(`pagos_ajax.php?accion=${accion}&empresa_idx=${getEmpresaId()}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, motivo })
+        });
+        const res = await resp.json();
+        if (!res.success) {
+            Swal.fire('No se pudo completar', res.error || 'Error al procesar la orden de pago.', 'error');
+            return;
+        }
+        Swal.fire({ icon: 'success', title: 'Listo', text: res.message });
+        tablaPagosDT.ajax.reload();
+        recargarPendientesPago();
+    } catch (e) {
+        Swal.fire('Error', e.message || 'Error de comunicación.', 'error');
+    }
+}
+
+/** Desde Obligaciones de Pago ("Pagar"): pagos.php?entidad_id=..&comprobante_id=.. abre la OP con eso marcado. */
+async function abrirPagoDesdeUrl() {
+    const q = new URLSearchParams(window.location.search);
+    const entidad = parseInt(q.get('entidad_id')) || 0;
+    const comp = parseInt(q.get('comprobante_id')) || 0;
+    if (entidad <= 0) return;
+    if (!(maestrosPago.proveedores || []).some(p => +p.entidad_id === entidad)) {
+        Swal.fire('Revisá el beneficiario', 'La entidad no tiene rol de proveedor, empleado ni organismo.', 'warning');
+        return;
+    }
+    abrirModalNuevoPago();
+    document.getElementById('selectProveedor').value = entidad;
+    await cargarComprobantesPendientesProveedor(entidad);
+    if (comp > 0) {
+        const chk = document.querySelector(`.check-pendiente[data-id="${comp}"]`);
+        if (chk) {
+            chk.checked = true;
+            chk.dispatchEvent(new Event('change'));
+            const primerImporte = document.querySelector('#tbodyMedios .input-medio-importe');
+            if (primerImporte) {
+                primerImporte.value = parseFloat(chk.dataset.pendiente).toFixed(2);
+                recalcularBalancePago();
+            }
+        }
+    }
+}
+
+// --- Solapa "Pendientes de pago" ---------------------------------------------------------------------------
+
+let tablaPendientesDT = null;
+
+function poblarSelectsLote() {
+    const medios = (maestrosPago.medios_pago || []).filter(m => m.medio_pago_tipo === 'EFECTIVO' || m.medio_pago_tipo === 'TRANSFERENCIA');
+    const selMedio = document.getElementById('loteMedio');
+    const selCuenta = document.getElementById('loteCuenta');
+    if (selMedio) selMedio.innerHTML = medios.map(m => `<option value="${m.medio_pago_id}" data-tipo="${m.medio_pago_tipo}">${escapeHtml(m.medio_pago)}</option>`).join('');
+    if (selCuenta) selCuenta.innerHTML = (maestrosPago.cuentas_tesoreria || [])
+        .map(c => `<option value="${c.tesoreria_cuenta_id}">${escapeHtml(c.tesoreria_cuenta || c.nombre || ('Cuenta ' + c.tesoreria_cuenta_id))}</option>`).join('');
+}
+
+function inicializarPendientesPago() {
+    if (tablaPendientesDT || !document.getElementById('tablaPendientesPago')) return;
+    tablaPendientesDT = $('#tablaPendientesPago').DataTable({
+        ajax: {
+            url: 'pagos_ajax.php', type: 'GET',
+            data: (d) => { d.accion = 'pendientes_todos'; d.empresa_idx = getEmpresaId(); },
+            dataSrc: (json) => {
+                const filtro = document.getElementById('filtroPendientesClase')?.value || '';
+                return (json.data || []).filter(c => !filtro || (filtro === 'FACTURAS' ? !c.obligacion_id : (filtro === 'OBLIGACIONES' ? !!c.obligacion_id : c.obligacion_tipo === filtro)));
+            }
+        },
+        order: [[5, 'asc']],
+        pageLength: 25,
+        columns: [
+            { data: 'comprobante_id', orderable: false, className: 'text-center',
+              render: (d, t, r) => `<input type="checkbox" class="form-check-input check-lote" value="${d}" data-pendiente="${r.importe_pendiente}">` },
+            { data: 'entidad_nombre', render: (d, t, r) => `<strong>${escapeHtml((r && r.entidad_fantasia) || d || '')}</strong>` },
+            { data: 'obligacion_tipo', render: (d, t, r) => d ? `<span class="badge bg-light text-dark border">${escapeHtml(d)}</span>` : '<span class="text-muted small">Factura / nota de compra</span>' },
+            { data: 'comprobante_codigo', render: (d, t, r) => `${escapeHtml(d || '')} ${String(r.comprobante_pv).padStart(4, '0')}-${String(r.comprobante_nro).padStart(8, '0')}` },
+            { data: 'f_emision', className: 'ui-detalle' },
+            { data: 'f_vto', render: (d) => d ? `<span class="${d < new Date().toISOString().slice(0, 10) ? 'text-danger fw-bold' : ''}">${d}</span>` : '-' },
+            { data: 'importe_pendiente', className: 'text-end', render: (d) => `$ ${formatearMoneda(d)}` },
+            { data: null, orderable: false, className: 'text-center',
+              render: (d, t, r) => `<button type="button" class="btn btn-sm btn-outline-primary btn-pagar-uno" data-entidad="${r.entidad_id}" data-id="${r.comprobante_id}" title="Armar la OP de este comprobante"><i class="fas fa-money-check-alt"></i></button>` }
+        ],
+        language: { url: (window.APP_ASSETS_URL || '') + 'js/datatables-i18n-2.1.8/es-ES.json' },
+        drawCallback: () => actualizarTotalLote()
+    });
+    $('#tablaPendientesPago').on('change', '.check-lote', actualizarTotalLote);
+    $('#tablaPendientesPago').on('click', '.btn-pagar-uno', async function () {
+        abrirModalNuevoPago();
+        const entidad = $(this).data('entidad');
+        const comp = $(this).data('id');
+        document.getElementById('selectProveedor').value = entidad;
+        await cargarComprobantesPendientesProveedor(entidad);
+        const chk = document.querySelector(`.check-pendiente[data-id="${comp}"]`);
+        if (chk) {
+            chk.checked = true;
+            chk.dispatchEvent(new Event('change'));
+            const primerImporte = document.querySelector('#tbodyMedios .input-medio-importe');
+            if (primerImporte) { primerImporte.value = parseFloat(chk.dataset.pendiente).toFixed(2); recalcularBalancePago(); }
+        }
+    });
+    document.getElementById('checkTodosLote')?.addEventListener('change', function () {
+        document.querySelectorAll('#tablaPendientesPago .check-lote').forEach(c => { c.checked = this.checked; });
+        actualizarTotalLote();
+    });
+    document.getElementById('filtroPendientesClase')?.addEventListener('change', recargarPendientesPago);
+    document.getElementById('btnPagarLote')?.addEventListener('click', pagarLote);
+}
+
+function recargarPendientesPago() {
+    if (tablaPendientesDT) tablaPendientesDT.ajax.reload(null, false);
+}
+
+function actualizarTotalLote() {
+    let n = 0, total = 0;
+    document.querySelectorAll('#tablaPendientesPago .check-lote:checked').forEach(c => { n++; total += parseFloat(c.dataset.pendiente) || 0; });
+    const el = document.getElementById('totalLote');
+    if (el) el.textContent = n ? `${n} seleccionados · $ ${formatearMoneda(total)}` : '';
+    const btn = document.getElementById('btnPagarLote');
+    if (btn) btn.disabled = n === 0;
+}
+
+async function pagarLote() {
+    const ids = Array.from(document.querySelectorAll('#tablaPendientesPago .check-lote:checked')).map(c => parseInt(c.value));
+    if (!ids.length) return;
+    const total = Array.from(document.querySelectorAll('#tablaPendientesPago .check-lote:checked')).reduce((s, c) => s + (parseFloat(c.dataset.pendiente) || 0), 0);
+    const r = await Swal.fire({
+        title: '¿Pagar los seleccionados?',
+        html: `Se arma una orden de pago por beneficiario, por el saldo completo ($ ${formatearMoneda(total)} en total), con el medio y la cuenta elegidos.`,
+        icon: 'question', showCancelButton: true, confirmButtonText: 'Pagar', cancelButtonText: 'Cancelar'
+    });
+    if (!r.isConfirmed) return;
+    Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+        const resp = await fetch(`pagos_ajax.php?accion=pagar_lote&empresa_idx=${getEmpresaId()}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                comprobante_ids: ids,
+                medio_pago_id: document.getElementById('loteMedio').value,
+                tesoreria_cuenta_id: document.getElementById('loteCuenta').value,
+                f_emision: document.getElementById('loteFecha').value
+            })
+        });
+        const res = await resp.json();
+        if (!res.success) {
+            Swal.fire('No se pudo completar', res.error || 'Error al pagar.', 'error');
+            return;
+        }
+        const filas = (res.data || []).map(x => `<tr><td class="text-start">${escapeHtml(x.entidad)}</td><td class="text-end">$ ${formatearMoneda(x.importe)}</td>`
+            + `<td class="text-start small ${x.ok ? 'text-success' : 'text-danger'}">${escapeHtml(x.mensaje)}</td></tr>`).join('');
+        Swal.fire({ title: 'Resultado del pago', width: 800, html: `<table class="table table-sm small">${filas}</table>`, icon: (res.data || []).every(x => x.ok) ? 'success' : 'warning' });
+        tablaPagosDT.ajax.reload();
+        recargarPendientesPago();
+    } catch (e) {
+        Swal.fire('Error', e.message || 'Error de comunicación.', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const f = document.getElementById('loteFecha');
+    if (f) f.value = new Date().toISOString().split('T')[0];
+    document.querySelector('[data-bs-target="#solapaPendientesPago"]')?.addEventListener('shown.bs.tab', () => {
+        inicializarPendientesPago();
+        tablaPendientesDT?.columns.adjust();
+    });
+});

@@ -74,7 +74,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button class="btn btn-outline-dark btn-sm me-2" id="btnLimpiar">
                                 <i class="fas fa-undo me-1"></i>Limpiar
                             </button>
-                            <button class="btn btn-success btn-sm shadow-sm" id="btnNuevaTarea">
+                            <button class="btn btn-success btn-sm shadow-sm" id="btnNuevaTarea" data-funcion="agregar">
                                 <i class="fas fa-plus-circle me-1"></i>Nueva Tarea RACI
                             </button>
                         </div>
@@ -294,5 +294,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="tareas_raci.js"></script>
+<?php require_once __DIR__ . '/estudio_cliente_activo.php'; estudio_cliente_activo_script((int) $current_empresa_id); ?>
+<script src="tareas_raci.js?v=<?= (int) @filemtime(__DIR__ . '/tareas_raci.js') ?>"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

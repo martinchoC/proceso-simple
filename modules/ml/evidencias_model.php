@@ -12,7 +12,11 @@ require_once __DIR__ . '/ejecucion_seguimiento_service.php';
  * Listar evidencias adjuntas con filtros
  */
 function evidencias_listar(mysqli $conexion, int $empresa_id, array $filtros = []): array {
-    $where = ["evi.empresa_id = {$empresa_id}"];
+    if ($empresa_id === 1) {
+        $where = ["(evi.empresa_id IN (1, 2, 3))"];
+    } else {
+        $where = ["evi.empresa_id = {$empresa_id}"];
+    }
 
     if (!empty($filtros['entidad_id'])) {
         $entidad_id = (int)$filtros['entidad_id'];
@@ -30,7 +34,13 @@ function evidencias_listar(mysqli $conexion, int $empresa_id, array $filtros = [
 
     if (!empty($filtros['estado_id'])) {
         $estado_id = (int)$filtros['estado_id'];
-        $where[] = "evi.tabla_estado_registro_id = {$estado_id}";
+        if ($estado_id === 1 || $estado_id === 2039) {
+            $where[] = "evi.tabla_estado_registro_id IN (1, 2039)";
+        } elseif ($estado_id === 2 || $estado_id === 2040) {
+            $where[] = "evi.tabla_estado_registro_id IN (2, 2040)";
+        } else {
+            $where[] = "evi.tabla_estado_registro_id = {$estado_id}";
+        }
     }
 
     $where_sql = implode(' AND ', $where);

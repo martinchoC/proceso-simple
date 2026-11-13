@@ -1,8 +1,12 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 require_once __DIR__ . '/precios_core_model.php';
+require_once __DIR__ . '/../../core/productos_proveedores.php';
+require_once __DIR__ . '/../../core/proveedor_precios_importaciones.php';
 
 /* =========================================================================
  * Motor de estados genérico — COPIA FUNCIONAL de las mismas funciones que
@@ -44,7 +48,7 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
 
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -69,7 +73,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -140,16 +147,16 @@ function obtenerTablaOrigenPorPagina($conexion, $pagina_id)
 }
 
 /* =========================================================================
- * Combo de proveedores — confirmado por Pablo: gestion__entidades.es_proveedor = 1
+ * Combo de proveedores — confirmado por Pablo: entidades con rol PRO activo (gestion__entidades_roles)
  * ========================================================================= */
 function obtenerProveedores($conexion, $empresa_id)
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia
+    $sql = "SELECT e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia
             FROM gestion__entidades e
             WHERE e.empresa_id = ?
-              AND e.es_proveedor = 1
+              AND " . ent_sql_tiene_rol('e.entidad_id', 'PRO') . "
               AND e.tabla_estado_registro_id = 1
             ORDER BY e.entidad_nombre";
 
@@ -287,7 +294,12 @@ function obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad
         return ['listas_precios' => obtenerListasPreciosActivas($conexion, $empresa_id), 'filas' => [], 'requiere_filtro' => true];
     }
 
-    $where_conditions = ["ppp.empresa_id = ?"];
+    $where_conditions = [
+        "ppp.empresa_id = ?",
+        "ppp.tabla_estado_registro_id = 1",
+        "pp.tabla_estado_registro_id = 1",
+        "p.tabla_estado_registro_id = 1"
+    ];
     $where_params = [$empresa_id];
     $where_types = "i";
 
@@ -346,10 +358,11 @@ function obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad
     // no 3 GROUP_CONCAT DISTINCT sueltos por campo — eso mezclaría combos que
     // no existen realmente si el producto tiene más de una compatibilidad.
     $sql = "SELECT ppp.producto_proveedor_precio_id, ppp.producto_proveedor_id, ppp.entidad_id,
-                   e.entidad_nombre,
+                   COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre,
                    ppp.precio_lista, ppp.moneda_id, ppp.f_vigencia_desde,
                    ppp.origen_carga, ppp.archivo_importacion, ppp.tabla_estado_registro_id,
                    pp.codigo_proveedor, pp.producto_id,
+                   " . pp_sql_es_principal('pp') . " AS es_principal,
                    p.producto_codigo, p.producto_nombre, p.producto_categoria_id,
                    COALESCE(
                        (SELECT CONCAT('[', GROUP_CONCAT(
@@ -425,6 +438,7 @@ function obtenerFilasPreciosProveedorCalculadas($conexion, $empresa_id, $entidad
         $producto_id = (int)$fila['producto_id'];
         $categoria_id = (int)$fila['producto_categoria_id'];
 
+        $fila['es_principal'] = (int)$fila['es_principal'];
         $fila['descuento_general_pct'] = $descuento_general;
         $fila['costo_neto_compra'] = $costo_neto;
         $fila['costo_actual_registrado'] = $costosPorProducto[$producto_id] ?? null;
@@ -615,7 +629,7 @@ function buscarProductosCatalogo($conexion, $empresa_id, $entidad_id, $q)
             LEFT JOIN gestion__productos_proveedores pp
                    ON pp.producto_id = p.producto_id AND pp.entidad_id = ? AND pp.empresa_id = p.empresa_id AND pp.tabla_estado_registro_id = 1
             LEFT JOIN gestion__productos_proveedores_precios ppp
-                   ON ppp.producto_proveedor_id = pp.producto_proveedor_id
+                   ON ppp.producto_proveedor_id = pp.producto_proveedor_id AND ppp.tabla_estado_registro_id = 1
             WHERE p.empresa_id = ?
               AND p.tabla_estado_registro_id = 1
               AND (p.producto_nombre LIKE ? OR p.producto_codigo LIKE ? OR pp.codigo_proveedor LIKE ?)
@@ -681,7 +695,7 @@ function guardarPrecioProveedor($conexion, $data)
     mysqli_begin_transaction($conexion);
     try {
         $sql_actual = "SELECT producto_proveedor_precio_id, precio_lista, moneda_id, f_vigencia_desde,
-                              origen_carga, archivo_importacion, usuario_carga_id
+                              origen_carga, archivo_importacion, importacion_id, usuario_carga_id
                        FROM gestion__productos_proveedores_precios
                        WHERE producto_proveedor_id = ?";
         $stmt = mysqli_prepare($conexion, $sql_actual);
@@ -694,13 +708,13 @@ function guardarPrecioProveedor($conexion, $data)
             // Cerrar historial con el valor que se está reemplazando
             $sql_hist = "INSERT INTO gestion__productos_proveedores_precios_historico
                         (producto_proveedor_id, precio_lista, moneda_id, f_vigencia_desde, f_vigencia_hasta,
-                         origen_carga, archivo_importacion, usuario_carga_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                         origen_carga, archivo_importacion, importacion_id, usuario_carga_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             $stmt = mysqli_prepare($conexion, $sql_hist);
             $f_hasta = date('Y-m-d', strtotime($f_vigencia_desde . ' -1 day'));
             mysqli_stmt_bind_param(
                 $stmt,
-                "idsssssi",
+                "idsssssii",
                 $producto_proveedor_id,
                 $registro_actual['precio_lista'],
                 $registro_actual['moneda_id'],
@@ -708,6 +722,7 @@ function guardarPrecioProveedor($conexion, $data)
                 $f_hasta,
                 $registro_actual['origen_carga'],
                 $registro_actual['archivo_importacion'],
+                $registro_actual['importacion_id'],
                 $registro_actual['usuario_carga_id']
             );
             if (!mysqli_stmt_execute($stmt)) {
@@ -717,7 +732,7 @@ function guardarPrecioProveedor($conexion, $data)
 
             $sql_upd = "UPDATE gestion__productos_proveedores_precios
                        SET precio_lista = ?, moneda_id = ?, f_vigencia_desde = ?, origen_carga = ?,
-                           archivo_importacion = NULL, usuario_modificacion_id = ?
+                           archivo_importacion = NULL, importacion_id = NULL, usuario_modificacion_id = ?, tabla_estado_registro_id = 1
                        WHERE producto_proveedor_id = ?";
             $stmt = mysqli_prepare($conexion, $sql_upd);
             mysqli_stmt_bind_param($stmt, "dissii", $precio_lista, $moneda_id, $f_vigencia_desde, $origen_carga, $usuario_id, $producto_proveedor_id);
@@ -823,14 +838,16 @@ function ejecutarTransicionEstadoPrecioProveedor($conexion, $id, $accion_js, $pa
 /* =========================================================================
  * Historial de precios de un producto_proveedor_id puntual.
  * ========================================================================= */
-function obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id)
+function obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id, $empresa_id)
 {
     $producto_proveedor_id = intval($producto_proveedor_id);
+    $empresa_id = intval($empresa_id);
 
     $sql = "SELECT h.precio_lista, h.moneda_id, h.f_vigencia_desde, h.f_vigencia_hasta,
-                   h.origen_carga, h.archivo_importacion, h.usuario_carga_id, h.f_carga,
+                   h.origen_carga, h.archivo_importacion, h.importacion_id, h.usuario_carga_id, h.f_carga,
                    m.moneda, m.simbolo
             FROM gestion__productos_proveedores_precios_historico h
+            INNER JOIN gestion__productos_proveedores pp ON pp.producto_proveedor_id = h.producto_proveedor_id AND pp.empresa_id = ?
             LEFT JOIN gestion__monedas m ON m.moneda_id = h.moneda_id
             WHERE h.producto_proveedor_id = ?
             ORDER BY h.f_vigencia_desde DESC, h.producto_proveedor_precio_historico_id DESC";
@@ -838,7 +855,7 @@ function obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id)
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
 
-    mysqli_stmt_bind_param($stmt, "i", $producto_proveedor_id);
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $producto_proveedor_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 
@@ -862,46 +879,103 @@ function obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id)
  * "descripcion" del Excel se usa SOLO para identificar al usuario los
  * códigos no vinculados en la respuesta — no se persiste en ninguna tabla.
  * ========================================================================= */
-function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $items, $usuario_id, $archivo_nombre, $pagina_id)
+function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $items, $usuario_id, $archivo_nombre, $pagina_id, $importacion_id = 0)
 {
     $empresa_id = intval($empresa_id);
     $entidad_id = intval($entidad_id);
+    $importacion_id = intval($importacion_id);
 
+    $vacio = ['success' => true, 'procesados' => 0, 'nuevos' => 0, 'actualizados' => 0, 'sin_cambios' => 0,
+              'no_vinculados' => [], 'errores_count' => 0, 'filas_error' => 0, 'codigos_multiples' => 0];
     if (empty($items)) {
-        return ['success' => true, 'message' => 'Lote vacío.', 'procesados' => 0, 'sin_cambios' => 0, 'no_vinculados' => [], 'errores_count' => 0];
+        return $vacio + ['message' => 'Lote vacío.'];
     }
 
-    // Normalizar y deduplicar el lote (gana la última fila de ese código).
-    // f_vigencia_desde viene del Excel (columna nueva); si falta o es
-    // inválida, cae a hoy — así el usuario puede cargar una lista que
-    // entra en vigencia a futuro sin tener que esperar esa fecha para
-    // importarla.
+    // Historial de la importación (core/proveedor_precios_importaciones.php):
+    // una fila de resultado por fila del archivo y producto vinculado, en la
+    // misma transacción que los precios. $importacion_id = 0 → sin historial.
+    if ($importacion_id > 0) {
+        try {
+            ppi_exigir_en_curso($conexion, $empresa_id, $entidad_id, $importacion_id);
+        } catch (RuntimeException $ex) {
+            return ['success' => false, 'message' => $ex->getMessage()];
+        }
+    }
+    $log = [];
+    $cont = ['nuevos' => 0, 'actualizados' => 0, 'sin_cambios' => 0, 'no_vinculados' => 0, 'filas_error' => 0, 'sin_fecha' => 0];
+
+    // Normalizar el lote. Filas que no se cargan (quedan solo en el historial):
+    // sin código, precio vacío / no numérico / <= 0, y código repetido en el
+    // archivo (el navegador marca "duplicado" en todas menos la última, que
+    // es la que vale; dentro del lote también se controla acá).
+    // f_vigencia_desde viene del Excel; si falta o es inválida, cae a hoy —
+    // así el usuario puede cargar una lista que entra en vigencia a futuro
+    // sin tener que esperar esa fecha para importarla.
     $fecha_hoy = date('Y-m-d');
     $filas = [];
     foreach ($items as $item) {
         $codigo = trim((string)($item['codigo_proveedor'] ?? ''));
-        if ($codigo === '') continue;
+        $descripcion = trim((string)($item['descripcion'] ?? ''));
+        $precio_texto = trim((string)($item['precio_texto'] ?? ($item['precio'] ?? '')));
+        $precio = (isset($item['precio']) && $item['precio'] !== '' && $item['precio'] !== null && is_numeric($item['precio']))
+            ? (float)$item['precio'] : null;
+        $base_log = [
+            'fila_nro' => isset($item['fila_nro']) ? intval($item['fila_nro']) : null,
+            'codigo_proveedor' => $codigo, 'descripcion' => $descripcion,
+            'precio_texto' => $precio_texto, 'precio' => $precio,
+        ];
 
-        $f_vigencia_desde = trim((string)($item['f_vigencia_desde'] ?? ''));
-        if ($f_vigencia_desde === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $f_vigencia_desde) || !strtotime($f_vigencia_desde)) {
-            $f_vigencia_desde = $fecha_hoy;
+        if ($codigo === '') {
+            $log[] = $base_log + ['resultado' => 'SIN_CODIGO', 'mensaje' => 'La fila no tiene código del proveedor'];
+            $cont['filas_error']++;
+            continue;
+        }
+        if (!empty($item['duplicado'])) {
+            $log[] = $base_log + ['resultado' => 'DUPLICADO', 'mensaje' => 'El código se repite más abajo en el archivo' .
+                (!empty($item['fila_vale']) ? ' (vale la fila ' . intval($item['fila_vale']) . ')' : '')];
+            $cont['filas_error']++;
+            continue;
+        }
+        if ($precio === null || $precio <= 0) {
+            $log[] = $base_log + ['resultado' => 'PRECIO_INVALIDO', 'mensaje' => $precio === null ? 'Precio vacío o no numérico' : 'Precio menor o igual a cero'];
+            $cont['filas_error']++;
+            continue;
         }
 
-        $filas[$codigo] = [
-            'precio' => floatval($item['precio'] ?? 0),
-            'descripcion' => trim((string)($item['descripcion'] ?? '')),
-            'f_vigencia_desde' => $f_vigencia_desde
+        $f_vigencia_desde = trim((string)($item['f_vigencia_desde'] ?? ''));
+        $sin_fecha = false;
+        if ($f_vigencia_desde === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $f_vigencia_desde) || !strtotime($f_vigencia_desde)) {
+            $f_vigencia_desde = $fecha_hoy;
+            $sin_fecha = true;
+            $cont['sin_fecha']++;
+        }
+
+        $clave = normalizarCodigoProveedor($codigo);
+        if (isset($filas[$clave])) {
+            // Repetido dentro del lote sin marcar: vale la última fila.
+            $previa = $filas[$clave];
+            $log[] = $previa['log'] + ['resultado' => 'DUPLICADO', 'mensaje' => 'El código se repite más abajo en el archivo' .
+                ($base_log['fila_nro'] ? ' (vale la fila ' . $base_log['fila_nro'] . ')' : '')];
+            $cont['filas_error']++;
+        }
+        $filas[$clave] = [
+            'codigo' => $codigo,
+            'precio' => $precio,
+            'descripcion' => $descripcion,
+            'f_vigencia_desde' => $f_vigencia_desde,
+            'log' => $base_log + ['f_vigencia_desde' => $f_vigencia_desde],
+            'aviso' => $sin_fecha ? 'Sin fecha de vigencia válida: se usó la de hoy' : '',
         ];
     }
-    $codigos = array_keys($filas);
+    $codigos = array_values(array_map(function ($f) { return $f['codigo']; }, $filas));
     if (empty($codigos)) {
-        return ['success' => true, 'message' => 'Lote sin códigos válidos.', 'procesados' => 0, 'sin_cambios' => 0, 'no_vinculados' => [], 'errores_count' => 0];
+        return ppiCerrarLoteSinPrecios($conexion, $empresa_id, $importacion_id, $log, $cont, $vacio);
     }
 
     // 1) Precargar TODOS los producto_proveedor_id de ese proveedor que matchean los códigos del lote
     $placeholders = implode(',', array_fill(0, count($codigos), '?'));
     $tipos = str_repeat('s', count($codigos));
-    $sql_pp = "SELECT producto_proveedor_id, codigo_proveedor
+    $sql_pp = "SELECT producto_proveedor_id, producto_id, codigo_proveedor
                FROM gestion__productos_proveedores
                WHERE entidad_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
                  AND codigo_proveedor IN ($placeholders)";
@@ -917,9 +991,11 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
     // del IN de MySQL (case-insensitive, sin espacios de más), para no
     // reportar como "no vinculado" un código que sí matcheó.
     $ppPorCodigo = [];
+    $productoPorPp = [];
     $ids = [];
     while ($row = mysqli_fetch_assoc($result)) {
         $ppPorCodigo[normalizarCodigoProveedor($row['codigo_proveedor'])][] = (int)$row['producto_proveedor_id'];
+        $productoPorPp[(int)$row['producto_proveedor_id']] = (int)$row['producto_id'];
         $ids[] = (int)$row['producto_proveedor_id'];
     }
     mysqli_stmt_close($stmt);
@@ -930,7 +1006,7 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
         $placeholdersIds = implode(',', array_fill(0, count($ids), '?'));
         $tiposIds = str_repeat('i', count($ids));
         $sql_actual = "SELECT producto_proveedor_id, precio_lista, moneda_id, f_vigencia_desde,
-                              origen_carga, archivo_importacion, usuario_carga_id
+                              origen_carga, archivo_importacion, importacion_id, usuario_carga_id
                        FROM gestion__productos_proveedores_precios
                        WHERE producto_proveedor_id IN ($placeholdersIds)";
         $stmt = mysqli_prepare($conexion, $sql_actual);
@@ -945,41 +1021,45 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
 
     // 3) Preparar UNA VEZ los statements reutilizados en el loop
     $estado_inicial = obtenerEstadoInicialPagina($conexion, $pagina_id);
+    $imp_id = $importacion_id > 0 ? $importacion_id : null;
 
     $sql_hist = "INSERT INTO gestion__productos_proveedores_precios_historico
                 (producto_proveedor_id, precio_lista, moneda_id, f_vigencia_desde, f_vigencia_hasta,
-                 origen_carga, archivo_importacion, usuario_carga_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                 origen_carga, archivo_importacion, importacion_id, usuario_carga_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_hist = mysqli_prepare($conexion, $sql_hist);
     $h_pp_id = 0; $h_precio = 0.0; $h_moneda = 0; $h_desde = ''; $h_hasta = '';
-    $h_origen = ''; $h_archivo = null; $h_usuario = 0;
-    mysqli_stmt_bind_param($stmt_hist, "idsssssi", $h_pp_id, $h_precio, $h_moneda, $h_desde, $h_hasta, $h_origen, $h_archivo, $h_usuario);
+    $h_origen = ''; $h_archivo = null; $h_imp = null; $h_usuario = 0;
+    mysqli_stmt_bind_param($stmt_hist, "idsssssii", $h_pp_id, $h_precio, $h_moneda, $h_desde, $h_hasta, $h_origen, $h_archivo, $h_imp, $h_usuario);
 
     $sql_upd = "UPDATE gestion__productos_proveedores_precios
                SET precio_lista = ?, moneda_id = " . emp_moneda_base_id($conexion, $empresa_id) . ", f_vigencia_desde = ?, origen_carga = 'IMPORTACION',
-                   archivo_importacion = ?, usuario_modificacion_id = ?
+                   archivo_importacion = ?, importacion_id = ?, usuario_modificacion_id = ?
                WHERE producto_proveedor_id = ?";
     $stmt_upd = mysqli_prepare($conexion, $sql_upd);
     $u_precio = 0.0; $u_desde = ''; $u_archivo = ''; $u_usuario = 0; $u_pp_id = 0;
-    mysqli_stmt_bind_param($stmt_upd, "dssii", $u_precio, $u_desde, $u_archivo, $u_usuario, $u_pp_id);
+    mysqli_stmt_bind_param($stmt_upd, "dssiii", $u_precio, $u_desde, $u_archivo, $imp_id, $u_usuario, $u_pp_id);
 
     $sql_ins = "INSERT INTO gestion__productos_proveedores_precios
                (producto_proveedor_id, empresa_id, entidad_id, precio_lista, moneda_id,
-                f_vigencia_desde, origen_carga, archivo_importacion, usuario_carga_id, tabla_estado_registro_id)
-               VALUES (?, ?, ?, ?, " . emp_moneda_base_id($conexion, $empresa_id) . ", ?, 'IMPORTACION', ?, ?, ?)";
+                f_vigencia_desde, origen_carga, archivo_importacion, importacion_id, usuario_carga_id, tabla_estado_registro_id)
+               VALUES (?, ?, ?, ?, " . emp_moneda_base_id($conexion, $empresa_id) . ", ?, 'IMPORTACION', ?, ?, ?, ?)";
     $stmt_ins = mysqli_prepare($conexion, $sql_ins);
     $i_pp_id = 0; $i_precio = 0.0; $i_desde = ''; $i_archivo = ''; $i_usuario = 0; $i_estado = $estado_inicial;
-    mysqli_stmt_bind_param($stmt_ins, "iiidssii", $i_pp_id, $empresa_id, $entidad_id, $i_precio, $i_desde, $i_archivo, $i_usuario, $i_estado);
+    mysqli_stmt_bind_param($stmt_ins, "iiidssiii", $i_pp_id, $empresa_id, $entidad_id, $i_precio, $i_desde, $i_archivo, $imp_id, $i_usuario, $i_estado);
 
     $procesados = 0; $sin_cambios = 0; $errores_count = 0; $no_vinculados = []; $codigos_multiples = 0;
 
     mysqli_begin_transaction($conexion);
     try {
-        foreach ($filas as $codigo => $info) {
+        foreach ($filas as $info) {
+            $codigo = $info['codigo'];
             $productoProveedorIds = $ppPorCodigo[normalizarCodigoProveedor($codigo)] ?? [];
 
             if (empty($productoProveedorIds)) {
                 $no_vinculados[] = ['codigo_proveedor' => $codigo, 'descripcion' => $info['descripcion'], 'precio' => $info['precio']];
+                $log[] = $info['log'] + ['resultado' => 'NO_VINCULADO', 'mensaje' => trim('El código no está vinculado a ningún producto de este proveedor. ' . $info['aviso'])];
+                $cont['no_vinculados']++;
                 continue;
             }
             if (count($productoProveedorIds) > 1) {
@@ -990,9 +1070,16 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
             // fila del Excel: un código con 2 productos suma 2.
             foreach ($productoProveedorIds as $producto_proveedor_id) {
                 $registro_actual = $actualPorId[$producto_proveedor_id] ?? null;
+                $fila_log = $info['log'] + [
+                    'producto_proveedor_id' => $producto_proveedor_id,
+                    'producto_id' => $productoPorPp[$producto_proveedor_id] ?? null,
+                    'precio_anterior' => $registro_actual ? $registro_actual['precio_lista'] : null,
+                ];
 
                 if ($registro_actual && abs((float)$registro_actual['precio_lista'] - $info['precio']) < 0.99) {
                     $sin_cambios++;
+                    $cont['sin_cambios']++;
+                    $log[] = $fila_log + ['resultado' => 'SIN_CAMBIOS', 'mensaje' => $info['aviso']];
                     continue;
                 }
 
@@ -1012,6 +1099,7 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
                         }
                         $h_origen = $registro_actual['origen_carga'];
                         $h_archivo = $registro_actual['archivo_importacion'];
+                        $h_imp = $registro_actual['importacion_id'] !== null ? (int)$registro_actual['importacion_id'] : null;
                         $h_usuario = $registro_actual['usuario_carga_id'];
                         if (!mysqli_stmt_execute($stmt_hist)) {
                             throw new Exception('Error guardando historial: ' . mysqli_stmt_error($stmt_hist));
@@ -1022,20 +1110,31 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
                         if (!mysqli_stmt_execute($stmt_upd)) {
                             throw new Exception('Error actualizando precio: ' . mysqli_stmt_error($stmt_upd));
                         }
+                        $cont['actualizados']++;
+                        $log[] = $fila_log + ['resultado' => 'ACTUALIZADO', 'mensaje' => $info['aviso']];
                     } else {
                         $i_pp_id = $producto_proveedor_id; $i_precio = $info['precio'];
                         $i_desde = $info['f_vigencia_desde']; $i_archivo = $archivo_nombre; $i_usuario = $usuario_id;
                         if (!mysqli_stmt_execute($stmt_ins)) {
                             throw new Exception('Error insertando precio: ' . mysqli_stmt_error($stmt_ins));
                         }
+                        $cont['nuevos']++;
+                        $log[] = $fila_log + ['resultado' => 'NUEVO', 'mensaje' => $info['aviso']];
                     }
                     $procesados++;
                 } catch (Throwable $e) {
                     $errores_count++;
+                    $cont['filas_error']++;
+                    $log[] = $fila_log + ['resultado' => 'ERROR', 'mensaje' => $e->getMessage()];
                     error_log("Error importando código $codigo (producto_proveedor_id $producto_proveedor_id): " . $e->getMessage());
                     continue;
                 }
             }
+        }
+
+        if ($importacion_id > 0) {
+            ppi_registrar_detalles($conexion, $empresa_id, $importacion_id, $log);
+            ppi_sumar($conexion, $empresa_id, $importacion_id, $cont);
         }
 
         mysqli_commit($conexion);
@@ -1052,11 +1151,32 @@ function importarListaProveedorDesdeExcel($conexion, $empresa_id, $entidad_id, $
     return [
         'success' => true,
         'procesados' => $procesados,
+        'nuevos' => $cont['nuevos'],
+        'actualizados' => $cont['actualizados'],
         'sin_cambios' => $sin_cambios,
         'errores_count' => $errores_count,
+        'filas_error' => $cont['filas_error'],
         'codigos_multiples' => $codigos_multiples,
         'no_vinculados' => $no_vinculados
     ];
+}
+
+// Lote sin ninguna fila cargable (todas sin código, con precio inválido o
+// repetidas): solo se registra en el historial.
+function ppiCerrarLoteSinPrecios($conexion, $empresa_id, $importacion_id, $log, $cont, $vacio)
+{
+    if ($importacion_id > 0 && $log) {
+        mysqli_begin_transaction($conexion);
+        try {
+            ppi_registrar_detalles($conexion, $empresa_id, $importacion_id, $log);
+            ppi_sumar($conexion, $empresa_id, $importacion_id, $cont);
+            mysqli_commit($conexion);
+        } catch (Throwable $e) {
+            mysqli_rollback($conexion);
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+    return ['filas_error' => $cont['filas_error']] + $vacio + ['message' => 'Lote sin filas para cargar.'];
 }
 
 /* =========================================================================
@@ -1078,7 +1198,7 @@ function obtenerVinculosActivosProveedor($conexion, $empresa_id, $entidad_id)
                    ppp.archivo_importacion
             FROM gestion__productos_proveedores pp
             INNER JOIN gestion__productos p ON p.producto_id = pp.producto_id AND p.empresa_id = pp.empresa_id
-            LEFT JOIN gestion__productos_proveedores_precios ppp ON ppp.producto_proveedor_id = pp.producto_proveedor_id
+            LEFT JOIN gestion__productos_proveedores_precios ppp ON ppp.producto_proveedor_id = pp.producto_proveedor_id AND ppp.tabla_estado_registro_id = 1
             WHERE pp.empresa_id = ? AND pp.entidad_id = ?
               AND pp.tabla_estado_registro_id = 1
               AND p.tabla_estado_registro_id = 1
@@ -1234,10 +1354,10 @@ function actualizarSoloCostosMasivoProveedor($conexion, $empresa_id, $entidad_id
     $entidad_id = intval($entidad_id);
     $descuento_general = obtenerDescuentoVigenteProveedor($conexion, $entidad_id);
 
-    $sql = "SELECT ppp.precio_lista, ppp.moneda_id, pp.producto_id
+    $sql = "SELECT ppp.precio_lista, ppp.moneda_id, pp.producto_id, " . pp_sql_es_principal('pp') . " AS es_principal
             FROM gestion__productos_proveedores_precios ppp
             INNER JOIN gestion__productos_proveedores pp ON pp.producto_proveedor_id = ppp.producto_proveedor_id
-            WHERE ppp.empresa_id = ? AND ppp.entidad_id = ? AND ppp.tabla_estado_registro_id = 1";
+            WHERE ppp.empresa_id = ? AND ppp.entidad_id = ? AND ppp.tabla_estado_registro_id = 1 AND pp.tabla_estado_registro_id = 1";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         error_log("Error preparando actualizarSoloCostosMasivoProveedor: " . mysqli_error($conexion));
@@ -1253,6 +1373,7 @@ function actualizarSoloCostosMasivoProveedor($conexion, $empresa_id, $entidad_id
     if (empty($filas)) {
         return ['success' => true, 'actualizados' => 0, 'sin_cambios' => 0, 'errores' => 0, 'message' => 'Este proveedor no tiene precios cargados.'];
     }
+    [$filas, $no_principal] = filtrarFilasProveedorPrincipal($filas);
 
     $productoIds = array_values(array_unique(array_map(function ($f) { return (int)$f['producto_id']; }, $filas)));
     $costosActuales = obtenerCostosActualesPorProductos($conexion, $empresa_id, $productoIds);
@@ -1284,7 +1405,8 @@ function actualizarSoloCostosMasivoProveedor($conexion, $empresa_id, $entidad_id
         'actualizados' => $actualizados,
         'sin_cambios' => $sin_cambios,
         'errores' => $errores,
-        'message' => "Se actualizó el costo de $actualizados producto(s), $sin_cambios sin cambios" . ($errores ? ", $errores con error (ver log)" : '') . '.'
+        'no_principal' => $no_principal,
+        'message' => "Se actualizó el costo de $actualizados producto(s), $sin_cambios sin cambios" . mensajeNoPrincipal($no_principal) . ($errores ? ", $errores con error (ver log)" : '') . '.'
     ];
 }
 
@@ -1300,10 +1422,10 @@ function actualizarSoloPreciosVentaMasivoProveedor($conexion, $empresa_id, $enti
     $entidad_id = intval($entidad_id);
     $descuento_general = obtenerDescuentoVigenteProveedor($conexion, $entidad_id);
 
-    $sql = "SELECT ppp.precio_lista, pp.producto_id
+    $sql = "SELECT ppp.precio_lista, pp.producto_id, " . pp_sql_es_principal('pp') . " AS es_principal
             FROM gestion__productos_proveedores_precios ppp
             INNER JOIN gestion__productos_proveedores pp ON pp.producto_proveedor_id = ppp.producto_proveedor_id
-            WHERE ppp.empresa_id = ? AND ppp.entidad_id = ? AND ppp.tabla_estado_registro_id = 1";
+            WHERE ppp.empresa_id = ? AND ppp.entidad_id = ? AND ppp.tabla_estado_registro_id = 1 AND pp.tabla_estado_registro_id = 1";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         error_log("Error preparando actualizarSoloPreciosVentaMasivoProveedor: " . mysqli_error($conexion));
@@ -1319,6 +1441,7 @@ function actualizarSoloPreciosVentaMasivoProveedor($conexion, $empresa_id, $enti
     if (empty($filas)) {
         return ['success' => true, 'actualizados' => 0, 'precios_sin_regla' => 0, 'errores' => 0, 'message' => 'Este proveedor no tiene precios cargados.'];
     }
+    [$filas, $no_principal] = filtrarFilasProveedorPrincipal($filas);
 
     $productoIds = array_values(array_unique(array_map(function ($f) { return (int)$f['producto_id']; }, $filas)));
     $categoriasPorProducto = obtenerCategoriasPorProductos($conexion, $productoIds);
@@ -1350,7 +1473,8 @@ function actualizarSoloPreciosVentaMasivoProveedor($conexion, $empresa_id, $enti
         'actualizados' => $actualizados,
         'precios_sin_regla' => $precios_sin_regla_total,
         'errores' => $errores,
-        'message' => "Se actualizaron $actualizados precio(s) de venta" . ($precios_sin_regla_total ? ", $precios_sin_regla_total sin regla aplicable" : '') . ($errores ? ", $errores producto(s) con error (ver log)" : '') . '.'
+        'no_principal' => $no_principal,
+        'message' => "Se actualizaron $actualizados precio(s) de venta" . ($precios_sin_regla_total ? ", $precios_sin_regla_total sin regla aplicable" : '') . mensajeNoPrincipal($no_principal) . ($errores ? ", $errores producto(s) con error (ver log)" : '') . '.'
     ];
 }
 
@@ -1371,12 +1495,13 @@ function actualizarCostosMasivoProveedor($conexion, $empresa_id, $entidad_id, $u
 
     $descuento_general = obtenerDescuentoVigenteProveedor($conexion, $entidad_id);
 
-    $sql = "SELECT ppp.precio_lista, ppp.moneda_id, pp.producto_id
+    $sql = "SELECT ppp.precio_lista, ppp.moneda_id, pp.producto_id, " . pp_sql_es_principal('pp') . " AS es_principal
             FROM gestion__productos_proveedores_precios ppp
             INNER JOIN gestion__productos_proveedores pp ON pp.producto_proveedor_id = ppp.producto_proveedor_id
             WHERE ppp.empresa_id = ?
               AND ppp.entidad_id = ?
-              AND ppp.tabla_estado_registro_id = 1";
+              AND ppp.tabla_estado_registro_id = 1
+              AND pp.tabla_estado_registro_id = 1";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -1397,6 +1522,7 @@ function actualizarCostosMasivoProveedor($conexion, $empresa_id, $entidad_id, $u
     if (empty($filas)) {
         return ['success' => true, 'actualizados' => 0, 'sin_cambios' => 0, 'errores' => 0, 'message' => 'Este proveedor no tiene precios cargados.'];
     }
+    [$filas, $no_principal] = filtrarFilasProveedorPrincipal($filas);
 
     // Precarga de categorías (para el matching de reglas) y el contexto de
     // cálculo (listas activas + reglas vigentes), UNA sola vez para todo el
@@ -1443,8 +1569,35 @@ function actualizarCostosMasivoProveedor($conexion, $empresa_id, $entidad_id, $u
         'sin_cambios' => $sin_cambios,
         'errores' => $errores,
         'precios_actualizados' => $precios_actualizados_total,
-        'message' => "Se actualizaron $actualizados costo(s) y $precios_actualizados_total precio(s) de venta, $sin_cambios sin cambios" . ($errores ? ", $errores con error (ver log)" : '') . '.'
+        'no_principal' => $no_principal,
+        'message' => "Se actualizaron $actualizados costo(s) y $precios_actualizados_total precio(s) de venta, $sin_cambios sin cambios" . mensajeNoPrincipal($no_principal) . ($errores ? ", $errores con error (ver log)" : '') . '.'
     ];
+}
+
+/* =========================================================================
+ * Proveedor principal (core/productos_proveedores.php): solo la lista del
+ * proveedor principal del producto actualiza su costo y sus precios de venta.
+ * Los botones masivos saltean las filas de productos donde este proveedor no
+ * es el principal (y las cuentan); los de fila los rechazan con
+ * validarProveedorPrincipalParaCosto().
+ * ========================================================================= */
+function filtrarFilasProveedorPrincipal($filas)
+{
+    $principales = array_values(array_filter($filas, function ($f) { return (int)$f['es_principal'] === 1; }));
+    return [$principales, count($filas) - count($principales)];
+}
+
+function mensajeNoPrincipal($no_principal)
+{
+    return $no_principal ? ", $no_principal omitido(s) porque este no es su proveedor principal" : '';
+}
+
+function validarProveedorPrincipalParaCosto($conexion, $empresa_id, $entidad_id, $producto_id)
+{
+    if (pp_es_principal($conexion, $empresa_id, $entidad_id, $producto_id)) {
+        return null;
+    }
+    return ['success' => false, 'message' => 'Este proveedor no es el principal del producto: solo la lista del proveedor principal actualiza el costo y los precios de venta. Se cambia en Productos > Proveedores.'];
 }
 
 function actualizarCostoDesdeListaProveedor($conexion, $producto_id, $empresa_id, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id)

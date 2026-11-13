@@ -344,7 +344,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 // Implementar funciones editar y eliminar similar al ejemplo anterior
             });
             </script>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
             <?php
             require_once ROOT_PATH . '/templates/adminlte/footer1.php';
             ?>

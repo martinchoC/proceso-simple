@@ -7,31 +7,14 @@ $pageTitle = "Gestión de Submodelos";
 $currentPage = 'submodelos';
 $modudo_idx = 2;
 $pagina_idx = 42; // ID de página para submodelos (ajustar según tu BD)
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-layer-group me-2"></i>Gestión de Submodelos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Submodelos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Submodelos','fas fa-layer-group', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -416,7 +399,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                 },
                 order: [[1, 'asc']],
                 responsive: true,
@@ -667,7 +650,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             function fmt(n) {
-                return Number(n || 0).toLocaleString('es-AR');
+                return Fmt.numero(Number(n || 0));
             }
 
             function cargarResumen() {
@@ -1148,7 +1131,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarResumen();
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

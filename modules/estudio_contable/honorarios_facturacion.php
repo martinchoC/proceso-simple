@@ -57,7 +57,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
                         <div class="col-md-4 col-sm-12 text-end mt-auto pb-1">
-                            <button type="button" class="btn btn-sm btn-success fw-bold w-100" id="btnEmitirLote">
+                            <button type="button" class="btn btn-sm btn-success fw-bold w-100" id="btnEmitirLote" data-funcion="agregar">
                                 <i class="fas fa-file-invoice me-1"></i>Emitir Facturas Electrónicas en Lote
                             </button>
                         </div>
@@ -81,7 +81,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <th class="text-end">Adic. Legajos</th>
                                     <th class="text-end">Novedades ($)</th>
                                     <th class="text-end">Neto Gravado ($)</th>
-                                    <th class="text-end">IVA 21% ($)</th>
+                                    <th class="text-end">IVA ($)</th>
                                     <th class="text-end fw-bold">Total Factura ($)</th>
                                     <th>Estado Facturación</th>
                                 </tr>
@@ -99,7 +99,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="honorarios_facturacion.js"></script>
 
 <?php

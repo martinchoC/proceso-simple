@@ -6,31 +6,14 @@ $pageTitle = "Plan de Cuentas";
 $currentPage = 'plan_cuentas';
 $modudo_idx = 5;
 $pagina_idx = 568; // ID de página para plan de cuentas
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-book me-2"></i>Plan de Cuentas
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Contabilidad</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Plan de Cuentas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Plan de cuentas','fas fa-book', '', ['Contabilidad']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -73,7 +56,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     </button>
                                                 </div>
                                                 <div class="form-text mt-1">
-                                                    <small class="text-muted">Seleccione una cuenta para filtrar por ella y todas sus subcuentas</small>
+                                                    <?= ui_ayuda('Seleccione una cuenta para filtrar por ella y todas sus subcuentas') ?>
                                                 </div>
                                             </div>
                                         </div>
@@ -124,11 +107,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="cuenta_padre_id" class="form-label">Cuenta Padre</label>
+                                        <label for="cuenta_padre_id" class="form-label">Cuenta Padre <?= ui_ayuda('Seleccionar para crear cuentas jerárquicas') ?></label>
                                         <select class="form-select" id="cuenta_padre_id" name="cuenta_padre_id">
                                             <option value="">-- Ninguna (Cuenta Raíz) --</option>
                                         </select>
-                                        <div class="form-text">Seleccionar para crear cuentas jerárquicas</div>
                                     </div>
                                 </div>
                                 
@@ -153,19 +135,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
-                                        <label for="orden" class="form-label">Orden</label>
+                                        <label for="orden" class="form-label">Orden <?= ui_ayuda('Para ordenamiento personalizado') ?></label>
                                         <input type="number" class="form-control" id="orden" name="orden" 
                                             value="0" min="0" step="1">
-                                        <div class="form-text">Para ordenamiento personalizado</div>
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
-                                        <label for="es_imputable" class="form-label">Tipo</label>
+                                        <label for="es_imputable" class="form-label">Tipo <?= ui_ayuda('Las cuentas título no aceptan movimientos') ?></label>
                                         <select class="form-select" id="es_imputable" name="es_imputable">
                                             <option value="1">Imputable (Permite asientos)</option>
                                             <option value="0">Título (No imputable)</option>
                                         </select>
-                                        <div class="form-text">Las cuentas título no aceptan movimientos</div>
                                     </div>
                                 </div>
                                 
@@ -258,14 +238,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-    <!-- SOLO Librerías específicas para DataTables (lo que NO está en footer1.php) -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- DataTables (y Responsive) ya los carga header1.php -->
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     
     <!-- Script principal -->
-    
     <script>window.PLAN_CUENTAS_CTX = { empresa_id: <?= (int)($_SESSION['empresa_id'] ?? 0) ?>, pagina_idx: <?= (int)$pagina_idx ?> };</script>
     <script src="plan_cuentas.js?v=<?= filemtime(__DIR__.'/plan_cuentas.js') ?>"></script>
 </main>

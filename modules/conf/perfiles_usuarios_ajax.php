@@ -26,7 +26,8 @@ switch ($accion) {
         break;
 
     case 'obtener_modulos':
-        $modulos = obtenerModulos($conexion);
+        $empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
+        $modulos = obtenerModulos($conexion, $empresa_id);
         echo json_encode($modulos);
         break;
 
@@ -57,10 +58,20 @@ switch ($accion) {
         break;
         
     // NUEVAS ACCIONES PARA FILTRO POR USUARIO
+    // Filtros combinables (empresa, módulo, perfil, usuario; todos opcionales)
+    case 'opciones_filtros':
+        echo json_encode(obtenerOpcionesFiltros($conexion, $_GET));
+        break;
+
+    case 'listar_asignaciones':
+        echo json_encode(listarAsignacionesFiltradas($conexion, $_GET));
+        break;
+
     case 'obtener_asignaciones_por_usuario':
         $usuario_id = isset($_GET['usuario_id']) ? intval($_GET['usuario_id']) : null;
         if ($usuario_id) {
-            $asignaciones = obtenerAsignacionesPorUsuario($conexion, $usuario_id);
+            $empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
+            $asignaciones = obtenerAsignacionesPorUsuario($conexion, $usuario_id, $empresa_id);
             echo json_encode($asignaciones);
         } else {
             echo json_encode([]);
@@ -68,7 +79,8 @@ switch ($accion) {
         break;
         
     case 'obtener_todas_asignaciones':
-        $asignaciones = obtenerTodasAsignaciones($conexion);
+        $empresa_id = isset($_GET['empresa_id']) ? intval($_GET['empresa_id']) : 0;
+        $asignaciones = obtenerTodasAsignaciones($conexion, $empresa_id);
         echo json_encode($asignaciones);
         break;
         

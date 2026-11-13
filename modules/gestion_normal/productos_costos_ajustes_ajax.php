@@ -13,6 +13,8 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 82);
+// Solo una página de este módulo (si no, la de productos_costos_ajustes.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'productos_costos_ajustes.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -60,6 +62,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'empresa_idx' => $empresa_idx,
                 'ajuste_descripcion' => trim($_POST['ajuste_descripcion'] ?? ''),
@@ -81,6 +85,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['producto_costo_ajuste_id'] ?? 0);
             $data = [
                 'empresa_idx' => $empresa_idx,
@@ -109,6 +115,8 @@ try {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $ajuste_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

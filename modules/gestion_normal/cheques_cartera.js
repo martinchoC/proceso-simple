@@ -10,11 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const AJAX_URL = 'cheques_cartera_ajax.php';
 
     // Formateador de moneda
-    const formatoMoneda = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
-    });
+    const formatoMoneda = { format: (v) => Fmt.moneda(v) };
 
     // 1. Cargar Resumen de Cartera (Widgets)
     function cargarResumen() {
@@ -124,16 +120,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     data: 'f_emision',
                     render: function (data) {
                         if (!data) return '-';
-                        const p = data.split('-');
-                        return (p.length === 3) ? `${p[2]}/${p[1]}/${p[0]}` : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
                     data: 'f_pago',
                     render: function (data) {
                         if (!data) return '-';
-                        const p = data.split('-');
-                        return (p.length === 3) ? `<span class="fw-bold">${p[2]}/${p[1]}/${p[0]}</span>` : data;
+                        return `<span class="fw-bold">${Fmt.fecha(data)}</span>`;
                     }
                 },
                 {
@@ -160,10 +154,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         const estadoId = parseInt(row.tabla_estado_registro_id);
                         const tipo = row.cheque_tipo;
                         let btns = '<div class="btn-group btn-group-sm" role="group">';
+                        const puede = window.CHEQUES_PERMISOS || {};
 
                         // Si es Tercero en Cartera (29) -> Depositar o Rechazar
                         if (tipo === 'TERCERO' && estadoId === 29) {
-                            btns += `<button type="button" class="btn btn-warning btn-sm btn-depositar" 
+                            if (puede.depositar) btns += `<button type="button" class="btn btn-warning btn-sm btn-depositar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
                                         data-banco="${row.banco}" 
@@ -171,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         title="Depositar en Banco">
                                         <i class="fas fa-university"></i>
                                      </button>`;
-                            btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
+                            if (puede.rechazar) btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
                                         data-tipo="Tercero" 
@@ -183,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         // Si es Propio Emitido (31) -> Debitar o Rechazar
                         if (tipo === 'PROPIO' && estadoId === 31) {
-                            btns += `<button type="button" class="btn btn-dark btn-sm btn-debitar" 
+                            if (puede.debitar) btns += `<button type="button" class="btn btn-dark btn-sm btn-debitar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
                                         data-cuenta="${row.tesoreria_cuenta || ''}" 
@@ -191,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         title="Registrar Débito Bancario">
                                         <i class="fas fa-check-circle"></i>
                                      </button>`;
-                            btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
+                            if (puede.rechazar) btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
                                         data-tipo="Propio" 
@@ -203,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         // Si es Tercero Depositado (32) -> Se puede Rechazar si rebotó
                         if (tipo === 'TERCERO' && estadoId === 32) {
-                            btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
+                            if (puede.rechazar) btns += `<button type="button" class="btn btn-outline-danger btn-sm btn-rechazar" 
                                         data-id="${row.cheque_id}" 
                                         data-numero="${row.numero}" 
                                         data-tipo="Tercero (Depositado)" 

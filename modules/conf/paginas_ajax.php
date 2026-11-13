@@ -41,6 +41,11 @@ switch ($accion) {
         echo json_encode($iconos, JSON_UNESCAPED_UNICODE);
         break;
 
+    // Colores para destacar la página en el menú (catálogo conf__colores)
+    case 'obtenerColoresMenu':
+        echo json_encode(obtenerColoresMenu($conexion), JSON_UNESCAPED_UNICODE);
+        break;
+
     case 'obtenerPadre':
         $modulo_id = isset($params['modulo_id']) && $params['modulo_id'] !== '' ? intval($params['modulo_id']) : null;
         $padres = obtenerPadre($conexion, $modulo_id);
@@ -138,7 +143,10 @@ switch ($accion) {
             'tabla_estado_registro_id' => isset($params['tabla_estado_registro_id']) && is_numeric($params['tabla_estado_registro_id']) ? intval($params['tabla_estado_registro_id']) : 1,
             'pagina_patron_id' => isset($params['pagina_patron_id']) && is_numeric($params['pagina_patron_id']) && intval($params['pagina_patron_id']) > 0 ? intval($params['pagina_patron_id']) : 1,
             'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0,
-            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null
+            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null,
+            'menu_estilo' => $params['menu_estilo'] ?? '',
+            'menu_color_id' => $params['menu_color_id'] ?? null,
+            'menu_etiqueta' => $params['menu_etiqueta'] ?? ''
         ];
 
         if (empty($data['pagina']) || empty($data['modulo_id'])) {
@@ -178,7 +186,10 @@ switch ($accion) {
             'tabla_estado_registro_id' => isset($params['tabla_estado_registro_id']) && is_numeric($params['tabla_estado_registro_id']) ? intval($params['tabla_estado_registro_id']) : 1,
             'pagina_patron_id' => isset($params['pagina_patron_id']) && is_numeric($params['pagina_patron_id']) && intval($params['pagina_patron_id']) > 0 ? intval($params['pagina_patron_id']) : 1,
             'es_acceso_directo' => !empty($params['es_acceso_directo']) ? 1 : 0,
-            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null
+            'orden_acceso_directo' => isset($params['orden_acceso_directo']) && is_numeric($params['orden_acceso_directo']) ? intval($params['orden_acceso_directo']) : null,
+            'menu_estilo' => $params['menu_estilo'] ?? '',
+            'menu_color_id' => $params['menu_color_id'] ?? null,
+            'menu_etiqueta' => $params['menu_etiqueta'] ?? ''
         ];
 
         if ($id <= 0 || empty($data['pagina']) || empty($data['modulo_id'])) {

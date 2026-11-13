@@ -267,13 +267,21 @@ function sindi_asegurar_rol_entidad(mysqli $conexion, int $entidad_id, string $r
     }
     $rol_id = (int)$rol['rol_entidad_id'];
 
-    $stmt = mysqli_prepare($conexion, "SELECT 1 FROM gestion__entidades_roles
-                                       WHERE entidad_id = ? AND rol_entidad_id = ? AND f_baja IS NULL LIMIT 1");
+    $stmt = mysqli_prepare($conexion, "SELECT entidad_rol_id, f_baja, tabla_estado_registro_id FROM gestion__entidades_roles
+                                       WHERE entidad_id = ? AND rol_entidad_id = ? LIMIT 1");
     mysqli_stmt_bind_param($stmt, "ii", $entidad_id, $rol_id);
     mysqli_stmt_execute($stmt);
-    $existe = (bool)mysqli_fetch_row(mysqli_stmt_get_result($stmt));
+    $existe = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
     if ($existe) {
+        // Una fila por entidad y rol (uk_entidad_rol): si estaba dada de baja, se reactiva
+        if ($existe['f_baja'] !== null || (int)$existe['tabla_estado_registro_id'] !== 1) {
+            $er_id = (int)$existe['entidad_rol_id'];
+            $stmt = mysqli_prepare($conexion, "UPDATE gestion__entidades_roles SET f_baja = NULL, tabla_estado_registro_id = 1 WHERE entidad_rol_id = ?");
+            mysqli_stmt_bind_param($stmt, "i", $er_id);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_close($stmt);
+        }
         return;
     }
 

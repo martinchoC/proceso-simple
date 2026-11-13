@@ -211,6 +211,7 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
     if ($nivel === 'global') {
         $siguiente_nivel = 'region';
         // Desglose por Regiones
+        $filtro_emp_where = $empresa_id > 0 ? "AND er.empresa_id = {$empresa_id}" : "";
         $sql = "SELECT 
                     rg.region_grupo_id as id,
                     rg.nombre as nombre,
@@ -227,6 +228,7 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
                 LEFT JOIN ml__empresas_regiones er ON er.region_grupo_id = rg.region_grupo_id
                 LEFT JOIN ml__ciclos c ON c.empresa_id = er.empresa_id
                 LEFT JOIN ml__ciclos_tareas ct ON ct.ciclo_id = c.ciclo_id
+                WHERE rg.tabla_estado_registro_id = 1 {$filtro_emp_where}
                 GROUP BY rg.region_grupo_id, rg.nombre";
         $res = mysqli_query($conexion, $sql);
         while ($r = mysqli_fetch_assoc($res)) {
@@ -242,13 +244,14 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
 
     } elseif ($nivel === 'region') {
         $siguiente_nivel = 'pais';
-        // Desglose por Países / Territorios dentro de la región
+        // Desglose por Países / Territorios dentro de la región con entidades activas de la empresa
+        $filtro_emp = $empresa_id > 0 ? $empresa_id : 2;
         $sql = "SELECT 
                     t.territorio_id as id,
                     CONCAT(t.nombre, ' (', t.codigo, ')') as nombre,
                     'País / Territorio' as tipo_etiqueta,
                     'fas fa-flag' as icono,
-                    COUNT(DISTINCT e.empresa_id) as sub_total,
+                    COUNT(DISTINCT ee.empresa_id) as sub_total,
                     'Empresas' as sub_etiqueta,
                     COUNT(DISTINCT c.ciclo_id) as total_ciclos,
                     COUNT(ct.ciclo_tarea_id) as total_tareas,
@@ -256,10 +259,12 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
                     SUM(CASE WHEN ct.fecha_vencimiento BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY) AND ct.tabla_estado_registro_id NOT IN (2081, 2083) THEN 1 ELSE 0 END) as proximas,
                     SUM(CASE WHEN ct.tabla_estado_registro_id = 2081 THEN 1 ELSE 0 END) as cumplidas
                 FROM ml__territorios t
-                LEFT JOIN conf__empresas e ON (e.empresa_id = 2 AND t.territorio_id = 2) -- Mapeo territorial
-                LEFT JOIN ml__ciclos c ON c.empresa_id = e.empresa_id
+                INNER JOIN ml__entidades_ubicaciones eu ON eu.territorio_id = t.territorio_id
+                INNER JOIN ml__entidades ent ON ent.entidad_id = eu.entidad_id AND ent.tabla_estado_registro_id = 1
+                INNER JOIN ml__entidades_empresas ee ON ee.entidad_id = ent.entidad_id AND (ee.empresa_id = {$filtro_emp} OR {$filtro_emp} = 0)
+                LEFT JOIN ml__ciclos c ON c.empresa_id = ee.empresa_id AND c.entidad_id = ent.entidad_id
                 LEFT JOIN ml__ciclos_tareas ct ON ct.ciclo_id = c.ciclo_id
-                WHERE t.territorio_tipo_id = 3 -- Países
+                WHERE t.territorio_tipo_id IN (3, 4) AND t.tabla_estado_registro_id = 1
                 GROUP BY t.territorio_id, t.nombre, t.codigo";
         $res = mysqli_query($conexion, $sql);
         while ($r = mysqli_fetch_assoc($res)) {
@@ -276,6 +281,7 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
     } elseif ($nivel === 'pais') {
         $siguiente_nivel = 'empresa';
         // Desglose por Empresas
+        $filtro_emp = $empresa_id > 0 ? $empresa_id : 2;
         $sql = "SELECT 
                     e.empresa_id as id,
                     e.empresa as nombre,
@@ -291,7 +297,7 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
                 FROM conf__empresas e
                 LEFT JOIN ml__ciclos c ON c.empresa_id = e.empresa_id
                 LEFT JOIN ml__ciclos_tareas ct ON ct.ciclo_id = c.ciclo_id
-                WHERE e.empresa_id > 1
+                WHERE e.empresa_id = {$filtro_emp}
                 GROUP BY e.empresa_id, e.empresa";
         $res = mysqli_query($conexion, $sql);
         while ($r = mysqli_fetch_assoc($res)) {
@@ -325,9 +331,12 @@ function tablero_obtener_drilldown(mysqli $conexion, string $nivel = 'global', a
                     SUM(CASE WHEN ct.tabla_estado_registro_id = 2081 THEN 1 ELSE 0 END) as cumplidas
                 FROM ml__entidades ent
                 JOIN ml__entidades_tipos et ON et.entidad_tipo_id = ent.entidad_tipo_id
+                INNER JOIN ml__entidades_empresas ee ON ee.entidad_id = ent.entidad_id AND (ee.empresa_id = {$filtro_emp} OR {$filtro_emp} = 1)
                 LEFT JOIN ml__ciclos c ON c.entidad_id = ent.entidad_id AND c.empresa_id = {$filtro_emp}
                 LEFT JOIN ml__ciclos_tareas ct ON ct.ciclo_id = c.ciclo_id
-                GROUP BY ent.entidad_id, ent.nombre, et.nombre, et.codigo";
+                WHERE ent.tabla_estado_registro_id = 1
+                GROUP BY ent.entidad_id, ent.nombre, et.nombre, et.codigo
+                ORDER BY ent.nombre ASC";
         $res = mysqli_query($conexion, $sql);
         while ($r = mysqli_fetch_assoc($res)) {
             $t = (int)$r['total_tareas'];
@@ -370,7 +379,10 @@ function tablero_obtener_tareas_criticas(mysqli $conexion, array $filtros = []):
                 DATEDIFF(NOW(), ct.fecha_vencimiento) as dias_atraso,
                 ent.nombre as entidad_nombre,
                 o.codigo as obligacion_codigo,
-                COALESCE(u.usuario_nombre, 'Sin asignar') as responsable_nombre,
+                COALESCE(o.sigla, o.codigo) as obligacion_sigla,
+                COALESCE(o.icono, 'fas fa-balance-scale') as obligacion_icono,
+                COALESCE(o.color_hex, '#0d6efd') as obligacion_color,
+                COALESCE(GROUP_CONCAT(DISTINCT u.usuario_nombre SEPARATOR ', '), 'Sin asignar') as responsable_nombre,
                 ter.tabla_estado_registro as estado_nombre,
                 CASE 
                     WHEN ct.fecha_vencimiento < NOW() THEN 'VENCIDA'
@@ -385,6 +397,7 @@ function tablero_obtener_tareas_criticas(mysqli $conexion, array $filtros = []):
             LEFT JOIN ml__ciclos_tareas_raci ctr ON ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1
             LEFT JOIN conf__usuarios u ON u.usuario_id = ctr.usuario_id
             WHERE {$where_sql}
+            GROUP BY ct.ciclo_tarea_id, ct.titulo, ct.fecha_vencimiento, ent.nombre, o.codigo, o.sigla, o.icono, o.color_hex, ter.tabla_estado_registro
             ORDER BY ct.fecha_vencimiento ASC
             LIMIT 10";
 

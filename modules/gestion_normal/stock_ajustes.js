@@ -83,7 +83,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'stock_ajuste_id',
-                    className: 'text-center'
+                    className: 'ui-detalle'
                 },
                 {
                     data: 'comprobante_tipo',
@@ -180,7 +180,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Página _PAGE_ de _PAGES_',
                 infoEmpty: 'Página 0 de 0',
@@ -218,16 +218,12 @@ $(document).ready(function () {
                 });
 
                 setTimeout(function() {
-                    var lengthControl = $('#tablaStockAjustes_length').detach();
-                    $('#tablaStockAjustes_length').replaceWith(lengthControl);
-                    var filterControl = $('#tablaStockAjustes_filter').detach();
-                    $('#tablaStockAjustes_filter').replaceWith(filterControl);
                     
                     $('#tablaStockAjustes_length').addClass('dataTables_length_custom');
                     $('#tablaStockAjustes_filter').addClass('dataTables_filter_custom');
                     
                     if ($('#tablaStockAjustes_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaStockAjustes_length" aria-controls="tablaStockAjustes" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        var selectHtml = '<label title="Filas por página"><select name="tablaStockAjustes_length" aria-controls="tablaStockAjustes" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select></label>';
                         $('#tablaStockAjustes_length').html(selectHtml);
                         $('#tablaStockAjustes_length select').on('change', function() {
                             tabla.page.len($(this).val()).draw();
@@ -235,7 +231,7 @@ $(document).ready(function () {
                     }
                     
                     if ($('#tablaStockAjustes_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaStockAjustes"></label>';
+                        var filterHtml = '<label><input type="search" class="form-control form-control-sm" placeholder="Buscar…" aria-controls="tablaStockAjustes"></label>';
                         $('#tablaStockAjustes_filter').html(filterHtml);
                         $('#tablaStockAjustes_filter input').on('keyup', function() {
                             tabla.search($(this).val()).draw();
@@ -398,8 +394,10 @@ $(document).ready(function () {
         });
     }
 
-    function cargarCombosFormulario() {
-        $.get('stock_ajustes_ajax.php', { 
+    // sel (opcional): el ajuste que se edita / visualiza. Las opciones llegan por AJAX: los valores se eligen
+    // recién cuando están (antes se hacía .val() enseguida y el tipo de comprobante quedaba sin elegir).
+    function cargarCombosFormulario(sel) {
+        var pSucursales = $.get('stock_ajustes_ajax.php', { 
             accion: 'obtener_sucursales_empresa',
             empresa_idx: empresa_idx 
         }, function(data) {
@@ -410,9 +408,10 @@ $(document).ready(function () {
                 });
             }
             $('#sucursal_id').html(options);
+            if (sel && sel.sucursal_id) $('#sucursal_id').val(String(sel.sucursal_id));
         }, 'json');
 
-        $.get('stock_ajustes_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
+        var pTipos = $.get('stock_ajustes_ajax.php', { accion: 'obtener_comprobantes_tipos' }, function(data) {
             if (data && data.length > 0) {
                 if (data.length === 1) {
                     var options = `<option value="${data[0].comprobante_tipo_id}" selected>${data[0].comprobante_tipo}</option>`;
@@ -425,7 +424,16 @@ $(document).ready(function () {
                     $('#comprobante_tipo_id').html(options);
                 }
             }
+            if (sel && sel.comprobante_tipo_id) {
+                var tipoId = String(sel.comprobante_tipo_id);
+                // Un ajuste viejo puede tener un tipo que hoy no se ofrece (inactivo): se muestra igual
+                if (!$('#comprobante_tipo_id option[value="' + tipoId + '"]').length) {
+                    $('#comprobante_tipo_id').append($('<option>').val(tipoId).text((sel.comprobante_tipo || ('Tipo ' + tipoId)) + ' (inactivo)'));
+                }
+                $('#comprobante_tipo_id').val(tipoId);
+            }
         }, 'json');
+        return $.when(pSucursales, pTipos);
     }
 
     function cargarDepositos(sucursalId, depositoSeleccionado) {
@@ -501,7 +509,7 @@ $(document).ready(function () {
                                    data-nombre="${item.producto_nombre}"
                                    data-stock="${item.stock_sistema || 0}">
                                     <strong>${item.producto_codigo}</strong> - ${item.producto_nombre}
-                                    <br><small>Stock: ${parseFloat(item.stock_sistema || 0).toFixed(6)}</small>
+                                    <br><small>Stock: ${Fmt.cantidad(item.stock_sistema)}</small>
                                 </a>`
                             );
                         });
@@ -564,8 +572,8 @@ $(document).ready(function () {
         
         $('#busqueda_producto').val(textoCompleto);
         $('#producto_seleccionado_id').val(productoId);
-        $('#producto_stock_sistema').val(stockSistema.toFixed(6));
-        $('#producto_stock_fisico').val(stockSistema.toFixed(6));
+        $('#producto_stock_sistema').val(Fmt.cantidadInput(stockSistema));
+        $('#producto_stock_fisico').val(Fmt.cantidadInput(stockSistema));
         calcularDiferencia();
         
         $('#resultados_busqueda').hide();
@@ -582,8 +590,8 @@ $(document).ready(function () {
     function calcularDiferencia() {
         var stockSistema = parseFloat($('#producto_stock_sistema').val()) || 0;
         var stockFisico = parseFloat($('#producto_stock_fisico').val()) || 0;
-        var diferencia = stockFisico - stockSistema;
-        $('#producto_diferencia').val(diferencia.toFixed(6));
+        var diferencia = Fmt.redondearCantidad(Fmt.redondearCantidad(stockFisico) - stockSistema);
+        $('#producto_diferencia').val(Fmt.cantidadInput(diferencia));
     }
 
     $('#producto_stock_fisico').on('input', function() {
@@ -602,10 +610,10 @@ $(document).ready(function () {
             return;
         }
         
-        var stockSistema = parseFloat($('#producto_stock_sistema').val()) || 0;
-        var stockFisico = parseFloat($('#producto_stock_fisico').val()) || 0;
-        var diferencia = parseFloat($('#producto_diferencia').val()) || 0;
-        var costo = parseFloat($('#producto_costo').val()) || 0;
+        var stockSistema = Fmt.redondearCantidad($('#producto_stock_sistema').val());
+        var stockFisico = Fmt.redondearCantidad($('#producto_stock_fisico').val());
+        var diferencia = Fmt.redondearCantidad(stockFisico - stockSistema);
+        var costo = Math.round((parseFloat($('#producto_costo').val()) || 0) * 100) / 100;
         var productoText = $('#busqueda_producto').val();
         
         var nuevoDetalle = {
@@ -619,7 +627,7 @@ $(document).ready(function () {
             diferencia: diferencia,
             cantidad_ajuste: diferencia,
             costo_unitario: costo,
-            costo_total: Math.abs(diferencia) * costo,
+            costo_total: Math.round(Math.abs(diferencia) * costo * 100) / 100,
             observacion: ''
         };
         
@@ -628,10 +636,10 @@ $(document).ready(function () {
         
         $('#busqueda_producto').val('');
         $('#producto_seleccionado_id').val('');
-        $('#producto_stock_sistema').val('0.000000');
-        $('#producto_stock_fisico').val('0.000000');
-        $('#producto_diferencia').val('0.000000');
-        $('#producto_costo').val('0.000000');
+        $('#producto_stock_sistema').val(Fmt.cantidadInput(0));
+        $('#producto_stock_fisico').val(Fmt.cantidadInput(0));
+        $('#producto_diferencia').val(Fmt.cantidadInput(0));
+        $('#producto_costo').val('0.00');
         
         $('#busqueda_producto').focus();
     });
@@ -676,12 +684,12 @@ $(document).ready(function () {
                     <div class="fw-bold">${detalle.producto_nombre}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-end">${detalle.stock_sistema.toFixed(6)}</td>
-                <td class="text-end">${detalle.stock_fisico.toFixed(6)}</td>
-                <td class="text-end ${detalle.diferencia < 0 ? 'text-danger' : detalle.diferencia > 0 ? 'text-success' : ''}">${detalle.diferencia.toFixed(6)}</td>
-                <td class="text-end">${detalle.cantidad_ajuste.toFixed(6)}</td>
-                <td class="text-end">$${detalle.costo_unitario.toFixed(6)}</td>
-                <td class="text-end fw-bold text-primary">$${detalle.costo_total.toFixed(6)}</td>
+                <td class="text-end">${Fmt.cantidad(detalle.stock_sistema)}</td>
+                <td class="text-end">${Fmt.cantidad(detalle.stock_fisico)}</td>
+                <td class="text-end ${detalle.diferencia < 0 ? 'text-danger' : detalle.diferencia > 0 ? 'text-success' : ''}">${Fmt.cantidad(detalle.diferencia)}</td>
+                <td class="text-end">${Fmt.cantidad(detalle.cantidad_ajuste)}</td>
+                <td class="text-end">$${Fmt.numero(detalle.costo_unitario, 2)}</td>
+                <td class="text-end fw-bold text-primary">$${Fmt.numero(detalle.costo_total, 2)}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-warning btn-editar-detalle" 
                             data-idx="${detalle.detalle_idx}" title="Editar">
@@ -738,10 +746,10 @@ $(document).ready(function () {
         if (detalle) {
             $('#busqueda_producto').val(detalle.producto_nombre);
             $('#producto_seleccionado_id').val(detalle.producto_id);
-            $('#producto_stock_sistema').val(detalle.stock_sistema.toFixed(6));
-            $('#producto_stock_fisico').val(detalle.stock_fisico.toFixed(6));
-            $('#producto_diferencia').val(detalle.diferencia.toFixed(6));
-            $('#producto_costo').val(detalle.costo_unitario.toFixed(6));
+            $('#producto_stock_sistema').val(Fmt.cantidadInput(detalle.stock_sistema));
+            $('#producto_stock_fisico').val(Fmt.cantidadInput(detalle.stock_fisico));
+            $('#producto_diferencia').val(Fmt.cantidadInput(detalle.diferencia));
+            $('#producto_costo').val((parseFloat(detalle.costo_unitario) || 0).toFixed(2));
             
             detalles = detalles.filter(function(item) {
                 return item.detalle_idx != idx;
@@ -750,6 +758,9 @@ $(document).ready(function () {
             $('#busqueda_producto').focus();
         }
     });
+
+    // Paso de los inputs de cantidad según los decimales de stock de la empresa
+    $('#producto_stock_sistema, #producto_stock_fisico, #producto_diferencia').attr('step', Fmt.pasoStock());
 
     function resetModal() {
         $('#formStockAjuste')[0].reset();
@@ -786,17 +797,15 @@ $(document).ready(function () {
         }, function (res) {
             if (res && res.stock_ajuste_id) {
                 resetModal();
-                cargarCombosFormulario();
                 
                 $('#stock_ajuste_id').val(res.stock_ajuste_id);
-                $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                 $('#fecha').val(res.fecha.replace(' ', 'T'));
                 $('#descripcion').val(res.descripcion);
                 $('#modalLabel').text('Editar Ajuste de Stock');
 
-                setTimeout(function() {
+                cargarCombosFormulario(res).always(function() {
                     if (res.sucursal_id) {
-                        $('#sucursal_id').val(res.sucursal_id);
+                        $('#sucursal_id').val(String(res.sucursal_id));
                         cargarDepositos(res.sucursal_id, res.deposito_id);
                     }
                     
@@ -819,7 +828,7 @@ $(document).ready(function () {
                         });
                         renderizarDetalles();
                     }
-                }, 300);
+                });
 
                 var modal = new bootstrap.Modal(document.getElementById('modalStockAjuste'));
                 modal.show();
@@ -842,17 +851,15 @@ $(document).ready(function () {
         }, function (res) {
             if (res && res.stock_ajuste_id) {
                 resetModal();
-                cargarCombosFormulario();
                 
                 $('#stock_ajuste_id').val(res.stock_ajuste_id);
-                $('#comprobante_tipo_id').val(res.comprobante_tipo_id);
                 $('#fecha').val(res.fecha.replace(' ', 'T'));
                 $('#descripcion').val(res.descripcion);
                 $('#modalLabel').text('Visualizar Ajuste de Stock');
 
-                setTimeout(function() {
+                cargarCombosFormulario(res).always(function() {
                     if (res.sucursal_id) {
-                        $('#sucursal_id').val(res.sucursal_id);
+                        $('#sucursal_id').val(String(res.sucursal_id));
                         cargarDepositos(res.sucursal_id, res.deposito_id);
                     }
                     
@@ -883,7 +890,7 @@ $(document).ready(function () {
                     $('.modal-footer .btn-secondary').hide();
                     $('.btn-secondary[data-bs-dismiss="modal"]').hide();
                     $('#btnToggleFullscreen').prop('disabled', false);
-                }, 300);
+                });
 
                 var modal = new bootstrap.Modal(document.getElementById('modalStockAjuste'));
                 modal.show();

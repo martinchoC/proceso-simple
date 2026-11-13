@@ -297,7 +297,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </div>
 
 <!-- JsBarcode para renderizado vectorial del código de barras -->
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="<?= asset_local('js/jsbarcode-3.11.5/JsBarcode.all.min.js') ?>"></script>
 <script src="volantes.js"></script>
 
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

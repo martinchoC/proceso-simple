@@ -32,8 +32,8 @@ $accion = (string)($_POST['accion'] ?? $_GET['accion'] ?? '');
 try {
     switch ($accion) {
         case 'maestros':
-            $importar = (bool) perIibbFila($conexion, "SELECT 1 FROM conf__paginas_funciones
-                WHERE pagina_id = ? AND accion_js = 'importar' AND tabla_estado_registro_id = 1 LIMIT 1", 'i', $pagina_idx);
+            // Función activa de la página y asignada al perfil del usuario
+            $importar = usuario_puede_funcion($conexion, $usuario_id, $empresa_id, $pagina_idx, 'importar');
             padResponder(true, ['jurisdicciones' => padJurisdicciones($conexion, $empresa_id), 'puede_importar' => $importar,
                                 'max_upload' => ini_get('upload_max_filesize')]);
             break;
@@ -43,8 +43,7 @@ try {
             break;
 
         case 'importar':
-            $ok = perIibbFila($conexion, "SELECT 1 FROM conf__paginas_funciones
-                WHERE pagina_id = ? AND accion_js = 'importar' AND tabla_estado_registro_id = 1 LIMIT 1", 'i', $pagina_idx);
+            $ok = usuario_puede_funcion($conexion, $usuario_id, $empresa_id, $pagina_idx, 'importar');
             if (!$ok) padResponder(false, null, 'Acción no habilitada', 403);
             $r = padImportar($conexion, $empresa_id, $usuario_id, (int)($_POST['jurisdiccion_id'] ?? 0), $_FILES['archivo'] ?? []);
             $vig = $r['periodo'] ?: ($r['f_desde'] ? "{$r['f_desde']} a {$r['f_hasta']}" : '');

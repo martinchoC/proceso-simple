@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id) {
@@ -52,7 +54,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id) {
 }
 
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == $estado_actual_id) {
@@ -77,7 +79,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id) {
 }
 
 function obtenerBotonAgregar($conexion, $pagina_id) {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [
@@ -253,6 +258,13 @@ function sincronizarStockAjuste($conexion, $stock_ajuste_id, $estado_id, $empres
     }
     mysqli_stmt_close($stmt);
 
+    // Al aplicar, el signo de cada línea tiene que coincidir con el tipo (el core usa el valor absoluto en '+' / '-')
+    if (stockEstadoAplica($conexion, $tabla_origen_id, intval($estado_id))) {
+        $error_signo = stockAjusteValidarSignos($conexion, intval($empresa_idx), $tipo_id,
+            array_map(function ($l) { return ['producto_id' => $l['producto_id'], 'cantidad_ajuste' => $l['cantidad']]; }, $lineas));
+        if ($error_signo !== '') throw new Exception($error_signo);
+    }
+
     return stockSincronizarComprobante($conexion, [
         'empresa_id' => intval($empresa_idx),
         'comprobante_id' => $comprobante_id,
@@ -336,6 +348,8 @@ function agregarStockAjuste($conexion, $data) {
     if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
+    $error_signo = stockAjusteValidarSignos($conexion, intval($data['empresa_idx']), intval($data['comprobante_tipo_id']), $data['detalles']);
+    if ($error_signo !== '') return ['resultado' => false, 'error' => $error_signo];
 
     mysqli_begin_transaction($conexion);
     try {
@@ -370,7 +384,7 @@ function agregarStockAjuste($conexion, $data) {
         $stock_ajuste_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
 
-        $detalles_success = insertarDetallesAjuste($conexion, $stock_ajuste_id, $data['empresa_idx'], $data['detalles']);
+        $detalles_success = insertarDetallesAjuste($conexion, $stock_ajuste_id, $data['empresa_idx'], $data['detalles'], ($data['redondear'] ?? true) !== false);
         if (!$detalles_success) throw new Exception("Error al insertar los detalles");
 
         mysqli_commit($conexion);
@@ -386,9 +400,33 @@ function editarStockAjuste($conexion, $id, $data) {
     $id = intval($id);
     error_log("=== INICIO editarStockAjuste ID: $id ===");
 
+    $error_signo = stockAjusteValidarSignos($conexion, intval($data['empresa_idx']), intval($data['comprobante_tipo_id']), $data['detalles'] ?? []);
+    if ($error_signo !== '') return ['resultado' => false, 'error' => $error_signo];
+
     mysqli_begin_transaction($conexion);
     try {
-        $sql = "UPDATE gestion__stock_ajustes 
+        // Solo se edita en un estado que tenga la función 'editar' en la página (Borrador): un ajuste
+        // confirmado ya movió stock y su detalle tiene que seguir coincidiendo con el libro.
+        $stmt = mysqli_prepare($conexion, "SELECT tabla_estado_registro_id FROM gestion__stock_ajustes
+                                           WHERE stock_ajuste_id = ? AND empresa_id = ? FOR UPDATE");
+        $empresa_chk = intval($data['empresa_idx']);
+        mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_chk);
+        mysqli_stmt_execute($stmt);
+        $actual = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        if (!$actual) throw new Exception('Ajuste de stock no encontrado');
+        $estado_actual = intval($actual['tabla_estado_registro_id']);
+        $pagina_chk = intval($data['pagina_idx'] ?? 0);
+        $stmt = mysqli_prepare($conexion, "SELECT COUNT(*) n FROM conf__paginas_funciones
+                                           WHERE pagina_id = ? AND accion_js = 'editar' AND tabla_estado_registro_id = 1
+                                           AND tabla_estado_registro_origen_id = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $pagina_chk, $estado_actual);
+        mysqli_stmt_execute($stmt);
+        $editable = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['n'] ?? 0) > 0;
+        mysqli_stmt_close($stmt);
+        if (!$editable) throw new Exception('El ajuste no se puede editar en su estado actual (solo en Borrador).');
+
+        $sql = "UPDATE gestion__stock_ajustes
                 SET sucursal_id = ?, deposito_id = ?, comprobante_tipo_id = ?, fecha = ?, descripcion = ?
                 WHERE stock_ajuste_id = ? AND empresa_id = ?";
         $stmt = mysqli_prepare($conexion, $sql);
@@ -488,7 +526,7 @@ function obtenerStockAjustePorId($conexion, $id, $empresa_idx) {
 
 function obtenerComprobantesTipos($conexion, $empresa_idx = null) {
     $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
-    $subgrupo_id = emp_subgrupo_id($conexion, $empresa_idx, 'AST');   // Ajustes de Stock de la empresa
+    $subgrupo_id = emp_subgrupo_id($conexion, $empresa_idx, 'CEF');   // Ajuste de Stock de la empresa (el subgrupo AST quedó inactivo y sin tipos)
     if ($subgrupo_id <= 0) return [];   // la empresa no tiene ese subgrupo activo
     $sql = "SELECT comprobante_tipo_id, comprobante_tipo, letra
             FROM gestion__comprobantes_tipos
@@ -580,7 +618,28 @@ function buscarProductosConStock($conexion, $empresa_idx, $deposito_id, $q) {
     return $productos;
 }
 
-function insertarDetallesAjuste($conexion, $stock_ajuste_id, $empresa_id, $detalles) {
+/**
+ * El signo de cada línea tiene que ser el del tipo: un tipo '+' (sobrante) no admite cantidades negativas
+ * y uno '-' (faltante) no admite positivas; '+/-' (conteo) admite las dos. Devuelve '' si está bien.
+ */
+function stockAjusteValidarSignos($conexion, $empresa_id, $comprobante_tipo_id, $detalles) {
+    require_once __DIR__ . '/stock_core_model.php';
+    $sentido = stockSentidoTipo($conexion, intval($comprobante_tipo_id), intval($empresa_id));
+    if ($sentido !== '+' && $sentido !== '-') return '';
+    foreach ((array)$detalles as $d) {
+        $cantidad = floatval($d['cantidad_ajuste'] ?? ($d['diferencia'] ?? 0));
+        if (($sentido === '+' && $cantidad < 0) || ($sentido === '-' && $cantidad > 0)) {
+            $prod = stockCodigoProducto($conexion, intval($d['producto_id'] ?? 0));
+            return "La línea de $prod tiene cantidad " . ($cantidad < 0 ? 'negativa' : 'positiva')
+                 . ' y el tipo de ajuste solo ' . ($sentido === '+' ? 'suma' : 'resta') . ' stock. Usá el tipo que corresponda.';
+        }
+    }
+    return '';
+}
+
+// $redondear = false: las cantidades se guardan tal cual (el blanqueo de negativos de Stock y Movimientos tiene que dejar
+// el saldo exactamente en 0, aunque tenga más decimales que los de la empresa).
+function insertarDetallesAjuste($conexion, $stock_ajuste_id, $empresa_id, $detalles, $redondear = true) {
     error_log("Insertando " . count($detalles) . " detalles para ajuste $stock_ajuste_id");
 
     if (!is_array($detalles) || count($detalles) === 0) return false;
@@ -593,12 +652,14 @@ function insertarDetallesAjuste($conexion, $stock_ajuste_id, $empresa_id, $detal
 
         $producto_id = intval($detalle['producto_id']);
         $deposito_id = intval($detalle['deposito_id'] ?? 0);
-        $stock_sistema = floatval($detalle['stock_sistema'] ?? 0);
-        $stock_fisico = floatval($detalle['stock_fisico'] ?? 0);
-        $diferencia = floatval($detalle['diferencia'] ?? 0);
-        $cantidad_ajuste = floatval($detalle['cantidad_ajuste'] ?? $diferencia);
-        $costo_unitario = floatval($detalle['costo_unitario'] ?? 0);
-        $costo_total = floatval($detalle['costo_total'] ?? (abs($cantidad_ajuste) * $costo_unitario));
+        // Cantidades con los decimales de stock de la empresa (conf__empresas.decimales_stock), costos con 2
+        $redondeo = function ($v) use ($redondear) { return $redondear ? fmt_redondear_cantidad($v) : round(floatval($v), 4); };
+        $stock_sistema = $redondeo($detalle['stock_sistema'] ?? 0);
+        $stock_fisico = $redondeo($detalle['stock_fisico'] ?? 0);
+        $diferencia = $redondeo($detalle['diferencia'] ?? 0);
+        $cantidad_ajuste = $redondeo($detalle['cantidad_ajuste'] ?? $diferencia);
+        $costo_unitario = round(floatval($detalle['costo_unitario'] ?? 0), 2);
+        $costo_total = round(abs($cantidad_ajuste) * $costo_unitario, 2);
         $observacion = $detalle['observacion'] ?? '';
 
         $sql = "INSERT INTO gestion__stock_ajustes_detalles 

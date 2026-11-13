@@ -24,4 +24,4 @@ Estilo:
 
 Si además se necesita una versión para imprimir o adjuntar (PDF), generala aparte a partir del mismo contenido (no dupliques la redacción: generá el HTML primero y después convertí/adaptá ese mismo contenido, avisando qué herramienta vas a usar para la conversión si hace falta ayuda del usuario).
 
-Guardá el archivo HTML con Write en `docs/manuales/` (raíz del proyecto), con nombre de archivo igual al nombre base de la página que documentás (ej. `docs/manuales/ventas_pedidos.html`). Creá la carpeta si no existe. Avisá en el chat dónde quedó y cómo integrarlo como ayuda contextual si eso no fue explícito en el pedido.
+Guardá el archivo HTML con Write en `_local/docs/manuales/` (raíz del proyecto), con nombre de archivo igual al nombre base de la página que documentás (ej. `_local/docs/manuales/ventas_pedidos.html`). Creá la carpeta si no existe. Avisá en el chat dónde quedó y cómo integrarlo como ayuda contextual si eso no fue explícito en el pedido.

@@ -90,6 +90,8 @@ try {
         case 'ejecutar_accion':
             $orden_compra_id = intval($_POST['orden_compra_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $orden_compra_id, $accion_js, $ctx['empresa_id'], $pagina_idx);
             echo json_encode($resultado);
             break;
@@ -122,6 +124,8 @@ try {
             break;
             
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
             }
@@ -154,6 +158,18 @@ try {
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'tipo_circuito' => trim($_POST['tipo_circuito'] ?? 'BIENES'),
+                'es_contrato' => intval($_POST['es_contrato'] ?? 0),
+                'contrato_nro_legal' => trim($_POST['contrato_nro_legal'] ?? ''),
+                'fecha_inicio' => !empty($_POST['fecha_inicio']) ? $_POST['fecha_inicio'] : null,
+                'fecha_fin' => !empty($_POST['fecha_fin']) ? $_POST['fecha_fin'] : null,
+                'dias_preaviso_rescision' => intval($_POST['dias_preaviso_rescision'] ?? 30),
+                'tiene_renovacion_automatica' => intval($_POST['tiene_renovacion_automatica'] ?? 0),
+                'requiere_certificacion_avance' => intval($_POST['requiere_certificacion_avance'] ?? 0),
+                'pct_anticipo_financiero' => floatval($_POST['pct_anticipo_financiero'] ?? 0),
+                'pct_fondo_reparo' => floatval($_POST['pct_fondo_reparo'] ?? 0),
+                'responsable_tecnico_id' => !empty($_POST['responsable_tecnico_id']) ? intval($_POST['responsable_tecnico_id']) : null,
+                'archivo_contrato_adjunto' => trim($_POST['archivo_contrato_adjunto'] ?? ''),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
@@ -164,6 +180,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['orden_compra_id'] ?? 0);
             
             error_log("=== EDITAR - ID recibido: $id ===");
@@ -198,6 +216,18 @@ try {
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'tipo_circuito' => trim($_POST['tipo_circuito'] ?? 'BIENES'),
+                'es_contrato' => intval($_POST['es_contrato'] ?? 0),
+                'contrato_nro_legal' => trim($_POST['contrato_nro_legal'] ?? ''),
+                'fecha_inicio' => !empty($_POST['fecha_inicio']) ? $_POST['fecha_inicio'] : null,
+                'fecha_fin' => !empty($_POST['fecha_fin']) ? $_POST['fecha_fin'] : null,
+                'dias_preaviso_rescision' => intval($_POST['dias_preaviso_rescision'] ?? 30),
+                'tiene_renovacion_automatica' => intval($_POST['tiene_renovacion_automatica'] ?? 0),
+                'requiere_certificacion_avance' => intval($_POST['requiere_certificacion_avance'] ?? 0),
+                'pct_anticipo_financiero' => floatval($_POST['pct_anticipo_financiero'] ?? 0),
+                'pct_fondo_reparo' => floatval($_POST['pct_fondo_reparo'] ?? 0),
+                'responsable_tecnico_id' => !empty($_POST['responsable_tecnico_id']) ? intval($_POST['responsable_tecnico_id']) : null,
+                'archivo_contrato_adjunto' => trim($_POST['archivo_contrato_adjunto'] ?? ''),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx
             ];
@@ -354,6 +384,53 @@ try {
                 'empresa_id' => $ctx['empresa_id']
             ]);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_usuarios':
+            $sql = "SELECT usuario_id, usuario_nombre FROM conf__usuarios WHERE tabla_estado_registro_id = 1 ORDER BY usuario_nombre";
+            $res = mysqli_query($conexion, $sql);
+            $usuarios = [];
+            while ($u = mysqli_fetch_assoc($res)) {
+                $usuarios[] = $u;
+            }
+            echo json_encode($usuarios, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // =========================================================================
+        // ACCIONES DE CONTRATOS Y CERTIFICACIONES DE AVANCE
+        // =========================================================================
+        case 'contrato_resumen':
+            $orden_compra_id = intval($_GET['orden_compra_id'] ?? $_POST['orden_compra_id'] ?? 0);
+            $resumen = contratoObtenerResumenSeguimiento($conexion, $orden_compra_id, $empresa_idx);
+            echo json_encode($resumen ? ['success' => true, 'data' => $resumen] : ['success' => false, 'error' => 'Contrato no encontrado'], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'certificaciones_listar':
+            $orden_compra_id = intval($_GET['orden_compra_id'] ?? $_POST['orden_compra_id'] ?? 0);
+            $certificaciones = contratoCertificacionesListar($conexion, $orden_compra_id, $empresa_idx);
+            echo json_encode(['success' => true, 'data' => $certificaciones], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'certificacion_guardar':
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
+            $uid = intval($_SESSION['usuario_id'] ?? 0);
+            $res = contratoCertificacionGuardar($conexion, $empresa_idx, $uid, $_POST);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'certificacion_aprobar':
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
+            $certificacion_id = intval($_POST['certificacion_id'] ?? 0);
+            $uid = intval($_SESSION['usuario_id'] ?? 0);
+            $res = contratoCertificacionAprobar($conexion, $certificacion_id, $uid, $empresa_idx);
+            echo json_encode($res, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'certificaciones_disponibles_facturar':
+            $entidad_id = intval($_GET['entidad_id'] ?? $_POST['entidad_id'] ?? 0);
+            $orden_compra_id = intval($_GET['orden_compra_id'] ?? $_POST['orden_compra_id'] ?? 0);
+            $disponibles = contratoCertificacionesDisponiblesFacturar($conexion, $entidad_id, $empresa_idx, $orden_compra_id);
+            echo json_encode(['success' => true, 'data' => $disponibles], JSON_UNESCAPED_UNICODE);
             break;
 
         default:

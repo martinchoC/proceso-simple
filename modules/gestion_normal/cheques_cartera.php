@@ -7,36 +7,20 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 
 $pageTitle = "Cartera de Cheques y Conciliación";
 $currentPage = 'cheques_cartera';
 $modudo_idx = 5; // Typo intencional del ERP
 $pagina_idx = 607;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-money-check text-primary me-2"></i>Cartera de Cheques y Bancos
-                    </h3>
-                    <small class="text-muted">Administración integral de cheques de terceros, cheques propios diferidos, depósitos y débitos</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Cartera de Cheques</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Cartera de cheques','fas fa-money-check', 'Administración integral de cheques de terceros, cheques propios diferidos, depósitos y débitos', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -213,7 +197,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <select class="form-select" id="depositoCuentaId" required>
                         <option value="">-- Seleccionar Cuenta Bancaria --</option>
                     </select>
-                    <small class="text-muted">El cheque pasará a estado DEPOSITADO acreditando la cuenta bancaria de la empresa.</small>
+                    <?= ui_ayuda('El cheque pasará a estado DEPOSITADO acreditando la cuenta bancaria de la empresa.') ?>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Fecha de Depósito <span class="text-danger">*</span></label>
@@ -250,7 +234,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
                 <div class="alert alert-info py-2 small mb-3">
-                    <i class="fas fa-info-circle me-1"></i> Se generará el asiento contable de débito cancelando <em>Cheques Propios Emitidos</em> y debitando la <em>Cuenta Bancaria</em> respectiva.
+                    <i class="fas fa-info-circle me-1"></i> Genera el asiento: cancela <em>Cheques propios emitidos</em> contra la cuenta bancaria.
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Fecha de Débito Bancario <span class="text-danger">*</span></label>
@@ -308,5 +292,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>
 
 <!-- SweetAlert2 & Select2 si hicieran falta -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script>
+    // Funciones de la página asignadas al perfil del usuario: cheques_cartera.js solo muestra esos botones
+    window.CHEQUES_PERMISOS = <?= json_encode([
+        'depositar' => permisos_puede($conexion, $pagina_idx, 'depositar'),
+        'debitar'   => permisos_puede($conexion, $pagina_idx, 'debitar'),
+        'rechazar'  => permisos_puede($conexion, $pagina_idx, 'rechazar'),
+    ]) ?>;
+</script>
 <script src="cheques_cartera.js"></script>

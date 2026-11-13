@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../db.php';
 
 $pageTitle = "Productos Costos";
 $currentPage = 'productos_costos';
+$ui_simple = true;
 $modudo_idx = 2;
 $pagina_id = 81;
 
@@ -12,25 +13,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-dollar-sign me-2"></i>Productos Costos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Productos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Costos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Costos de productos','fas fa-dollar-sign', '', ['Productos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -333,15 +316,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     
     <script src="productos_costos.js?v=<?= filemtime(__DIR__.'/productos_costos.js') ?>"></script>
 </main>

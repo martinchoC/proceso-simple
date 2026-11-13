@@ -25,12 +25,15 @@ register_shutdown_function(function() {
 require_once __DIR__ . '/../../db.php';
 require_once "empresas_impuestos_config_model.php";
 require_once __DIR__ . "/empresas_impuestos_config_agente_model.php";
+require_once __DIR__ . "/empresas_impuestos_config_retencion_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 73);
+// Solo una página de este módulo (si no, la de empresas_impuestos_config.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'empresas_impuestos_config.php');
 
 // Verificar conexión
 if (!$conexion) {
@@ -66,8 +69,10 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
-                'empresa_id' => intval($_POST['empresa_id'] ?? $empresa_idx),
+                'empresa_id' => $empresa_idx,   // la del guard: nunca la del POST (otra empresa)
                 'impuesto_tipo_id' => intval($_POST['impuesto_tipo_id'] ?? 0),
                 'jurisdiccion_id' => !empty($_POST['jurisdiccion_id']) ? intval($_POST['jurisdiccion_id']) : null,
                 'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
@@ -83,9 +88,11 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['empresa_impuesto_config_id'] ?? 0);
             $data = [
-                'empresa_id' => intval($_POST['empresa_id'] ?? $empresa_idx),
+                'empresa_id' => $empresa_idx,   // la del guard: nunca la del POST (otra empresa)
                 'impuesto_tipo_id' => intval($_POST['impuesto_tipo_id'] ?? 0),
                 'jurisdiccion_id' => !empty($_POST['jurisdiccion_id']) ? intval($_POST['jurisdiccion_id']) : null,
                 'cont_cuenta_id' => !empty($_POST['cont_cuenta_id']) ? intval($_POST['cont_cuenta_id']) : null,
@@ -109,6 +116,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $empresa_impuesto_config_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -231,6 +240,14 @@ try {
 
         case 'guardar_agente':
             echo json_encode(eicGuardarAgente($conexion, intval($_POST['config_id'] ?? 0), $empresa_idx, $_POST), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_retencion':
+            echo json_encode(eicObtenerRetencion($conexion, intval($_GET['config_id'] ?? $_POST['config_id'] ?? 0), $empresa_idx), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'guardar_retencion':
+            echo json_encode(eicGuardarRetencion($conexion, intval($_POST['config_id'] ?? 0), $empresa_idx, $_POST), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'listar_subgrupos_asignados':

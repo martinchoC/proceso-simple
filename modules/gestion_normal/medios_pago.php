@@ -6,32 +6,14 @@ $pageTitle = "Medios de Pago";
 $currentPage = 'medios_pago';
 $modudo_idx = 5;
 $pagina_idx = 620; // ID en conf__paginas para Medios de Pago
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="bi bi-credit-card-fill text-primary me-2"></i>Medios de Pago
-                    </h3>
-                    <small class="text-muted">Catálogo de instrumentos de cobro y pago, destinos de tesorería y cuentas contables</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="<?= url('index.php') ?>">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión Normal</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Medios de Pago</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Medios de pago','bi bi-credit-card-fill', 'Catálogo de instrumentos de cobro y pago, destinos de tesorería y cuentas contables', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -157,29 +139,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                     <!-- Tipo de Cuenta de Tesorería -->
                                     <div class="col-md-6">
-                                        <label for="tesoreria_cuenta_tipo" class="form-label fw-semibold">Destino de Fondos (Tesorería)</label>
+                                        <label for="tesoreria_cuenta_tipo" class="form-label fw-semibold">Destino de Fondos (Tesorería) <?= ui_ayuda('Determina si impacta en Caja, Banco, Valores o Cupones.') ?></label>
                                         <select class="form-select" id="tesoreria_cuenta_tipo" name="tesoreria_cuenta_tipo">
                                             <option value="">Cargando tipos de cuenta...</option>
                                         </select>
-                                        <small class="text-muted">Determina si impacta en Caja, Banco, Valores o Cupones.</small>
                                     </div>
 
                                     <!-- Cuenta específica de Tesorería -->
                                     <div class="col-md-6">
-                                        <label for="tesoreria_cuenta_id" class="form-label fw-semibold">Cuenta Específica Predeterminada</label>
+                                        <label for="tesoreria_cuenta_id" class="form-label fw-semibold">Cuenta Específica Predeterminada <?= ui_ayuda('Opcional. Si se fija, asigna automáticamente la cuenta bancaria o caja.') ?></label>
                                         <select class="form-select" id="tesoreria_cuenta_id" name="tesoreria_cuenta_id">
                                             <option value="">-- Seleccionar en la operación --</option>
                                         </select>
-                                        <small class="text-muted">Opcional. Si se fija, asigna automáticamente la cuenta bancaria o caja.</small>
                                     </div>
 
                                     <!-- Cuenta Contable -->
                                     <div class="col-md-6">
-                                        <label for="cont_cuenta_id" class="form-label fw-semibold">Cuenta Contable Predeterminada</label>
+                                        <label for="cont_cuenta_id" class="form-label fw-semibold">Cuenta Contable Predeterminada <?= ui_ayuda('Cuenta del Plan Contable para asientos automáticos.') ?></label>
                                         <select class="form-select" id="cont_cuenta_id" name="cont_cuenta_id">
                                             <option value="">-- Ninguna / Asignar después --</option>
                                         </select>
-                                        <small class="text-muted">Cuenta del Plan Contable para asientos automáticos.</small>
                                     </div>
 
                                     <!-- Sección condicional: Tipo de Impuesto para Retenciones -->
@@ -191,7 +170,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <select class="form-select" id="impuesto_tipo_id" name="impuesto_tipo_id">
                                                 <option value="">-- Seleccionar Tipo de Impuesto --</option>
                                             </select>
-                                            <small class="text-muted">Requerido para retenciones sufridas (IVA, Ganancias, IIBB, etc.).</small>
+                                            <?= ui_ayuda('Requerido para retenciones sufridas (IVA, Ganancias, IIBB, etc.).') ?>
                                         </div>
                                     </div>
 
@@ -324,14 +303,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Estilos específicos y librerías -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
     <script>
         window.PAGINA_ID = <?= (int)$pagina_idx ?>;

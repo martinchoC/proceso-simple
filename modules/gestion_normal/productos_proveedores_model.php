@@ -1,5 +1,8 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
+require_once __DIR__ . '/../../core/productos_proveedores.php';
 $conexion = $conn;
 
 /* =========================================================================
@@ -38,7 +41,10 @@ function obtenerFuncionesPagina($conexion, $pagina_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -65,19 +71,19 @@ function obtenerBotonAgregar($conexion, $pagina_id)
 }
 
 /* =========================================================================
- * Combo de proveedores — confirmado por Pablo: gestion__entidades.es_proveedor = 1
+ * Combo de proveedores — confirmado por Pablo: entidades con rol PRO activo (gestion__entidades_roles)
  * (misma consulta que proveedor_precios_model.php::obtenerProveedores; la
  * versión de productos_model.php::obtenerEntidadesProveedores NO filtra por
- * es_proveedor y quedó desactualizada, no replicar ese criterio acá).
+ * rol y quedó desactualizada, no replicar ese criterio acá).
  * ========================================================================= */
 function obtenerProveedoresCombo($conexion, $empresa_id)
 {
     $empresa_id = intval($empresa_id);
 
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia
+    $sql = "SELECT e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia
             FROM gestion__entidades e
             WHERE e.empresa_id = ?
-              AND e.es_proveedor = 1
+              AND " . ent_sql_tiene_rol('e.entidad_id', 'PRO') . "
               AND e.tabla_estado_registro_id = 1
             ORDER BY e.entidad_nombre";
 
@@ -200,7 +206,7 @@ function obtenerTopProveedoresPorVinculos($conexion, $empresa_id, $limite = 10)
     $empresa_id = intval($empresa_id);
     $limite = intval($limite);
 
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, COUNT(*) AS cantidad
+    $sql = "SELECT e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, COUNT(*) AS cantidad
             FROM gestion__productos_proveedores pp
             INNER JOIN gestion__entidades e ON pp.entidad_id = e.entidad_id
             WHERE pp.empresa_id = ? AND pp.tabla_estado_registro_id = 1
@@ -278,10 +284,10 @@ function obtenerProveedoresSinVinculos($conexion, $empresa_id, $limite = 50)
     $empresa_id = intval($empresa_id);
     $limite = intval($limite);
 
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.cuit
+    $sql = "SELECT e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.cuit
             FROM gestion__entidades e
             WHERE e.empresa_id = ?
-            AND e.es_proveedor = 1
+            AND " . ent_sql_tiene_rol('e.entidad_id', 'PRO') . "
             AND e.tabla_estado_registro_id = 1
             AND NOT EXISTS (
                 SELECT 1 FROM gestion__productos_proveedores pp
@@ -446,10 +452,11 @@ function obtenerProductosProveedoresPaginados($conexion, $empresa_idx, $opciones
                         JSON_OBJECT(
                             'producto_proveedor_id', pp.producto_proveedor_id,
                             'entidad_id', pp.entidad_id,
-                            'entidad_nombre', COALESCE(e.entidad_nombre, ''),
-                            'codigo_proveedor', COALESCE(pp.codigo_proveedor, '')
+                            'entidad_nombre', COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre, ''),
+                            'codigo_proveedor', COALESCE(pp.codigo_proveedor, ''),
+                            'es_principal', " . pp_sql_es_principal('pp') . "
                         )
-                        ORDER BY e.entidad_nombre
+                        ORDER BY " . pp_sql_es_principal('pp') . " DESC, e.entidad_nombre
                         SEPARATOR ','
                     ), ']')
                     FROM gestion__productos_proveedores pp
@@ -576,6 +583,7 @@ function agregarVinculoProveedor($conexion, $data)
             return ['success' => false, 'message' => 'Error al reactivar el vínculo: ' . mysqli_error($conexion)];
         }
         recalcularProveedoresBusqueda($conexion, $producto_id);
+        pp_asegurar_principal($conexion, $empresa_id, $producto_id);
         return ['success' => true, 'message' => 'Vínculo reactivado correctamente', 'producto_proveedor_id' => intval($existente['producto_proveedor_id'])];
     }
 
@@ -596,6 +604,8 @@ function agregarVinculoProveedor($conexion, $data)
     $producto_proveedor_id = mysqli_insert_id($conexion);
     mysqli_stmt_close($stmt);
     recalcularProveedoresBusqueda($conexion, $producto_id);
+    // Si es el primer proveedor del producto, queda como principal.
+    pp_asegurar_principal($conexion, $empresa_id, $producto_id);
 
     return ['success' => true, 'message' => 'Proveedor vinculado correctamente', 'producto_proveedor_id' => $producto_proveedor_id];
 }
@@ -687,7 +697,22 @@ function ejecutarTransicionEstadoVinculo($conexion, $producto_proveedor_id, $acc
     }
     mysqli_stmt_close($stmt);
 
+    // Si se pasa el vínculo a inactivo (baja), dar de baja también el precio de lista del proveedor
+    if ($estado_destino_id === 2) {
+        $sql_precios = "UPDATE gestion__productos_proveedores_precios 
+                        SET tabla_estado_registro_id = 2 
+                        WHERE producto_proveedor_id = ? AND empresa_id = ?";
+        $stmt_precios = mysqli_prepare($conexion, $sql_precios);
+        if ($stmt_precios) {
+            mysqli_stmt_bind_param($stmt_precios, "ii", $producto_proveedor_id, $empresa_idx);
+            mysqli_stmt_execute($stmt_precios);
+            mysqli_stmt_close($stmt_precios);
+        }
+    }
+
     recalcularProveedoresBusqueda($conexion, $registro['producto_id']);
+    // Baja del principal: pasa a serlo la primera relación activa que quede.
+    pp_asegurar_principal($conexion, $empresa_idx, $registro['producto_id']);
 
     return ['success' => true, 'message' => 'Estado actualizado correctamente'];
 }

@@ -14,17 +14,9 @@ $acciones_permitidas = [
     'listar',
     'obtener',
     'obtener_estados',
-    'obtener_tipos_producto',
-    'obtener_unidades_medida',
-    'obtener_iva_alicuotas',
-    'obtener_marcas',
-    'obtener_modelos',
-    'obtener_submodelos',
-    'obtener_listas_precios',
-    'obtener_compatibilidad',
-    'obtener_imagenes_producto',
-    'obtener_ubicaciones_producto',
-    'obtener_proveedores_producto',
+    'obtener_combos',
+    'obtener_niveles_stock',
+    'obtener_presentaciones',
 ];
 
 // Misma precedencia GET/POST que productos_ajax.php, para que la acción validada
@@ -38,4 +30,7 @@ if (!in_array($accion_consulta, $acciones_permitidas, true)) {
     exit;
 }
 
+// productos_ajax.php acepta a los usuarios de la consulta solo cuando entran por acá
+// (acciones ya filtradas) y usa la página de la consulta para los botones de cada fila.
+define('PRODUCTOS_CONSULTA', true);
 require __DIR__ . '/productos_ajax.php';

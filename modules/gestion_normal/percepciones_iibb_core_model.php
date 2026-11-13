@@ -1,7 +1,11 @@
 <?php
 /**
- * Percepciones de IIBB practicadas (empresa agente de percepción).
- * Diseño: docs/gestion/09_percepciones_iibb.md — estructura: sql/mantenimiento/20261010_percepciones_iibb_01_estructura.sql
+ * Percepciones practicadas (empresa agente de percepción): IIBB por jurisdicción (impuesto 6) y, desde la etapa 7 de
+ * _local/docs/gestion/10_retenciones_percepciones_relevamiento.md, IVA (impuesto 22, script 20261016_percepcion_iva_01.sql).
+ * Diseño IIBB: _local/docs/gestion/09_percepciones_iibb.md — estructura: _local/sql/mantenimiento/20261010_percepciones_iibb_01_estructura.sql
+ * Las dos usan la misma configuración (gestion__empresas_impuestos_config + _situaciones + _subgrupos) y se graban en
+ * gestion__comprobantes_impuestos; ventas_facturas llama a perCalcularPracticadas() / perIibbGuardar() /
+ * perIibbDelComprobante(), que cubren los dos impuestos (PER_TIPOS_PRACTICADOS).
  *
  * Servicio único de cálculo: lo usan ventas_facturas_model.php (al guardar el borrador, al editar y al confirmar)
  * y la vista previa de la pantalla. Nada propio de una provincia está acá: alícuotas por situación, leyendas,
@@ -12,12 +16,31 @@
  */
 
 if (!defined('PER_IIBB_IMPUESTO_TIPO_ID')) define('PER_IIBB_IMPUESTO_TIPO_ID', 6);   // "Percepción IIBB Efectuadas" (catálogo global)
+if (!defined('PER_IVA_IMPUESTO_TIPO_ID')) define('PER_IVA_IMPUESTO_TIPO_ID', 22);    // "Percepción IVA Efectuada" (catálogo global)
+if (!defined('PER_TIPOS_PRACTICADOS')) define('PER_TIPOS_PRACTICADOS', [6, 22]);
+
+/** Situaciones del cliente frente a la percepción de IVA: su condición frente al IVA. */
+function perIvaSituaciones() {
+    return [
+        'RESPONSABLE_INSCRIPTO' => 'Responsable inscripto',
+        'NO_CATEGORIZADO'       => 'No categorizado',
+        'MONOTRIBUTO'           => 'Monotributista',
+        'EXENTO'                => 'Exento en IVA',
+        'CONSUMIDOR_FINAL'      => 'Consumidor final identificado',
+    ];
+}
+
+/** Situaciones posibles según el impuesto percibido (para la solapa Agente de Percepción). */
+function perSituacionesImpuesto($impuesto_tipo_id) {
+    return intval($impuesto_tipo_id) === PER_IVA_IMPUESTO_TIPO_ID ? perIvaSituaciones() : perIibbSituaciones();
+}
 
 /** Situaciones posibles del cliente frente al impuesto de una jurisdicción. */
 function perIibbSituaciones() {
     return [
         'PADRON'                      => 'Incluido en el padrón',
-        'INSCRIPTO_JURISDICCION'      => 'Inscripto en la jurisdicción (directo o CM con alta)',
+        'INSCRIPTO_JURISDICCION'      => 'Inscripto directo (local) en la jurisdicción',
+        'CONVENIO_JURISDICCION'       => 'Convenio Multilateral con alta en la jurisdicción',
         'SIMPLIFICADO_JURISDICCION'   => 'Régimen simplificado de la jurisdicción',
         'INSCRIPTO_OTRA_JURISDICCION' => 'Inscripto en otra jurisdicción, sin alta en esta',
         'NO_INSCRIPTO'                => 'No inscripto / sin condición IIBB',
@@ -152,14 +175,15 @@ function perIibbSituacionCondicion($conexion, $entidad_id, $provincia_jurisdicci
             'iiss', intval($cond['entidad_condicion_iibb_id']), $provincia_jurisdiccion_id, $fecha, $fecha);
     }
     if (!$en_jurisdiccion) return 'INSCRIPTO_OTRA_JURISDICCION';
-    return $codigo === 'SIMPLIFICADO' ? 'SIMPLIFICADO_JURISDICCION' : 'INSCRIPTO_JURISDICCION';
+    if ($codigo === 'SIMPLIFICADO') return 'SIMPLIFICADO_JURISDICCION';
+    return $codigo === 'CM' ? 'CONVENIO_JURISDICCION' : 'INSCRIPTO_JURISDICCION';
 }
 
 /** Porcentaje de exclusión vigente (certificado de no percepción) del cliente en la jurisdicción. */
 function perIibbExclusion($conexion, $empresa_id, $entidad_id, $jurisdiccion_id, $fecha) {
     $row = perIibbFila($conexion,
         "SELECT MAX(porcentaje_exclusion) AS pct FROM gestion__entidades_iibb_exclusiones
-         WHERE empresa_id = ? AND entidad_id = ? AND jurisdiccion_id = ? AND tabla_estado_registro_id = 1
+         WHERE empresa_id = ? AND entidad_id = ? AND jurisdiccion_id = ? AND sentido = 'PERCEPCION' AND tabla_estado_registro_id = 1
            AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)",
         'iiiss', $empresa_id, $entidad_id, $jurisdiccion_id, $fecha, $fecha);
     return $row && $row['pct'] !== null ? floatval($row['pct']) : 0.0;
@@ -284,6 +308,8 @@ function perIibbCalcular($conexion, $empresa_id, $cab, $detalles) {
             }
         }
         $sit = $cfg['situaciones'][$situacion] ?? null;
+        // Config sin fila propia para el CM (antes de 20261027_percepciones_iibb_05): vale la del directo
+        if (!$sit && $situacion === 'CONVENIO_JURISDICCION') $sit = $cfg['situaciones']['INSCRIPTO_JURISDICCION'] ?? null;
         if (!$sit) continue;   // situación no alcanzada por el régimen
 
         if (intval($sit['requiere_territorio']) === 1) {
@@ -321,11 +347,13 @@ function perIibbCalcular($conexion, $empresa_id, $cab, $detalles) {
 }
 
 function perIibbArmar($cfg, $situacion, $base, $alic, $importe, $tipo_registro, $padron_id, $crc, $leyenda, $detalle) {
-    $leyenda = $leyenda ?: ('Percepción IIBB ' . $cfg['jurisdiccion_nombre']);
+    $es_iva = intval($cfg['impuesto_tipo_id'] ?? PER_IIBB_IMPUESTO_TIPO_ID) === PER_IVA_IMPUESTO_TIPO_ID;
+    $leyenda = $leyenda ?: ($es_iva ? 'Percepción IVA' : ('Percepción IIBB ' . $cfg['jurisdiccion_nombre']));
     return [
+        'impuesto_tipo_id' => $es_iva ? PER_IVA_IMPUESTO_TIPO_ID : PER_IIBB_IMPUESTO_TIPO_ID,
         'empresa_impuesto_config_id' => intval($cfg['empresa_impuesto_config_id']),
-        'jurisdiccion_id' => intval($cfg['jurisdiccion_id']),
-        'jurisdiccion_nombre' => $cfg['jurisdiccion_nombre'],
+        'jurisdiccion_id' => intval($cfg['jurisdiccion_id'] ?? 0),
+        'jurisdiccion_nombre' => $cfg['jurisdiccion_nombre'] ?? null,
         'tipo_calculo' => $situacion === 'PADRON' ? 'padron' : 'regla',
         'situacion' => $situacion,
         'base_imponible' => round($base, 2),
@@ -343,20 +371,20 @@ function perIibbArmar($cfg, $situacion, $base, $alic, $importe, $tipo_registro, 
 }
 
 /**
- * Reemplaza las percepciones IIBB del comprobante por las calculadas. Si alguna ya fue declarada
+ * Reemplaza las percepciones practicadas (IIBB e IVA) del comprobante por las calculadas. Si alguna ya fue declarada
  * (liquidacion_comprobante_id), no se toca nada y se lanza Exception.
  */
 function perIibbGuardar($conexion, $comprobante_id, $percepciones) {
     $comprobante_id = intval($comprobante_id);
-    $tipo = PER_IIBB_IMPUESTO_TIPO_ID;
+    $in = implode(',', array_map('intval', PER_TIPOS_PRACTICADOS));
     if (perIibbFila($conexion,
         "SELECT 1 FROM gestion__comprobantes_impuestos
-         WHERE comprobante_id = ? AND impuesto_tipo_id = ? AND tabla_estado_registro_id = 1
-           AND liquidacion_comprobante_id IS NOT NULL LIMIT 1", 'ii', $comprobante_id, $tipo)) {
-        throw new Exception('Las percepciones de IIBB de este comprobante ya fueron declaradas: no se pueden modificar.');
+         WHERE comprobante_id = ? AND impuesto_tipo_id IN ($in) AND tabla_estado_registro_id = 1
+           AND liquidacion_comprobante_id IS NOT NULL LIMIT 1", 'i', $comprobante_id)) {
+        throw new Exception('Las percepciones de este comprobante ya fueron declaradas: no se pueden modificar.');
     }
-    $stmt = mysqli_prepare($conexion, "DELETE FROM gestion__comprobantes_impuestos WHERE comprobante_id = ? AND impuesto_tipo_id = ?");
-    mysqli_stmt_bind_param($stmt, 'ii', $comprobante_id, $tipo);
+    $stmt = mysqli_prepare($conexion, "DELETE FROM gestion__comprobantes_impuestos WHERE comprobante_id = ? AND impuesto_tipo_id IN ($in)");
+    mysqli_stmt_bind_param($stmt, 'i', $comprobante_id);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 
@@ -366,40 +394,185 @@ function perIibbGuardar($conexion, $comprobante_id, $percepciones) {
              tabla_estado_registro_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
     foreach ($percepciones as $p) {
+        $tipo = intval($p['impuesto_tipo_id'] ?? PER_IIBB_IMPUESTO_TIPO_ID);
         $stmt = mysqli_prepare($conexion, $sql);
         mysqli_stmt_bind_param($stmt, 'iiiisdddssiiis',
             $comprobante_id, $p['empresa_impuesto_config_id'], $tipo, $p['jurisdiccion_id'], $p['tipo_calculo'],
             $p['base_imponible'], $p['alicuota'], $p['importe'], $p['detalle_origen'], $p['situacion'],
             $p['tipo_registro_ddjj'], $p['padron_iibb_id'], $p['padron_crc'], $p['leyenda']);
-        if (!mysqli_stmt_execute($stmt)) throw new Exception('Percepciones IIBB: ' . mysqli_stmt_error($stmt));
+        if (!mysqli_stmt_execute($stmt)) throw new Exception('Percepciones: ' . mysqli_stmt_error($stmt));
         mysqli_stmt_close($stmt);
     }
 }
 
-/** Percepciones IIBB activas de un comprobante (con datos de la config para asiento, ARCA e impresión). */
+/**
+ * Percepciones practicadas activas de un comprobante, IIBB e IVA (con datos de la config para asiento, ARCA e
+ * impresión). 'descripcion' = "Percepción IIBB <provincia>" o "Percepción IVA".
+ */
 function perIibbDelComprobante($conexion, $comprobante_id) {
-    return perIibbFilas($conexion,
+    $in = implode(',', array_map('intval', PER_TIPOS_PRACTICADOS));
+    $filas = perIibbFilas($conexion,
         "SELECT ci.*, cfg.cont_cuenta_id, cfg.arca_tributo_id, cfg.numero_agente, j.jurisdiccion_nombre
          FROM gestion__comprobantes_impuestos ci
          LEFT JOIN gestion__empresas_impuestos_config cfg ON cfg.empresa_impuesto_config_id = ci.empresa_impuesto_config_id
          LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = ci.jurisdiccion_id
-         WHERE ci.comprobante_id = ? AND ci.impuesto_tipo_id = ? AND ci.tabla_estado_registro_id = 1
-         ORDER BY ci.comprobante_impuesto_id",
-        'ii', intval($comprobante_id), PER_IIBB_IMPUESTO_TIPO_ID);
+         WHERE ci.comprobante_id = ? AND ci.impuesto_tipo_id IN ($in) AND ci.tabla_estado_registro_id = 1
+         ORDER BY ci.impuesto_tipo_id, ci.comprobante_impuesto_id",
+        'i', intval($comprobante_id));
+    foreach ($filas as &$f) {
+        $f['descripcion'] = intval($f['impuesto_tipo_id']) === PER_IVA_IMPUESTO_TIPO_ID ? 'Percepción IVA' : 'Percepción IIBB ' . $f['jurisdiccion_nombre'];
+    }
+    unset($f);
+    return $filas;
 }
 
-/** Al eliminar/anular el comprobante: las percepciones pasan a Eliminado (6). Bloquea si ya se declararon. */
+/** Al eliminar/anular el comprobante: las percepciones (IIBB e IVA) pasan a Eliminado (6). Bloquea si ya se declararon. */
 function perIibbAnularDelComprobante($conexion, $comprobante_id) {
     $comprobante_id = intval($comprobante_id);
-    $tipo = PER_IIBB_IMPUESTO_TIPO_ID;
+    $in = implode(',', array_map('intval', PER_TIPOS_PRACTICADOS));
     if (perIibbFila($conexion,
         "SELECT 1 FROM gestion__comprobantes_impuestos
-         WHERE comprobante_id = ? AND impuesto_tipo_id = ? AND tabla_estado_registro_id = 1
-           AND liquidacion_comprobante_id IS NOT NULL LIMIT 1", 'ii', $comprobante_id, $tipo)) {
-        throw new Exception('Las percepciones de IIBB de este comprobante ya fueron declaradas: anúlelo con nota de crédito.');
+         WHERE comprobante_id = ? AND impuesto_tipo_id IN ($in) AND tabla_estado_registro_id = 1
+           AND liquidacion_comprobante_id IS NOT NULL LIMIT 1", 'i', $comprobante_id)) {
+        throw new Exception('Las percepciones de este comprobante ya fueron declaradas: anúlelo con nota de crédito.');
     }
-    $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_impuestos SET tabla_estado_registro_id = 6 WHERE comprobante_id = ? AND impuesto_tipo_id = ?");
-    mysqli_stmt_bind_param($stmt, 'ii', $comprobante_id, $tipo);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_impuestos SET tabla_estado_registro_id = 6 WHERE comprobante_id = ? AND impuesto_tipo_id IN ($in)");
+    mysqli_stmt_bind_param($stmt, 'i', $comprobante_id);
     mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
+}
+
+// ------------------------------------------------------------------ percepción de IVA (impuesto 22)
+/** Configs de percepción de IVA vigentes para el subgrupo del comprobante, con sus situaciones. */
+function perIvaConfigsVigentes($conexion, $empresa_id, $comprobante_subgrupo_id, $fecha) {
+    $tipo = PER_IVA_IMPUESTO_TIPO_ID;
+    $configs = perIibbFilas($conexion,
+        "SELECT cfg.*, j.jurisdiccion_nombre
+         FROM gestion__empresas_impuestos_config cfg
+         JOIN gestion__empresas_impuestos_config_subgrupos sub
+              ON sub.empresa_impuesto_config_id = cfg.empresa_impuesto_config_id
+             AND sub.comprobante_subgrupo_id = ? AND sub.tabla_estado_registro_id = 1
+         LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = cfg.jurisdiccion_id
+         WHERE cfg.empresa_id = ? AND cfg.impuesto_tipo_id = ? AND cfg.tabla_estado_registro_id = 1
+           AND cfg.f_desde <= ? AND (cfg.f_hasta IS NULL OR cfg.f_hasta >= ?)
+         ORDER BY cfg.prioridad, cfg.empresa_impuesto_config_id",
+        'iiiss', $comprobante_subgrupo_id, $empresa_id, $tipo, $fecha, $fecha);
+    foreach ($configs as &$cfg) {
+        $cfg['situaciones'] = [];
+        foreach (perIibbFilas($conexion,
+            "SELECT * FROM gestion__empresas_impuestos_config_situaciones WHERE empresa_impuesto_config_id = ? AND tabla_estado_registro_id = 1",
+            'i', intval($cfg['empresa_impuesto_config_id'])) as $s) {
+            $cfg['situaciones'][$s['situacion']] = $s;
+        }
+    }
+    unset($cfg);
+    return $configs;
+}
+
+/** Situación del cliente frente al IVA según su condición fiscal vigente (null si no tiene). */
+function perIvaSituacionCliente($conexion, $entidad_id, $fecha) {
+    $row = perIibbFila($conexion,
+        "SELECT cf.condicion_fiscal_codigo FROM gestion__entidades_condiciones_fiscales ecf
+         JOIN gestion__condiciones_fiscales cf ON cf.condicion_fiscal_id = ecf.condicion_fiscal_id
+         WHERE ecf.entidad_id = ? AND ecf.tabla_estado_registro_id = 1 AND ecf.f_desde <= ? AND (ecf.f_hasta IS NULL OR ecf.f_hasta >= ?)
+         ORDER BY ecf.f_desde DESC LIMIT 1", 'iss', intval($entidad_id), $fecha, $fecha);
+    if (!$row) return null;
+    $mapa = ['RI' => 'RESPONSABLE_INSCRIPTO', 'NC' => 'NO_CATEGORIZADO', 'MT' => 'MONOTRIBUTO', 'EX' => 'EXENTO', 'CF' => 'CONSUMIDOR_FINAL'];
+    return $mapa[$row['condicion_fiscal_codigo']] ?? null;   // EXT (exterior): no alcanzado
+}
+
+/** % del certificado de exclusión de percepción de IVA vigente del cliente (sentido PERCEPCION, impuesto 22). */
+function perIvaExclusion($conexion, $empresa_id, $entidad_id, $fecha) {
+    $row = perIibbFila($conexion,
+        "SELECT MAX(porcentaje_exclusion) AS pct FROM gestion__entidades_iibb_exclusiones
+         WHERE empresa_id = ? AND entidad_id = ? AND sentido = 'PERCEPCION' AND impuesto_tipo_id = ? AND tabla_estado_registro_id = 1
+           AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)",
+        'iiiss', intval($empresa_id), intval($entidad_id), PER_IVA_IMPUESTO_TIPO_ID, $fecha, $fecha);
+    return $row && $row['pct'] !== null ? floatval($row['pct']) : 0.0;
+}
+
+/**
+ * Percepción de IVA de un comprobante de venta. Misma entrada y salida que perIibbCalcular(). Sin valores
+ * normativos en el código: alícuota por situación del cliente, base, mínimos y leyenda salen de la config.
+ * Solo comprobantes fiscales con cliente identificado; la situación es la condición frente al IVA del cliente
+ * (situación no configurada = no se percibe); la NC revierte lo percibido en la factura asociada.
+ */
+function perIvaCalcular($conexion, $empresa_id, $cab, $detalles) {
+    $resultado = ['percepciones' => [], 'total' => 0.0, 'avisos' => []];
+    $empresa_id = intval($empresa_id);
+    $fecha = substr((string)($cab['f_emision'] ?? date('Y-m-d')), 0, 10);
+    $entidad_id = intval($cab['entidad_id'] ?? 0);
+    $tipo = perIibbTipoComprobante($conexion, $empresa_id, intval($cab['comprobante_tipo_id'] ?? 0));
+    if (!$tipo || intval($tipo['comprobante_fiscal_id']) <= 0 || $entidad_id <= 0) return $resultado;
+    $configs = perIvaConfigsVigentes($conexion, $empresa_id, intval($tipo['comprobante_subgrupo_id']), $fecha);
+    if (!$configs) return $resultado;
+
+    $original = null;
+    $asociado_id = intval($cab['comprobante_asociado_id'] ?? 0);
+    if ($tipo['clase'] === 'NC' && $asociado_id > 0) {
+        $original = perIibbFila($conexion,
+            "SELECT ci.* FROM gestion__comprobantes_impuestos ci JOIN gestion__comprobantes c ON c.comprobante_id = ci.comprobante_id
+             WHERE ci.comprobante_id = ? AND c.empresa_id = ? AND ci.impuesto_tipo_id = ? AND ci.tabla_estado_registro_id = 1 LIMIT 1",
+            'iii', $asociado_id, $empresa_id, PER_IVA_IMPUESTO_TIPO_ID);
+    }
+    $situacion = perIvaSituacionCliente($conexion, $entidad_id, $fecha);
+
+    foreach ($configs as $cfg) {
+        $base = 0.0;
+        foreach ($detalles as $d) {
+            $neto = floatval($d['importe_neto'] ?? 0);
+            switch ($cfg['base_calculo']) {
+                case 'NETO':  $base += $neto; break;
+                case 'TOTAL': $base += $neto + floatval($d['importe_iva'] ?? 0); break;
+                default:      if (empty($d['es_exento']) && empty($d['es_no_gravado'])) $base += $neto;
+            }
+        }
+        $base = round($base, 2);
+        if ($base <= 0) continue;
+
+        if ($tipo['clase'] === 'NC' && $original) {
+            $alic = floatval($original['alicuota']);
+            $importe = min(round($base * $alic / 100, 2), round(floatval($original['importe']), 2));
+            if ($importe <= 0) continue;
+            $resultado['percepciones'][] = perIibbArmar($cfg, $original['situacion'] ?: 'RESPONSABLE_INSCRIPTO', $base, $alic, $importe,
+                null, null, null, $original['leyenda'] ?? null, 'Reversión de ' . $asociado_id);
+            break;
+        }
+        if ($situacion === null) {
+            $resultado['avisos'][] = 'Percepción de IVA: el cliente no tiene condición frente al IVA vigente (o es del exterior): no se percibe.';
+            break;
+        }
+        $sit = $cfg['situaciones'][$situacion] ?? null;
+        if (!$sit) break;   // situación no alcanzada por el régimen configurado
+
+        $alic = floatval($sit['alicuota']);
+        if ($alic <= 0) {
+            $resultado['avisos'][] = 'Percepción de IVA: la situación "' . perIvaSituaciones()[$situacion] . '" no tiene alícuota cargada (a confirmar): no se percibe.';
+            break;
+        }
+        $excl = perIvaExclusion($conexion, $empresa_id, $entidad_id, $fecha);
+        if ($excl > 0) $alic = round($alic * (1 - min($excl, 100) / 100), 4);
+        $importe = round($base * $alic / 100, 2);
+        if ($base < floatval($cfg['minimo_imponible'] ?? 0)) $importe = 0.0;
+        if ($importe > 0 && $importe < floatval($cfg['importe_minimo_percepcion'] ?? 0)) $importe = 0.0;
+        if ($importe <= 0) break;
+        if (intval($cfg['cont_cuenta_id'] ?? 0) <= 0) {
+            throw new Exception('Percepción de IVA: falta la cuenta contable en Impuestos Adic. - Conf (página 73).');
+        }
+        $resultado['percepciones'][] = perIibbArmar($cfg, $situacion, $base, $alic, $importe, null, null, null, $sit['leyenda'] ?? null,
+            perIvaSituaciones()[$situacion] . ($excl > 0 ? " (exclusión $excl%)" : ''));
+        break;   // una sola percepción de IVA por comprobante: gana la config de mayor prioridad
+    }
+    foreach ($resultado['percepciones'] as $p) $resultado['total'] += $p['importe'];
+    $resultado['total'] = round($resultado['total'], 2);
+    return $resultado;
+}
+
+/** Percepciones practicadas de un comprobante: IIBB (por jurisdicción) + IVA, con avisos de las dos. */
+function perCalcularPracticadas($conexion, $empresa_id, $cab, $detalles) {
+    $iibb = perIibbCalcular($conexion, $empresa_id, $cab, $detalles);
+    $iva = perIvaCalcular($conexion, $empresa_id, $cab, $detalles);
+    return ['percepciones' => array_merge($iibb['percepciones'], $iva['percepciones']),
+            'total' => round($iibb['total'] + $iva['total'], 2),
+            'avisos' => array_merge($iibb['avisos'], $iva['avisos'])];
 }

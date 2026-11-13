@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Configuración: Motor de Estados y Tablas</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --morado: #6f42c1; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #e0e7ff; color: #3730a3; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-purple { border-left: 4px solid var(--morado); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_conf.html">← Volver al manual de Configuración</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Configuración · Arquitectura del Motor</span>
+<h1>Manual de usuario: Motor de Estados y Tablas</h1>
+<p class="subtitulo">Cómo funciona el catálogo de tablas, tipos de tablas (Diccionario vs. Proceso) y los estados genéricos y particulares del sistema.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#motor">El concepto del Motor de Estados</a></li>
+        <li><a href="#tipos-tablas">Tipos de Tablas (Diccionarios y Procesos)</a></li>
+        <li><a href="#estados-genericos">Estados Genéricos vs. Etiquetas por Tabla</a></li>
+        <li><a href="#transiciones">Transiciones de Estados y Funciones</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="motor">El concepto del Motor de Estados</h2>
+<p>En el sistema ninguna tabla de negocio almacena estados como texto libre. Cada registro contiene la columna <code>tabla_estado_registro_id</code> que apunta al catálogo de estados gobernado por el motor (<code>tablas.php</code>, <code>tablas_estados.php</code> y <code>estados_registros.php</code>).</p>
+
+<h2 id="tipos-tablas">Tipos de Tablas (Diccionarios y Procesos)</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Tipo</th>
+        <th>Comportamiento</th>
+        <th>Ejemplos</th>
+    </tr>
+    <tr>
+        <td><strong>Tipo 1: Diccionario</strong></td>
+        <td>Tablas maestras simples con ciclo de vida binario: <em>Activo</em> (1) e <em>Inactivo</em> (2).</td>
+        <td>Marcas, Modelos, Categorías, Sucursales.</td>
+    </tr>
+    <tr>
+        <td><strong>Tipo 2: Proceso Corto</strong></td>
+        <td>Documentos con flujo: <em>Borrador</em> (3) → <em>Confirmado</em> (5) → <em>Anulado</em> (38).</td>
+        <td>Ajustes de stock, Movimientos de tesorería.</td>
+    </tr>
+    <tr>
+        <td><strong>Tipo 3: Proceso Largo</strong></td>
+        <td>Circuitos complejos con autorizaciones, entregas y facturación parcial: <em>Borrador</em> → <em>Pend. Aprobación</em> → <em>Confirmado</em> → <em>Facturado Parcial</em> → <em>Cancelado Total</em>.</td>
+        <td>Facturas de venta, Pedidos de clientes, Órdenes de compra.</td>
+    </tr>
+</table>
+
+<h2 id="estados-genericos">Estados Genéricos vs. Etiquetas por Tabla</h2>
+<p>El sistema utiliza IDs numéricos universales (1 Activo, 3 Borrador, 4 Pend. Aprobación, 5 Confirmado, 38 Anulado), pero en <code>tablas_estados.php</code> permite que cada tabla tenga su etiqueta adaptada a su lenguaje propio (por ejemplo, el estado 4 en facturas de venta se titula <em>"Pendiente de CAE ARCA"</em>, mientras que en órdenes de pago se titula <em>"Pendiente de Firma"</em>).</p>
+
+<h2 id="transiciones">Transiciones de Estados y Funciones</h2>
+<p>Las funciones de pantalla definen el salto de un estado origen a un estado destino. Si una factura está en estado 3 (Borrador), solo pueden ejecutarse las funciones que tengan <code>origen_id = 3</code> (por ejemplo, <em>Confirmar</em> que la pasa a estado 5, o <em>Eliminar</em> que la pasa a 6).</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Por qué un registro confirmado no se puede editar?</td>
+        <td>Porque al llegar al estado 5 (Confirmado), el registro ya impactó en stock, contabilidad y cuentas corrientes. Para corregirlo, debe anularse mediante un contra-comprobante.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Configuración — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

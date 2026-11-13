@@ -88,24 +88,165 @@ async function cargarMaestros() {
 }
 
 /**
- * Llena los selects de clientes
+ * Texto del cliente en los combos: Razón Social, Nombre de Fantasía y CUIT
+ */
+function etiquetaCliente(c) {
+    const razonSocial = String(c.entidad_nombre || '').trim();
+    const fantasia = String(c.entidad_fantasia || '').trim();
+    const mostrarAmbos = fantasia && fantasia.toLowerCase() !== razonSocial.toLowerCase();
+    const nombre = mostrarAmbos ? `${razonSocial} — ${fantasia}` : (razonSocial || fantasia);
+    return `${escapeHtml(nombre)} (CUIT: ${escapeHtml(c.cuit || 'S/D')})`;
+}
+
+/**
+ * Texto plano del cliente para mostrar en el input de búsqueda cuando está seleccionado
+ */
+function textoClienteInput(c) {
+    if (!c) return '';
+    const razonSocial = String(c.entidad_nombre || '').trim();
+    const fantasia = String(c.entidad_fantasia || '').trim();
+    const mostrarAmbos = fantasia && fantasia.toLowerCase() !== razonSocial.toLowerCase();
+    const nombre = mostrarAmbos ? `${razonSocial} — ${fantasia}` : (razonSocial || fantasia);
+    const cuit = String(c.cuit || 'S/D').trim();
+    const sufijoProv = (+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : '';
+    return `${nombre} (CUIT: ${cuit})${sufijoProv}`;
+}
+
+/**
+ * Normaliza cadenas para búsqueda insensible a acentos y mayúsculas/minúsculas
+ */
+function normalizarTextoBusqueda(str) {
+    return String(str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+}
+
+/**
+ * Filtra clientes por Razón Social (entidad_nombre), CUIT o Nombre de Fantasía (entidad_fantasia)
+ */
+function filtrarClientesBusqueda(texto, lista = null) {
+    const origen = Array.isArray(lista) ? lista : (maestros.clientes || []);
+    const q = normalizarTextoBusqueda(texto);
+    if (!q) return origen.slice(0, 50);
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return origen.filter(c => {
+        const razon = normalizarTextoBusqueda(c.entidad_nombre);
+        const fantasia = normalizarTextoBusqueda(c.entidad_fantasia);
+        const cuitRaw = normalizarTextoBusqueda(c.cuit);
+        const cuitDigitos = cuitRaw.replace(/\D+/g, '');
+        const combinado = `${razon} ${fantasia} ${cuitRaw} ${cuitDigitos}`;
+
+        return tokens.every(tok => {
+            const tokDigitos = tok.replace(/\D+/g, '');
+            if (tokDigitos.length >= 3 && cuitDigitos.includes(tokDigitos)) {
+                return true;
+            }
+            return combinado.includes(tok);
+        });
+    }).slice(0, 50);
+}
+
+/**
+ * Renderiza el desplegable de sugerencias de clientes en el modal de cobranza
+ */
+function renderizarDropdownClientes(resultados, textoBuscado = '') {
+    const dropdown = document.getElementById('dropdownClientes');
+    if (!dropdown) return;
+
+    dropdown.innerHTML = '';
+    if (!resultados || resultados.length === 0) {
+        dropdown.innerHTML = `<div class="p-2 text-muted small text-center">No se encontraron clientes para "${escapeHtml(textoBuscado)}"</div>`;
+        dropdown.style.display = 'block';
+        return;
+    }
+
+    resultados.forEach((c, idx) => {
+        const razon = String(c.entidad_nombre || '').trim();
+        const fantasia = String(c.entidad_fantasia || '').trim();
+        const mostrarFantasia = fantasia && fantasia.toLowerCase() !== razon.toLowerCase();
+        const esProvDevolucion = (+c.es_proveedor === 1 && +c.es_cliente !== 1);
+
+        const item = document.createElement('a');
+        item.href = '#';
+        item.className = `dropdown-item dropdown-item-cliente py-2 px-3 border-bottom text-wrap ${idx === 0 ? 'active' : ''}`;
+        item.dataset.id = c.entidad_id;
+
+        item.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <div>
+                    <div class="fw-semibold">${escapeHtml(razon || fantasia)}</div>
+                    ${mostrarFantasia ? `<div class="small opacity-75"><i class="bi bi-shop me-1"></i>${escapeHtml(fantasia)}</div>` : ''}
+                    ${esProvDevolucion ? `<div class="small fst-italic opacity-75">Proveedor (devolución de NC)</div>` : ''}
+                </div>
+                <span class="badge bg-light text-dark border font-monospace flex-shrink-0">CUIT: ${escapeHtml(c.cuit || 'S/D')}</span>
+            </div>
+        `;
+
+        item.addEventListener('click', function (e) {
+            e.preventDefault();
+            seleccionarClienteModal(c, true);
+        });
+
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+}
+
+/**
+ * Selecciona (o limpia) el cliente en el modal de alta/edición de cobranza
+ */
+function seleccionarClienteModal(clienteObj, dispararCargaPendientes = true) {
+    const hiddenInput = document.getElementById('selectCliente');
+    const textInput = document.getElementById('inputBuscarCliente');
+    const btnLimpiar = document.getElementById('btnLimpiarCliente');
+    const dropdown = document.getElementById('dropdownClientes');
+
+    if (dropdown) {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+    }
+
+    if (clienteObj && parseInt(clienteObj.entidad_id) > 0) {
+        if (hiddenInput) hiddenInput.value = String(clienteObj.entidad_id);
+        if (textInput) textInput.value = textoClienteInput(clienteObj);
+        if (btnLimpiar) btnLimpiar.classList.remove('d-none');
+        if (dispararCargaPendientes) {
+            cargarComprobantesPendientes(clienteObj.entidad_id);
+        }
+    } else {
+        if (hiddenInput) hiddenInput.value = '';
+        if (textInput) textInput.value = '';
+        if (btnLimpiar) btnLimpiar.classList.add('d-none');
+        if (dispararCargaPendientes) {
+            limpiarSeccionPendientes();
+            recalcularBalance();
+        }
+    }
+}
+
+/**
+ * Llena el select de filtro de clientes y sincroniza el buscador del modal si corresponde
  */
 function poblarSelectClientes() {
     const selectFiltro = document.getElementById('filtroCliente');
     const selectModal = document.getElementById('selectCliente');
 
     if (selectFiltro) {
-        let opts = '<option value="">-- Todos los Clientes --</option>';
+        let opts = '<option value="">Todos</option>';
         (maestros.clientes || []).forEach(c => {
-            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
+            opts += `<option value="${c.entidad_id}">${etiquetaCliente(c)}${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
         });
         selectFiltro.innerHTML = opts;
     }
 
-    if (selectModal) {
+    if (selectModal && selectModal.tagName === 'SELECT') {
         let opts = '<option value="">-- Seleccionar Cliente --</option>';
         (maestros.clientes || []).forEach(c => {
-            opts += `<option value="${c.entidad_id}">${escapeHtml(c.entidad_nombre)} (CUIT: ${c.cuit || 'S/D'})${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
+            opts += `<option value="${c.entidad_id}">${etiquetaCliente(c)}${(+c.es_proveedor === 1 && +c.es_cliente !== 1) ? ' · proveedor (devolución de NC)' : ''}</option>`;
         });
         selectModal.innerHTML = opts;
     }
@@ -133,7 +274,7 @@ function poblarSelectPuntosVenta(sucursalId = null) {
     const selectModal = document.getElementById('selectPuntoVenta');
 
     if (selectFiltro && (!selectFiltro.children || selectFiltro.children.length <= 1)) {
-        let opts = '<option value="">-- Todos los PV --</option>';
+        let opts = '<option value="">Todos</option>';
         (maestros.puntos_venta || []).forEach(pv => {
             const boca = pv.boca_nombre ? ` (${pv.boca_nombre})` : '';
             opts += `<option value="${pv.punto_venta_id}">${escapeHtml(pv.nombre)}${escapeHtml(boca)} - PV ${String(pv.codigo_fiscal || pv.punto_venta_id).padStart(4, '0')}</option>`;
@@ -222,14 +363,15 @@ function inicializarDataTable() {
             }
         },
         columns: [
-            { data: 'f_emision', className: 'text-center' },
-            { data: 'numero', className: 'fw-bold' },
+            { data: 'f_emision', className: 'ui-num' },
+            { data: 'numero', className: 'fw-semibold ui-num' },
             { data: 'cliente' },
-            { data: 'sucursal' },
-            { data: 'total', className: 'text-end' },
-            { data: 'saldo_a_cuenta', className: 'text-center' },
-            { data: 'estado', className: 'text-center' },
-            { data: 'acciones', className: 'text-center', orderable: false }
+            { data: 'cuit', className: 'ui-num' },
+            { data: 'sucursal', className: 'ui-detalle' },
+            { data: 'total', className: 'text-end ui-num' },
+            { data: 'saldo_a_cuenta' },
+            { data: 'estado' },
+            { data: 'acciones', className: 'ui-acciones', orderable: false }
         ],
         order: [[0, 'desc']],
         language: {
@@ -316,9 +458,114 @@ function configurarEventos() {
     // Botón Agregar Medio
     document.getElementById('btnAgregarMedio')?.addEventListener('click', () => agregarFilaMedio());
 
-    // Cambio de Cliente en el Modal
+    // Botón Completar diferencia (imputado - cobrado)
+    document.getElementById('btnCompletarDiferencia')?.addEventListener('click', completarDiferenciaMedio);
+
+    // Cambio de Cliente en el Modal (y buscador por campo de texto)
     document.getElementById('selectCliente')?.addEventListener('change', function () {
+        const id = parseInt(this.value) || 0;
+        const cli = (maestros.clientes || []).find(c => parseInt(c.entidad_id) === id) || null;
+        const textInput = document.getElementById('inputBuscarCliente');
+        if (textInput && cli) {
+            textInput.value = textoClienteInput(cli);
+            document.getElementById('btnLimpiarCliente')?.classList.remove('d-none');
+        }
         cargarComprobantesPendientes(this.value);
+    });
+
+    const inputBuscarCliente = document.getElementById('inputBuscarCliente');
+    const btnLimpiarCliente = document.getElementById('btnLimpiarCliente');
+    const dropdownClientes = document.getElementById('dropdownClientes');
+    let timerBusquedaRemota = null;
+
+    if (inputBuscarCliente) {
+        inputBuscarCliente.addEventListener('focus', function () {
+            const hiddenId = parseInt(document.getElementById('selectCliente')?.value) || 0;
+            if (!hiddenId) {
+                const texto = this.value.trim();
+                const resultados = filtrarClientesBusqueda(texto);
+                renderizarDropdownClientes(resultados, texto);
+            }
+        });
+
+        inputBuscarCliente.addEventListener('input', function () {
+            const texto = this.value.trim();
+            const hiddenInput = document.getElementById('selectCliente');
+            if (hiddenInput && hiddenInput.value) {
+                hiddenInput.value = '';
+                limpiarSeccionPendientes();
+                recalcularBalance();
+            }
+            if (btnLimpiarCliente) {
+                btnLimpiarCliente.classList.toggle('d-none', texto.length === 0);
+            }
+
+            const resultadosLocales = filtrarClientesBusqueda(texto);
+            renderizarDropdownClientes(resultadosLocales, texto);
+
+            clearTimeout(timerBusquedaRemota);
+            if (texto.length >= 2 && resultadosLocales.length === 0) {
+                timerBusquedaRemota = setTimeout(async () => {
+                    try {
+                        const resp = await fetch(`cobranzas_ajax.php?accion=buscar_clientes&empresa_idx=${window.EMPRESA_ID}&q=${encodeURIComponent(texto)}`);
+                        const res = await resp.json();
+                        if (res && res.success && Array.isArray(res.data)) {
+                            res.data.forEach(remoto => {
+                                if (!(maestros.clientes || []).some(c => parseInt(c.entidad_id) === parseInt(remoto.entidad_id))) {
+                                    maestros.clientes.push(remoto);
+                                }
+                            });
+                            renderizarDropdownClientes(res.data.slice(0, 50), texto);
+                        }
+                    } catch (err) {
+                        console.error('Error buscando clientes:', err);
+                    }
+                }, 250);
+            }
+        });
+
+        inputBuscarCliente.addEventListener('keydown', function (e) {
+            if (!dropdownClientes || dropdownClientes.style.display === 'none') return;
+            const items = Array.from(dropdownClientes.querySelectorAll('.dropdown-item-cliente'));
+            if (items.length === 0) return;
+
+            let activeIdx = items.findIndex(el => el.classList.contains('active'));
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+                activeIdx = (activeIdx + 1) % items.length;
+                items[activeIdx].classList.add('active');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+                activeIdx = (activeIdx - 1 + items.length) % items.length;
+                items[activeIdx].classList.add('active');
+                items[activeIdx].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const target = activeIdx >= 0 ? items[activeIdx] : items[0];
+                if (target) target.click();
+            } else if (e.key === 'Escape') {
+                dropdownClientes.style.display = 'none';
+            }
+        });
+    }
+
+    if (btnLimpiarCliente) {
+        btnLimpiarCliente.addEventListener('click', function () {
+            seleccionarClienteModal(null, true);
+            inputBuscarCliente?.focus();
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!dropdownClientes || dropdownClientes.style.display === 'none') return;
+        const contenedor = inputBuscarCliente?.closest('.position-relative');
+        if (contenedor && !contenedor.contains(e.target)) {
+            dropdownClientes.style.display = 'none';
+        }
     });
 
     // Checkbox seleccionar todos los pendientes
@@ -436,12 +683,13 @@ async function abrirModalNuevaCobranza() {
 
     const form = document.getElementById('formCobranza');
     if (form) form.reset();
+    seleccionarClienteModal(null, false);
 
     const cobranzaIdInput = document.getElementById('cobranza_id');
     if (cobranzaIdInput) cobranzaIdInput.value = '0';
 
     const modalLabel = document.getElementById('modalCobranzaLabel');
-    if (modalLabel) modalLabel.innerHTML = '<i class="fas fa-hand-holding-usd me-2"></i>Nueva Cobranza (Recibo de Cobro)';
+    if (modalLabel) modalLabel.innerHTML = '<i class="bi bi-cash-coin me-2"></i>Nueva cobranza';
 
     const hoy = new Date().toISOString().split('T')[0];
     const inpEmision = document.getElementById('inputFechaEmision');
@@ -454,7 +702,7 @@ async function abrirModalNuevaCobranza() {
     await cargarTiposPorPuntoVenta();
 
     const nroInput = document.getElementById('inputComprobanteNro');
-    if (nroInput) nroInput.value = 'Se asigna al confirmar';
+    if (nroInput) nroInput.value = 'Al confirmar';
 
     // Limpiar medios y agregar 1 fila de Efectivo por defecto
     const tbodyMedios = document.getElementById('tbodyMedios');
@@ -478,7 +726,7 @@ function limpiarSeccionPendientes() {
     document.getElementById('contenedorTablaPendientes').classList.add('d-none');
     document.getElementById('spinnerPendientes').classList.add('d-none');
     document.getElementById('vacioPendientes').classList.remove('d-none');
-    document.getElementById('vacioPendientes').innerText = 'Seleccione un cliente para ver sus comprobantes pendientes de cobro.';
+    document.getElementById('vacioPendientes').innerText = 'Elegí un cliente para ver sus comprobantes pendientes.';
 }
 
 /**
@@ -573,7 +821,7 @@ async function cargarComprobantesPendientes(entidadId, imputacionesPrevias = [])
 
         } else {
             vacio.classList.remove('d-none');
-            vacio.innerHTML = `<i class="fas fa-check-circle text-success me-1"></i> El cliente no registra comprobantes pendientes de pago. Todo cobro ingresado quedará como <strong>cobro a cuenta</strong>.`;
+            vacio.innerHTML = `<i class="bi bi-check-circle text-success me-1"></i>No tiene comprobantes pendientes: lo que cobres queda a favor del cliente.`;
             recalcularBalance();
         }
     } catch (e) {
@@ -635,6 +883,31 @@ function agregarFilaMedio(tipoDefecto = null) {
 
     // Renderizar campos del medio seleccionado
     renderizarCamposEspecificosMedio(tr);
+}
+
+/**
+ * Carga en un medio la diferencia entre lo imputado y lo cobrado.
+ * Usa la primera fila de medio sin importe; si no hay, agrega una nueva.
+ */
+function completarDiferenciaMedio() {
+    const diferencia = Math.round((calcularTotalImputado() - calcularTotalMedios()) * 100) / 100;
+    if (diferencia <= 0.001) {
+        UiSimple.aviso('No hay diferencia para completar: lo cobrado ya cubre lo imputado.');
+        return;
+    }
+
+    let input = Array.from(document.querySelectorAll('#tbodyMedios .input-medio-importe'))
+        .find(inp => !(parseFloat(inp.value) > 0));
+    if (!input) {
+        agregarFilaMedio();
+        const filas = document.querySelectorAll('#tbodyMedios tr');
+        input = filas[filas.length - 1]?.querySelector('.input-medio-importe');
+    }
+    if (!input) return;
+
+    input.value = diferencia.toFixed(2);
+    recalcularBalance();
+    input.focus();
 }
 
 /**
@@ -779,7 +1052,7 @@ function renderizarCamposEspecificosMedio(tr, datosPrevios = null) {
                     </select>
                 </div>
                 <div class="${esIIBBInicial ? 'col-sm-2' : 'col-sm-3'} col-cert">
-                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="N° Certificado" value="${nroCert}" title="Número de Certificado de Retención" required>
+                    <input type="text" class="form-control form-control-sm input-retencion-cert" placeholder="N° Cert. (vacío = pendiente)" value="${nroCert}" title="Número de certificado de retención. Si todavía no llegó, déjelo vacío: queda pendiente y se completa en Control Fiscal.">
                 </div>
                 <div class="col-sm-2">
                     <input type="number" step="0.01" min="0" class="form-control form-control-sm input-retencion-base" placeholder="Base Imp. ($)" value="${base}" title="Base Imponible ($)">
@@ -859,7 +1132,7 @@ function actualizarCajasMediosEfectivo() {
 function autoImputarPendientes() {
     let disponible = calcularTotalMedios();
     if (disponible <= 0) {
-        Swal.fire('Atención', 'Primero ingrese los importes de los medios de cobro recibidos.', 'warning');
+        UiSimple.aviso('Primero cargá los importes cobrados.');
         return;
     }
 
@@ -955,7 +1228,7 @@ function recalcularBalance() {
         // ERROR: Imputó más de lo cobrado
         if (elDif) {
             elDif.innerText = `-$ ${formatearMoneda(Math.abs(diferencia))}`;
-            elDif.className = 'mb-0 fw-bold text-danger';
+            elDif.className = 'ui-kpi-valor text-danger';
         }
         if (alertaDesbalance) alertaDesbalance.classList.remove('d-none');
         if (avisoACuenta) avisoACuenta.classList.add('d-none');
@@ -966,7 +1239,7 @@ function recalcularBalance() {
         // VÁLIDO: Hay saldo a cuenta para el cliente (D6 / RT02)
         if (elDif) {
             elDif.innerText = `$ ${formatearMoneda(diferencia)}`;
-            elDif.className = 'mb-0 fw-bold text-info';
+            elDif.className = 'ui-kpi-valor text-primary';
         }
         if (alertaDesbalance) alertaDesbalance.classList.add('d-none');
         if (avisoACuenta) avisoACuenta.classList.remove('d-none');
@@ -976,7 +1249,7 @@ function recalcularBalance() {
         // VÁLIDO: Balance exacto 0
         if (elDif) {
             elDif.innerText = `$ 0,00`;
-            elDif.className = 'mb-0 fw-bold text-success';
+            elDif.className = 'ui-kpi-valor';
         }
         if (alertaDesbalance) alertaDesbalance.classList.add('d-none');
         if (avisoACuenta) avisoACuenta.classList.add('d-none');
@@ -1000,12 +1273,12 @@ function recopilarDatosCobranza() {
     const observaciones = document.getElementById('inputObservaciones')?.value?.trim() || '';
 
     if (entidadId <= 0) {
-        Swal.fire('Atención', 'Debe seleccionar un cliente.', 'warning');
+        UiSimple.aviso('Elegí un cliente.');
         return null;
     }
 
     if (comprobantePv <= 0) {
-        Swal.fire('Atención', 'Debe seleccionar un punto de venta.', 'warning');
+        UiSimple.aviso('Elegí un punto de venta.');
         return null;
     }
 
@@ -1027,20 +1300,20 @@ function recopilarDatosCobranza() {
     const medios = [];
     const filasMedios = document.querySelectorAll('#tbodyMedios tr');
     if (filasMedios.length === 0) {
-        Swal.fire('Atención', 'Debe ingresar al menos un medio de cobro.', 'warning');
+        UiSimple.aviso('Agregá al menos un medio de cobro.');
         return null;
     }
 
     for (const tr of filasMedios) {
         const select = tr.querySelector('.select-medio-tipo');
         if (!select || select.selectedIndex < 0) {
-            Swal.fire('Atención', 'Seleccione el medio de cobro en cada fila.', 'warning');
+            UiSimple.aviso('Elegí el medio de cobro en cada fila.');
             return null;
         }
         const opt = select.options[select.selectedIndex];
         const medioPagoId = parseInt(select.value) || 0;
         if (medioPagoId <= 0) {
-            Swal.fire('Atención', 'Seleccione un medio de pago válido.', 'warning');
+            UiSimple.aviso('Elegí un medio de cobro válido.');
             return null;
         }
         const tipo = opt ? (opt.dataset.tipo || '') : '';
@@ -1048,7 +1321,7 @@ function recopilarDatosCobranza() {
         const importe = parseFloat(inputImp?.value) || 0;
 
         if (importe <= 0) {
-            Swal.fire('Atención', 'Todos los medios de cobro deben tener un importe mayor a cero.', 'warning');
+            UiSimple.aviso('Cada medio de cobro necesita un importe mayor a cero.');
             if (inputImp) inputImp.focus();
             return null;
         }
@@ -1074,7 +1347,7 @@ function recopilarDatosCobranza() {
             const inpLib = tr.querySelector('.input-cheque-librador');
 
             if (!selBanco?.value || !inpNro?.value || !inpVto?.value) {
-                Swal.fire('Atención', 'Complete los datos obligatorios del cheque (Banco, Número y Fecha de Pago).', 'warning');
+                UiSimple.aviso('Completá banco, número y fecha de pago del cheque.');
                 return null;
             }
 
@@ -1091,8 +1364,8 @@ function recopilarDatosCobranza() {
             const inpBase = tr.querySelector('.input-retencion-base');
             const inpAli = tr.querySelector('.input-retencion-ali');
 
-            if (!selImp?.value || !inpCert?.value) {
-                Swal.fire('Atención', 'Complete el tipo y número de certificado de la retención.', 'warning');
+            if (!selImp?.value) {
+                UiSimple.aviso('Elegí el tipo de retención.');
                 return null;
             }
 
@@ -1101,7 +1374,7 @@ function recopilarDatosCobranza() {
             const esIIBB = impObj && parseInt(impObj.es_iibb) === 1;
 
             if (esIIBB && (!selJur || !selJur.value)) {
-                Swal.fire('Atención', 'Para la retención de Ingresos Brutos (IIBB), debe seleccionar la jurisdicción (provincia).', 'warning');
+                UiSimple.aviso('Elegí la provincia de la retención de IIBB.');
                 return null;
             }
 
@@ -1132,7 +1405,7 @@ function recopilarDatosCobranza() {
     const totalImputado = calcularTotalImputado();
 
     if (totalImputado > totalMedios + 0.001) {
-        Swal.fire('Atención', `El total imputado ($ ${formatearMoneda(totalImputado)}) supera el total de medios cobrados ($ ${formatearMoneda(totalMedios)}).`, 'warning');
+        UiSimple.aviso(`Lo imputado ($ ${formatearMoneda(totalImputado)}) supera lo cobrado ($ ${formatearMoneda(totalMedios)}).`);
         return null;
     }
 
@@ -1186,7 +1459,7 @@ async function guardarCobranza(confirmarInmediato = false) {
         const resG = await respGuardar.json();
 
         if (!resG.success) {
-            Swal.fire('Error', resG.error || 'No se pudo guardar la cobranza.', 'error');
+            UiSimple.error(resG.error, 'No se pudo guardar');
             return;
         }
 
@@ -1204,7 +1477,7 @@ async function guardarCobranza(confirmarInmediato = false) {
             const resC = await respConf.json();
 
             if (!resC.success) {
-                Swal.fire('Error al Confirmar', resC.error || 'Ocurrió un error durante la confirmación.', 'error');
+                UiSimple.error(resC.error, 'No se pudo confirmar');
                 tablaDT.ajax.reload();
                 return;
             }
@@ -1219,12 +1492,12 @@ async function guardarCobranza(confirmarInmediato = false) {
             tablaDT.ajax.reload();
             verRecibo(idGenerado);
         } else {
-            Swal.fire('Guardado', 'El borrador de cobranza fue guardado correctamente.', 'success');
+            UiSimple.ok('Borrador guardado');
             ocultarModal('modalCobranza');
             tablaDT.ajax.reload();
         }
     } catch (e) {
-        Swal.fire('Error Inesperado', e.message || 'Error de comunicación.', 'error');
+        UiSimple.error(e.message, 'Sin conexión');
     }
 }
 
@@ -1245,7 +1518,7 @@ async function editarBorrador(id) {
         Swal.close();
 
         if (!res.success || !res.data) {
-            Swal.fire('Error', res.error || 'No se pudo cargar la cobranza.', 'error');
+            UiSimple.error(res.error, 'No se pudo abrir la cobranza');
             return;
         }
 
@@ -1253,9 +1526,17 @@ async function editarBorrador(id) {
 
         document.getElementById('formCobranza').reset();
         document.getElementById('cobranza_id').value = cabecera.cobranza_id;
-        document.getElementById('modalCobranzaLabel').innerHTML = `<i class="fas fa-edit me-2"></i>Editar Borrador de Cobranza #${cabecera.cobranza_id}`;
+        document.getElementById('modalCobranzaLabel').innerHTML = `<i class="bi bi-pencil me-2"></i>Borrador #${cabecera.cobranza_id}`;
 
-        document.getElementById('selectCliente').value = cabecera.entidad_id;
+        const clienteEditar = (maestros.clientes || []).find(c => parseInt(c.entidad_id) === parseInt(cabecera.entidad_id)) || {
+            entidad_id: cabecera.entidad_id,
+            entidad_nombre: cabecera.entidad_nombre,
+            entidad_fantasia: cabecera.entidad_fantasia,
+            cuit: cabecera.cuit,
+            es_cliente: cabecera.es_cliente,
+            es_proveedor: cabecera.es_proveedor
+        };
+        seleccionarClienteModal(clienteEditar, false);
         document.getElementById('selectSucursal').value = cabecera.sucursal_id;
         poblarSelectPuntosVenta(cabecera.sucursal_id);
         if (cabecera.comprobante_pv) {
@@ -1421,7 +1702,7 @@ async function verRecibo(id) {
                 if (m.jurisdiccion_nombre) {
                     detRet += ` - ${escapeHtml(m.jurisdiccion_nombre)}`;
                 }
-                detRet += ` (Certificado N° ${escapeHtml(m.retencion_certificado_nro || 'S/N')}`;
+                detRet += m.retencion_certificado_nro ? ` (Certificado N° ${escapeHtml(m.retencion_certificado_nro)}` : ` (Certificado pendiente`;
                 if (parseFloat(m.retencion_base_imponible) > 0) {
                     detRet += ` · Base: $ ${formatearMoneda(m.retencion_base_imponible)}`;
                 }
@@ -1449,7 +1730,7 @@ async function verRecibo(id) {
                         <td><strong>${escapeHtml(nroFactura)}</strong></td>
                         <td class="text-center">${imp.destino_f_emision || '-'}</td>
                         <td class="text-end">$ ${formatearMoneda(imp.destino_total)}</td>
-                        <td class="text-end fw-bold text-primary">$ ${formatearMoneda(imp.importe_imputado)}</td>
+                        <td class="text-end fw-bold ${parseFloat(imp.importe_imputado) < 0 ? 'text-danger' : 'text-primary'}">$ ${formatearMoneda(imp.importe_imputado)}</td>
                     </tr>
                 `;
             });
@@ -1468,8 +1749,8 @@ async function verRecibo(id) {
                 <!-- Membrete -->
                 <div class="row align-items-center border-bottom pb-3 mb-3">
                     <div class="col-sm-7">
-                        <h4 class="fw-bold mb-0 text-dark">CASA LUCHO</h4>
-                        <small class="text-muted d-block">Distribuidora Mayorista de Autopartes</small>
+                        <h4 class="fw-bold mb-0 text-dark">${escapeHtml(cabecera.empresa_nombre || '')}</h4>
+                        <small class="text-muted d-block">${cabecera.empresa_cuit ? 'CUIT: ' + escapeHtml(cabecera.empresa_cuit) : ''}${cabecera.empresa_cuit && cabecera.empresa_domicilio ? ' · ' : ''}${escapeHtml(cabecera.empresa_domicilio || '')}</small>
                         <small class="text-muted">Sucursal: ${escapeHtml(cabecera.sucursal_nombre)}</small>
                     </div>
                     <div class="col-sm-5 text-end">
@@ -1579,7 +1860,7 @@ async function verRecibo(id) {
                                         <h6 class="fw-bold text-uppercase small text-primary mb-0">
                                             <i class="fas fa-book me-1"></i> Asiento Contable Automático #${asiento.cont_asiento_id}
                                         </h6>
-                                        <small class="text-muted">Tipo: <strong>${escapeHtml(asiento.cont_tipo_asiento || 'Automático')}</strong> · Fecha: <strong>${asiento.f_asiento ? asiento.f_asiento.split('-').reverse().join('/') : '-'}</strong></small>
+                                        <small class="text-muted">Tipo: <strong>${escapeHtml(asiento.cont_tipo_asiento || 'Automático')}</strong> · Fecha: <strong>${asiento.f_asiento ? Fmt.fecha(asiento.f_asiento) : '-'}</strong></small>
                                     </div>
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="badge bg-success">${escapeHtml(asiento.estado_registro || 'Registrado')}</span>
@@ -1674,7 +1955,7 @@ async function ejecutarAnulacion(e) {
     const motivo = document.getElementById('motivoAnulacion').value.trim();
 
     if (!motivo) {
-        Swal.fire('Atención', 'Debe indicar el motivo de anulación.', 'warning');
+        UiSimple.aviso('Escribí el motivo.');
         return;
     }
 
@@ -1694,7 +1975,7 @@ async function ejecutarAnulacion(e) {
         const res = await resp.json();
 
         if (res.success) {
-            Swal.fire('Cobranza Anulada', res.message || 'Recibo anulado con éxito.', 'success');
+            UiSimple.ok(res.message || 'Recibo anulado');
             ocultarModal('modalAnular');
             tablaDT.ajax.reload();
         } else {
@@ -1725,7 +2006,7 @@ async function eliminarBorrador(id) {
         const res = await resp.json();
 
         if (res.success) {
-            Swal.fire('Eliminado', res.message || 'Borrador eliminado.', 'success');
+            UiSimple.ok(res.message || 'Borrador eliminado');
             tablaDT.ajax.reload();
         } else {
             Swal.fire('Error', res.error || 'No se pudo eliminar el borrador.', 'error');
@@ -1740,7 +2021,7 @@ async function eliminarBorrador(id) {
  */
 function formatearMoneda(val) {
     const num = parseFloat(val) || 0;
-    return num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Fmt.numero(num, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /**

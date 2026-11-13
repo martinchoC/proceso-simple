@@ -268,9 +268,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form id="formAsignarEmpresa" novalidate>
+                <input type="hidden" id="empresa_region_id" name="empresa_region_id" value="0">
                 <div class="modal-header bg-success text-white py-2">
                     <h5 class="modal-title fs-6" id="modalAsignarEmpresaLabel">
-                        <i class="fas fa-link me-1"></i>Asignar Empresa a Región
+                        <i class="fas fa-link me-1"></i><span id="tituloModalAsignarEmpresa">Asignar Empresa a Región</span>
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -304,7 +305,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-sm btn-success" id="btnGuardarAsignacion">
-                        <i class="fas fa-save me-1"></i>Asignar Empresa
+                        <i class="fas fa-save me-1"></i><span id="textoBotonGuardarAsignacion">Asignar Empresa</span>
                     </button>
                 </div>
             </form>
@@ -312,7 +313,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="grupos_regiones.js"></script>
 
 <?php

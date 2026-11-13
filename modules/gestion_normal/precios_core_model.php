@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/productos_proveedores.php';
 /* =========================================================================
  * Motor de precios de compra/venta compartido.
  *
@@ -402,6 +403,8 @@ function obtenerOCrearProductoProveedor($conexion, $empresa_id, $entidad_id, $pr
     }
     $nuevo_id = mysqli_insert_id($conexion);
     mysqli_stmt_close($stmt);
+    // Si es el primer proveedor del producto, queda como principal.
+    pp_asegurar_principal($conexion, $empresa_id, $producto_id);
     return $nuevo_id;
 }
 
@@ -771,7 +774,7 @@ function insertarPrecioListaProveedor($conexion, $producto_proveedor_id, $empres
 
 /* =========================================================================
  * origen_carga admite ESTIMADO / COMPRA recién después de
- * sql/mantenimiento/20261010_precios_compra_01_estructura.sql. Si el script
+ * _local/sql/mantenimiento/20261010_precios_compra_01_estructura.sql. Si el script
  * no corrió, un valor fuera del ENUM se grabaría como '' (sin modo estricto)
  * o fallaría (con modo estricto): en ese caso se usa MANUAL.
  * ========================================================================= */

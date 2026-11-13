@@ -18,11 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const AJAX_URL = 'obligaciones_rendiciones_ajax.php';
 
-    const formatoMoneda = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
-    });
+    const formatoMoneda = { format: (v) => Fmt.moneda(v) };
 
     // 1. Cargar Maestros
     function cargarMaestros() {
@@ -336,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 5. Modales de Rendiciones
     // Anticipo
     const modalNuevoAnticipo = new bootstrap.Modal(document.getElementById('modalNuevoAnticipo'));
-    document.getElementById('btnNuevoAnticipo').addEventListener('click', function () {
+    document.getElementById('btnNuevoAnticipo')?.addEventListener('click', function () {
         document.getElementById('formNuevoAnticipo').reset();
         document.getElementById('antFecha').value = new Date().toISOString().split('T')[0];
         modalNuevoAnticipo.show();
@@ -426,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('btnAgregarFilaGasto').addEventListener('click', agregarFilaGasto);
     document.getElementById('rendAnticipo').addEventListener('change', recalcularTotalesRendicion);
 
-    document.getElementById('btnNuevaRendicion').addEventListener('click', function () {
+    document.getElementById('btnNuevaRendicion')?.addEventListener('click', function () {
         document.getElementById('formNuevaRendicion').reset();
         document.getElementById('rendFecha').value = new Date().toISOString().split('T')[0];
         tbodyGastos.innerHTML = '';

@@ -16,8 +16,8 @@ $fmt_pct = function ($v) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($factura['comprobante_tipo']) ?> <?= h($numero) ?> - <?= h($cliente_nombre) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="<?= asset_local('css/bootstrap-5.3.0/bootstrap.min.css') ?>" rel="stylesheet">
+    <link rel="stylesheet" href="<?= asset_local('css/fontawesome-6.4.0/css/all.min.css') ?>">
     <?= $fuente['link'] ?>
     <style>
         @page { size: 80mm auto; margin: 0; }   /* sin margen el navegador no agrega fecha/título/URL */
@@ -76,6 +76,7 @@ $fmt_pct = function ($v) {
         <div class="linea">Suc.: <?= h($sucursal['sucursal_nombre']) ?><?= !empty($sucursal['direccion']) ? ' - ' . h($sucursal['direccion']) : '' ?></div>
         <?php endif; ?>
         <div class="linea">CUIT: <?= h(vfPrintCuit($empresa_cuit)) ?> - <?= h($empresa['condicion_fiscal'] ?? '') ?></div>
+        <?php if (!empty($leyenda_emisor)): ?><div class="linea"><?= h($leyenda_emisor) ?></div><?php endif; ?>
         <div class="linea">IIBB: <?= h($parametros['ingresos_brutos_nro'] ?? '') ?> - Inicio Act.: <?= vfPrintFecha($parametros['inicio_actividades'] ?? '') ?></div>
     </div>
 
@@ -121,6 +122,7 @@ $fmt_pct = function ($v) {
             $bonif = floatval($d['descuento_general_pct'] ?? 0);
         ?>
         <tr class="desc"><td colspan="2"><?= $ver_codigo && !empty($d['producto_codigo']) ? h($d['producto_codigo']) . ' ' : '' ?><?= h($d['producto_nombre'] ?? '') ?></td></tr>
+        <?php if (trim((string)($d['leyenda'] ?? '')) !== ''): ?><tr class="desc"><td colspan="2"><small><?= nl2br(h($d['leyenda'])) ?></small></td></tr><?php endif; ?>
         <tr>
             <td><?= number_format($cant, $cant == floor($cant) ? 0 : 2, ',', '.') ?> x <?= vfPrintImporte($precio_mostrar) ?>
                 <?= $ver_bonif && $bonif != 0 ? ' (-' . h($fmt_pct($bonif)) . '%)' : '' ?>
@@ -140,7 +142,7 @@ $fmt_pct = function ($v) {
         <?php if ($exento != 0): ?><tr><td>Exento</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($exento) ?></td></tr><?php endif; ?>
         <?php if ($no_gravado != 0): ?><tr><td>No gravado</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($no_gravado) ?></td></tr><?php endif; ?>
         <?php endif; ?>
-        <?php foreach ($percepciones_iibb as $p): ?><tr><td><?= h($p['leyenda'] ?: ('Percepción IIBB ' . $p['jurisdiccion_nombre'])) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($p['importe']) ?></td></tr><?php endforeach; ?>
+        <?php foreach ($percepciones_iibb as $p): ?><tr><td><?= h($p['leyenda'] ?: ($p['descripcion'] ?? ('Percepción IIBB ' . $p['jurisdiccion_nombre']))) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($p['importe']) ?></td></tr><?php endforeach; ?>
         <?php if ($otros_nacionales != 0): ?><tr><td>Otros tributos</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($otros_nacionales) ?></td></tr><?php endif; ?>
         <tr class="total-final"><td>TOTAL</td><td class="num"><?= h($simbolo) ?> <?= vfPrintImporte($total) ?></td></tr>
     </table>
@@ -185,7 +187,7 @@ $fmt_pct = function ($v) {
 <?php endfor; ?>
 
 <?php if ($con_cae): ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="<?= asset_local('js/qrcodejs-1.0.0/qrcode.min.js') ?>"></script>
 <script>
     document.querySelectorAll('[data-qr]').forEach(function (el) {
         new QRCode(el, { text: el.getAttribute('data-qr'), width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });

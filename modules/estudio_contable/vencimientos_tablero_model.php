@@ -58,12 +58,12 @@ function vencimientos_tablero_kpis(mysqli $conexion, int $empresa_id, int $perio
 {
     $sql = "SELECT 
                 COUNT(*) AS total_vencimientos,
-                SUM(CASE WHEN tabla_estado_registro_id = 3 THEN 1 ELSE 0 END) AS sin_iniciar,
-                SUM(CASE WHEN tabla_estado_registro_id = 4 THEN 1 ELSE 0 END) AS en_liquidacion,
+                SUM(CASE WHEN tabla_estado_registro_id = 17 THEN 1 ELSE 0 END) AS sin_iniciar,
+                SUM(CASE WHEN tabla_estado_registro_id = 18 THEN 1 ELSE 0 END) AS en_liquidacion,
                 SUM(CASE WHEN tabla_estado_registro_id = 5 THEN 1 ELSE 0 END) AS listos_presentar,
-                SUM(CASE WHEN tabla_estado_registro_id = 6 THEN 1 ELSE 0 END) AS presentados,
-                SUM(CASE WHEN tabla_estado_registro_id = 7 THEN 1 ELSE 0 END) AS pagados,
-                SUM(CASE WHEN tabla_estado_registro_id NOT IN (7, 8) AND f_limite < CURDATE() THEN 1 ELSE 0 END) AS vencidos_urgentes,
+                SUM(CASE WHEN tabla_estado_registro_id = 28 THEN 1 ELSE 0 END) AS presentados,
+                SUM(CASE WHEN tabla_estado_registro_id = 35 THEN 1 ELSE 0 END) AS pagados,
+                SUM(CASE WHEN tabla_estado_registro_id NOT IN (35, 38) AND f_limite < CURDATE() THEN 1 ELSE 0 END) AS vencidos_urgentes,
                 COALESCE(SUM(importe_a_pagar), 0) AS total_determinado
             FROM estudio__vencimientos_generados
             WHERE empresa_id = ?";
@@ -103,7 +103,7 @@ function vencimientos_tablero_listar(mysqli $conexion, int $empresa_id, array $f
                    ter.tabla_estado_registro,
                    DATEDIFF(v.f_limite, CURDATE()) AS dias_restantes,
                    CASE 
-                       WHEN v.tabla_estado_registro_id IN (7, 8) THEN 'FINALIZADO'
+                       WHEN v.tabla_estado_registro_id IN (35, 38) THEN 'FINALIZADO'
                        WHEN DATEDIFF(v.f_limite, CURDATE()) < 0 THEN 'VENCIDO'
                        WHEN DATEDIFF(v.f_limite, CURDATE()) BETWEEN 0 AND 3 THEN 'URGENTE'
                        WHEN DATEDIFF(v.f_limite, CURDATE()) BETWEEN 4 AND 7 THEN 'PROXIMO'
@@ -146,9 +146,9 @@ function vencimientos_tablero_listar(mysqli $conexion, int $empresa_id, array $f
 
     if (!empty($filtros['urgencia'])) {
         if ($filtros['urgencia'] === 'VENCIDO') {
-            $sql .= " AND v.tabla_estado_registro_id NOT IN (7, 8) AND DATEDIFF(v.f_limite, CURDATE()) < 0";
+            $sql .= " AND v.tabla_estado_registro_id NOT IN (35, 38) AND DATEDIFF(v.f_limite, CURDATE()) < 0";
         } elseif ($filtros['urgencia'] === 'URGENTE') {
-            $sql .= " AND v.tabla_estado_registro_id NOT IN (7, 8) AND DATEDIFF(v.f_limite, CURDATE()) BETWEEN 0 AND 3";
+            $sql .= " AND v.tabla_estado_registro_id NOT IN (35, 38) AND DATEDIFF(v.f_limite, CURDATE()) BETWEEN 0 AND 3";
         }
     }
 
@@ -209,8 +209,8 @@ function vencimiento_cambiar_estado(mysqli $conexion, int $empresa_id, int $venc
                     importe_saldo_favor = CASE WHEN ? > 0 THEN ? ELSE importe_saldo_favor END,
                     importe_a_pagar = CASE WHEN ? > 0 THEN ? ELSE importe_a_pagar END,
                     vep_nro = CASE WHEN ? != '' THEN ? ELSE vep_nro END,
-                    f_presentacion = CASE WHEN ? = 6 AND f_presentacion IS NULL THEN NOW() ELSE f_presentacion END,
-                    f_pago = CASE WHEN ? = 7 AND f_pago IS NULL THEN NOW() ELSE f_pago END
+                    f_presentacion = CASE WHEN ? = 28 AND f_presentacion IS NULL THEN NOW() ELSE f_presentacion END,
+                    f_pago = CASE WHEN ? = 35 AND f_pago IS NULL THEN NOW() ELSE f_pago END
                 WHERE empresa_id = ? AND vencimiento_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);

@@ -1,4 +1,4 @@
-// Padrones IIBB (página 115). docs/gestion/09_percepciones_iibb.md §7 y §12
+// Padrones IIBB (página 115). _local/docs/gestion/09_percepciones_iibb.md §7 y §12
 $(function () {
     var URL_AJAX = 'padrones_iibb_ajax.php';
     var SITUACION = { PADRON: 'Con alta (alícuota del padrón)', INSCRIPTO_OTRA_JURISDICCION: 'Sin alta: percepción por falta de alta', NO_PERCIBIR: 'En el padrón, sin percepción' };
@@ -6,8 +6,8 @@ $(function () {
     function situacion(r) { return esc(SITUACION[r.situacion] || r.situacion) + (r.fuente && r.fuente !== 'ARCHIVO' ? ' <span class="badge bg-info">' + esc(FUENTE[r.fuente] || r.fuente) + '</span>' : ''); }
     function alicuota(r) { return pct(r.alicuota_percepcion) + (r.codigo_origen ? ' (' + esc(r.codigo_origen) + ')' : ''); }
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
-    function pct(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
-    var lang = { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' };
+    function pct(v) { return Fmt.numero(Number(v || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%'; }
+    var lang = { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json' };
 
     var tablaImp = $('#tablaPadImportaciones').DataTable({
         data: [], order: [], pageLength: 10, language: lang,

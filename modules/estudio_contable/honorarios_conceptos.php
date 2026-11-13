@@ -65,7 +65,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
                                 <div class="col-md-4 col-sm-6"></div>
                                 <div class="col-md-3 col-sm-12 text-end mt-auto pb-1">
-                                    <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevoAbono">
+                                    <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevoAbono" data-funcion="agregar">
                                         <i class="fas fa-plus-circle me-1"></i>Nuevo Abono Recurrente
                                     </button>
                                 </div>
@@ -131,7 +131,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <span class="text-muted fs-7">Conceptos vinculados a servicios del ERP para facturación automática</span>
                             </div>
                             <div>
-                                <button type="button" class="btn btn-sm btn-info text-white" id="btnNuevoConcepto">
+                                <button type="button" class="btn btn-sm btn-info text-white" id="btnNuevoConcepto" data-funcion="agregar">
                                     <i class="fas fa-plus me-1"></i>Nuevo Concepto
                                 </button>
                             </div>
@@ -333,7 +333,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="honorarios_conceptos.js"></script>
 
 <?php

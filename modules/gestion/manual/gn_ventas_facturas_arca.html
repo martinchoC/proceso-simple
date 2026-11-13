@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Gestión Normal: Facturación e Importación ARCA</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #ffedd5; color: #9a3412; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-orange { border-left: 4px solid var(--naranja); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_gestion_normal.html">← Volver al manual de Gestión Normal</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Gestión Normal · Facturación Electrónica</span>
+<h1>Manual de usuario: Facturación e Importación ARCA</h1>
+<p class="subtitulo">Emisión directa de Facturas, Notas de Débito y Crédito electrónicas y función exclusiva de importación masiva de "Mis Comprobantes Emitidos" de ARCA.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#emision">Emisión de Facturas Electrónicas con CAE</a></li>
+        <li><a href="#importacion">Importación Masiva de Comprobantes ARCA</a></li>
+        <li><a href="#duplicados">Control estricto de duplicados</a></li>
+        <li><a href="#asientos">Generación de espejos y asientos contables</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="emision">Emisión de Facturas Electrónicas con CAE</h2>
+<p>En <code>modules/gestion_normal/ventas_facturas.php</code> se emiten comprobantes con obtención automática de CAE ante ARCA (ex AFIP):</p>
+<ol>
+    <li>Seleccionar Punto de Venta, Tipo de Comprobante (Factura A, B, C, etc.) y Cliente.</li>
+    <li>Agregar los ítems (productos o servicios) con su precio y cantidad.</li>
+    <li>Guardar en <em>Borrador</em> para verificar totales.</li>
+    <li>Pulsar <strong>Confirmar / Autorizar ARCA</strong>: el sistema envía la solicitud por Web Service (WSFE) y recibe el CAE, fecha de vencimiento y genera el PDF oficial con código QR.</li>
+</ol>
+
+<h2 id="importacion">Importación Masiva de Comprobantes ARCA</h2>
+<div class="card card-outline-orange">
+    <strong>Función Exclusiva de Gestión Normal:</strong>
+    <p>El botón <em>"Importar Comprobantes ARCA"</em> permite subir el archivo Excel descargado de "Mis Comprobantes Emitidos". El sistema procesa todas las facturas autorizadas previamente en la web de AFIP e ingresa los registros en estado <strong>Confirmado (5)</strong> con su número oficial y CAE asignado.</p>
+</div>
+
+<h2 id="duplicados">Control estricto de duplicados</h2>
+<p>El importador verifica la terna <code>(Tipo Comprobante, Punto de Venta, Número de Comprobante)</code>. Si una factura ya existía en la base de datos, es salteada automáticamente sin alterar los registros existentes.</p>
+
+<h2 id="asientos">Generación de espejos y asientos contables</h2>
+<p>Cada comprobante importado genera su fila espejo en <code>gestion__comprobantes</code> para el control de cuenta corriente y saldo de deuda, e inserta su asiento contable balanceado en el Libro Diario.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Qué sucede si un cliente del Excel no está dado de alta?</td>
+        <td>El importador crea automáticamente la ficha del cliente con su CUIT, razón social y condición fiscal obtenida del padrón.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Gestión Normal — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

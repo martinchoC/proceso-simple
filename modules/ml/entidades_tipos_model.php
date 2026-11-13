@@ -118,7 +118,7 @@ function tipos_entidad_actualizar(mysqli $conexion, int $id, array $datos, int $
             SET codigo = ?, nombre = ?, es_fisica = ?, es_logica = ?, es_movil = ?, actualizado_en = NOW(), actualizado_por = ?
             WHERE entidad_tipo_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "ssiiii", $codigo, $nombre, $es_fisica, $es_logica, $es_movil, $usuario_id, $id);
+    mysqli_stmt_bind_param($stmt, "ssiiiii", $codigo, $nombre, $es_fisica, $es_logica, $es_movil, $usuario_id, $id);
     $ok = mysqli_stmt_execute($stmt);
     mysqli_stmt_close($stmt);
 

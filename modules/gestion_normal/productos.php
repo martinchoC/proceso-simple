@@ -6,32 +6,17 @@ $pageTitle = "Productos y Servicios";
 $currentPage = 'productos';
 $modudo_idx = 5;
 $pagina_idx = 540; // ID de página en conf__paginas para Módulo 5
+$ui_simple = true;
 $empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+require_once ROOT_PATH . '/core/productos_presentaciones.php';
+$usa_presentaciones = prpr_empresa_usa($conn, (int)$empresa_idx);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-cubes me-2"></i>Productos y Servicios
-                    </h3>
-                    <small class="text-muted">Gestión Normal Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión Normal</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Productos y Servicios</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Productos','fas fa-cubes', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -145,7 +130,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                     <div class="col-md-6">
                                         <label for="producto_nombre" class="form-label required">Nombre / Denominación <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control form-control-sm" id="producto_nombre" name="producto_nombre" required maxlength="150" placeholder="Ej: Aceite de Motor 10W40" />
+                                        <input type="text" class="form-control form-control-sm" id="producto_nombre" name="producto_nombre" required maxlength="150" placeholder="Ej: Yerba mate 1 kg" />
                                         <div class="invalid-feedback">Ingrese el nombre del producto.</div>
                                     </div>
 
@@ -188,11 +173,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
 
+                        <?php if ($usa_presentaciones): ?>
+                        <!-- Presentaciones (caja, pack, pallet): solo si la empresa las usa. Se graban con el producto. -->
+                        <div class="col-12" id="seccionPresentacionesCol">
+                            <?php include ROOT_PATH . '/templates/productos/presentaciones_seccion.php'; ?>
+                        </div>
+                        <?php endif; ?>
+
                         <!-- Sección 2: Configuración de Impuestos y Aplicación -->
                         <div class="col-md-6">
                             <div class="border rounded p-3 h-100">
                                 <h6 class="text-primary border-bottom pb-2 mb-3">
-                                    <i class="fas fa-percentage me-1"></i>Impuestos e Comportamiento
+                                    <i class="fas fa-percentage me-1"></i>Impuestos y comportamiento
                                 </h6>
                                 <div class="row g-3">
                                     <div class="col-12">
@@ -476,6 +468,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     const EMPRESA_ID = <?= json_encode($empresa_idx) ?>;
     const PAGINA_ID = <?= json_encode($pagina_idx) ?>;
 </script>
-<script src="productos.js"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<?php if ($usa_presentaciones): ?>
+<script src="<?= asset_local('js/productos-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-presentaciones.js') ?>"></script>
+<?php endif; ?>
+<script src="productos.js?v=<?= filemtime(__DIR__ . '/productos.js') ?>"></script>
 
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

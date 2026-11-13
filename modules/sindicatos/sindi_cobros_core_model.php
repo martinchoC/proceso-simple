@@ -209,6 +209,8 @@ function sindi_procesar_cobranza_rendicion(mysqli $conexion, int $empresa_id, in
         return ['success' => false, 'message' => $e->getMessage()];
     }
     $cuenta_intereses_id = emp_cuenta_concepto_id($conexion, $empresa_id, 'SINDI_INTERESES_GANADOS');
+    // Volantes de afiliado (cuota directa): la deuda está en deudores por cuotas de afiliados
+    $cuenta_deudores_afil_id = emp_cuenta_concepto_id($conexion, $empresa_id, 'SINDI_DEUDORES_AFILIADOS');
 
     $stmtL = mysqli_prepare($conexion, "SELECT * FROM sindi__rendiciones_lineas
                                         WHERE rendicion_id = ? AND empresa_id = ? AND comprobante_cobro_id IS NULL
@@ -257,9 +259,10 @@ function sindi_procesar_cobranza_rendicion(mysqli $conexion, int $empresa_id, in
             }
 
             $posibleId = (int)preg_replace('/\D/', '', $idExt);
-            $stmtV = mysqli_prepare($conexion, "SELECT v.*, emp.entidad_id
+            $stmtV = mysqli_prepare($conexion, "SELECT v.*, COALESCE(emp.entidad_id, per.entidad_id) AS entidad_id
                 FROM sindi__volantes v
-                INNER JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id AND emp.empresa_id = v.empresa_id
+                LEFT JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id AND emp.empresa_id = v.empresa_id
+                LEFT JOIN sindi__personas per ON per.persona_id = v.persona_id AND per.empresa_id = v.empresa_id
                 WHERE v.empresa_id = ? AND (v.codigo_barras = ? OR v.numero = ? OR v.volante_id = ?)
                 LIMIT 1 FOR UPDATE");
             mysqli_stmt_bind_param($stmtV, "issi", $empresa_id, $idExt, $idExt, $posibleId);
@@ -274,6 +277,12 @@ function sindi_procesar_cobranza_rendicion(mysqli $conexion, int $empresa_id, in
             }
             $volante_id = (int)$volante['volante_id'];
             $estadoVol = (int)$volante['tabla_estado_registro_id'];
+            $cuentaDeudoresVol = $volante['tipo_volante'] === 'AFILIADO' ? $cuenta_deudores_afil_id : $cuenta_deudores_id;
+            if ($cuentaDeudoresVol <= 0) {
+                $cont['DIFERENCIA']++;
+                sindi_marcar_linea_rendicion($conexion, $lineaId, 'DIFERENCIA', $volante_id, null, null, 'Falta el concepto contable SINDI_DEUDORES_AFILIADOS de la empresa');
+                continue;
+            }
 
             if ($estadoVol === 40) {
                 $cont['DUPLICADA']++;
@@ -337,7 +346,7 @@ function sindi_procesar_cobranza_rendicion(mysqli $conexion, int $empresa_id, in
                         'usuario_id' => $usuario_id,
                         'cont_tipo_asiento_codigo' => 'AUT'
                     ], [
-                        ['cuenta_id' => $cuenta_deudores_id, 'debe' => $intAplicar, 'haber' => 0.00, 'descripcion' => 'Intereses a cobrar'],
+                        ['cuenta_id' => $cuentaDeudoresVol, 'debe' => $intAplicar, 'haber' => 0.00, 'descripcion' => 'Intereses a cobrar'],
                         ['cuenta_id' => $cuenta_intereses_id, 'debe' => 0.00, 'haber' => $intAplicar, 'descripcion' => 'Intereses ganados resarcitorios'],
                     ]);
                 }
@@ -384,7 +393,7 @@ function sindi_procesar_cobranza_rendicion(mysqli $conexion, int $empresa_id, in
                 'cont_tipo_asiento_codigo' => 'AUT'
             ], [
                 ['cuenta_id' => $tes['cont_cuenta_id'], 'debe' => $impRendido, 'haber' => 0.00, 'descripcion' => 'Ingreso por rendición'],
-                ['cuenta_id' => $cuenta_deudores_id, 'debe' => 0.00, 'haber' => $impRendido, 'descripcion' => 'Cancelación deuda sindical'],
+                ['cuenta_id' => $cuentaDeudoresVol, 'debe' => 0.00, 'haber' => $impRendido, 'descripcion' => 'Cancelación deuda sindical'],
             ]);
 
             // Imputar: deudas del volante por vencimiento, después la ND de intereses

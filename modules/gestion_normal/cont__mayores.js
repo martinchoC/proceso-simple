@@ -77,7 +77,7 @@ $(document).ready(function () {
         if (number === null || number === undefined || number === '') return '0.00';
         var num = parseFloat(number);
         if (isNaN(num)) return '0.00';
-        return num.toLocaleString('es-AR', {
+        return Fmt.numero(num, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });
@@ -230,7 +230,7 @@ $(document).ready(function () {
             pageLength: 25,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'
             },
             responsive: true,
             drawCallback: function() {
@@ -301,7 +301,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'
             },
             responsive: true,
             drawCallback: function() {

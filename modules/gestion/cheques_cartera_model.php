@@ -39,7 +39,7 @@ function obtenerChequesListado($conexion, $empresa_id, $filtros = [])
     $empresa_id = intval($empresa_id);
 
     $sql = "SELECT chq.*, b.banco, m.simbolo AS moneda_simbolo,
-                   e.entidad_nombre, e.cuit AS entidad_cuit,
+                   COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia, e.cuit AS entidad_cuit,
                    tc.tesoreria_cuenta,
                    er.codigo_estandar AS estado_codigo, er.estado_registro
             FROM gestion__cheques chq
@@ -254,7 +254,7 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
             'f_valor'             => $f_deposito,
             'moneda_id'           => intval($chq['moneda_id']),
             'tipo_cambio'         => 1.0,
-            'medio_pago_id'       => 2, // Cheque de tercero
+            'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'CHEQUE_TERCERO'),
             'concepto'            => "Depósito Chq N° {$chq['numero']} en {$banco_info['tesoreria_cuenta']}",
             'tabla_origen_id'     => TABLA_CHEQUES_ID,
             'registro_origen_id'  => $cheque_id,
@@ -273,7 +273,7 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
             'f_valor'             => $f_deposito,
             'moneda_id'           => intval($chq['moneda_id']),
             'tipo_cambio'         => 1.0,
-            'medio_pago_id'       => 2, // Cheque de tercero
+            'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'CHEQUE_TERCERO'),
             'concepto'            => "Depósito Chq N° {$chq['numero']} de {$chq['banco']}",
             'tabla_origen_id'     => TABLA_CHEQUES_ID,
             'registro_origen_id'  => $cheque_id,
@@ -284,10 +284,13 @@ function depositarChequeTercero($conexion, $cheque_id, $banco_cuenta_id, $f_depo
         $res_val = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Valores en Cartera', emp_cuenta_concepto_id($conexion, $empresa_id, 'VALORES_CARTERA'));
         $res_ban = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Banco', $cta_contable_banco);
 
+        // Asiento propio del depósito: con el comprobante del recibo, tesoreriaGenerarAsiento reemplazaría el
+        // asiento de la cobranza (Deudores, retenciones, valores) por este
         tesoreriaGenerarAsiento($conexion, [
             'empresa_id'           => $empresa_id,
             'sucursal_id'          => intval($chq['sucursal_id']),
-            'comprobante_id'       => intval($chq['comp_origen_id']),
+            'comprobante_id'       => 0,
+            'sin_comprobante'      => true,
             'entidad_id'           => intval($chq['entidad_id'] ?? 0),
             'f_asiento'            => $f_deposito,
             'descripcion'          => "Depósito Cheque N° {$chq['numero']} en {$banco_info['tesoreria_cuenta']}",
@@ -378,7 +381,7 @@ function debitarChequePropio($conexion, $cheque_id, $f_debito, $empresa_id, $usu
                 'f_valor'             => $f_debito,
                 'moneda_id'           => intval($chq['moneda_id']),
                 'tipo_cambio'         => 1.0,
-                'medio_pago_id'       => 3, // Cheque propio
+                'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'CHEQUE_PROPIO'),
                 'concepto'            => "Débito bancario Chq Propio N° {$chq['numero']}",
                 'tabla_origen_id'     => TABLA_CHEQUES_ID,
                 'registro_origen_id'  => $cheque_id,
@@ -389,10 +392,12 @@ function debitarChequePropio($conexion, $cheque_id, $f_debito, $empresa_id, $usu
             $res_vap = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'VALORES_A_PAGAR');
             $res_ban = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Banco', intval($chq['cont_cuenta_id_banco']));
 
+            // Asiento propio del débito: con el comprobante de la OP reemplazaría el asiento de la orden de pago
             tesoreriaGenerarAsiento($conexion, [
                 'empresa_id'           => $empresa_id,
                 'sucursal_id'          => intval($chq['sucursal_id']),
-                'comprobante_id'       => intval($chq['comp_origen_id']),
+                'comprobante_id'       => 0,
+                'sin_comprobante'      => true,
                 'entidad_id'           => intval($chq['entidad_id'] ?? 0),
                 'f_asiento'            => $f_debito,
                 'descripcion'          => "Compensación Débito Chq Propio N° {$chq['numero']}",
@@ -479,7 +484,7 @@ function rechazarCheque($conexion, $cheque_id, $motivo, $f_rechazo, $empresa_id,
                 'f_valor'             => $f_rechazo,
                 'moneda_id'           => intval($chq['moneda_id']),
                 'tipo_cambio'         => 1.0,
-                'medio_pago_id'       => 2,
+                'medio_pago_id'       => emp_medio_pago_id($conexion, $empresa_id, 'CHEQUE_TERCERO'),
                 'concepto'            => "Rechazo bancario Chq N° {$chq['numero']}: $motivo",
                 'tabla_origen_id'     => TABLA_CHEQUES_ID,
                 'registro_origen_id'  => $cheque_id,

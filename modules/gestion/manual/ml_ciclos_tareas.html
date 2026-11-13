@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Matriz Legal: Ciclos y Tareas RACI</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --indigo: #6610f2;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #ede9fe; color: #5b21b6; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-indigo { border-left: 4px solid var(--indigo); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_ml.html">← Volver al manual de Matriz Legal</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Matriz Legal · Ejecución Periódica</span>
+<h1>Manual de usuario: Ciclos de Cumplimiento y Tareas RACI</h1>
+<p class="subtitulo">Programación de vencimientos periódicos, asignación de roles de ejecución (RACI) y seguimiento del avance de cada trámite o medición.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#ciclo">¿Qué es un Ciclo de Cumplimiento?</a></li>
+        <li><a href="#raci">La Matriz RACI</a></li>
+        <li><a href="#generador">Generador automático de ciclos</a></li>
+        <li><a href="#estados">Estados de una tarea</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="ciclo">¿Qué es un Ciclo de Cumplimiento?</h2>
+<p>El ciclo es la <strong>unidad auditable en el tiempo</strong>. Por ejemplo, si una medición de puesta a tierra es anual, existe un ciclo para el año 2025, otro para 2026 y otro para 2027. Las tareas nunca existen en el vacío: siempre pertenecen a un ciclo específico (<code>ciclos.php</code> / <code>ciclos_tareas.php</code>).</p>
+
+<h2 id="raci">La Matriz RACI</h2>
+<p>Para cada tarea del ciclo se definen 4 roles claros:</p>
+<table class="tabla-referencia">
+    <tr>
+        <th>Letra</th>
+        <th>Rol RACI</th>
+        <th>Función en el sistema</th>
+    </tr>
+    <tr>
+        <td><strong>R</strong></td>
+        <td><strong>Responsable</strong></td>
+        <td>Quien ejecuta materialmente la tarea o contrata al perito/proveedor.</td>
+    </tr>
+    <tr>
+        <td><strong>A</strong></td>
+        <td><strong>Aprobador</strong></td>
+        <td>La persona con autoridad que revisa la evidencia técnica y da el visto bueno definitivo. Solo puede haber uno por tarea.</td>
+    </tr>
+    <tr>
+        <td><strong>C</strong></td>
+        <td><strong>Consultado</strong></td>
+        <td>Especialistas técnicos o asesores legales a quienes se solicita opinión previa.</td>
+    </tr>
+    <tr>
+        <td><strong>I</strong></td>
+        <td><strong>Informado</strong></td>
+        <td>Directores o gerentes de planta que reciben notificación del resultado.</td>
+    </tr>
+</table>
+
+<h2 id="generador">Generador automático de ciclos</h2>
+<p>La herramienta <code>ciclos_generador.php</code> proyecta anualmente los vencimientos de todas las obligaciones para los siguientes 12 meses, calculando las fechas de vencimiento según días hábiles y feriados locales.</p>
+
+<h2 id="estados">Estados de una tarea</h2>
+<ul>
+    <li><strong>Programada:</strong> En espera de la fecha de inicio del ciclo.</li>
+    <li><strong>En Ejecución:</strong> El responsable está gestionando el trámite, protocolo o medición.</li>
+    <li><strong>Pendiente de Aprobación:</strong> Evidencia adjuntada, esperando la validación del aprobador (rol A).</li>
+    <li><strong>Cerrada / Cumplida:</strong> Aprobada con éxito dentro de término.</li>
+    <li><strong>Vencida:</strong> Superó la fecha límite sin aprobación. Requiere justificación o excepción.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Puede el responsable aprobarse su propia tarea?</td>
+        <td>Depende de las políticas de la empresa; por defecto, el sistema exige que el Aprobador sea un usuario con perfil revisor o auditor para garantizar la separación de funciones.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Matriz Legal — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>
+

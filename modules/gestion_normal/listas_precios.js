@@ -126,7 +126,7 @@ $(document).ready(function () {
                 }
             ],
             columns: [
-                { data: 'lista_precio_id', className: 'text-center' },
+                { data: 'lista_precio_id', className: 'ui-detalle' },
                 { 
                     data: 'lista_precio_codigo',
                     render: function(data, type, row) {
@@ -221,7 +221,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             order: currentOrder,
             responsive: true,
@@ -289,7 +289,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             columns: [
-                { data: 'lista_precio_regla_id', className: 'text-center' },
+                { data: 'lista_precio_regla_id', className: 'ui-detalle' },
                 { data: 'regla_nombre' },
                 { data: 'regla_valor_tipo_nombre', className: 'text-center', defaultContent: '-' },
                 { 
@@ -384,7 +384,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             responsive: true
         });
@@ -414,7 +414,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             columns: [
-                { data: 'lista_precio_producto_id', className: 'text-center' },
+                { data: 'lista_precio_producto_id', className: 'ui-detalle' },
                 { data: 'producto_codigo', defaultContent: '-' },
                 { data: 'producto_nombre' },
                 { 
@@ -489,7 +489,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             responsive: true
         });
@@ -615,36 +615,18 @@ $(document).ready(function () {
         if (number === null || number === undefined || number === '') return '0.00';
         var num = parseFloat(number);
         if (isNaN(num)) return '0.00';
-        return num.toLocaleString('es-AR', {
+        return Fmt.numero(num, {
             minimumFractionDigits: 2,  // Cambiado de decimals a 2
             maximumFractionDigits: 2   // Cambiado de decimals a 2
         });
     }
 
     function formatDateYMD(dateStr) {
-        if (!dateStr) return '';
-        // Manejar fecha "0000-00-00"
-        if (dateStr === '0000-00-00' || dateStr === '0000-00-00 00:00:00') return '';
-        var parts = dateStr.split('-');
-        if (parts.length === 3) {
-            // Verificar que sea una fecha válida
-            var year = parseInt(parts[0]);
-            var month = parseInt(parts[1]);
-            var day = parseInt(parts[2]);
-            if (year > 0 && month > 0 && month <= 12 && day > 0 && day <= 31) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            }
-        }
-        return dateStr;
+        return Fmt.fecha(dateStr);
     }
 
     function formatDateTime(dateTimeStr) {
-        if (!dateTimeStr) return '';
-        if (dateTimeStr === '0000-00-00' || dateTimeStr === '0000-00-00 00:00:00') return '';
-        var date = new Date(dateTimeStr);
-        // Verificar si la fecha es válida
-        if (isNaN(date.getTime())) return '';
-        return date.toLocaleString('es-AR');
+        return Fmt.fechaHora(dateTimeStr);
     }
 
     function escapeHtml(text) {

@@ -3,24 +3,15 @@
 $pageTitle = "Asignación de Funciones a Perfiles";
 $currentPage = 'perfiles_funciones';
 $modudo_idx = 1;
+$pagina_idx = 25; // conf__paginas
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Asignación de Funciones</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Asignación de Funciones</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Funciones de perfiles base', 'bi bi-key', 'Qué funciones de cada página tiene un perfil base. Se copian a la empresa al crear sus perfiles; cambiar acá no cambia los perfiles de empresa ya creados.', ['Empresas y accesos']); ?>
+
     <div class="app-content">
         <div class="container-fluid">
             <div class="content-wrapper">
@@ -360,12 +351,30 @@ $(document).ready(function() {
                         text: modulo.modulo
                     }));
                 });
+                abrirDesdeEnlace();
             }
         }, 'json');
     }
-    
+
+    // Enlace desde Perfiles (perfiles.php): ?ver_modulo=N&ver_perfil=M abre ese perfil directamente.
+    // No se usa modulo_id porque header1.php lo toma como módulo activo de la sesión.
+    function abrirDesdeEnlace() {
+        var q = new URLSearchParams(window.location.search);
+        var modulo = q.get('ver_modulo'), perfil = q.get('ver_perfil');
+        if (!modulo || !$('#selectModulo option[value="' + modulo + '"]').length) { return; }
+        $('#selectModulo').val(modulo);
+        $('#selectPerfil').prop('disabled', false);
+        cargarPerfilesPorModulo(modulo, function() {
+            if (perfil && $('#selectPerfil option[value="' + perfil + '"]').length) {
+                $('#selectPerfil').val(perfil).trigger('change');
+                $('#btnCargar').trigger('click');
+            }
+            actualizarInfoSeleccion();
+        });
+    }
+
     // Función para cargar perfiles por módulo
-    function cargarPerfilesPorModulo(modulo_id) {
+    function cargarPerfilesPorModulo(modulo_id, alTerminar) {
         $.get('perfiles_funciones_ajax.php', {accion: 'obtener_perfiles_por_modulo', modulo_id: modulo_id}, function(res) {
             $('#selectPerfil').empty().append('<option value="">Seleccione un perfil</option>');
             
@@ -379,6 +388,7 @@ $(document).ready(function() {
             } else {
                 $('#selectPerfil').append('<option value="">No hay perfiles para este módulo</option>');
             }
+            if (alTerminar) { alTerminar(); }
         }, 'json');
     }
     

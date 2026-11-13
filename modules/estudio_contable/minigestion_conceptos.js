@@ -16,7 +16,7 @@ $(document).ready(function() {
             responsive: true,
             dom: domConfig,
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json',
                 emptyTable: 'No hay conceptos registrados para esta empresa'
             },
             order: [[0, 'asc']],
@@ -54,10 +54,10 @@ $(document).ready(function() {
                     render: function(d) {
                         return `
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary btn-sm btn-editar" data-id="${d.producto_id}" title="Editar">
+                                <button class="btn btn-outline-primary btn-sm btn-editar" data-funcion="editar" data-id="${d.producto_id}" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm btn-anular" data-id="${d.producto_id}" title="Anular">
+                                <button class="btn btn-outline-danger btn-sm btn-anular" data-funcion="inhabilitar" data-id="${d.producto_id}" title="Anular">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </div>
@@ -107,6 +107,28 @@ $(document).ready(function() {
         });
     }
 
+    // Alícuotas de IVA de la empresa elegida (son por empresa). La del 21% queda como opción por defecto
+    // del formulario (atributo selected), así el reset de "Nuevo" vuelve a ella.
+    function cargarAlicuotasSelect() {
+        const empresaId = $('#selEmpresaConcepto').val();
+        $.ajax({
+            url: 'minigestion_conceptos_ajax.php',
+            type: 'GET',
+            data: { accion: 'listar_alicuotas', empresa_id: empresaId },
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.success) {
+                    let html = '';
+                    (resp.data || []).forEach(function(a) {
+                        const defecto = parseInt(a.es_gravado, 10) === 1 && parseFloat(a.porcentaje) === 21;
+                        html += `<option value="${a.iva_alicuota_id}"${defecto ? ' selected' : ''}>${a.iva_alicuota}</option>`;
+                    });
+                    $('#con_alicuota').html(html || '<option value="0">IVA 21%</option>');
+                }
+            }
+        });
+    }
+
     function cargarConceptos() {
         const empresaId = $('#selEmpresaConcepto').val();
         $('#con_empresa_id').val(empresaId);
@@ -126,10 +148,12 @@ $(document).ready(function() {
     }
 
     cargarCuentasSelect();
+    cargarAlicuotasSelect();
     cargarConceptos();
 
     $('#selEmpresaConcepto').on('change', function() {
         cargarCuentasSelect();
+        cargarAlicuotasSelect();
         cargarConceptos();
     });
 

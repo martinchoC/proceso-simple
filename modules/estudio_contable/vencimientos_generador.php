@@ -82,7 +82,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <span class="fw-bold fs-7" id="resumen_conteo">0 vencimientos a evaluar</span>
                     </div>
                     <div>
-                        <button type="button" class="btn btn-sm btn-success fw-semibold" id="btnEjecutarLote">
+                        <button type="button" class="btn btn-sm btn-success fw-semibold" id="btnEjecutarLote" data-funcion="agregar">
                             <i class="fas fa-bolt me-1"></i>Generar Vencimientos en Firme
                         </button>
                     </div>
@@ -112,7 +112,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="vencimientos_generador.js"></script>
 
 <?php

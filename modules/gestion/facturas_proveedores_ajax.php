@@ -43,7 +43,8 @@ if (!$conexion) {
 try {
     switch ($accion) {
         case 'listar':
-            $facturas = obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_idx);
+            $filtro_estado = trim((string)($_GET['filtro_estado'] ?? ''));
+            $facturas = obtenerFacturasProveedor($conexion, $empresa_idx, $pagina_idx, $filtro_estado);
             echo json_encode($facturas, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -62,6 +63,8 @@ try {
         case 'ejecutar_accion':
             $factura_proveedor_id = intval($_POST['factura_proveedor_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $factura_proveedor_id, $accion_js, $ctx['empresa_id'], $pagina_idx,
                                                   trim((string)($_POST['motivo'] ?? '')));
             echo json_encode($resultado);
@@ -95,6 +98,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
             }
@@ -132,8 +137,12 @@ try {
                 'otros_impuestos' => floatval($_POST['otros_impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
+                'modalidad_descuento_factura' => trim($_POST['modalidad_descuento_factura'] ?? 'EN_FACTURA_GLOBAL'),
+                'precio_compra_contempla_descuento' => isset($_POST['precio_compra_contempla_descuento']) ? intval($_POST['precio_compra_contempla_descuento']) : 1,
+                'descuento_nc_pct' => floatval($_POST['descuento_nc_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
+                'certificacion_id' => intval($_POST['certificacion_id'] ?? 0),
                 'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
                 'tesoreria_cuenta_debito_id' => intval($_POST['tesoreria_cuenta_debito_id'] ?? 0),
                 'detalles' => $detalles,
@@ -145,10 +154,18 @@ try {
             }
 
             $resultado = agregarFacturaProveedor($conexion, $data);
+            // Cargada desde archivo: liga el archivo original y copia el CAE leído
+            $lectura_adjunto_id = intval($_POST['lectura_adjunto_id'] ?? 0);
+            if (!empty($resultado['resultado']) && $lectura_adjunto_id > 0) {
+                require_once __DIR__ . '/facturas_proveedores_lectura_model.php';
+                fplVincularAdjunto($conexion, $empresa_idx, intval($resultado['factura_proveedor_id']), $lectura_adjunto_id);
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['factura_proveedor_id'] ?? 0);
             
             error_log("=== EDITAR - ID recibido: $id ===");
@@ -188,8 +205,12 @@ try {
                 'otros_impuestos' => floatval($_POST['otros_impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'descuento_general_pct' => floatval($_POST['descuento_general_pct'] ?? 0),
+                'modalidad_descuento_factura' => trim($_POST['modalidad_descuento_factura'] ?? 'EN_FACTURA_GLOBAL'),
+                'precio_compra_contempla_descuento' => isset($_POST['precio_compra_contempla_descuento']) ? intval($_POST['precio_compra_contempla_descuento']) : 1,
+                'descuento_nc_pct' => floatval($_POST['descuento_nc_pct'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
                 'orden_compra_id' => intval($_POST['orden_compra_id'] ?? 0),
+                'certificacion_id' => intval($_POST['certificacion_id'] ?? 0),
                 'comprobante_asociado_id' => intval($_POST['comprobante_asociado_id'] ?? 0),
                 'tesoreria_cuenta_debito_id' => intval($_POST['tesoreria_cuenta_debito_id'] ?? 0),
                 'detalles' => $detalles,
@@ -314,6 +335,13 @@ try {
             echo json_encode($productos, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'obtener_catalogo_productos':
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $empresa_idx_local = intval($_GET['empresa_idx'] ?? $empresa_idx);
+            $catalogo = obtenerCatalogoProductosCompra($conexion, $empresa_idx_local, $entidad_id);
+            enviarRespuesta(['success' => true, 'data' => $catalogo]);
+            break;
+
         case 'obtener_ultimo_precio':
             $producto_id = intval($_GET['producto_id'] ?? 0);
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
@@ -412,6 +440,18 @@ try {
             }
             $ordenes = fpOcPendientesProveedor($conexion, $ctx['empresa_id'], $entidad_id, $factura_excluir_id);
             echo json_encode(['success' => true, 'data' => $ordenes, 'message' => ''], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'listar_certificaciones_pendientes':
+            require_once __DIR__ . '/../../core/contratos/contratos_service.php';
+            $entidad_id = intval($_GET['entidad_id'] ?? 0);
+            $orden_compra_id = intval($_GET['orden_compra_id'] ?? 0);
+            if ($entidad_id <= 0) {
+                echo json_encode(['success' => false, 'data' => [], 'message' => 'Seleccione un proveedor'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $certificaciones = contratoCertificacionesDisponiblesFacturar($conexion, $entidad_id, $ctx['empresa_id'], $orden_compra_id);
+            echo json_encode(['success' => true, 'data' => $certificaciones, 'message' => ''], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_oc_lineas':
@@ -619,6 +659,144 @@ try {
         
         
         
+        case 'obtener_opciones_importacion_arca':
+            $sucursales = obtenerSucursalesEmpresa($conexion, $empresa_idx);
+            $condiciones = obtenerCondicionesPago($conexion, $empresa_idx);
+            $primer_sucursal = !empty($sucursales[0]['sucursal_id']) ? intval($sucursales[0]['sucursal_id']) : 0;
+            $depositos = $primer_sucursal ? obtenerDepositosPorSucursal($conexion, $primer_sucursal, $empresa_idx) : [];
+            echo json_encode([
+                'success' => true,
+                'sucursales' => $sucursales,
+                'condiciones' => $condiciones,
+                'depositos' => $depositos
+            ], JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'previsualizar_importacion_arca':
+            // Filas del archivo tal como las leyó el navegador; el modelo las interpreta
+            $filas = json_decode($_POST['filas'] ?? '[]', true);
+            if (!is_array($filas)) {
+                echo json_encode(['success' => false, 'error' => 'Datos inválidos para previsualización'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $resultado = fpPrevisualizarImportacionArca($conexion, $empresa_idx, $filas, !empty($_POST['crear_proveedores_auto']));
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'ejecutar_importacion_arca':
+            $filas = json_decode($_POST['filas'] ?? '[]', true);
+            if (!is_array($filas) || empty($filas)) {
+                echo json_encode(['success' => false, 'error' => 'No hay comprobantes para importar.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $opciones = [
+                'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
+                'deposito_id' => intval($_POST['deposito_id'] ?? 0),
+                'condicion_pago_id' => intval($_POST['condicion_pago_id'] ?? 0),
+                'crear_proveedores_auto' => !empty($_POST['crear_proveedores_auto']),
+                'pagina_idx' => $pagina_idx
+            ];
+            $resultado = fpImportarComprobantesArca($conexion, $empresa_idx, $filas, $opciones, $ctx['usuario_id']);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // ===== Carga desde archivo (PDF / JPG / PNG): mismo permiso que "Agregar"; las que escriben piden CSRF =====
+        case 'lectura_procesar':        // sube el archivo y lo lee (QR / texto / OCR y, si hace falta, IA)
+        case 'lectura_reintentar_ia':   // vuelve a leer el mismo archivo con IA
+        case 'lectura_propuesta':       // rearma la propuesta con la última lectura
+        case 'lectura_crear_proveedor': // alta del proveedor con el CUIT y la razón social leídos
+        case 'lectura_guardar_lote':    // carga de varios archivos: guarda en Borrador los que quedaron listos
+        case 'lectura_items_proveedor': // el proveedor de la lectura carga (o no) los ítems producto por producto
+            require_once __DIR__ . '/../../core/csrf.php';
+            require_once __DIR__ . '/facturas_proveedores_lectura_model.php';
+            csrf_exigir();
+            // Como el manejador de arriba, pero respeta los @ (getimagesize / imagecreatefromstring de un archivo dañado)
+            set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+                if (!(error_reporting() & $errno)) return true;
+                error_log("Error PHP: $errstr en $errfile línea $errline");
+                manejarError("Error interno del servidor: $errstr");
+            });
+            $usuario_id = intval($ctx['usuario_id']);
+            if (!usuario_puede_funcion($conexion, $usuario_id, $empresa_idx, $pagina_idx, 'agregar')) {
+                http_response_code(403);
+                enviarRespuesta(['success' => false, 'message' => 'No tiene permiso para cargar facturas de proveedores.']);
+            }
+            try {
+                if ($accion === 'lectura_guardar_lote') {
+                    $ids = array_slice(array_values(array_filter(array_map('intval', (array)($_POST['adjunto_ids'] ?? [])))), 0, 200);
+                    if (!$ids) throw new RuntimeException('No hay archivos para guardar.');
+                    set_time_limit(240);
+                    $sucursal_id = intval($_POST['sucursal_id'] ?? 0);
+                    $items = [];
+                    foreach ($ids as $id) {   // uno que falla no corta a los demás
+                        try {
+                            $items[] = ['adjunto_id' => $id] + fplGuardarBorrador($conexion, $empresa_idx, $usuario_id, $id, $sucursal_id);
+                        } catch (Throwable $ex) {
+                            error_log("lectura_guardar_lote adjunto $id: " . $ex->getMessage());
+                            $items[] = ['adjunto_id' => $id, 'success' => false, 'message' => $ex->getMessage(), 'motivos' => []];
+                        }
+                    }
+                    enviarRespuesta(['success' => true, 'data' => $items,
+                                     'message' => count(array_filter(array_column($items, 'success'))) . ' de ' . count($items) . ' guardadas en Borrador.']);
+                } elseif ($accion === 'lectura_procesar') {
+                    set_time_limit(240);
+                    $adjunto = fplGuardarArchivo($conexion, $empresa_idx, $usuario_id, $_FILES['archivo'] ?? null);
+                    $cliente = json_decode((string)($_POST['cliente'] ?? '{}'), true);
+                    $resultado = fplProcesar($conexion, $empresa_idx, $usuario_id, $adjunto, is_array($cliente) ? $cliente : [],
+                                             !empty($_POST['forzar_ia']));
+                    if ($adjunto['previo']) {
+                        $p = $adjunto['previo'];
+                        $resultado['avisos'][] = 'Este mismo archivo ya está adjunto a la factura '
+                            . str_pad((string)$p['comprobante_pv'], 5, '0', STR_PAD_LEFT) . '-' . str_pad((string)$p['comprobante_nro'], 8, '0', STR_PAD_LEFT)
+                            . ' de ' . $p['entidad_nombre'] . '.';
+                    }
+                } else {
+                    $adjunto = fplAdjunto($conexion, $empresa_idx, intval($_POST['adjunto_id'] ?? 0));
+                    if (!$adjunto) throw new RuntimeException('Archivo no encontrado.');
+                    if ($accion === 'lectura_reintentar_ia') {
+                        set_time_limit(240);
+                        $resultado = fplProcesar($conexion, $empresa_idx, $usuario_id, $adjunto, [], true);
+                    } else {
+                        if ($accion === 'lectura_crear_proveedor') {
+                            fplCrearProveedor($conexion, $empresa_idx, $usuario_id, $adjunto['adjunto_id']);
+                        } elseif ($accion === 'lectura_items_proveedor') {
+                            // Solo el proveedor que salió de la lectura (por CUIT), no uno que mande el navegador
+                            $previa = fplPropuestaGuardada($conexion, $empresa_idx, $adjunto['adjunto_id']);
+                            $entidad_id = intval($previa['form']['entidad_id'] ?? 0);
+                            if ($entidad_id <= 0) throw new RuntimeException('Primero tiene que estar cargado el proveedor.');
+                            fplGuardarLecturaItemsProveedor($conexion, $empresa_idx, $entidad_id, !empty($_POST['leer_items']));
+                        }
+                        $resultado = fplPropuestaGuardada($conexion, $empresa_idx, $adjunto['adjunto_id']);
+                    }
+                }
+                enviarRespuesta($resultado);
+            } catch (RuntimeException $ex) {
+                error_log("facturas_proveedores lectura ($accion): " . $ex->getMessage());
+                enviarRespuesta(['success' => false, 'message' => $ex->getMessage()]);
+            }
+            break;
+
+        case 'lectura_adjuntos_factura':   // archivos originales de una factura de la empresa
+            require_once __DIR__ . '/facturas_proveedores_lectura_model.php';
+            enviarRespuesta(['success' => true, 'data' => fplAdjuntosFactura($conexion, $empresa_idx, intval($_GET['factura_proveedor_id'] ?? 0))]);
+            break;
+
+        case 'lectura_archivo':   // ver / descargar el archivo original (solo de la empresa de la sesión)
+            require_once __DIR__ . '/facturas_proveedores_lectura_model.php';
+            $adjunto = fplAdjunto($conexion, $empresa_idx, intval($_GET['adjunto_id'] ?? 0));
+            if (!$adjunto) {
+                http_response_code(404);
+                enviarRespuesta(['success' => false, 'message' => 'Archivo no encontrado.']);
+            }
+            if (ob_get_length()) ob_clean();
+            $nombre = preg_replace('/[^\w.\- ]/u', '_', $adjunto['nombre_original']);
+            header('Content-Type: ' . $adjunto['mime']);
+            header('Content-Length: ' . filesize($adjunto['ruta_abs']));
+            header('Content-Disposition: ' . (!empty($_GET['descargar']) ? 'attachment' : 'inline') . '; filename="' . $nombre . '"');
+            header('X-Content-Type-Options: nosniff');   // el tipo es PDF / JPG / PNG (finfo al subirlo)
+            readfile($adjunto['ruta_abs']);
+            exit;
+
         default:
             echo json_encode(['error' => 'Acción no definida: ' . $accion], JSON_UNESCAPED_UNICODE);
     }

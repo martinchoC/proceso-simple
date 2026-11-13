@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/permisos.php';
 /**
  * stock_alertas_model.php — Alertas de reposición (página 113, tabla 430).
  *
@@ -18,7 +19,7 @@ function salFuncionesPagina(mysqli $conexion, int $pagina_id): array
 {
     static $cache = [];
     if (isset($cache[$pagina_id])) return $cache[$pagina_id];
-    $stmt = mysqli_prepare($conexion, "SELECT pf.nombre_funcion, pf.accion_js, pf.descripcion,
+    $stmt = mysqli_prepare($conexion, "SELECT pf.pagina_funcion_id, pf.nombre_funcion, pf.accion_js, pf.descripcion,
                                               pf.tabla_estado_registro_origen_id AS origen,
                                               pf.tabla_estado_registro_destino_id AS destino,
                                               i.icono_clase, c.color_clase
@@ -37,7 +38,7 @@ function salFuncionesPagina(mysqli $conexion, int $pagina_id): array
 function salBotonesPorEstado(mysqli $conexion, int $pagina_id, int $estado_id): array
 {
     $out = [];
-    foreach (salFuncionesPagina($conexion, $pagina_id) as $f) {
+    foreach (permisos_filtrar_funciones($conexion, salFuncionesPagina($conexion, $pagina_id), $pagina_id) as $f) {
         if (intval($f['origen']) !== $estado_id) continue;
         $out[] = [
             'nombre_funcion' => $f['nombre_funcion'],

@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * cobranzas_model.php
@@ -6,7 +8,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  * Modelo para la Gestión de Cobranzas a Clientes (Comprobante RCX)
  * Sistema gestion_multipyme - Módulo Tesorería
  *
- * Implementa las especificaciones de docs/gestion/08_proc_tesoreria_v3_11.docx:
+ * Implementa las especificaciones de _local/docs/gestion/08_proc_tesoreria_v3_11.docx:
  * - §4.2: Cobranza (gestion__cobranzas + gestion__cobranzas_medios + comprobante RCX).
  * - §2.5: Patrón de confirmación transaccional atómico y orden de locks.
  * - §2.6: Patrón de anulación y bloqueo si hay cheques fuera de cartera.
@@ -16,7 +18,9 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
+require_once __DIR__ . '/periodos_fiscales_core_model.php';
 
 $conexion = $conn;
 
@@ -89,9 +93,15 @@ function cobValidarRetenciones($conexion, $empresa_id, $entidad_id, $cobranza_id
             throw new Exception($fila . 'seleccione el impuesto retenido (IVA, Ganancias o Ingresos Brutos).');
         }
 
+        // Sin número: la retención queda con el certificado PENDIENTE (se completa en Control Fiscal cuando llega)
         $cert = trim((string)($m['retencion_certificado_nro'] ?? ''));
-        if ($cert === '') {
-            throw new Exception($fila . "ingrese el número de certificado de la {$it['impuesto_tipo']}.");
+        $f_cert = trim((string)($m['retencion_f_certificado'] ?? ''));
+        if ($f_cert !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $f_cert)) {
+            throw new Exception($fila . 'la fecha del certificado no es válida.');
+        }
+        $per = trim((string)($m['retencion_periodo_computo'] ?? ''));
+        if ($per !== '' && !preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $per)) {
+            throw new Exception($fila . 'el período de cómputo no es válido (AAAA-MM).');
         }
 
         $jur_id = 0;
@@ -104,23 +114,29 @@ function cobValidarRetenciones($conexion, $empresa_id, $entidad_id, $cobranza_id
             }
         }
 
-        $clave = $imp_id . '|' . $jur_id . '|' . mb_strtoupper($cert, 'UTF-8');
-        if (isset($vistos[$clave])) {
-            throw new Exception($fila . "el certificado $cert está cargado dos veces.");
-        }
-        $vistos[$clave] = true;
+        if ($cert !== '') {
+            $clave = $imp_id . '|' . $jur_id . '|' . mb_strtoupper($cert, 'UTF-8');
+            if (isset($vistos[$clave])) {
+                throw new Exception($fila . "el certificado $cert está cargado dos veces.");
+            }
+            $vistos[$clave] = true;
 
-        mysqli_stmt_bind_param($stmt_dup, "iiiiiiis", $empresa_id, $entidad_id, $cobranza_id, $est_anulado, $est_eliminado, $imp_id, $jur_id, $cert);
-        mysqli_stmt_execute($stmt_dup);
-        $dup = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_dup));
-        if ($dup) {
-            $ref = intval($dup['comprobante_nro']) > 0 ? 'recibo N° ' . intval($dup['comprobante_nro']) : 'borrador de cobranza #' . intval($dup['cobranza_id']);
-            throw new Exception($fila . "el certificado $cert de {$it['impuesto_tipo']} ya está registrado para este cliente ($ref).");
+            mysqli_stmt_bind_param($stmt_dup, "iiiiiiis", $empresa_id, $entidad_id, $cobranza_id, $est_anulado, $est_eliminado, $imp_id, $jur_id, $cert);
+            mysqli_stmt_execute($stmt_dup);
+            $dup = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_dup));
+            if ($dup) {
+                $ref = intval($dup['comprobante_nro']) > 0 ? 'recibo N° ' . intval($dup['comprobante_nro']) : 'borrador de cobranza #' . intval($dup['cobranza_id']);
+                throw new Exception($fila . "el certificado $cert de {$it['impuesto_tipo']} ya está registrado para este cliente ($ref).");
+            }
         }
 
         $m['impuesto_tipo_id'] = $imp_id;
         $m['jurisdiccion_id'] = $jur_id > 0 ? $jur_id : null;
-        $m['retencion_certificado_nro'] = $cert;
+        $m['retencion_certificado_nro'] = $cert !== '' ? $cert : null;
+        $m['retencion_certificado_estado'] = $cert !== '' ? 'RECIBIDO' : 'PENDIENTE';
+        $m['retencion_f_certificado'] = $f_cert !== '' ? $f_cert : null;
+        $m['retencion_periodo_computo'] = $per !== '' ? $per : null;
+        $m['retencion_regimen'] = mb_substr(trim((string)($m['retencion_regimen'] ?? '')), 0, 100) ?: null;
     }
     unset($m);
 
@@ -335,7 +351,7 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
     $sql = "SELECT c.cobranza_id, c.f_emision, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
                    c.comprobante_tipo_id, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
                    c.importe_total, c.observaciones, c.tabla_estado_registro_id,
-                   c.entidad_id, COALESCE(e.entidad_nombre, 'Consumidor Final') AS cliente_nombre, e.cuit AS cliente_cuit,
+                   c.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre, 'Consumidor Final') AS cliente_nombre, e.cuit AS cliente_cuit,
                    s.sucursal_nombre,
                    m.simbolo AS moneda_simbolo,
                    er.codigo_estandar AS estado_codigo, er.estado_registro,
@@ -420,30 +436,41 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
         // Saldo a favor / Cobro a cuenta
         $saldo_ac = floatval($row['saldo_a_cuenta'] ?? 0);
         $saldo_badge = ($saldo_ac > 0.001)
-            ? '<span class="badge bg-info-subtle text-info border border-info-subtle" title="Monto no aplicado disponible a favor del cliente">A cuenta: $' . number_format($saldo_ac, 2, ',', '.') . '</span>'
+            ? '<span class="badge bg-info-subtle text-info border border-info-subtle" title="Monto no aplicado disponible a favor del cliente">A cuenta: $' . fmt_numero($saldo_ac, 2) . '</span>'
             : '<span class="text-muted small">Totalmente aplicado</span>';
 
-        // Botones de acción según estado
+        // Botones de acción según estado y según las funciones asignadas al perfil del usuario (core/permisos.php)
         $botones = '<div class="btn-group btn-group-sm" role="group">';
-        $botones .= '<button type="button" class="btn btn-outline-info btn-accion" data-id="' . $id . '" data-accion="visualizar" title="Ver Recibo Completo"><i class="fas fa-eye"></i></button>';
-        $botones .= '<button type="button" class="btn btn-outline-secondary btn-accion" data-id="' . $id . '" data-accion="imprimir" title="Imprimir Recibo (Formato Factura)"><i class="fas fa-print"></i></button>';
+        if (permisos_puede($conexion, intval($pagina_id), 'visualizar')) {
+            $botones .= '<button type="button" class="btn btn-outline-info btn-accion" data-id="' . $id . '" data-accion="visualizar" title="Ver Recibo Completo"><i class="fas fa-eye"></i></button>';
+            $botones .= '<button type="button" class="btn btn-outline-secondary btn-accion" data-id="' . $id . '" data-accion="imprimir" title="Imprimir Recibo (Formato Factura)"><i class="fas fa-print"></i></button>';
+        }
 
         if ($estado_id === ESTADO_COBRANZA_BORRADOR) {
-            $botones .= '<button type="button" class="btn btn-outline-primary btn-accion" data-id="' . $id . '" data-accion="editar" title="Editar Borrador"><i class="fas fa-edit"></i></button>';
-            $botones .= '<button type="button" class="btn btn-outline-success btn-accion" data-id="' . $id . '" data-accion="confirmar" title="Confirmar Cobranza (Emitir Recibo)"><i class="fas fa-check"></i></button>';
-            $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="eliminar" title="Eliminar Borrador"><i class="fas fa-trash"></i></button>';
+            if (permisos_puede($conexion, intval($pagina_id), 'editar')) {
+                $botones .= '<button type="button" class="btn btn-outline-primary btn-accion" data-id="' . $id . '" data-accion="editar" title="Editar Borrador"><i class="fas fa-edit"></i></button>';
+            }
+            if (permisos_puede($conexion, intval($pagina_id), 'confirmar')) {
+                $botones .= '<button type="button" class="btn btn-outline-success btn-accion" data-id="' . $id . '" data-accion="confirmar" title="Confirmar Cobranza (Emitir Recibo)"><i class="fas fa-check"></i></button>';
+            }
+            if (permisos_puede($conexion, intval($pagina_id), 'eliminar')) {
+                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="eliminar" title="Eliminar Borrador"><i class="fas fa-trash"></i></button>';
+            }
         } elseif ($estado_id === ESTADO_COBRANZA_CONFIRMADO) {
-            $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="anular" title="Anular Recibo"><i class="fas fa-ban"></i></button>';
+            if (permisos_puede($conexion, intval($pagina_id), 'anular')) {
+                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="anular" title="Anular Recibo"><i class="fas fa-ban"></i></button>';
+            }
         }
         $botones .= '</div>';
 
         $datos[] = [
             'id'             => $id,
-            'f_emision'      => date('d/m/Y', strtotime($row['f_emision'])),
+            'f_emision'      => fmt_fecha($row['f_emision']),
             'numero'         => $nro_formateado,
-            'cliente'        => '<strong>' . htmlspecialchars($row['cliente_nombre']) . '</strong><br><small class="text-muted">CUIT: ' . htmlspecialchars($row['cliente_cuit'] ?? 'S/D') . '</small>',
+            'cliente'        => '<strong>' . htmlspecialchars($row['cliente_nombre']) . '</strong>',
+            'cuit'           => htmlspecialchars($row['cliente_cuit'] ?: 'S/D'),
             'sucursal'       => htmlspecialchars($row['sucursal_nombre']),
-            'total'          => '<span class="fw-bold fs-6">$' . number_format(floatval($row['importe_total']), 2, ',', '.') . '</span>',
+            'total'          => '<span class="fw-bold fs-6">$' . fmt_numero(floatval($row['importe_total']), 2) . '</span>',
             'saldo_a_cuenta' => $saldo_badge,
             'estado'         => $estado_badge,
             'acciones'       => $botones
@@ -457,18 +484,34 @@ function obtenerCobranzasListado($conexion, $empresa_id, $pagina_id = 105, $filt
 /**
  * Obtiene el detalle completo de una cobranza para ver o editar
  */
-function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
+// $con_asiento = false: sin el asiento. Lo usan la confirmación y cobranzaGenerarAsientoContable, porque
+// cobranzaObtenerAsiento genera el asiento faltante de una cobranza confirmada y volvería a llamar a esta función.
+// ¿Existe gestion__comprobantes_imputaciones.documento_comprobante_id? (20261103_imputaciones_documento_recibo_01.sql)
+function cobImputacionesTienenDocumento($conexion)
+{
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__comprobantes_imputaciones LIKE 'documento_comprobante_id'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
+// $con_documentadas = false: sin las aplicaciones de NC que documenta un recibo en $0 (las llamadas que mueven saldos)
+function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id, $con_asiento = true, $con_documentadas = true)
 {
     $cobranza_id = intval($cobranza_id);
     $empresa_id  = intval($empresa_id);
 
     // Cabecera
     $sql_c = "SELECT c.*, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS pv_nro, ct.comprobante_tipo, ct.codigo AS comprobante_codigo, ct.letra AS comprobante_letra,
-                     COALESCE(e.entidad_nombre, 'Consumidor Final') AS entidad_nombre, e.cuit, e.domicilio_legal,
-                     e.es_cliente, e.es_proveedor, e.cont_cuenta_id_cliente, e.cont_cuenta_id_proveedor,
+                     COALESCE(e.entidad_nombre, 'Consumidor Final') AS entidad_nombre, e.entidad_fantasia, e.cuit, e.domicilio_legal,
+                     " . ent_sql_roles_select('e.entidad_id') . ",
                      s.sucursal_nombre, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
-                     er.codigo_estandar AS estado_codigo, er.estado_registro
+                     er.codigo_estandar AS estado_codigo, er.estado_registro,
+                     emp.empresa AS empresa_nombre, CAST(emp.documento_numero AS DECIMAL(15,0)) AS empresa_cuit, emp.domicilio AS empresa_domicilio
               FROM gestion__cobranzas c
+              JOIN conf__empresas emp ON emp.empresa_id = c.empresa_id
               LEFT JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
               JOIN gestion__sucursales s ON s.sucursal_id = c.sucursal_id
               JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
@@ -530,13 +573,37 @@ function obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id)
             $imputaciones[] = $imp;
         }
         mysqli_stmt_close($stmt_i);
+
+        // Recibo en $0 de aplicación de NC: las imputaciones NC -> factura que documenta, como dos líneas:
+        // el comprobante cancelado en positivo y la nota de crédito en negativo (suman 0).
+        if ($con_documentadas && cobImputacionesTienenDocumento($conexion)) {
+            $sql_d = "SELECT ci.imputacion_id, ci.comp_origen_id, ci.comp_destino_id, ci.importe_imputado, ci.tabla_estado_registro_id,
+                             c.comprobante_id, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv, c.comprobante_nro,
+                             c.f_emision AS destino_f_emision, c.importe_total AS destino_total, c.importe_pendiente AS destino_pendiente,
+                             ct.codigo AS comprobante_tipo_codigo, ct.comprobante_tipo, (c.comprobante_id = ci.comp_origen_id) AS es_nota
+                      FROM gestion__comprobantes_imputaciones ci
+                      JOIN gestion__comprobantes c ON c.comprobante_id IN (ci.comp_destino_id, ci.comp_origen_id)
+                      JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
+                      WHERE ci.documento_comprobante_id = ? AND ci.empresa_id = ?
+                      ORDER BY ci.imputacion_id ASC, (c.comprobante_id = ci.comp_origen_id) ASC";
+            $stmt_d = mysqli_prepare($conexion, $sql_d);
+            mysqli_stmt_bind_param($stmt_d, "ii", $comp_origen_id, $empresa_id);
+            mysqli_stmt_execute($stmt_d);
+            $res_d = mysqli_stmt_get_result($stmt_d);
+            while ($d = mysqli_fetch_assoc($res_d)) {
+                $d['documentada'] = 1;
+                if (intval($d['es_nota']) === 1) $d['importe_imputado'] = -floatval($d['importe_imputado']);
+                $imputaciones[] = $d;
+            }
+            mysqli_stmt_close($stmt_d);
+        }
     }
 
     return [
         'cabecera'     => $cabecera,
         'medios'       => $medios,
         'imputaciones' => $imputaciones,
-        'asiento'      => cobranzaObtenerAsiento($conexion, $cobranza_id, $empresa_id)
+        'asiento'      => $con_asiento ? cobranzaObtenerAsiento($conexion, $cobranza_id, $empresa_id) : null
     ];
 }
 
@@ -627,7 +694,7 @@ function cobranzaObtenerAsiento($conexion, $cobranza_id, $empresa_id)
  */
 function cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id = 1)
 {
-    $cob_info = obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id);
+    $cob_info = obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id, false, false);
     if (!$cob_info) {
         return ['success' => false, 'error' => 'Cobranza no encontrada'];
     }
@@ -786,7 +853,7 @@ function guardarCobranzaBorrador($conexion, $data)
     $total_imputado = round($total_imputado, 2);
 
     if ($total_imputado > round($importe_total + 0.001, 2)) {
-        throw new Exception("El total imputado ($" . number_format($total_imputado, 2) . ") no puede superar el total cobrado ($" . number_format($importe_total, 2) . ").");
+        throw new Exception("El total imputado ($" . fmt_numero($total_imputado, 2) . ") no puede superar el total cobrado ($" . fmt_numero($importe_total, 2) . ").");
     }
 
     // Determinar punto de venta: respetar el punto de venta de la boca elegido por el usuario
@@ -885,8 +952,9 @@ function guardarCobranzaBorrador($conexion, $data)
                     moneda_id, tipo_cambio, importe, importe_comprobante,
                     cheque_id, nro_operacion, f_valor, tarjeta_marca, tarjeta_cupon,
                     impuesto_tipo_id, jurisdiccion_id, retencion_certificado_nro, retencion_base_imponible,
-                    retencion_alicuota, observaciones, usuario_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    retencion_alicuota, observaciones, usuario_id,
+                    retencion_certificado_estado, retencion_f_certificado, retencion_regimen, retencion_periodo_computo
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_med = mysqli_prepare($conexion, $sql_med);
 
     foreach ($medios as $m) {
@@ -922,6 +990,15 @@ function guardarCobranzaBorrador($conexion, $data)
         $ret_ali         = !empty($m['retencion_alicuota']) ? floatval($m['retencion_alicuota']) : null;
         $obs_m           = !empty($m['observaciones']) ? trim($m['observaciones']) : null;
         $cheque_id       = !empty($m['cheque_id']) ? intval($m['cheque_id']) : null;
+        // Certificado de la retención sufrida (cobValidarRetenciones): estado, fecha (la del recibo si se cargó el número),
+        // régimen y período de cómputo (por defecto el mes del recibo)
+        $ret_estado = $ret_f_cert = $ret_regimen = $ret_periodo = null;
+        if ($imp_tipo_id !== null) {
+            $ret_estado  = $m['retencion_certificado_estado'] ?? ($ret_cert !== null ? 'RECIBIDO' : 'PENDIENTE');
+            $ret_f_cert  = $m['retencion_f_certificado'] ?? ($ret_cert !== null ? $f_emision : null);
+            $ret_regimen = $m['retencion_regimen'] ?? null;
+            $ret_periodo = $m['retencion_periodo_computo'] ?? substr((string)$f_contabilidad, 0, 7);
+        }
 
         // Si es cheque de tercero y vienen los datos del cheque, registrarlo en gestion__cheques
         if (!empty($m['cheque']) && $comprobante_id > 0) {
@@ -931,6 +1008,8 @@ function guardarCobranzaBorrador($conexion, $data)
             $chq_librador = !empty($m['cheque']['librador_nombre']) ? trim($m['cheque']['librador_nombre']) : null;
             $chq_cuit     = !empty($m['cheque']['librador_cuit']) ? intval($m['cheque']['librador_cuit']) : null;
             $es_dif       = ($chq_f_pago > $f_emision) ? 1 : 0;
+            // Consumidor final (sin entidad): NULL, no 0 (fk_chq_entidad_id)
+            $chq_entidad_id = $entidad_id > 0 ? $entidad_id : null;
 
             // Cuenta de tesorería para valores en cartera de la empresa
             $res_v = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas WHERE empresa_id = $empresa_id AND cuenta_tipo = 'VALORES' LIMIT 1");
@@ -954,7 +1033,7 @@ function guardarCobranzaBorrador($conexion, $data)
                     $empresa_id, $sucursal_id, $chq_banco_id, $chq_tes_cuenta_id,
                     $chq_numero, $f_emision, $chq_f_pago, $es_dif,
                     $mon_id, $imp_comp, $chq_librador, $chq_cuit,
-                    $entidad_id, $comprobante_id, $empresa_id, $usuario_id
+                    $chq_entidad_id, $comprobante_id, $empresa_id, $usuario_id
                 );
                 mysqli_stmt_execute($stmt_chq);
                 $cheque_id = mysqli_insert_id($conexion);
@@ -963,12 +1042,13 @@ function guardarCobranzaBorrador($conexion, $data)
         }
 
         mysqli_stmt_bind_param(
-            $stmt_med, "iiiiidddissssiisddsi",
+            $stmt_med, "iiiiidddissssiisddsissss",
             $cobranza_id, $empresa_id, $medio_pago_id, $tes_cuenta_id,
             $mon_id, $tc, $imp, $imp_comp,
             $cheque_id, $nro_op, $f_val, $tarj_marca, $tarj_cupon,
             $imp_tipo_id, $jur_id, $ret_cert, $ret_base,
-            $ret_ali, $obs_m, $usuario_id
+            $ret_ali, $obs_m, $usuario_id,
+            $ret_estado, $ret_f_cert, $ret_regimen, $ret_periodo
         );
         mysqli_stmt_execute($stmt_med);
     }
@@ -1035,13 +1115,16 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
         }
 
         // Obtener datos completos de la cobranza
-        $cob_info = obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id);
+        $cob_info = obtenerCobranzaDetalle($conexion, $cobranza_id, $empresa_id, false, false);
         if (!$cob_info) throw new Exception("No se pudo obtener el detalle de la cobranza.");
 
         $cab = $cob_info['cabecera'];
         $medios = $cob_info['medios'];
         $comp_origen_id = intval($cab['comprobante_id']);
         $importe_total = floatval($cab['importe_total']);
+
+        // Retenciones sufridas de un período fiscal cerrado (Tesorería > Cierres Fiscales)
+        pfExigirDocumentoAbierto($conexion, $empresa_id, 'COBRANZA', $cobranza_id, 'confirmar la cobranza');
 
         if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
             require_once __DIR__ . '/../../core/accesos_sucursales.php';
@@ -1090,7 +1173,7 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
             $pend_actual = floatval($dest_actual['importe_pendiente']);
 
             if ($imp_monto > round($pend_actual + 0.001, 2)) {
-                throw new Exception("Sobre-imputación rechazada en comprobante {$dest_actual['comprobante_id']}: importe requerido ($" . number_format($imp_monto, 2) . ") supera saldo pendiente ($" . number_format($pend_actual, 2) . ").");
+                throw new Exception("Sobre-imputación rechazada en comprobante {$dest_actual['comprobante_id']}: importe requerido ($" . fmt_numero($imp_monto, 2) . ") supera saldo pendiente ($" . fmt_numero($pend_actual, 2) . ").");
             }
 
             // Actualizar imputación a CONFIRMADA (5)
@@ -1240,8 +1323,8 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
         }
         unset($m);
 
-        // 6. Generar Asiento Contable Automático (D27 / D36 / Anexo D)
-        if ($total_debe > 0.0001) {
+        // 6. Generar Asiento Contable Automático (D27 / D36 / Anexo D); un recibo en $0 no genera asiento
+        if ($importe_total > 0.0001) {
             cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id);
         }
 
@@ -1299,6 +1382,8 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
         if (intval($cob['tabla_estado_registro_id']) !== ESTADO_COBRANZA_CONFIRMADO) {
             throw new Exception("Solo se pueden anular cobranzas en estado Confirmado.");
         }
+        pfExigirDocumentoAbierto($conexion, $empresa_id, 'COBRANZA', $cobranza_id, 'anular la cobranza');
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, intval($cob['comprobante_id']), 'anular la cobranza');
 
         $comp_id = intval($cob['comprobante_id']);
 
@@ -1339,6 +1424,26 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
             tesoreriaAnularImputacion($conexion, intval($imp['imputacion_id']), $usuario_id, $motivo);
         }
         mysqli_stmt_close($stmt_im);
+
+        // 2b. Recibo en $0 de aplicación de NC: se deshacen las aplicaciones que documenta (la factura y la NC
+        // recuperan su saldo; tesoreriaAnularImputacion recalcula el destino, la NC se recalcula acá)
+        if (cobImputacionesTienenDocumento($conexion)) {
+            $stmt_dm = mysqli_prepare($conexion, "SELECT imputacion_id, comp_origen_id FROM gestion__comprobantes_imputaciones
+                                                  WHERE documento_comprobante_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 5
+                                                  ORDER BY comp_origen_id, imputacion_id");
+            mysqli_stmt_bind_param($stmt_dm, "ii", $comp_id, $empresa_id);
+            mysqli_stmt_execute($stmt_dm);
+            $res_dm = mysqli_stmt_get_result($stmt_dm);
+            $notas = [];
+            while ($imp = mysqli_fetch_assoc($res_dm)) {
+                tesoreriaAnularImputacion($conexion, intval($imp['imputacion_id']), $usuario_id, $motivo);
+                $notas[intval($imp['comp_origen_id'])] = true;
+            }
+            mysqli_stmt_close($stmt_dm);
+            foreach (array_keys($notas) as $nc_id) {
+                recalcularEstadoDestino($conexion, $nc_id, $usuario_id);
+            }
+        }
 
         // 3. Revertir movimientos en libro de tesorería (D15)
         $sql_movs = "SELECT tesoreria_movimiento_id FROM gestion__tesoreria_movimientos 
@@ -1417,19 +1522,36 @@ function eliminarCobranzaBorrador($conexion, $cobranza_id, $empresa_id, $usuario
 }
 
 /**
- * Obtiene los clientes de la empresa
+ * Obtiene los clientes de la empresa (con filtro opcional por Razón Social, CUIT o Nombre de Fantasía)
  */
-function obtenerClientesCobranza($conexion, $empresa_id)
+function obtenerClientesCobranza($conexion, $empresa_id, $q = '')
 {
     $empresa_id = intval($empresa_id);
+    $q = trim((string)$q);
     // Incluye proveedores: cobro de la devolución de dinero de una nota de crédito de proveedor
-    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal, es_cliente, es_proveedor
+    $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia, cuit, domicilio_legal, IF(" . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI') . ", 1, 0) AS es_cliente, IF(" . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor
             FROM gestion__entidades
-            WHERE empresa_id = ? AND (es_cliente = 1 OR es_proveedor = 1) AND tabla_estado_registro_id = 1
-            ORDER BY entidad_nombre ASC";
+            WHERE empresa_id = ? AND (" . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI') . " OR " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . ") AND tabla_estado_registro_id = 1";
+    $params = [$empresa_id];
+    $types = "i";
+    if ($q !== '') {
+        $like = '%' . $q . '%';
+        $q_digits = preg_replace('/\D+/', '', $q);
+        if ($q_digits !== '') {
+            $like_digits = '%' . $q_digits . '%';
+            $sql .= " AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ? OR REPLACE(REPLACE(CAST(cuit AS CHAR), '-', ''), ' ', '') LIKE ?)";
+            array_push($params, $like, $like, $like, $like_digits);
+            $types .= "ssss";
+        } else {
+            $sql .= " AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ?)";
+            array_push($params, $like, $like, $like);
+            $types .= "sss";
+        }
+    }
+    $sql .= " ORDER BY COALESCE(NULLIF(TRIM(entidad_fantasia), ''), entidad_nombre) ASC";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
-    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $rows = [];

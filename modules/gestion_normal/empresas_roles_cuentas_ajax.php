@@ -23,6 +23,12 @@ if (!$conexion) {
 }
 
 try {
+    // Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+    permisos_exigir_accion($conn, pagina_id_por_url($conn, 5, 'empresas_roles_cuentas.php'), (string)$accion, [
+        'guardar_rol_empresa' => 'agregar',
+        'editar_rol_empresa' => 'editar',
+        'cambiar_estado_rol_empresa' => 'inactivar',
+    ]);
     switch ($accion) {
         case 'listar_roles_empresa':
             $roles = obtenerRolesCuentasPorEmpresa($conexion, $empresa_idx);

@@ -4,7 +4,7 @@
  *
  * Cuenta corriente de clientes (solo lectura): saldos de todos los clientes y, al elegir uno,
  * su deuda, el detalle de la cuenta corriente con saldo acumulado y los comprobantes emitidos.
- * Página 103 (sql/mantenimiento/20261007_comprobantes_ctacte_01_paginas.sql).
+ * Página 103 (_local/sql/mantenimiento/20261007_comprobantes_ctacte_01_paginas.sql).
  */
 
 require_once __DIR__ . '/../../db.php';
@@ -13,66 +13,63 @@ $pageTitle = "Cuenta Corriente de Clientes";
 $currentPage = 'clientes_ctacte';
 $modudo_idx = 2; // Typo intencional y consistente con todo el ERP (ver CLAUDE.md)
 $pagina_idx = 103;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0"><i class="fas fa-balance-scale text-primary me-2"></i>Cuenta Corriente de Clientes</h3>
-                    <small class="text-muted">Saldos, deuda vencida y movimientos por cliente</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Ventas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Cuenta Corriente</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Cuenta corriente de clientes', 'bi bi-journal-text',
+        'Saldo de cada cliente. Tocá un cliente para ver su deuda y sus movimientos.', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
+            <!-- Totales -->
+            <div class="row g-3 mb-3" id="totalesSaldos">
+                <div class="col-6 col-md-3">
+                    <div class="ui-kpi">
+                        <div class="ui-kpi-etiqueta">Saldo total</div>
+                        <div class="ui-kpi-valor" id="kpiSaldoTotal">-</div>
+                        <div class="ui-kpi-sub" id="kpiClientes"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="ui-kpi">
+                        <div class="ui-kpi-etiqueta">Vencido</div>
+                        <div class="ui-kpi-valor text-danger" id="kpiVencidoTotal">-</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Saldos por cliente -->
-            <div class="card card-outline card-primary shadow-sm mb-3">
-                <div class="card-header bg-light py-2">
-                    <form id="formFiltrosSaldos" class="row g-2 align-items-center" onsubmit="return false;">
-                        <div class="col-md-4">
-                            <input type="text" class="form-control form-control-sm" id="filtroTexto" placeholder="Buscar por nombre o CUIT...">
+            <div class="card">
+                <div class="card-header ui-barra">
+                    <form id="formFiltrosSaldos" class="ui-barra w-100" onsubmit="return false;">
+                        <input type="search" class="form-control form-control-sm" id="filtroTexto" placeholder="Buscar cliente o CUIT…" style="max-width: 280px;">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="filtroSoloSaldo" checked>
+                            <label class="form-check-label small" for="filtroSoloSaldo">Con saldo</label>
                         </div>
-                        <div class="col-auto">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="filtroSoloSaldo" checked>
-                                <label class="form-check-label small" for="filtroSoloSaldo">Solo con saldo</label>
-                            </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="filtroSoloVencidos">
+                            <label class="form-check-label small" for="filtroSoloVencidos">Con deuda vencida</label>
                         </div>
-                        <div class="col-auto">
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" id="filtroSoloVencidos">
-                                <label class="form-check-label small" for="filtroSoloVencidos">Solo con deuda vencida</label>
-                            </div>
-                        </div>
-                        <div class="col text-end small" id="totalesSaldos"></div>
                     </form>
                 </div>
-                <div class="card-body p-2">
-                    <div id="avisoSaldos" class="alert alert-warning small py-2 d-none"></div>
-                    <table id="tablaSaldos" class="table table-sm table-striped table-bordered table-hover align-middle w-100 small">
-                        <thead class="table-dark">
+                <div class="card-body">
+                    <div id="avisoSaldos" class="alert alert-warning ui-aviso d-none"></div>
+                    <table id="tablaSaldos" class="table table-hover align-middle w-100">
+                        <thead>
                             <tr>
                                 <th>Cliente</th>
                                 <th>CUIT</th>
-                                <th class="text-end">Saldo</th>
                                 <th class="text-end">Deuda pendiente</th>
-                                <th class="text-end">Vencido</th>
                                 <th class="text-end">A favor</th>
+                                <th class="text-end">Saldo</th>
+                                <th class="text-end">Vencido</th>
                                 <th>Vence desde</th>
-                                <th>Último mov.</th>
+                                <th class="text-end">Atraso</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -80,8 +77,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
-            <!-- Detalle del cliente elegido -->
-            <div class="card shadow-sm mb-4">
+            <!-- Detalle del cliente elegido (aparece al elegir un cliente) -->
+            <div class="card d-none" id="cardDetalleCtacte">
                 <div class="card-body" id="detalleCtacte"></div>
             </div>
         </div>
@@ -93,8 +90,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 #tablaSaldos tbody tr.table-active td { font-weight: 600; }
 </style>
 
+<?php require_once ROOT_PATH . '/core/csrf.php'; ?>
 <script>
     const EMPRESA_ID = <?= intval($current_empresa_id) ?>;
+    const CTACTE_CSRF = <?= json_encode(csrf_token()) ?>;   // envío por correo (enviar_email)
 </script>
 <script src="comprobantes_ui.js?v=<?= filemtime(__DIR__ . '/comprobantes_ui.js') ?>"></script>
 <script src="ctacte_cliente.js?v=<?= filemtime(__DIR__ . '/ctacte_cliente.js') ?>"></script>

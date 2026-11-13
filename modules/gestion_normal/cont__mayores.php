@@ -6,37 +6,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 585;
+$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 85;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 
 $pageTitle = "Mayores Contables";
 $currentPage = 'cont__mayores';
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-book me-2"></i>Mayores Contables
-                    </h3>
-                    <small class="text-muted">Consulta de movimientos por cuenta contable</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Contabilidad</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Mayores Contables</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Mayores contables','fas fa-book', 'Consulta de movimientos por cuenta contable', ['Contabilidad']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -166,7 +149,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="card-header py-2 bg-light">
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <small class="text-muted">Movimientos de la cuenta</small>
+                                            <?= ui_ayuda('Movimientos de la cuenta') ?>
                                         </div>
                                         <div class="col-md-6 text-end">
                                             <button type="button" class="btn btn-sm btn-success" id="btnExportarDetalle">
@@ -227,18 +210,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-    <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <link href="<?= asset_local('css/select2-4.1.0-rc.0/select2.min.css') ?>" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2-bootstrap-5.min.css" rel="stylesheet" />
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/select2-4.1.0-rc.0/select2.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     
     <script>
         const empresa_id = <?php echo $empresa_id; ?>;

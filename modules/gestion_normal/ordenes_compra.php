@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
 
@@ -6,31 +6,14 @@ $pageTitle = "Órdenes de Compra";
 $currentPage = 'ordenes_compra';
 $modudo_idx = 5;
 $pagina_idx = 551;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-shopping-cart me-2"></i>Órdenes de Compra
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Compras</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Órdenes de Compra</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Órdenes de compra','fas fa-shopping-cart', '', ['Compras']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -172,12 +155,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="invalid-feedback small">Seleccione punto de venta</div>
                                             </div>
                                             
-                                            <div class="col-md-4 mb-2">
+                                            <div class="col-md-3 mb-2">
                                                 <label for="entidad_combo" class="form-label small mb-1">Proveedor / Sucursal</label>
                                                 <select class="form-select form-select-sm" id="entidad_combo" name="entidad_combo" required>
                                                     <option value="">Seleccionar proveedor o sucursal</option>
                                                 </select>
                                                 <div class="invalid-feedback small">Seleccione proveedor o sucursal</div>
+                                            </div>
+
+                                            <div class="col-md-2 mb-2">
+                                                <label for="tipo_circuito" class="form-label small mb-1 fw-bold text-primary">Modalidad / Circuito</label>
+                                                <select class="form-select form-select-sm border-primary" id="tipo_circuito" name="tipo_circuito">
+                                                    <option value="BIENES">Bienes / Mercadería</option>
+                                                    <option value="CONTRATO_RECURRENTE">Contrato / Servicio Fijo</option>
+                                                    <option value="CONTRATO_AVANCE">Contrato c/ Certificación Avance</option>
+                                                </select>
                                             </div>
                                             
                                             <div class="col-md-2 mb-2">
@@ -188,12 +180,72 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <div class="invalid-feedback small">Seleccione el tipo</div>
                                             </div>
                                             
-                                            <div class="col-md-2 mb-2">
-                                                <label for="comprobante_nro" class="form-label small mb-1">Número</label>
+                                            <div class="col-md-1 mb-2">
+                                                <label for="comprobante_nro" class="form-label small mb-1">Número <?= ui_ayuda('Se asigna al confirmar') ?></label>
                                                 <input type="number" class="form-control form-control-sm" id="comprobante_nro" name="comprobante_nro" value="0" min="1" readonly>
                                                 <div class="invalid-feedback small">Se asigna al confirmar</div>
-                                                <small class="text-muted">Se asigna al confirmar</small>
                                             </div>
+                                        </div>
+
+                                        <!-- SECCIÓN PARÁMETROS DE CONTRATO Y VIGENCIA -->
+                                        <div id="seccionContrato" class="card mb-2 border-info shadow-sm" style="display: none; background-color: #f7fcfe;">
+                                            <div class="card-header py-1 bg-info bg-opacity-10 border-bottom border-info d-flex justify-content-between align-items-center">
+                                                <span class="small fw-bold text-info"><i class="fas fa-file-contract me-1"></i>Condiciones y Vigencia del Contrato</span>
+                                                <span class="badge bg-info text-dark" id="badgeModalCircuito">Contrato</span>
+                                            </div>
+                                            <div class="card-body py-2">
+                                                <div class="row g-2">
+                                                    <div class="col-md-3">
+                                                        <label for="contrato_nro_legal" class="form-label small mb-0">N° Legal / Instrumento</label>
+                                                        <input type="text" class="form-control form-control-sm" id="contrato_nro_legal" name="contrato_nro_legal" placeholder="Ej: CONTR-2026-004">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="fecha_inicio" class="form-label small mb-0">Inicio Vigencia</label>
+                                                        <input type="date" class="form-control form-control-sm" id="fecha_inicio" name="fecha_inicio">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="fecha_fin" class="form-label small mb-0">Fin Vigencia (Vto.)</label>
+                                                        <input type="date" class="form-control form-control-sm" id="fecha_fin" name="fecha_fin">
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <label for="dias_preaviso_rescision" class="form-label small mb-0">Preaviso (días)</label>
+                                                        <input type="number" class="form-control form-control-sm" id="dias_preaviso_rescision" name="dias_preaviso_rescision" value="30" min="0">
+                                                    </div>
+                                                    <div class="col-md-3 d-flex align-items-center pt-3">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="tiene_renovacion_automatica" name="tiene_renovacion_automatica" value="1">
+                                                            <label class="form-check-label small" for="tiene_renovacion_automatica">
+                                                                Renovación automática
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Parámetros específicos para Contrato de Avance -->
+                                                <div id="seccionAvanceParams" class="row g-2 mt-2 pt-2 border-top border-info border-opacity-25" style="display: none;">
+                                                    <div class="col-md-3">
+                                                        <label for="pct_anticipo_financiero" class="form-label small mb-0">% Anticipo a amortizar</label>
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="number" step="0.01" min="0" max="100" class="form-control" id="pct_anticipo_financiero" name="pct_anticipo_financiero" value="0.00">
+                                                            <span class="input-group-text">%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label for="pct_fondo_reparo" class="form-label small mb-0">% Fondo de reparo / retención</label>
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="number" step="0.01" min="0" max="100" class="form-control" id="pct_fondo_reparo" name="pct_fondo_reparo" value="0.00">
+                                                            <span class="input-group-text">%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label for="responsable_tecnico_id" class="form-label small mb-0">Inspector / Responsable Técnico</label>
+                                                        <select class="form-select form-select-sm" id="responsable_tecnico_id" name="responsable_tecnico_id">
+                                                            <option value="">Seleccionar inspector asignado</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         </div>
 
                                         <!-- Segunda fila de cabecera -->
@@ -493,6 +545,200 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                             <button type="button" class="btn btn-primary btn-sm" id="btnGuardarProductoRapido">
                                 <i class="fas fa-save me-1"></i>Guardar y Agregar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal de Seguimiento de Contratos y Certificaciones de Avance -->
+            <div class="modal fade" id="modalCertificaciones" tabindex="-1" aria-labelledby="modalCertificacionesLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2 bg-light border-bottom">
+                            <h5 class="modal-title mb-0" id="modalCertificacionesLabel">
+                                <i class="fas fa-clipboard-check me-2 text-primary"></i>Seguimiento de Contrato y Certificaciones de Avance
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <!-- Banner Resumen del Contrato -->
+                            <div class="card mb-3 border-0 shadow-sm" style="background-color: #f8fafd; border-left: 4px solid #0d6efd !important;">
+                                <div class="card-body p-3">
+                                    <div class="row align-items-center">
+                                        <div class="col-md-7">
+                                            <h5 class="mb-1 fw-bold text-dark" id="cert_header_titulo">Contrato N° ...</h5>
+                                            <div class="text-muted small">
+                                                <span class="me-3"><i class="fas fa-building me-1"></i><strong id="cert_header_proveedor">...</strong></span>
+                                                <span class="me-3"><i class="fas fa-calendar-alt me-1"></i>Vigencia: <span id="cert_header_vigencia">...</span></span>
+                                                <span id="cert_header_badge_vigencia"></span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-5 text-md-end mt-2 mt-md-0">
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaCertificacionModal">
+                                                <i class="fas fa-plus me-1"></i>Nueva Medición / Certificado
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Métricas y Barras de Progreso -->
+                                    <div class="row mt-3 g-2 text-center">
+                                        <div class="col-md-3 col-6">
+                                            <div class="p-2 border rounded bg-white">
+                                                <div class="text-muted small">Monto Total Contratado</div>
+                                                <h6 class="mb-0 fw-bold text-dark" id="cert_kpi_total">$0.00</h6>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 col-6">
+                                            <div class="p-2 border rounded bg-white">
+                                                <div class="text-muted small">Bruto Certificado</div>
+                                                <h6 class="mb-0 fw-bold" style="color: #6f42c1;" id="cert_kpi_certificado">$0.00</h6>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 col-6">
+                                            <div class="p-2 border rounded bg-white">
+                                                <div class="text-muted small">Facturado Acumulado</div>
+                                                <h6 class="mb-0 fw-bold text-primary" id="cert_kpi_facturado">$0.00</h6>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 col-6">
+                                            <div class="p-2 border rounded bg-white">
+                                                <div class="text-muted small">Saldo por Ejecutar</div>
+                                                <h6 class="mb-0 fw-bold text-success" id="cert_kpi_saldo">$0.00</h6>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mt-3">
+                                        <div class="col-md-6 mb-2 mb-md-0">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="fw-semibold">Avance Físico Certificado</span>
+                                                <span class="fw-bold" id="cert_bar_fisico_txt">0%</span>
+                                            </div>
+                                            <div class="progress" style="height: 10px;">
+                                                <div class="progress-bar" role="progressbar" id="cert_bar_fisico" style="width: 0%; background-color: #6f42c1;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="fw-semibold">Avance Financiero Facturado</span>
+                                                <span class="fw-bold" id="cert_bar_facturado_txt">0%</span>
+                                            </div>
+                                            <div class="progress" style="height: 10px;">
+                                                <div class="progress-bar bg-primary" role="progressbar" id="cert_bar_facturado" style="width: 0%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Listado de Certificados -->
+                            <h6 class="fw-bold mb-2 text-dark"><i class="fas fa-list me-1"></i>Historial de Certificaciones de Avance</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-striped table-bordered align-middle" id="tablaCertificacionesListado" style="width: 100%;">
+                                    <thead class="table-light small">
+                                        <tr>
+                                            <th class="text-center" width="50">N°</th>
+                                            <th class="text-center" width="90">Fecha Medición</th>
+                                            <th class="text-center" width="80">Período</th>
+                                            <th class="text-center" width="70">% Acum.</th>
+                                            <th class="text-center" width="70">% Período</th>
+                                            <th class="text-end" width="110">Bruto Período</th>
+                                            <th class="text-end" width="100">Amort. Anticipo</th>
+                                            <th class="text-end" width="100">Fondo Reparo</th>
+                                            <th class="text-end" width="120">Neto Facturable</th>
+                                            <th class="text-center" width="100">Estado</th>
+                                            <th class="text-center" width="100">Factura</th>
+                                            <th class="text-center" width="90">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="small" id="tbodyCertificaciones">
+                                        <!-- Rellenado por JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submodal para Crear/Editar Medición de Certificación -->
+            <div class="modal fade" id="modalNuevaCertificacion" tabindex="-1" aria-labelledby="modalNuevaCertLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header py-2 bg-primary bg-opacity-10 border-bottom border-primary">
+                            <h6 class="modal-title mb-0 text-primary" id="modalNuevaCertLabel">
+                                <i class="fas fa-ruler-combined me-2"></i>Registrar Certificación de Avance
+                            </h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <form id="formNuevaCertificacion" class="needs-validation" novalidate>
+                                <input type="hidden" id="cert_orden_compra_id" name="orden_compra_id" value="">
+                                <input type="hidden" id="cert_certificacion_id" name="certificacion_id" value="">
+
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-4">
+                                        <label for="cert_fecha_medicion" class="form-label small mb-1">Fecha de Medición *</label>
+                                        <input type="date" class="form-control form-control-sm" id="cert_fecha_medicion" name="fecha_medicion" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="cert_periodo_mes" class="form-label small mb-1">Período (AAAA-MM)</label>
+                                        <input type="text" class="form-control form-control-sm" id="cert_periodo_mes" name="periodo_mes" placeholder="2026-11" maxlength="7">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="cert_avance_acumulado_pct" class="form-label small mb-1">% Avance Físico Acumulado *</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" step="0.01" min="0" max="100" class="form-control" id="cert_avance_acumulado_pct" name="avance_acumulado_pct" required>
+                                            <span class="input-group-text">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Cuadro de Cálculo Financiero Automático -->
+                                <div class="card mb-3 border-light bg-light">
+                                    <div class="card-body p-2 small">
+                                        <div class="row text-center">
+                                            <div class="col-3">
+                                                <span class="text-muted d-block">% Período</span>
+                                                <strong id="calc_cert_pct_periodo">0%</strong>
+                                            </div>
+                                            <div class="col-3">
+                                                <span class="text-muted d-block">Bruto Período</span>
+                                                <strong id="calc_cert_bruto">$0.00</strong>
+                                            </div>
+                                            <div class="col-3 text-danger">
+                                                <span class="d-block">Deducciones (Ant.+Rep.)</span>
+                                                <strong id="calc_cert_deducciones">-$0.00</strong>
+                                            </div>
+                                            <div class="col-3 text-success">
+                                                <span class="d-block">Neto Facturable</span>
+                                                <strong class="fs-6" id="calc_cert_neto">$0.00</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label for="cert_observaciones" class="form-label small mb-1">Observaciones / Memoria Técnica</label>
+                                    <textarea class="form-control form-control-sm" id="cert_observaciones" name="observaciones_tecnicas" rows="2" placeholder="Detalle de trabajos ejecutados en el período..."></textarea>
+                                </div>
+
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="cert_enviar_revision" name="enviar_a_revision" value="1" checked>
+                                    <label class="form-check-label small" for="cert_enviar_revision">
+                                        Enviar directamente a Revisión Técnica (estado Pendiente de Aprobación)
+                                    </label>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnGuardarCertificacion">
+                                <i class="fas fa-save me-1"></i>Guardar Certificación
                             </button>
                         </div>
                     </div>
@@ -989,15 +1235,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     
     <script src="ordenes_compra.js?v=<?= filemtime(__DIR__.'/ordenes_compra.js') ?>"></script>
 </main>

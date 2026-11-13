@@ -18,7 +18,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 // Obtener lista de clientes para selector
 $res_c = mysqli_query($conn, "SELECT cliente_id, razon_social, cuit FROM estudio__clientes WHERE empresa_id = {$empresa_id} AND tabla_estado_registro_id = 1 ORDER BY razon_social");

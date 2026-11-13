@@ -121,7 +121,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'orden_compra_id',
-                    className: 'text-center'
+                    className: 'ui-detalle'
                 },
                 {
                     data: 'comprobante_tipo',
@@ -130,7 +130,13 @@ $(document).ready(function () {
                         if (type === 'export') {
                             return data || '';
                         }
-                        return `<span>${data || ''}</span>`;
+                        let circuitBadge = '';
+                        if (row.tipo_circuito === 'CONTRATO_AVANCE') {
+                            circuitBadge = `<br><span class="badge text-white" style="background-color: #6f42c1; font-size: 0.7rem;" title="Contrato c/ Certificación de Avance"><i class="fas fa-tasks me-1"></i>Obra/Avance</span>`;
+                        } else if (row.tipo_circuito === 'CONTRATO_RECURRENTE' || parseInt(row.es_contrato) === 1) {
+                            circuitBadge = `<br><span class="badge bg-info text-dark" style="font-size: 0.7rem;" title="Contrato Recurrente"><i class="fas fa-file-contract me-1"></i>Contrato</span>`;
+                        }
+                        return `<span>${data || ''}</span>${circuitBadge}`;
                     }
                 },
                 {
@@ -168,11 +174,11 @@ $(document).ready(function () {
                 {
                     data: null,
                     render: function(data, type, row) {
+                        var nombreMostrar = data.entidad_fantasia || data.entidad_nombre || '';
                         if (type === 'export') {
-                            return data.entidad_nombre || '';
+                            return nombreMostrar;
                         }
-                        return `<div>${data.entidad_nombre || ''}</div>
-                                <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
+                        return `<div>${nombreMostrar}</div>`;
                     }
                 },
                 {
@@ -183,25 +189,33 @@ $(document).ready(function () {
                             return data;
                         }
                         if (!data) return '';
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        }
-                        return data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
                     data: 'f_entrega_estimada',
                     className: 'text-center',
                     render: function(data, type, row) {
-                        if (type === 'export' || !data) {
+                        if (type === 'export') {
                             return data || '';
                         }
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                        if (row.tipo_circuito && row.tipo_circuito !== 'BIENES' && row.fecha_fin) {
+                            let hoy = new Date();
+                            hoy.setHours(0,0,0,0);
+                            let vto = new Date(row.fecha_fin + 'T00:00:00');
+                            let diffDays = Math.round((vto - hoy) / (1000 * 60 * 60 * 24));
+                            let preaviso = parseInt(row.dias_preaviso_rescision) || 30;
+                            let vigBadge = '';
+                            if (diffDays < 0) {
+                                vigBadge = `<br><span class="badge bg-danger" style="font-size: 0.68rem;" title="Contrato Vencido"><i class="fas fa-exclamation-triangle"></i> Vencido</span>`;
+                            } else if (diffDays <= preaviso) {
+                                vigBadge = `<br><span class="badge bg-warning text-dark" style="font-size: 0.68rem;" title="En período de preaviso de rescisión"><i class="fas fa-clock"></i> Preaviso (${diffDays}d)</span>`;
+                            } else {
+                                vigBadge = `<br><span class="badge bg-success" style="font-size: 0.68rem;" title="Vigente"><i class="fas fa-check"></i> Vigente (${diffDays}d)</span>`;
+                            }
+                            return `<span title="Vencimiento de Contrato">${Fmt.fecha(row.fecha_fin)}</span>${vigBadge}`;
                         }
-                        return data;
+                        return data ? Fmt.fecha(data) : '';
                     }
                 },
                 {
@@ -211,7 +225,7 @@ $(document).ready(function () {
                         if (type === 'export') {
                             return parseFloat(data).toFixed(2);
                         }
-                        return `<span class="text-primary">$${parseFloat(data).toFixed(2)}</span>`;
+                        return `<span class="text-primary">$${Fmt.numero(parseFloat(data), 2)}</span>`;
                     }
                 },
                 {
@@ -281,12 +295,17 @@ $(document).ready(function () {
                             botones = '<span class="text-muted small">Sin acciones</span>';
                         }
 
+                        if ((row.tipo_circuito && row.tipo_circuito !== 'BIENES') || parseInt(row.es_contrato) === 1) {
+                            var btnCert = `<button type="button" class="btn btn-outline-info btn-sm ms-1 btn-ver-certificaciones" title="Seguimiento y Certificaciones de Avance" data-id="${row.orden_compra_id}"><i class="fas fa-clipboard-check"></i></button>`;
+                            botones = (botones === '<span class="text-muted small">Sin acciones</span>' ? '' : botones) + btnCert;
+                        }
+
                         return `<div class="btn-group" role="group">${botones}</div>`;
                     }
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Página _PAGE_ de _PAGES_',
                 infoEmpty: 'Página 0 de 0',
@@ -328,13 +347,7 @@ $(document).ready(function () {
 
                 // Mover controles de longitud (Mostrar X registros) y búsqueda al header
                 setTimeout(function() {
-                    // Mover el control de longitud
-                    var lengthControl = $('#tablaOrdenesCompra_length').detach();
-                    $('#tablaOrdenesCompra_length').replaceWith(lengthControl);
                     
-                    // Mover el control de búsqueda
-                    var filterControl = $('#tablaOrdenesCompra_filter').detach();
-                    $('#tablaOrdenesCompra_filter').replaceWith(filterControl);
                     
                     // Aplicar estilos para que se vean bien en el header
                     $('#tablaOrdenesCompra_length').addClass('dataTables_length_custom');
@@ -342,7 +355,7 @@ $(document).ready(function () {
                     
                     // Si el control de longitud está vacío, lo llenamos manualmente
                     if ($('#tablaOrdenesCompra_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaOrdenesCompra_length" aria-controls="tablaOrdenesCompra" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        var selectHtml = '<label title="Filas por página"><select name="tablaOrdenesCompra_length" aria-controls="tablaOrdenesCompra" class="form-select form-select-sm"><option value="10">10</option><option value="25">25</option><option value="50" selected="">50</option><option value="100">100</option><option value="-1">Todos</option></select></label>';
                         $('#tablaOrdenesCompra_length').html(selectHtml);
                         
                         // Agregar evento al select
@@ -353,7 +366,7 @@ $(document).ready(function () {
                     
                     // Si el control de búsqueda está vacío, lo llenamos manualmente
                     if ($('#tablaOrdenesCompra_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaOrdenesCompra"></label>';
+                        var filterHtml = '<label><input type="search" class="form-control form-control-sm" placeholder="Buscar…" aria-controls="tablaOrdenesCompra"></label>';
                         $('#tablaOrdenesCompra_filter').html(filterHtml);
                         
                         // Agregar evento al input
@@ -481,7 +494,7 @@ $(document).ready(function () {
 
     // ========== DASHBOARD RÁPIDO DE ESTADOS ==========
     function formatearMontoAr(val) {
-        return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(val) || 0);
+        return Fmt.numberFormat({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(val) || 0);
     }
 
     function obtenerIconoEstado(nombre, codigo) {
@@ -766,6 +779,17 @@ $(document).ready(function () {
                 
                 $('#orden_compra_id').val(res.orden_compra_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
+
+                // Campos de Contratos y Servicios
+                $('#tipo_circuito').val(res.tipo_circuito || 'BIENES').trigger('change');
+                $('#contrato_nro_legal').val(res.contrato_nro_legal || '');
+                $('#fecha_inicio').val(res.fecha_inicio || '');
+                $('#fecha_fin').val(res.fecha_fin || '');
+                $('#dias_preaviso_rescision').val(res.dias_preaviso_rescision !== undefined ? res.dias_preaviso_rescision : 30);
+                $('#tiene_renovacion_automatica').prop('checked', parseInt(res.tiene_renovacion_automatica) === 1);
+                $('#pct_anticipo_financiero').val(res.pct_anticipo_financiero || '0.00');
+                $('#pct_fondo_reparo').val(res.pct_fondo_reparo || '0.00');
+                $('#responsable_tecnico_id').val(res.responsable_tecnico_id || '');
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -778,11 +802,11 @@ $(document).ready(function () {
                 $('#impuestos').val(res.impuestos || 0);
                 $('#total').val(res.total || 0);
                 
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+                $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+                $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+                $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+                $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+                $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
 
                 $('#modalLabel').text('Visualizar Orden de Compra');
 
@@ -1097,6 +1121,9 @@ $(document).ready(function () {
             return;
         }
 
+        var modalEl = document.getElementById('modalOrdenCompra');
+        var modalInst = modalEl ? (bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl)) : null;
+
         // Producto que el proveedor no tiene vinculado: ofrecer cargar su código
         Swal.fire({
             icon: 'question',
@@ -1112,6 +1139,29 @@ $(document).ready(function () {
             denyButtonText: 'Usar sin vincular',
             cancelButtonText: 'Cancelar',
             showLoaderOnConfirm: true,
+            didOpen: function() {
+                if (modalInst && modalInst._focustrap) {
+                    modalInst._focustrap.deactivate();
+                }
+                $(document).off('focusin.bs.modal');
+                if (modalEl) {
+                    modalEl.removeAttribute('tabindex');
+                }
+                var input = Swal.getInput();
+                if (input) {
+                    setTimeout(function() {
+                        input.focus();
+                    }, 50);
+                }
+            },
+            willClose: function() {
+                if (modalEl) {
+                    modalEl.setAttribute('tabindex', '-1');
+                }
+                if (modalInst && modalInst._focustrap) {
+                    modalInst._focustrap.activate();
+                }
+            },
             inputValidator: function(valor) {
                 if (!valor || !valor.trim()) {
                     return 'Ingrese el código del proveedor';
@@ -1349,15 +1399,15 @@ $(document).ready(function () {
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
-                <td class="text-center">${detalle.cantidad.toFixed(2)}
+                <td class="text-center">${Fmt.numero(detalle.cantidad, 2)}
                     ${detalle.cantidad_recibida > 0 ? '<br><small class="text-primary" title="Recibido en facturas confirmadas">Recib.: ' + detalle.cantidad_recibida.toFixed(2) + '</small>' : ''}</td>
-                <td class="text-end">$${detalle.precio_unitario.toFixed(4)}</td>
-                <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
-                <td class="text-end">$${(detalle.iva_importe || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.no_gravado || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.exento || 0).toFixed(2)}</td>
-                <td class="text-end">$${(detalle.neto_gravado || 0).toFixed(2)}</td>
-                <td class="text-end fw-bold text-success">$${detalle.total_linea.toFixed(2)}</td>
+                <td class="text-end">$${Fmt.numero(detalle.precio_unitario, 4)}</td>
+                <td class="text-center">${Fmt.numero(detalle.iva_porcentaje, 2)}%</td>
+                <td class="text-end">$${Fmt.numero((detalle.iva_importe || 0), 2)}</td>
+                <td class="text-end">$${Fmt.numero((detalle.no_gravado || 0), 2)}</td>
+                <td class="text-end">$${Fmt.numero((detalle.exento || 0), 2)}</td>
+                <td class="text-end">$${Fmt.numero((detalle.neto_gravado || 0), 2)}</td>
+                <td class="text-end fw-bold text-success">$${Fmt.numero(detalle.total_linea, 2)}</td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-warning btn-editar-detalle" 
                             data-idx="${detalle.detalle_idx}" title="Editar">
@@ -1400,11 +1450,11 @@ $(document).ready(function () {
         $('#impuestos').val(totalImpuestos.toFixed(2));
         $('#total').val(totalGeneral.toFixed(2));
         
-        $('#total_neto_display').text(totalNeto.toFixed(2));
-        $('#no_gravado_display').text(totalNoGravado.toFixed(2));
-        $('#exento_display').text(totalExento.toFixed(2));
-        $('#impuestos_display').text(totalImpuestos.toFixed(2));
-        $('#total_display').text(totalGeneral.toFixed(2));
+        $('#total_neto_display').text(Fmt.numero(totalNeto, 2));
+        $('#no_gravado_display').text(Fmt.numero(totalNoGravado, 2));
+        $('#exento_display').text(Fmt.numero(totalExento, 2));
+        $('#impuestos_display').text(Fmt.numero(totalImpuestos, 2));
+        $('#total_display').text(Fmt.numero(totalGeneral, 2));
     }
 
     // ========== FUNCIONES DE PANTALLA COMPLETA ==========
@@ -1485,6 +1535,16 @@ $(document).ready(function () {
 
     // ========== FUNCIONES DE CARGA DE COMBOS ==========
     function cargarCombosFormulario() {
+        $.get('ordenes_compra_ajax.php', { accion: 'obtener_usuarios' }, function(data) {
+            let options = '<option value="">Seleccionar inspector asignado</option>';
+            if (data && data.length > 0) {
+                data.forEach(function(u) {
+                    options += `<option value="${u.usuario_id}">${u.usuario_nombre}</option>`;
+                });
+            }
+            $('#responsable_tecnico_id').html(options);
+        }, 'json');
+
         $.get('ordenes_compra_ajax.php', { 
             accion: 'obtener_sucursales_empresa',
             empresa_idx: empresa_idx 
@@ -1574,6 +1634,17 @@ $(document).ready(function () {
         $('#impuestos').val('0');
         $('#total').val('0');
         $('#formOrdenCompra').removeClass('was-validated');
+
+        // Reset campos de contrato
+        $('#tipo_circuito').val('BIENES').trigger('change');
+        $('#contrato_nro_legal').val('');
+        $('#fecha_inicio').val('');
+        $('#fecha_fin').val('');
+        $('#dias_preaviso_rescision').val('30');
+        $('#tiene_renovacion_automatica').prop('checked', false);
+        $('#pct_anticipo_financiero').val('0.00');
+        $('#pct_fondo_reparo').val('0.00');
+        $('#responsable_tecnico_id').val('');
         
         detalles = [];
         proveedorActualId = null;
@@ -1627,6 +1698,17 @@ $(document).ready(function () {
                 
                 $('#orden_compra_id').val(res.orden_compra_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
+
+                // Campos de Contratos y Servicios
+                $('#tipo_circuito').val(res.tipo_circuito || 'BIENES').trigger('change');
+                $('#contrato_nro_legal').val(res.contrato_nro_legal || '');
+                $('#fecha_inicio').val(res.fecha_inicio || '');
+                $('#fecha_fin').val(res.fecha_fin || '');
+                $('#dias_preaviso_rescision').val(res.dias_preaviso_rescision !== undefined ? res.dias_preaviso_rescision : 30);
+                $('#tiene_renovacion_automatica').prop('checked', parseInt(res.tiene_renovacion_automatica) === 1);
+                $('#pct_anticipo_financiero').val(res.pct_anticipo_financiero || '0.00');
+                $('#pct_fondo_reparo').val(res.pct_fondo_reparo || '0.00');
+                $('#responsable_tecnico_id').val(res.responsable_tecnico_id || '');
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -1639,11 +1721,11 @@ $(document).ready(function () {
                 $('#impuestos').val(res.impuestos || 0);
                 $('#total').val(res.total || 0);
                 
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+                $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+                $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+                $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+                $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+                $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
                 $('#modalLabel').text('Editar Orden de Compra');
 
                 // Verificar si la orden ya tiene número para mostrar botón imprimir
@@ -1798,6 +1880,17 @@ $(document).ready(function () {
         formData.append('entidad_id', proveedorActualId);
         formData.append('entidad_sucursal_id', proveedorSucursalActualId !== null ? proveedorSucursalActualId : '');
         formData.append('comprobante_tipo_id', $('#comprobante_tipo_id').val() || '');
+        formData.append('tipo_circuito', $('#tipo_circuito').val() || 'BIENES');
+        formData.append('es_contrato', $('#tipo_circuito').val() !== 'BIENES' ? '1' : '0');
+        formData.append('contrato_nro_legal', $('#contrato_nro_legal').val() || '');
+        formData.append('fecha_inicio', $('#fecha_inicio').val() || '');
+        formData.append('fecha_fin', $('#fecha_fin').val() || '');
+        formData.append('dias_preaviso_rescision', $('#dias_preaviso_rescision').val() || '30');
+        formData.append('tiene_renovacion_automatica', $('#tiene_renovacion_automatica').is(':checked') ? '1' : '0');
+        formData.append('requiere_certificacion_avance', $('#tipo_circuito').val() === 'CONTRATO_AVANCE' ? '1' : '0');
+        formData.append('pct_anticipo_financiero', $('#pct_anticipo_financiero').val() || '0');
+        formData.append('pct_fondo_reparo', $('#pct_fondo_reparo').val() || '0');
+        formData.append('responsable_tecnico_id', $('#responsable_tecnico_id').val() || '');
         
         formData.append('comprobante_nro', $('#comprobante_nro').val() || '0');
         formData.append('f_emision', $('#f_emision').val() || '');
@@ -2012,6 +2105,279 @@ $(document).ready(function () {
                     confirmButtonText: "Entendido"
                 });
                 btn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+
+    // ========== CONTRATOS Y CERTIFICACIONES DE AVANCE ==========
+    var contratoActualId = null;
+    var contratoActualData = null;
+
+    $('#tipo_circuito').on('change', function() {
+        var v = $(this).val();
+        if (v === 'BIENES') {
+            $('#seccionContrato').slideUp(200);
+            $('#seccionAvanceParams').hide();
+        } else if (v === 'CONTRATO_RECURRENTE') {
+            $('#seccionContrato').slideDown(200);
+            $('#badgeModalCircuito').text('Contrato Recurrente / Abono').removeClass('bg-purple text-white').addClass('bg-info text-dark');
+            $('#seccionAvanceParams').slideUp(200);
+        } else if (v === 'CONTRATO_AVANCE') {
+            $('#seccionContrato').slideDown(200);
+            $('#badgeModalCircuito').text('Contrato con Certificación de Avance').removeClass('bg-info text-dark').addClass('bg-purple text-white').css('background-color', '#6f42c1');
+            $('#seccionAvanceParams').slideDown(200);
+        }
+    });
+
+    // Abrir Modal de Certificaciones y Seguimiento
+    $(document).on('click', '.btn-ver-certificaciones', function() {
+        var ocId = $(this).data('id');
+        contratoActualId = ocId;
+        cargarSeguimientoContrato(ocId);
+    });
+
+    function cargarSeguimientoContrato(ocId) {
+        $.get('ordenes_compra_ajax.php', {
+            accion: 'contrato_resumen',
+            orden_compra_id: ocId,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (!res || !res.success || !res.data) {
+                Swal.fire({ icon: 'error', title: 'Error', text: res.error || 'No se pudo cargar el resumen del contrato' });
+                return;
+            }
+            var d = res.data;
+            contratoActualData = d;
+
+            var c = d.contrato || {};
+            var v = d.vigencia || {};
+            var cert = d.certificaciones || {};
+            var f = d.financiero || {};
+
+            $('#cert_header_titulo').text((c.tipo_circuito === 'CONTRATO_AVANCE' ? 'Contrato de Obra/Avance' : 'Contrato') + ' #' + (c.comprobante_nro || c.orden_compra_id) + (c.contrato_nro_legal ? ' (' + c.contrato_nro_legal + ')' : ''));
+            $('#cert_header_proveedor').text(c.entidad_fantasia || c.entidad_nombre || 'Proveedor no especificado');
+            
+            var vigTxt = (c.fecha_inicio ? Fmt.fecha(c.fecha_inicio) : '—') + ' al ' + (c.fecha_fin ? Fmt.fecha(c.fecha_fin) : 'Indefinido');
+            $('#cert_header_vigencia').text(vigTxt);
+
+            var badgeVig = '';
+            if (v.esta_vencido) {
+                badgeVig = '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Vencido</span>';
+            } else if (v.en_ventana_preaviso) {
+                badgeVig = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>En Preaviso (' + v.dias_restantes + ' días)</span>';
+            } else if (v.dias_restantes !== null) {
+                badgeVig = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Vigente (' + v.dias_restantes + ' días)</span>';
+            }
+            $('#cert_header_badge_vigencia').html(badgeVig);
+
+            var sim = c.moneda_simbolo || '$';
+            $('#cert_kpi_total').text(sim + Fmt.numero(f.monto_total_contratado || 0, 2));
+            $('#cert_kpi_certificado').text(sim + Fmt.numero(cert.total_bruto_certificado || 0, 2));
+            $('#cert_kpi_facturado').text(sim + Fmt.numero(f.total_facturado || 0, 2));
+            $('#cert_kpi_saldo').text(sim + Fmt.numero(f.saldo_por_ejecutar || 0, 2));
+
+            // Barras de progreso
+            var pctFisico = Math.min(100, Math.max(0, cert.avance_fisico_pct || 0));
+            var pctFact = Math.min(100, Math.max(0, f.pct_facturado || 0));
+
+            $('#cert_bar_fisico_txt').text(pctFisico.toFixed(2) + '%');
+            $('#cert_bar_fisico').css('width', pctFisico + '%');
+
+            $('#cert_bar_facturado_txt').text(pctFact.toFixed(2) + '%');
+            $('#cert_bar_facturado').css('width', pctFact + '%');
+
+            cargarTablaCertificaciones(ocId, sim);
+
+            var modal = new bootstrap.Modal(document.getElementById('modalCertificaciones'));
+            modal.show();
+        }, 'json');
+    }
+
+    function cargarTablaCertificaciones(ocId, sim) {
+        sim = sim || '$';
+        var tbody = $('#tbodyCertificaciones');
+        tbody.html('<tr><td colspan="12" class="text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>Cargando historial...</td></tr>');
+
+        $.get('ordenes_compra_ajax.php', {
+            accion: 'certificaciones_listar',
+            orden_compra_id: ocId,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            tbody.empty();
+            if (!res || !res.success || !Array.isArray(res.data) || res.data.length === 0) {
+                tbody.html('<tr><td colspan="12" class="text-center text-muted py-3">No hay certificaciones registradas para este contrato.</td></tr>');
+                return;
+            }
+
+            res.data.forEach(function(r) {
+                var estadoBadge = '';
+                var st = parseInt(r.tabla_estado_registro_id);
+                if (st === 3) {
+                    estadoBadge = '<span class="badge bg-secondary">Borrador</span>';
+                } else if (st === 4) {
+                    estadoBadge = '<span class="badge bg-warning text-dark">En Revisión</span>';
+                } else if (st === 5) {
+                    estadoBadge = '<span class="badge bg-success">Aprobado</span>';
+                } else if (st === 12) {
+                    estadoBadge = '<span class="badge bg-primary">Facturado</span>';
+                } else {
+                    estadoBadge = '<span class="badge bg-light text-dark">Estado ' + st + '</span>';
+                }
+
+                var facInfo = '—';
+                if (r.factura_pv && r.factura_nro) {
+                    facInfo = (r.factura_tipo_codigo || 'FAC') + ' ' + String(r.factura_pv).padStart(4, '0') + '-' + String(r.factura_nro).padStart(8, '0');
+                }
+
+                var btnAprobar = '';
+                if (st === 3 || st === 4) {
+                    btnAprobar = `<button type="button" class="btn btn-sm btn-outline-success btn-aprobar-certificacion" data-id="${r.certificacion_id}" title="Aprobar técnicamente y habilitar para facturar"><i class="fas fa-check"></i></button>`;
+                }
+
+                var tr = `<tr>
+                    <td class="text-center fw-bold">#${r.nro_certificado}</td>
+                    <td class="text-center">${r.fecha_medicion ? Fmt.fecha(r.fecha_medicion) : '—'}</td>
+                    <td class="text-center">${r.periodo_mes || '—'}</td>
+                    <td class="text-center fw-bold" style="color: #6f42c1;">${parseFloat(r.avance_acumulado_pct).toFixed(2)}%</td>
+                    <td class="text-center">${parseFloat(r.avance_periodo_pct).toFixed(2)}%</td>
+                    <td class="text-end">${sim}${Fmt.numero(r.monto_bruto_periodo, 2)}</td>
+                    <td class="text-end text-muted">-${sim}${Fmt.numero(r.descuento_anticipo, 2)}</td>
+                    <td class="text-end text-muted">-${sim}${Fmt.numero(r.fondo_reparo_retenido, 2)}</td>
+                    <td class="text-end fw-bold text-success">${sim}${Fmt.numero(r.monto_neto_facturable, 2)}</td>
+                    <td class="text-center">${estadoBadge}</td>
+                    <td class="text-center small">${facInfo}</td>
+                    <td class="text-center">${btnAprobar}</td>
+                </tr>`;
+                tbody.append(tr);
+            });
+        }, 'json');
+    }
+
+    // Submodal Nueva Certificación
+    $('#btnNuevaCertificacionModal').on('click', function() {
+        if (!contratoActualData) return;
+        var oc = contratoActualData.contrato || {};
+        var cert = contratoActualData.certificaciones || {};
+
+        $('#formNuevaCertificacion')[0].reset();
+        $('#cert_orden_compra_id').val(contratoActualId);
+        $('#cert_certificacion_id').val('');
+
+        var hoy = new Date().toISOString().split('T')[0];
+        $('#cert_fecha_medicion').val(hoy);
+        $('#cert_periodo_mes').val(hoy.substring(0, 7));
+
+        var prevPct = parseFloat(cert.avance_fisico_pct || 0);
+        $('#cert_avance_acumulado_pct').val(prevPct).attr('min', prevPct);
+
+        recalcularPreviewCertificacion(prevPct);
+
+        var submodal = new bootstrap.Modal(document.getElementById('modalNuevaCertificacion'));
+        submodal.show();
+    });
+
+    $('#cert_avance_acumulado_pct').on('input', function() {
+        var val = parseFloat($(this).val()) || 0;
+        recalcularPreviewCertificacion(val);
+    });
+
+    function recalcularPreviewCertificacion(acumuladoActual) {
+        if (!contratoActualData) return;
+        var oc = contratoActualData.contrato || {};
+        var cert = contratoActualData.certificaciones || {};
+
+        var totalContrato = parseFloat(oc.total || 0);
+        var prevPct = parseFloat(cert.avance_fisico_pct || 0);
+        var pctAnticipo = parseFloat(oc.pct_anticipo_financiero || 0);
+        var pctReparo = parseFloat(oc.pct_fondo_reparo || 0);
+
+        var pctPeriodo = Math.max(0, acumuladoActual - prevPct);
+        var montoBruto = (pctPeriodo / 100) * totalContrato;
+        var descAnticipo = montoBruto * (pctAnticipo / 100);
+        var fondoReparo = montoBruto * (pctReparo / 100);
+        var neto = Math.max(0, montoBruto - descAnticipo - fondoReparo);
+
+        var sim = oc.moneda_simbolo || '$';
+        $('#calc_cert_pct_periodo').text(pctPeriodo.toFixed(2) + '%');
+        $('#calc_cert_bruto').text(sim + Fmt.numero(montoBruto, 2));
+        $('#calc_cert_deducciones').text('-' + sim + Fmt.numero(descAnticipo + fondoReparo, 2));
+        $('#calc_cert_neto').text(sim + Fmt.numero(neto, 2));
+    }
+
+    $('#btnGuardarCertificacion').on('click', function() {
+        var form = document.getElementById('formNuevaCertificacion');
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return false;
+        }
+
+        var btn = $(this);
+        var orig = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        var postData = $('#formNuevaCertificacion').serializeArray();
+        postData.push({ name: 'accion', value: 'certificacion_guardar' });
+        postData.push({ name: 'empresa_idx', value: empresa_idx });
+
+        $.post('ordenes_compra_ajax.php', postData, function(res) {
+            btn.prop('disabled', false).html(orig);
+            if (res && res.resultado) {
+                var submodalEl = document.getElementById('modalNuevaCertificacion');
+                var submodal = bootstrap.Modal.getInstance(submodalEl);
+                if (submodal) submodal.hide();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Certificación Guardada',
+                    text: 'Certificado #' + (res.nro_certificado || '') + ' registrado correctamente.',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true
+                });
+
+                // Recargar el resumen y la tabla del contrato
+                cargarSeguimientoContrato(contratoActualId);
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: (res ? res.error : 'Error desconocido al guardar certificación') });
+            }
+        }, 'json').fail(function() {
+            btn.prop('disabled', false).html(orig);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Error al comunicarse con el servidor' });
+        });
+    });
+
+    // Acción para Aprobar Certificación
+    $(document).on('click', '.btn-aprobar-certificacion', function() {
+        var certId = $(this).data('id');
+        Swal.fire({
+            title: '¿Aprobar Certificación?',
+            text: 'La aprobación técnica habilitará inmediatamente la facturación de este certificado en compras y en el portal de proveedores.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aprobar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#198754'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                $.post('ordenes_compra_ajax.php', {
+                    accion: 'certificacion_aprobar',
+                    certificacion_id: certId,
+                    empresa_idx: empresa_idx
+                }, function(res) {
+                    if (res && res.resultado) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Certificado Aprobado!',
+                            text: res.message || 'Habilitado para facturar',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            toast: true
+                        });
+                        cargarSeguimientoContrato(contratoActualId);
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Error', text: (res ? res.error : 'No se pudo aprobar la certificación') });
+                    }
+                }, 'json');
             }
         });
     });

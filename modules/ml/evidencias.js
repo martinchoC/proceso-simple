@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
             lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
             dom: '<"row mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json'
             },
             ajax: {
                 url: ajaxUrl,
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 {
                     data: null,
                     render: function (data) {
-                        const esActiva = data.estado_id == 1;
+                        const esActiva = (data.estado_id == 1 || data.estado_id == 2039);
                         return `<span class="badge ${esActiva ? 'bg-success' : 'bg-danger'}">${data.estado_nombre}</span>`;
                     }
                 },
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     className: 'text-center',
                     render: function (data) {
                         const id = data.evidencia_id;
-                        const esActiva = data.estado_id == 1;
+                        const esActiva = (data.estado_id == 1 || data.estado_id == 2039);
 
                         let btnVer = `<button class="btn btn-outline-info btn-ver-evi" data-id="${id}" data-bs-toggle="tooltip" title="Ver Ficha / Hash"><i class="fas fa-eye"></i></button>`;
                         

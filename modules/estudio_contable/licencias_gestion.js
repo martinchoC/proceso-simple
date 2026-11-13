@@ -41,7 +41,7 @@ $(document).ready(function() {
         tabla = $('#tablaLicencias').DataTable({
             responsive: true,
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                url: window.APP_ASSETS_URL + "js/datatables-i18n-1.13.6/es-ES.json"
             },
             ajax: {
                 url: 'licencias_gestion_ajax.php',
@@ -96,7 +96,7 @@ $(document).ready(function() {
                     data: 'tabla_estado_registro_id',
                     className: 'text-center',
                     render: function(data, type, row) {
-                        if (parseInt(data) === 1) {
+                        if (parseInt(data) === 18) { // En curso / Delegada
                             return '<span class="badge bg-success">Vigente / Activa</span>';
                         } else {
                             return '<span class="badge bg-secondary">Revertida / Concluida</span>';
@@ -108,9 +108,9 @@ $(document).ready(function() {
                     className: 'text-center',
                     orderable: false,
                     render: function(data, type, row) {
-                        if (parseInt(row.tabla_estado_registro_id) === 1) {
+                        if (parseInt(row.tabla_estado_registro_id) === 18) {
                             return `
-                                <button class="btn btn-warning btn-sm btn-revertir py-0 px-2" data-id="${row.licencia_id}" title="Finalizar Licencia y Revertir Tareas">
+                                <button class="btn btn-warning btn-sm btn-revertir py-0 px-2" data-funcion="inhabilitar" data-id="${row.licencia_id}" title="Finalizar Licencia y Revertir Tareas">
                                     <i class="fas fa-undo me-1"></i>Revertir
                                 </button>
                             `;

@@ -18,19 +18,14 @@ $(document).ready(function () {
     // ==============================================================
     function formatearMoneda(valor, simbolo = '$') {
         const num = parseFloat(valor || 0);
-        return simbolo + ' ' + num.toLocaleString('es-AR', {
+        return simbolo + ' ' + Fmt.numero(num, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
     }
 
     function formatearFecha(fechaStr) {
-        if (!fechaStr) return '-';
-        const partes = fechaStr.split('-');
-        if (partes.length === 3) {
-            return `${partes[2]}/${partes[1]}/${partes[0]}`;
-        }
-        return fechaStr;
+        return Fmt.fecha(fechaStr, '-');
     }
 
     // ==============================================================
@@ -373,7 +368,7 @@ $(document).ready(function () {
                         beginAtZero: true,
                         ticks: {
                             callback: function (val) {
-                                return '$ ' + Number(val).toLocaleString('es-AR');
+                                return '$ ' + Fmt.numero(Number(val));
                             }
                         }
                     }
@@ -479,7 +474,7 @@ $(document).ready(function () {
                     y: {
                         ticks: {
                             callback: function (val) {
-                                return '$ ' + Number(val).toLocaleString('es-AR');
+                                return '$ ' + Fmt.numero(Number(val));
                             }
                         }
                     }

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../../../core/assets.php';
 
 $slug = htmlspecialchars(trim($_GET['s'] ?? 'sindicato'), ENT_QUOTES, 'UTF-8');
 ?>
@@ -10,15 +11,13 @@ $slug = htmlspecialchars(trim($_GET['s'] ?? 'sindicato'), ENT_QUOTES, 'UTF-8');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recuperar Contraseña - Portal Sindical</title>
     <!-- Google Font: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="<?= asset_local('fonts/inter/inter-300-700.css') ?>" rel="stylesheet">
     <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?= asset_local('css/bootstrap-5.3.2/bootstrap.min.css') ?>" rel="stylesheet">
     <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="<?= asset_local('css/fontawesome-6.4.2/css/all.min.css') ?>">
     <!-- SweetAlert2 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet" href="<?= asset_local('css/sweetalert2-11.26.25/sweetalert2.min.css') ?>">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -116,8 +115,8 @@ $slug = htmlspecialchars(trim($_GET['s'] ?? 'sindicato'), ENT_QUOTES, 'UTF-8');
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/bootstrap-5.3.2/bootstrap.bundle.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     <script>
         document.getElementById('formRecuperar').addEventListener('submit', (e) => {
             e.preventDefault();

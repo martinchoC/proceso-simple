@@ -166,6 +166,25 @@ switch ($accion) {
         echo json_encode(['resultado' => true, 'mensaje' => "Se heredaron $contador funciones del módulo", 'contador' => $contador]);
         break;
         
+    case 'obtener_matriz':
+        $modulo_id = intval($_GET['modulo_id'] ?? 0);
+        $perfil_ids = array_filter(array_map('intval', explode(',', (string)($_GET['perfil_ids'] ?? ''))));
+        if ($modulo_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Elegí un módulo.']);
+            break;
+        }
+        echo json_encode(['success' => true, 'data' => epfMatriz($conexion, $modulo_id, $perfil_ids)]);
+        break;
+
+    case 'guardar_cambios':
+        $cambios = json_decode((string)($_POST['cambios'] ?? ''), true);
+        if (!is_array($cambios) || !$cambios) {
+            echo json_encode(['success' => false, 'message' => 'No hay cambios para guardar.']);
+            break;
+        }
+        echo json_encode(epfGuardarCambios($conexion, $cambios));
+        break;
+
     case 'asignar_multiple_paginas_funciones':
         $empresa_id = intval($_POST['empresa_id']);
         $empresa_perfil_id = intval($_POST['empresa_perfil_id']);
@@ -200,6 +219,7 @@ switch ($accion) {
         $errores = [];
         
         foreach ($paginas_funciones_ids as $pagina_funcion_id) {
+            $pagina_funcion_id = intval($pagina_funcion_id);
             // Primero obtener el ID de la asignación
             $sql_get = "SELECT empresa_perfil_funcion_id FROM conf__empresas_perfiles_funciones 
                        WHERE empresa_perfil_id = $empresa_perfil_id AND pagina_funcion_id = $pagina_funcion_id";

@@ -5,7 +5,8 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "Integraciones - ARCA";
 $currentPage = 'arca_integraciones';
 $modudo_idx = 5;
-$pagina_idx = 599; // ID de página en conf__paginas (ver sql/mantenimiento/20261001_arca_integraciones.sql)
+$pagina_idx = 599; // ID de página en conf__paginas (ver _local/sql/mantenimiento/20261001_arca_integraciones.sql)
+$ui_simple = true;
 $empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -13,25 +14,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-plug me-2"></i>Integraciones - ARCA
-                    </h3>
-                    <small class="text-muted">Certificados, Ticket de Acceso y pruebas de WSAA / WSFE por empresa y ambiente</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Seteo Empresas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Integraciones - ARCA</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Integraciones ARCA','fas fa-plug', 'Certificados, Ticket de Acceso y pruebas de WSAA / WSFE por empresa y ambiente', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -297,6 +280,60 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
+            <!-- Modal delegación del certificado a otras empresas -->
+            <div class="modal fade" id="modalDelegaciones" tabindex="-1" aria-labelledby="modalDelegacionesLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content border-0 shadow-lg">
+                        <div class="modal-header bg-info text-white border-0">
+                            <h5 class="modal-title" id="modalDelegacionesLabel">
+                                <i class="bi bi-link-45deg me-2"></i>Delegar certificado
+                                <small class="d-block fw-normal" id="delegacionTitulo"></small>
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-light border small mb-3">
+                                La empresa a la que se delega ve este certificado en <strong>Parámetros de Empresa</strong> y pide el CAE
+                                con él y con <strong>su propio CUIT</strong>. En ARCA, esa empresa tiene que haber delegado el servicio
+                                de facturación electrónica (WSFE) en el CUIT de este certificado (Administrador de Relaciones).
+                            </div>
+                            <form id="formDelegacion" class="row g-2 mb-3" onsubmit="return false;">
+                                <div class="col-md-5">
+                                    <label for="delegacion_empresa_destino_id" class="form-label small mb-1">Empresa *</label>
+                                    <select class="form-select form-select-sm" id="delegacion_empresa_destino_id"></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="delegacion_fecha_desde" class="form-label small mb-1">Desde *</label>
+                                    <input type="date" class="form-control form-control-sm" id="delegacion_fecha_desde">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="delegacion_fecha_hasta" class="form-label small mb-1">Hasta</label>
+                                    <input type="date" class="form-control form-control-sm" id="delegacion_fecha_hasta">
+                                </div>
+                                <div class="col-md-9">
+                                    <input type="text" class="form-control form-control-sm" id="delegacion_observaciones" maxlength="255" placeholder="Observaciones">
+                                </div>
+                                <div class="col-md-3 d-grid">
+                                    <button type="button" class="btn btn-info btn-sm" id="btnGuardarDelegacion"><i class="bi bi-link-45deg me-1"></i>Delegar</button>
+                                </div>
+                            </form>
+                            <table class="table table-sm table-hover mb-0" id="tablaDelegaciones">
+                                <thead>
+                                    <tr>
+                                        <th>Empresa</th>
+                                        <th>Desde</th>
+                                        <th>Hasta</th>
+                                        <th>Estado</th>
+                                        <th class="text-center" style="width: 60px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Modal detalle de llamada -->
             <div class="modal fade" id="modalResultado" tabindex="-1" aria-labelledby="modalResultadoLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -327,9 +364,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
     <script>
         const PAGINA_ID = <?= intval($pagina_idx) ?>;

@@ -12,7 +12,11 @@ require_once __DIR__ . '/ciclos_generador_service.php';
  * Listar ciclos con filtros y progreso de tareas
  */
 function ciclos_listar(mysqli $conexion, int $empresa_id, array $filtros = []): array {
-    $where = ["c.empresa_id = {$empresa_id}"];
+    if ($empresa_id === 1) {
+        $where = ["(c.empresa_id IN (1, 2, 3))"];
+    } else {
+        $where = ["c.empresa_id = {$empresa_id}"];
+    }
 
     if (!empty($filtros['entidad_id'])) {
         $entidad_id = (int)$filtros['entidad_id'];

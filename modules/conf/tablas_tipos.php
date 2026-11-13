@@ -3,25 +3,15 @@
 $pageTitle = "Gestión de Tipos de Tablas";
 $currentPage = 'tablas_tipos';
 $modudo_idx = 1;
+$pagina_idx = 23; // conf__paginas
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Tipos de Tablas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Tipos de Tablas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Tipos de tabla', 'bi bi-collection', 'Diccionario (solo Activo / Inactivo) o proceso corto / largo (con circuito de estados).', ['Estructura del sistema']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -738,7 +728,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 vertical-align: middle;
             }
             </style>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
             <?php
             require_once ROOT_PATH . '/templates/adminlte/footer1.php';

@@ -11,22 +11,9 @@ if (!defined('ROOT_PATH')) {
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
 $project_folder = basename(__DIR__);
-define('BASE_URL', $protocol . '://' . $host . '/' . $project_folder);
 
-function asset($path)
-{
-    return BASE_URL . '/templates/adminlte/' . ltrim($path, '/');
-}
-
-function asset_local($path)
-{
-    return BASE_URL . '/assets/' . ltrim($path, '/');
-}
-
-function url($path = '')
-{
-    return BASE_URL . '/' . ltrim($path, '/');
-}
+// BASE_URL, asset(), asset_local() y url()
+require_once ROOT_PATH . "/core/assets.php";
 
 require_once ROOT_PATH . "/db.php";
 require_once ROOT_PATH . "/core/permisos.php";

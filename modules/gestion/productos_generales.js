@@ -190,7 +190,7 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             order: [[1, 'asc']],
             responsive: true,
             createdRow: function (row, data) {

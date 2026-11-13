@@ -6,6 +6,9 @@
 
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/contabilidad_parametros_model.php';
+require_once __DIR__ . '/../../core/cont_periodos.php';
+require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../gestion/tesoreria_core_model.php';
 
 class ContabilidadCierreModel {
     private $conn;
@@ -38,7 +41,20 @@ class ContabilidadCierreModel {
     }
 
     /**
-     * Calcula el balance de sumas y saldos para el período seleccionado
+     * Ejercicio contable N de la empresa (mes de cierre de Parámetros de Empresa, core/cont_periodos.php) y la
+     * lista de ejercicios para elegir.
+     */
+    public function rangoEjercicio($empresa_id, $anio) {
+        $anio = intval($anio) ?: cont_ejercicio_de_fecha($this->conn, intval($empresa_id), date('Y-m-d'));
+        $rango = cont_ejercicio_rango($this->conn, intval($empresa_id), $anio);
+        $rango['ejercicios'] = cont_ejercicios_lista($this->conn, intval($empresa_id));
+        return $rango;
+    }
+
+    /**
+     * Calcula el balance de sumas y saldos para el período seleccionado: solo asientos registrados (estado 1),
+     * igual que Contabilidad > Balances sin borradores. Cuentas de resultado = rubros 4 (ingresos), 5 (costos) y
+     * 6 (gastos) del plan de cuentas, el mismo criterio de cont__balances_model.php.
      */
     public function calcularBalanceComprobacion($empresa_id, $f_inicio, $f_cierre) {
         // Consultar suma de débitos y créditos agrupados por cuenta
@@ -51,10 +67,10 @@ class ContabilidadCierreModel {
                        SUM(d.importe_local) as saldo_neto
                 FROM gestion__cont_asientos_detalles d
                 JOIN gestion__cont_asientos a ON d.cont_asiento_id = a.cont_asiento_id
-                JOIN gestion__cont_cuentas c ON d.cuenta_id = c.cont_cuenta_id
-                WHERE a.empresa_id = ? 
+                JOIN gestion__cont_cuentas c ON d.cuenta_id = c.cont_cuenta_id AND c.empresa_id = a.empresa_id
+                WHERE a.empresa_id = ?
                   AND a.f_asiento BETWEEN ? AND ?
-                  AND a.tabla_estado_registro_id != 2
+                  AND a.tabla_estado_registro_id = 1
                 GROUP BY d.cuenta_id, c.codigo, c.nombre, c.naturaleza
                 ORDER BY c.codigo ASC";
 
@@ -73,25 +89,24 @@ class ContabilidadCierreModel {
         while ($r = mysqli_fetch_assoc($res)) {
             $debe = floatval($r['total_debe']);
             $haber = floatval($r['total_haber']);
-            $saldo = floatval($r['saldo_neto']); // >0 deudor, <0 acreedor
+            $saldo = round(floatval($r['saldo_neto']), 2); // >0 deudor, <0 acreedor
+            $r['saldo_neto'] = $saldo;
 
             $tot_debe += $debe;
             $tot_haber += $haber;
 
-            // Determinar si es cuenta de resultado
-            $cod = trim($r['codigo']);
-            $nat = strtoupper(trim($r['naturaleza']));
-            $es_resultado = false;
+            // Cuenta de resultado según el rubro (primer dígito del código), como Balances. El saldo va con signo:
+            // un ingreso con saldo deudor resta, un gasto con saldo acreedor también.
+            $rubro = substr(trim($r['codigo']), 0, 1);
+            $es_resultado = in_array($rubro, ['4', '5', '6'], true);
             $tipo_res = '';
 
-            if (strpos($nat, 'INGR') !== false || strpos($nat, 'GAN') !== false || substr($cod, 0, 1) === '4') {
-                $es_resultado = true;
+            if ($rubro === '4') {
                 $tipo_res = 'INGRESO';
-                $tot_ingresos += abs($saldo);
-            } elseif (strpos($nat, 'EGRE') !== false || strpos($nat, 'GAS') !== false || strpos($nat, 'PERD') !== false || substr($cod, 0, 1) === '5') {
-                $es_resultado = true;
+                $tot_ingresos += -$saldo;
+            } elseif ($es_resultado) {
                 $tipo_res = 'GASTO';
-                $tot_gastos += abs($saldo);
+                $tot_gastos += $saldo;
             }
 
             $r['es_resultado'] = $es_resultado;
@@ -117,13 +132,25 @@ class ContabilidadCierreModel {
         ];
     }
 
+
     /**
-     * Ejecuta el cierre contable con refundición de resultados y cierre patrimonial
+     * Ejecuta el cierre contable del ejercicio $anio con refundición de resultados y cierre patrimonial.
+     * Las fechas salen del ejercicio de la empresa (mes de cierre de Parámetros de Empresa), no del navegador.
+     * Los dos asientos van por el generador común de gestión (tesoreriaGenerarAsiento, sin comprobante): tipo AUT,
+     * moneda base, estado 1 (Registrado, el que leen Balances y Mayores), cuentas del plan de la empresa y período
+     * contable abierto.
      */
-    public function ejecutarCierre($empresa_id, $anio, $f_inicio, $f_cierre, $usuario_id) {
+    public function ejecutarCierre($empresa_id, $anio, $usuario_id) {
+        $empresa_id = intval($empresa_id);
         $anio = intval($anio);
-        if ($anio <= 1900 || empty($f_inicio) || empty($f_cierre)) {
+        if ($anio <= 1900) {
             throw new Exception("Parámetros de cierre de ejercicio inválidos.");
+        }
+        $rango = cont_ejercicio_rango($this->conn, $empresa_id, $anio);
+        $f_inicio = $rango['desde'];
+        $f_cierre = $rango['hasta'];
+        if ($f_cierre >= date('Y-m-d')) {
+            throw new Exception("El {$rango['texto']} todavía no terminó.");
         }
 
         // 1. Verificar si ya existe cierre confirmado para este año
@@ -137,6 +164,16 @@ class ContabilidadCierreModel {
         }
         mysqli_stmt_close($chk);
 
+        // Los borradores no entran en el balance: hay que confirmarlos o eliminarlos antes de cerrar
+        $chk = mysqli_prepare($this->conn, "SELECT COUNT(*) FROM gestion__cont_asientos WHERE empresa_id = ? AND f_asiento BETWEEN ? AND ? AND tabla_estado_registro_id = 3");
+        mysqli_stmt_bind_param($chk, "iss", $empresa_id, $f_inicio, $f_cierre);
+        mysqli_stmt_execute($chk);
+        $borradores = intval(mysqli_fetch_row(mysqli_stmt_get_result($chk))[0] ?? 0);
+        mysqli_stmt_close($chk);
+        if ($borradores > 0) {
+            throw new Exception("Hay {$borradores} asientos en borrador en el ejercicio: confirmalos o eliminalos en Contabilidad > Asientos antes de cerrar.");
+        }
+
         // 2. Obtener parámetros contables para la cuenta de resultado del ejercicio
         $paramModel = new ContabilidadParametrosModel($this->conn);
         $params = $paramModel->getParametros($empresa_id);
@@ -148,7 +185,7 @@ class ContabilidadCierreModel {
         // 3. Calcular balance de comprobación
         $balance = $this->calcularBalanceComprobacion($empresa_id, $f_inicio, $f_cierre);
         if (!$balance['totales']['esta_cuadrado']) {
-            throw new Exception("El balance de sumas y saldos está descuadrado (Diferencia: \${$balance['totales']['diferencia_cuadre']}). No se puede proceder con el cierre.");
+            throw new Exception("El balance de sumas y saldos está descuadrado (diferencia: " . fmt_moneda($balance['totales']['diferencia_cuadre']) . "). No se puede proceder con el cierre.");
         }
 
         $cuentas = $balance['cuentas'];
@@ -160,64 +197,38 @@ class ContabilidadCierreModel {
             // =========================================================================
             // A) ASIENTO DE REFUNDICION DE CUENTAS DE RESULTADO
             // =========================================================================
-            $desc_ref = "Cierre de Ejercicio {$anio} - Refundición de Cuentas de Resultado";
-            $sql_as = "INSERT INTO gestion__cont_asientos 
-                       (empresa_id, sucursal_id, f_asiento, anio, mes, descripcion, usuario_creacion_id, tabla_estado_registro_id)
-                       VALUES (?, 1, ?, ?, 12, ?, ?, 5)";
-            $stmt_as = mysqli_prepare($this->conn, $sql_as);
-            mysqli_stmt_bind_param($stmt_as, "isisi", $empresa_id, $f_cierre, $anio, $desc_ref, $usuario_id);
-            mysqli_stmt_execute($stmt_as);
-            $asiento_refundicion_id = mysqli_insert_id($this->conn);
-            mysqli_stmt_close($stmt_as);
-
+            // Cada cuenta de resultado se lleva a cero (saldo deudor se acredita, acreedor se debita)
+            $lineas_ref = [];
             $sum_debe_ref = 0.0;
             $sum_haber_ref = 0.0;
-
-            // Refundir cada cuenta de resultado a cero
             foreach ($cuentas as $c) {
-                if ($c['es_resultado']) {
-                    $saldo = floatval($c['saldo_neto']);
-                    if (abs($saldo) < 0.001) continue;
-
-                    // Si tenía saldo deudor (>0), se acredita para cancelar (<0)
-                    // Si tenía saldo acreedor (<0), se debita para cancelar (>0)
-                    $contra_saldo = -$saldo;
-                    $this->insertarDetalleAsiento($asiento_refundicion_id, $c['cuenta_id'], $contra_saldo, "Refundición saldo {$c['cuenta_nombre']}");
-
-                    if ($contra_saldo > 0) $sum_debe_ref += $contra_saldo;
-                    else $sum_haber_ref += abs($contra_saldo);
-                }
+                if (!$c['es_resultado'] || abs($c['saldo_neto']) < 0.005) continue;
+                $contra_saldo = -$c['saldo_neto'];
+                $lineas_ref[] = $this->linea($c['cuenta_id'], $contra_saldo, "Refundición saldo {$c['cuenta_nombre']}");
+                if ($contra_saldo > 0) $sum_debe_ref += $contra_saldo;
+                else $sum_haber_ref += -$contra_saldo;
             }
 
             // Contrapartida a la Cuenta Resultado del Ejercicio
             $contra_resultado = round($sum_haber_ref - $sum_debe_ref, 2);
-            if (abs($contra_resultado) > 0.001) {
-                $this->insertarDetalleAsiento($asiento_refundicion_id, $cta_resultado_id, $contra_resultado, "Resultado neto del ejercicio {$anio}");
+            if (abs($contra_resultado) >= 0.005) {
+                $lineas_ref[] = $this->linea($cta_resultado_id, $contra_resultado, "Resultado neto del ejercicio {$anio}");
             }
+            $asiento_refundicion_id = $lineas_ref ? $this->generarAsiento($empresa_id, $f_cierre, "Cierre de Ejercicio {$anio} - Refundición de Cuentas de Resultado", $usuario_id, $lineas_ref) : 0;
 
             // =========================================================================
             // B) ASIENTO DE CIERRE PATRIMONIAL
             // =========================================================================
-            $desc_pat = "Cierre de Ejercicio {$anio} - Cierre Patrimonial de Cuentas";
-            $stmt_as2 = mysqli_prepare($this->conn, $sql_as);
-            mysqli_stmt_bind_param($stmt_as2, "isisi", $empresa_id, $f_cierre, $anio, $desc_pat, $usuario_id);
-            mysqli_stmt_execute($stmt_as2);
-            $asiento_patrimonial_id = mysqli_insert_id($this->conn);
-            mysqli_stmt_close($stmt_as2);
-
-            // Cierre de cuentas patrimoniales (no resultados) + la cuenta de resultado del ejercicio
+            // Cuentas patrimoniales (no resultados) + la cuenta de resultado del ejercicio, invertidas para dejarlas en cero
+            $lineas_pat = [];
             foreach ($cuentas as $c) {
-                if (!$c['es_resultado']) {
-                    $saldo = floatval($c['saldo_neto']);
-                    if (abs($saldo) < 0.001) continue;
-                    // Invertir saldo para dejar en cero
-                    $this->insertarDetalleAsiento($asiento_patrimonial_id, $c['cuenta_id'], -$saldo, "Cierre patrimonial {$c['cuenta_nombre']}");
-                }
+                if ($c['es_resultado'] || abs($c['saldo_neto']) < 0.005) continue;
+                $lineas_pat[] = $this->linea($c['cuenta_id'], -$c['saldo_neto'], "Cierre patrimonial {$c['cuenta_nombre']}");
             }
-            // Incluir el resultado del ejercicio en el cierre patrimonial
-            if (abs($contra_resultado) > 0.001) {
-                $this->insertarDetalleAsiento($asiento_patrimonial_id, $cta_resultado_id, -$contra_resultado, "Cierre patrimonial Resultado del Ejercicio");
+            if (abs($contra_resultado) >= 0.005) {
+                $lineas_pat[] = $this->linea($cta_resultado_id, -$contra_resultado, "Cierre patrimonial Resultado del Ejercicio");
             }
+            $asiento_patrimonial_id = $lineas_pat ? $this->generarAsiento($empresa_id, $f_cierre, "Cierre de Ejercicio {$anio} - Cierre Patrimonial de Cuentas", $usuario_id, $lineas_pat) : 0;
 
             // =========================================================================
             // C) REGISTRO EN gestion__cont_cierres_ejercicios
@@ -236,7 +247,7 @@ class ContabilidadCierreModel {
                                tabla_estado_registro_id = 5";
 
             $stmt_cr = mysqli_prepare($this->conn, $sql_cierre);
-            mysqli_stmt_bind_param($stmt_cr, "iissiddi",
+            mysqli_stmt_bind_param($stmt_cr, "iissiidi",
                 $empresa_id, $anio, $f_inicio, $f_cierre, $asiento_refundicion_id,
                 $asiento_patrimonial_id, $resultado_neto, $usuario_id
             );
@@ -247,6 +258,8 @@ class ContabilidadCierreModel {
             mysqli_commit($this->conn);
             return [
                 'cierre_id' => $cierre_id,
+                'f_inicio' => $f_inicio,
+                'f_cierre' => $f_cierre,
                 'asiento_refundicion_id' => $asiento_refundicion_id,
                 'asiento_patrimonial_id' => $asiento_patrimonial_id,
                 'resultado_neto' => $resultado_neto
@@ -257,14 +270,24 @@ class ContabilidadCierreModel {
         }
     }
 
-    private function insertarDetalleAsiento($asiento_id, $cuenta_id, $importe_local, $descripcion) {
-        $tipo = 'A'; // Automático
-        $sql = "INSERT INTO gestion__cont_asientos_detalles
-                (cont_asiento_id, cuenta_id, tipo, importe_local, descripcion)
-                VALUES (?, ?, ?, ?, ?)";
-        $stmt = mysqli_prepare($this->conn, $sql);
-        mysqli_stmt_bind_param($stmt, "iisds", $asiento_id, $cuenta_id, $tipo, $importe_local, $descripcion);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+    /** Renglón para tesoreriaGenerarAsiento: importe con signo (> 0 Debe, < 0 Haber). */
+    private function linea($cuenta_id, $importe_local, $descripcion) {
+        $importe_local = round(floatval($importe_local), 2);
+        return [
+            'cuenta_id' => intval($cuenta_id),
+            'debe' => $importe_local > 0 ? $importe_local : 0,
+            'haber' => $importe_local < 0 ? -$importe_local : 0,
+            'descripcion' => $descripcion
+        ];
+    }
+
+    private function generarAsiento($empresa_id, $f_asiento, $descripcion, $usuario_id, array $lineas) {
+        return tesoreriaGenerarAsiento($this->conn, [
+            'empresa_id' => $empresa_id,
+            'sin_comprobante' => true,
+            'f_asiento' => $f_asiento,
+            'descripcion' => $descripcion,
+            'usuario_id' => $usuario_id
+        ], $lineas);
     }
 }

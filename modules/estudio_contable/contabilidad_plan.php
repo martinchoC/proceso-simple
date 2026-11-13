@@ -16,7 +16,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 require_once __DIR__ . '/../../db.php';
 $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numero FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC");
@@ -61,7 +61,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             </select>
                         </div>
                         <div class="col-md-7 text-md-end mt-auto pb-1">
-                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevaCuenta">
+                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevaCuenta" data-funcion="agregar">
                                 <i class="fas fa-plus me-1"></i>+ Nueva Cuenta Contable
                             </button>
                         </div>

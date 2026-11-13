@@ -127,7 +127,7 @@ $(document).ready(function () {
                 }
             ],
             columns: [
-                { data: 'producto_costo_id', className: 'text-center' },
+                { data: 'producto_costo_id', className: 'ui-detalle' },
                 { 
                     data: null,
                     render: function(data, type, row) {
@@ -167,9 +167,7 @@ $(document).ready(function () {
                     render: function(data, type, row) {
                         if (type === 'export') return data;
                         if (!data) return '';
-                        let parts = data.split('-');
-                        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        return data;
+                        return Fmt.fecha(data);
                     }
                 },
                 { 
@@ -236,7 +234,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             order: currentOrder,
             responsive: true,
@@ -335,23 +333,18 @@ $(document).ready(function () {
         if (number === null || number === undefined || number === '') return '0.00';
         var num = parseFloat(number);
         if (isNaN(num)) return '0.00';
-        return num.toLocaleString('es-AR', {
+        return Fmt.numero(num, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });
     }
 
     function formatDate(dateStr) {
-        if (!dateStr) return '';
-        var parts = dateStr.split('-');
-        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        return dateStr;
+        return Fmt.fecha(dateStr);
     }
 
     function formatDateTime(dateTimeStr) {
-        if (!dateTimeStr) return '';
-        var date = new Date(dateTimeStr);
-        return date.toLocaleString('es-AR');
+        return Fmt.fechaHora(dateTimeStr);
     }
 
     function escapeHtml(text) {

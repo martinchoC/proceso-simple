@@ -7,6 +7,7 @@ $pageTitle = "Stock - Alertas de Reposición";
 $currentPage = 'stock_alertas';
 $modudo_idx = 2;
 $pagina_idx = 113;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -15,23 +16,7 @@ $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold"><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Alertas de reposición</h3>
-                    <small class="text-muted">Productos con stock por debajo del mínimo en cada boca. Se cierran solas cuando el stock vuelve al mínimo.</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Stock</a></li>
-                        <li class="breadcrumb-item"><a href="stock_niveles.php">Mínimos y Máximos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Alertas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Alertas de reposición','bi bi-exclamation-triangle-fill', 'Productos con stock por debajo del mínimo en cada boca. Se cierran solas cuando el stock vuelve al mínimo.', ['Stock']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -79,7 +64,7 @@ $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script>
     const SAL_EMPRESA_ID = <?= $empresa_id ?>;
 </script>

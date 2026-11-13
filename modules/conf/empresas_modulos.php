@@ -3,24 +3,15 @@
 $pageTitle = "Gestión de Empresas-Módulos";
 $currentPage = 'empresas_modulos';
 $modudo_idx = 1;
+$pagina_idx = 60; // conf__paginas
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Asignación de Módulos a Empresas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Empresas-Módulos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Módulos por empresa', 'bi bi-diagram-3', 'Qué módulos tiene habilitados cada empresa.', ['Empresas y accesos']); ?>
+
     <div class="app-content">
         <div class="container-fluid">
             <div class="content-wrapper">
@@ -56,7 +47,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th>Empresa</th>
                                                     <th>Módulo</th>
                                                     <th>Estado</th>
-                                                    <th>Fecha Alta</th>
                                                     <th>Acciones</th>
                                                 </tr>                                            
                                             </thead>
@@ -230,13 +220,6 @@ $(document).ready(function(){
                     return data == 1 ? 
                         '<span class="badge bg-success">Activo</span>' : 
                         '<span class="badge bg-danger">Inactivo</span>';
-                }
-            },
-            {
-                data: 'fecha_alta',
-                render: function(data) {
-                    if (!data || data === '0000-00-00 00:00:00') return 'N/A';
-                    return new Date(data).toLocaleDateString('es-ES');
                 }
             },
             {
@@ -683,7 +666,7 @@ $(document).ready(function(){
     });
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

@@ -43,7 +43,12 @@ if (empty($accion)) {
 }
 
 // Parámetros de contexto
-$empresa_idx = intval($_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 0);
+$empresa_idx = isset($_REQUEST['empresa_idx']) && intval($_REQUEST['empresa_idx']) > 0
+    ? intval($_REQUEST['empresa_idx'])
+    : (isset($_SESSION['empresa_id']) ? intval($_SESSION['empresa_id']) : 0);
+if ($empresa_idx <= 0) {
+    $empresa_idx = 2; // Empresa default de Matriz Legal
+}
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 305);
 
 if (!$conexion) {
@@ -88,7 +93,7 @@ try {
 
         case 'obtener_boton_agregar':
             // Buscar función de alta (origen 0 -> destino 1)
-            $funciones = obtenerFuncionesPagina($conexion, $pagina_idx);
+            $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_idx));
             $botonHtml = '';
             foreach ($funciones as $f) {
                 if (intval($f['tabla_estado_registro_origen_id']) === 0) {
@@ -97,6 +102,10 @@ try {
                                  "<i class=\"fas fa-plus-circle me-1\"></i> {$nombre}</button>";
                     break;
                 }
+            }
+            if (empty($botonHtml)) {
+                $botonHtml = '<button type="button" class="btn btn-primary btn-sm" id="btnNuevoTerritorio">' .
+                             '<i class="fas fa-plus-circle me-1"></i> Agregar Territorio</button>';
             }
             enviarRespuesta(['success' => true, 'data' => $botonHtml]);
             break;

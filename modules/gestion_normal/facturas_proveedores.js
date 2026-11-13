@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 57; // ID para facturas proveedor
+    // pagina_idx ya se define en facturas_proveedores.php (57 en gestion, 557 en gestion_normal)
     
     var tabla;
     var currentPage = 0;
@@ -59,6 +59,9 @@ function cargarImpuestosConfig() {
             var facturaId = $('#factura_proveedor_id').val();
             if (facturaId && facturaId > 0) {
                 cargarImpuestosFactura(facturaId);
+            } else if (window.fpLecturaEnCurso) {
+                // Nueva factura desde archivo: las percepciones son las leídas (fpPrecargarDesdeArchivo)
+                renderizarImpuestos();
             } else {
                 // Para nueva factura, mostrar impuestos por defecto desde configuración
                 cargarImpuestosPorDefecto();
@@ -785,7 +788,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
         if (number === null || number === undefined || number === '') return '0.00';
         var num = parseFloat(number);
         if (isNaN(num)) return '0.00';
-        return num.toLocaleString('es-AR', {
+        return Fmt.numero(num, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });
@@ -820,10 +823,13 @@ function mostrarModalImpuesto(impuestoData, idx) {
             ajax: {
                 url: 'facturas_proveedores_ajax.php',
                 type: 'GET',
-                data: {
-                    accion: 'listar',
-                    empresa_idx: empresa_id,
-                    pagina_idx: pagina_idx
+                data: function (d) {
+                    return {
+                        accion: 'listar',
+                        empresa_idx: empresa_id,
+                        pagina_idx: pagina_idx,
+                        filtro_estado: $('#filtroEstado').val() || ''
+                    };
                 },
                 dataSrc: ''
             },
@@ -833,9 +839,11 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 '<"clear">',
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+            // Emisión más nueva primero (columna 6) y, en el mismo día, la última cargada
+            order: [[6, 'desc'], [0, 'desc']],
 
             columns: [
-                { data: 'factura_proveedor_id', className: 'text-center fw-bold' },
+                { data: 'factura_proveedor_id', className: 'ui-detalle' },
                 { data: 'comprobante_tipo', defaultContent: '-' },
                 { 
                     data: null,
@@ -844,23 +852,28 @@ function mostrarModalImpuesto(impuestoData, idx) {
                         return pv + (data.comprobante_nro || '-');
                     }
                 },
-                { data: 'entidad_nombre', defaultContent: '-' },
+                { 
+                    data: 'entidad_fantasia',
+                    defaultContent: '-',
+                    render: function(data, type, row) {
+                        return (row && (row.entidad_fantasia || row.entidad_nombre)) || data || '-';
+                    }
+                },
                 { data: 'sucursal_nombre', defaultContent: '-' },
                 { data: 'deposito_nombre', defaultContent: '-' },
                 { 
                     data: 'f_emision',
-                    render: function(data) {
+                    render: function(data, type) {
+                        if (type !== 'display') return data || '';   // ordena por la fecha ISO
                         if (!data) return '-';
-                        var parts = data.split('-');
-                        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 { 
                     data: 'f_vencimiento',
                     render: function(data) {
                         if (!data) return '-';
-                        var parts = data.split('-');
-                        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 { 
@@ -940,7 +953,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Página _PAGE_ de _PAGES_',
                 infoEmpty: 'Página 0 de 0',
@@ -1002,24 +1015,37 @@ function mostrarModalImpuesto(impuestoData, idx) {
         console.log("Actualizando vencimiento - Días:", dias, "Fecha emisión:", fEmision);
         
         if (dias > 0) {
-            var fecha = new Date(fEmision);
+            // Fecha local (con 'T00:00:00'; sin hora se toma como UTC y en Argentina da un día menos)
+            var fecha = new Date(fEmision + 'T00:00:00');
             fecha.setDate(fecha.getDate() + dias);
-            
+
             // Formatear como YYYY-MM-DD
             var year = fecha.getFullYear();
             var month = String(fecha.getMonth() + 1).padStart(2, '0');
             var day = String(fecha.getDate()).padStart(2, '0');
             var fechaVencimiento = `${year}-${month}-${day}`;
-            
+
             $('#f_vencimiento').val(fechaVencimiento);
             console.log("Fecha vencimiento calculada:", fechaVencimiento);
         } else {
-            // Si no hay días configurados, dejar vacío
-            $('#f_vencimiento').val('');
-            console.log("No hay días configurados para esta condición de pago");
+            // La condición no tiene días: vence en el día
+            $('#f_vencimiento').val(vencimientoDelDia());
         }
     }
+    // Vencimiento cuando no sale de la condición de compra: la fecha del día (nunca antes de la emisión)
+    function vencimientoDelDia() {
+        var hoy = new Date();
+        var iso = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+        var fEmision = $('#f_emision').val();
+        return (fEmision && fEmision > iso) ? fEmision : iso;
+    }
     function inicializarEventos() {
+        $('#filtroEstado').off('change').on('change', function () {
+            if (tabla) {
+                tabla.ajax.reload();
+            }
+        });
+
         $('#btnRecargar').off('click').on('click', function () {
             var btn = $(this);
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
@@ -1249,8 +1275,28 @@ function mostrarModalImpuesto(impuestoData, idx) {
         }
     }
 
+    function setCertificacionVinculada(certId, nroCert, periodoMes, montoNeto) {
+        certId = parseInt(certId) || 0;
+        if (certId > 0) {
+            $('#certificacion_id').val(certId);
+            var label = 'Cert. N° ' + (nroCert || certId);
+            if (periodoMes) label += ' (' + periodoMes + ')';
+            $('#cert_vinculada_texto').text(label);
+            $('#cert_vinculada_badge').removeClass('d-none');
+        } else {
+            $('#certificacion_id').val('');
+            $('#cert_vinculada_texto').text('');
+            $('#cert_vinculada_badge').addClass('d-none');
+        }
+    }
+
+    function quitarVinculoCert() {
+        setCertificacionVinculada(null, null, null, null);
+    }
+
     function quitarVinculoOC() {
         setOrdenCompraVinculada(null, null, null);
+        quitarVinculoCert();
         detalles.forEach(function(d) { d.ordenes_compra_detalle_id = null; });
         detalleEnEdicionOC = null;
         renderizarDetalles();
@@ -1285,6 +1331,133 @@ function mostrarModalImpuesto(impuestoData, idx) {
             if (result.isConfirmed) {
                 quitarVinculoOC();
             }
+        });
+    });
+
+    $(document).on('click', '#btnDesvincularCert', function(e) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'question',
+            title: '¿Desvincular certificación?',
+            text: 'Se eliminará la asociación de la certificación de avance con esta factura.',
+            showCancelButton: true,
+            confirmButtonText: 'Desvincular',
+            cancelButtonText: 'Cancelar'
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                quitarVinculoCert();
+            }
+        });
+    });
+
+    $('#btnImportarCertificacion').on('click', function() {
+        if (!proveedorActualId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Seleccione contratista / proveedor',
+                text: 'Debe seleccionar el proveedor antes de buscar certificaciones de contratos',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'listar_certificaciones_pendientes',
+            entidad_id: proveedorActualId,
+            orden_compra_id: $('#orden_compra_id').val() || 0,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (!res || !res.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: (res && res.message) || 'No se pudieron consultar las certificaciones' });
+                return;
+            }
+            var certs = res.data || [];
+            if (certs.length === 0) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin certificaciones pendientes',
+                    text: 'El contratista no tiene certificaciones de avance aprobadas y pendientes de facturar.'
+                });
+                return;
+            }
+
+            var html = '';
+            certs.forEach(function(c) {
+                var cJson = JSON.stringify(c).replace(/'/g, '&apos;');
+                html += `<tr>
+                    <td><strong>${escapeHtml(c.comprobante_nro || '')}</strong> ${c.contrato_nro_legal ? '<br><small class="text-muted">' + escapeHtml(c.contrato_nro_legal) + '</small>' : ''}</td>
+                    <td class="text-center"><span class="badge bg-primary">N° ${c.nro_certificado}</span></td>
+                    <td>${escapeHtml(c.periodo_mes || '-')}</td>
+                    <td>${formatearFechaOC(c.fecha_medicion)}</td>
+                    <td class="text-center fw-bold">${formatNumber(parseFloat(c.avance_acumulado_pct) || 0, 2)}%</td>
+                    <td class="text-end">${formatNumber(parseFloat(c.monto_bruto) || 0, 2)}</td>
+                    <td class="text-end text-danger">${parseFloat(c.monto_descuento_anticipo) > 0 ? '-' + formatNumber(parseFloat(c.monto_descuento_anticipo), 2) : '0.00'}</td>
+                    <td class="text-end text-warning">${parseFloat(c.monto_fondo_reparo) > 0 ? '-' + formatNumber(parseFloat(c.monto_fondo_reparo), 2) : '0.00'}</td>
+                    <td class="text-end fw-bold text-success">${formatNumber(parseFloat(c.monto_neto_facturable) || 0, 2)}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-success btn-cert-seleccionar" data-cert='${cJson}'>
+                            <i class="fas fa-check me-1"></i>Vincular
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            $('#cert_tabla_disponibles').html(html);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportarCertificacion')).show();
+        }, 'json').fail(function() {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor' });
+        });
+    });
+
+    $(document).on('click', '.btn-cert-seleccionar', function() {
+        var c = $(this).data('cert');
+        if (!c) return;
+
+        setOrdenCompraVinculada(c.orden_compra_id, c.comprobante_nro, proveedorActualId);
+        setCertificacionVinculada(c.certificacion_id, c.nro_certificado, c.periodo_mes, c.monto_neto_facturable);
+
+        var netoFacturable = parseFloat(c.monto_neto_facturable) || 0;
+        var ivaPct = parseFloat(c.iva_porcentaje) || 21;
+        var ivaAlicuotaId = parseInt(c.iva_alicuota_id) || obtenerIdIva(ivaPct);
+        var conceptoDesc = 'Certificación N° ' + c.nro_certificado + (c.periodo_mes ? ' (' + c.periodo_mes + ')' : '') + ' - ' + (c.comprobante_nro || 'Contrato');
+
+        if (detalles.length === 0) {
+            var ivaImporte = netoFacturable * (ivaPct / 100);
+            detalles.push({
+                detalle_idx: 'temp_cert_' + new Date().getTime(),
+                factura_proveedor_detalle_id: 0,
+                ordenes_compra_detalle_id: null,
+                producto_id: parseInt(c.producto_id) || 1,
+                producto_nombre: conceptoDesc,
+                cantidad: 1,
+                precio_unitario: netoFacturable,
+                descuento_item_pct: 0,
+                descuento_general_pct: 0,
+                descuento_item: 0,
+                descuento_general: 0,
+                descuento: 0,
+                no_gravado: 0,
+                exento: 0,
+                iva_alicuota_id: ivaAlicuotaId,
+                iva_porcentaje: ivaPct,
+                neto_gravado: netoFacturable,
+                iva_importe: ivaImporte,
+                total_linea: netoFacturable + ivaImporte
+            });
+            renderizarDetalles();
+            actualizarTotales();
+        }
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImportarCertificacion')).hide();
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Certificación N° ' + c.nro_certificado + ' vinculada',
+            text: 'Neto facturable sugerido en ' + formatNumber(netoFacturable, 2),
+            showConfirmButton: false,
+            timer: 2000,
+            toast: true,
+            position: 'top-end'
         });
     });
 
@@ -1337,9 +1510,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
     });
 
     function formatearFechaOC(fecha) {
-        if (!fecha) return '';
-        var p = String(fecha).split('-');
-        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : fecha;
+        return Fmt.fecha(fecha);
     }
 
     function renderOrdenesOC(ordenes) {
@@ -1543,7 +1714,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
             $('#asientoProvId').text(a.cont_asiento_id);
             $('#asientoProvTipo').text(a.cont_tipo_asiento || 'Automático');
             $('#asientoProvEstado').text(a.estado_registro || '');
-            $('#asientoProvFecha').text(a.f_asiento ? a.f_asiento.split('-').reverse().join('/') : '-');
+            $('#asientoProvFecha').text(a.f_asiento ? Fmt.fecha(a.f_asiento) : '-');
             $('#asientoProvDescripcion').text(a.descripcion || '');
             var filas = '';
             (a.detalles || []).forEach(function (d) {
@@ -1675,6 +1846,14 @@ function cargarFacturaParaVisualizar(facturaId) {
             $('#direccion').val(res.direccion);
             $('#observaciones').val(res.observaciones);
             $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
+            $('#modalidad_descuento_factura').val(res.modalidad_descuento_factura || 'EN_FACTURA_GLOBAL');
+            $('#precio_compra_contempla_descuento').val(res.precio_compra_contempla_descuento !== undefined && res.precio_compra_contempla_descuento !== null ? res.precio_compra_contempla_descuento : 1);
+            $('#descuento_nc_pct').val(res.descuento_nc_pct || 0);
+            if (res.modalidad_descuento_factura === 'NOTA_CREDITO') {
+                $('#col_descuento_nc').show();
+            } else {
+                $('#col_descuento_nc').hide();
+            }
             $('#subtotal').val(res.subtotal || 0);
             $('#descuentos').val(res.descuentos || 0);
             $('#no_gravado').val(res.no_gravado || 0);
@@ -1682,15 +1861,20 @@ function cargarFacturaParaVisualizar(facturaId) {
             $('#impuestos').val(res.impuestos || 0);
             $('#total').val(res.total || 0);
             
-            $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-            $('#descuentos_display').text(parseFloat(res.descuentos || 0).toFixed(2));
-            $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-            $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-            $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-            $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+            $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+            $('#descuentos_display').text(Fmt.numero(parseFloat(res.descuentos || 0), 2));
+            $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+            $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+            $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+            $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
 
             $('#modalLabel').text('Visualizar Factura de Proveedor');
             setOrdenCompraVinculada(res.orden_compra_id, res.orden_compra_nro, res.entidad_id);
+            if (res.certificacion_id) {
+                setCertificacionVinculada(res.certificacion_id, res.nro_certificado, res.cert_periodo_mes, res.cert_monto_neto);
+            } else {
+                quitarVinculoCert();
+            }
 
             // Asignar valores después de que los combos se hayan cargado
             setTimeout(function() {
@@ -1731,6 +1915,8 @@ function cargarFacturaParaVisualizar(facturaId) {
                             ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
                             producto_id: detalle.producto_id,
                             producto_nombre: detalle.producto_nombre,
+                            producto_codigo: detalle.producto_codigo || '',
+                            codigo_proveedor: detalle.codigo_proveedor || '',
                             cantidad: detalle.cantidad,
                             precio_unitario: detalle.precio_unitario,
                             descuento_item_pct: detalle.descuento_item_pct || 0,
@@ -1766,7 +1952,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#btnNuevoProductoRapido').hide();
                 $('#btnAgregarImpuesto').hide();
                 $('#btnNuevoProductoRapido').hide();
-                $('#btnImportarOC, #btnDesvincularOC').hide();
+                $('#btnImportarOC, #btnDesvincularOC, #btnImportarCertificacion, #btnDesvincularCert').hide();
                 
                 // Ocultar el botón guardar y el cancelar de abajo (se cierra con la X del encabezado)
                 $('#btnGuardar').hide();
@@ -1798,7 +1984,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#btnAgregarProducto').show();
                 $('#btnNuevoProductoRapido').show();
                 $('#btnAgregarImpuesto').show();
-                $('#btnImportarOC, #btnDesvincularOC').show();
+                $('#btnImportarOC, #btnDesvincularOC, #btnImportarCertificacion, #btnDesvincularCert').show();
             });
 
         } else {
@@ -1836,6 +2022,30 @@ function cargarFacturaParaVisualizar(facturaId) {
         
         renderizarDetalles();
         actualizarTotales();
+    });
+
+    $(document).on('change', '#modalidad_descuento_factura', function() {
+        var mod = $(this).val();
+        if (mod === 'NOTA_CREDITO') {
+            $('#col_descuento_nc').show();
+            var valActual = parseFloat($('#descuento_general_pct').val()) || 0;
+            if (valActual > 0) {
+                $('#descuento_nc_pct').val(valActual);
+                $('#descuento_general_pct').val(0).trigger('change');
+            }
+        } else {
+            $('#col_descuento_nc').hide();
+            if (mod === 'EN_FACTURA_GLOBAL') {
+                var ncVal = parseFloat($('#descuento_nc_pct').val()) || 0;
+                if (ncVal > 0) {
+                    $('#descuento_general_pct').val(ncVal).trigger('change');
+                    $('#descuento_nc_pct').val(0);
+                }
+            } else if (mod === 'EN_FACTURA_ITEM' || mod === 'SIN_DESCUENTO') {
+                $('#descuento_nc_pct').val(0);
+                $('#descuento_general_pct').val(0).trigger('change');
+            }
+        }
     });
     $(document).on('click', '.btn-accion', function () {
         var facturaId = $(this).data('id');
@@ -2030,6 +2240,7 @@ function cargarFacturaParaVisualizar(facturaId) {
 
     // ========== FUNCIONES DE BÚSQUEDA DE PRODUCTOS ==========
     $('#busqueda_producto').on('input', function() {
+        $(this).removeData('codigos');
         var q = $(this).val().trim();
         var resultadosDiv = $('#resultados_busqueda');
         
@@ -2070,7 +2281,9 @@ function cargarFacturaParaVisualizar(facturaId) {
                                    data-iva-id="${item.iva_alicuota_id}"
                                    data-iva="${item.iva_porcentaje || 21}"
                                    data-vinculado="${vinculado ? 1 : 0}"
-                                   data-texto="${escapeHtml(texto)}">
+                                   data-texto="${escapeHtml(texto)}"
+                                   data-codigo="${escapeHtml(String(item.producto_codigo || ''))}"
+                                   data-codigo-proveedor="${escapeHtml(String(vinculado ? (item.codigo_proveedor || '') : ''))}">
                                     <strong>${escapeHtml(String(item.producto_codigo))}</strong> - ${escapeHtml(item.producto_nombre)}
                                     ${vinculado
                                         ? (item.codigo_proveedor ? '<br><small>Código Proveedor: ' + escapeHtml(item.codigo_proveedor) + '</small>' : '')
@@ -2150,6 +2363,9 @@ function cargarFacturaParaVisualizar(facturaId) {
             return;
         }
 
+        var modalEl = document.getElementById('modalFacturaProveedor');
+        var modalInst = modalEl ? (bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl)) : null;
+
         // Producto que el proveedor no tiene vinculado: ofrecer cargar su código
         Swal.fire({
             icon: 'question',
@@ -2165,6 +2381,29 @@ function cargarFacturaParaVisualizar(facturaId) {
             denyButtonText: 'Usar sin vincular',
             cancelButtonText: 'Cancelar',
             showLoaderOnConfirm: true,
+            didOpen: function() {
+                if (modalInst && modalInst._focustrap) {
+                    modalInst._focustrap.deactivate();
+                }
+                $(document).off('focusin.bs.modal');
+                if (modalEl) {
+                    modalEl.removeAttribute('tabindex');
+                }
+                var input = Swal.getInput();
+                if (input) {
+                    setTimeout(function() {
+                        input.focus();
+                    }, 50);
+                }
+            },
+            willClose: function() {
+                if (modalEl) {
+                    modalEl.setAttribute('tabindex', '-1');
+                }
+                if (modalInst && modalInst._focustrap) {
+                    modalInst._focustrap.activate();
+                }
+            },
             inputValidator: function(valor) {
                 if (!valor || !valor.trim()) {
                     return 'Ingrese el código del proveedor';
@@ -2218,6 +2457,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         $('#producto_seleccionado_id').val(productoId);
         $('#producto_iva').val(iva);
         $('#producto_iva_id').val(ivaId);
+        $('#busqueda_producto').data('codigos', { producto_codigo: String(item.attr('data-codigo') || ''), codigo_proveedor: String(item.attr('data-codigo-proveedor') || '') });
         
         // Cargar último precio
         $.get('facturas_proveedores_ajax.php', {
@@ -2235,10 +2475,177 @@ function cargarFacturaParaVisualizar(facturaId) {
 
     // Ocultar resultados al hacer clic fuera
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('#busqueda_producto, #resultados_busqueda').length) {
+        if (!$(e.target).closest('#busqueda_producto, #resultados_busqueda, #btnModalSelectorProductos').length) {
             $('#resultados_busqueda').hide();
             selectedIndex = -1;
         }
+    });
+
+    // ========== MODAL SELECTOR DE PRODUCTOS (CATÁLOGO) ==========
+    var catalogoProductosCache = [];
+
+    $('#btnModalSelectorProductos').on('click', function() {
+        if (!proveedorActualId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Proveedor requerido',
+                text: 'Por favor, seleccione un proveedor antes de elegir productos.',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        $('#modalSelectorProductos').modal('show');
+        cargarCatalogoProductosModal();
+    });
+
+    function cargarCatalogoProductosModal() {
+        var tbody = $('#tbodyModalProductos');
+        tbody.html('<tr><td colspan="6" class="text-center py-4 text-muted"><i class="fas fa-spinner fa-spin me-1"></i> Cargando catálogo de productos...</td></tr>');
+        $('#filtroModalProductos').val('');
+
+        $.ajax({
+            url: 'facturas_proveedores_ajax.php',
+            type: 'GET',
+            data: {
+                accion: 'obtener_catalogo_productos',
+                entidad_id: proveedorActualId,
+                empresa_idx: empresa_idx
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.success && Array.isArray(response.data)) {
+                    catalogoProductosCache = response.data;
+                    poblarCategoriasModal(catalogoProductosCache);
+                    renderizarTablaProductosModal(catalogoProductosCache);
+                } else {
+                    tbody.html('<tr><td colspan="6" class="text-center py-3 text-danger">No se pudo cargar el catálogo</td></tr>');
+                }
+            },
+            error: function() {
+                tbody.html('<tr><td colspan="6" class="text-center py-3 text-danger">Error al conectar con el servidor</td></tr>');
+            }
+        });
+    }
+
+    function poblarCategoriasModal(productos) {
+        var categorias = {};
+        productos.forEach(function(p) {
+            if (p.categoria_nombre) {
+                categorias[p.categoria_nombre] = (categorias[p.categoria_nombre] || 0) + 1;
+            }
+        });
+
+        var select = $('#filtroModalCategoria');
+        select.find('option:not(:first)').remove();
+
+        Object.keys(categorias).sort().forEach(function(cat) {
+            select.append(`<option value="${escapeHtml(cat)}">${escapeHtml(cat)} (${categorias[cat]})</option>`);
+        });
+    }
+
+    function renderizarTablaProductosModal(productos) {
+        var tbody = $('#tbodyModalProductos');
+        tbody.empty();
+
+        if (productos.length === 0) {
+            tbody.html('<tr><td colspan="6" class="text-center py-4 text-muted">No se encontraron productos o gastos</td></tr>');
+            $('#txtTotalProductosModal').text('0 productos encontrados');
+            return;
+        }
+
+        $('#txtTotalProductosModal').text(productos.length + ' producto(s) encontrado(s)');
+
+        productos.forEach(function(item) {
+            var vinculado = parseInt(item.vinculado) === 1;
+            var esServicio = parseInt(item.es_servicio) === 1;
+            var badTipo = esServicio ? '<span class="badge bg-info text-dark ms-1">Servicio</span>' : '<span class="badge bg-secondary ms-1">Bien</span>';
+            var ctaInfo = item.cuenta_codigo ? `<code>${escapeHtml(item.cuenta_codigo)}</code> <small class="text-muted d-block text-truncate" style="max-width: 140px;" title="${escapeHtml(item.cuenta_nombre)}">${escapeHtml(item.cuenta_nombre)}</small>` : '<span class="text-muted small">-</span>';
+
+            var tr = $(`
+                <tr style="cursor: pointer;">
+                    <td>
+                        <strong class="text-primary">${escapeHtml(item.producto_codigo)}</strong>
+                        ${vinculado && item.codigo_proveedor ? `<br><small class="text-success"><i class="fas fa-link me-1"></i>${escapeHtml(item.codigo_proveedor)}</small>` : ''}
+                    </td>
+                    <td>
+                        <span class="fw-semibold">${escapeHtml(item.producto_nombre)}</span>
+                        ${badTipo}
+                    </td>
+                    <td><span class="badge bg-light text-dark border">${escapeHtml(item.categoria_nombre || 'General')}</span></td>
+                    <td>${ctaInfo}</td>
+                    <td class="text-center"><span class="badge bg-light text-secondary border">${item.iva_porcentaje}%</span></td>
+                    <td class="text-center">
+                        <button type="button" class="btn btn-xs btn-primary btn-seleccionar-prod-modal" title="Seleccionar">
+                            <i class="fas fa-check me-1"></i>Elegir
+                        </button>
+                    </td>
+                </tr>
+            `);
+
+            tr.find('.btn-seleccionar-prod-modal').add(tr).on('click', function(e) {
+                e.stopPropagation();
+                aplicarSeleccionProductoModal(item);
+            });
+
+            tbody.append(tr);
+        });
+    }
+
+    function aplicarSeleccionProductoModal(item) {
+        var textoCompleto = item.producto_codigo + ' - ' + item.producto_nombre;
+        $('#busqueda_producto').val(textoCompleto);
+        $('#producto_seleccionado_id').val(item.producto_id);
+        $('#producto_iva').val(item.iva_porcentaje);
+        $('#producto_iva_id').val(item.iva_alicuota_id);
+        $('#busqueda_producto').data('codigos', {
+            producto_codigo: String(item.producto_codigo || ''),
+            codigo_proveedor: String(item.codigo_proveedor || '')
+        });
+
+        $('#modalSelectorProductos').modal('hide');
+
+        // Obtener último precio si aplica
+        $.get('facturas_proveedores_ajax.php', {
+            accion: 'obtener_ultimo_precio',
+            producto_id: item.producto_id,
+            entidad_id: proveedorActualId,
+            empresa_idx: empresa_idx
+        }, function(res) {
+            if (res.success && res.precio) {
+                $('#producto_precio').val(res.precio);
+            }
+            calcularDescuentos();
+        }, 'json');
+
+        $('#producto_cantidad').focus().select();
+    }
+
+    // Filtros en vivo en el modal
+    $('#filtroModalProductos, #filtroModalCategoria').on('input change', function() {
+        var texto = $('#filtroModalProductos').val().toLowerCase().trim();
+        var cat = $('#filtroModalCategoria').val();
+
+        var filtrados = catalogoProductosCache.filter(function(p) {
+            var coincideCat = !cat || p.categoria_nombre === cat;
+            if (!coincideCat) return false;
+
+            if (!texto) return true;
+
+            var cod = (p.producto_codigo || '').toLowerCase();
+            var nom = (p.producto_nombre || '').toLowerCase();
+            var ctaCod = (p.cuenta_codigo || '').toLowerCase();
+            var ctaNom = (p.cuenta_nombre || '').toLowerCase();
+            var provCod = (p.codigo_proveedor || '').toLowerCase();
+
+            return cod.indexOf(texto) !== -1 ||
+                   nom.indexOf(texto) !== -1 ||
+                   ctaCod.indexOf(texto) !== -1 ||
+                   ctaNom.indexOf(texto) !== -1 ||
+                   provCod.indexOf(texto) !== -1;
+        });
+
+        renderizarTablaProductosModal(filtrados);
     });
 
     // Calcular descuentos e IVA
@@ -2358,6 +2765,8 @@ function cargarFacturaParaVisualizar(facturaId) {
         factura_proveedor_detalle_id: 0,
         producto_id: parseInt(productoId),
         producto_nombre: productoText,
+        producto_codigo: ($('#busqueda_producto').data('codigos') || {}).producto_codigo || '',
+        codigo_proveedor: ($('#busqueda_producto').data('codigos') || {}).codigo_proveedor || '',
         cantidad: cantidad,
         precio_unitario: precio,
         descuento_item_pct: descuentoItemPct,
@@ -2379,7 +2788,7 @@ function cargarFacturaParaVisualizar(facturaId) {
     actualizarTotales();
     
     // Limpiar campos
-    $('#busqueda_producto').val('');
+    $('#busqueda_producto').val('').removeData('codigos');
     $('#producto_seleccionado_id').val('');
     $('#producto_iva_id').val('');
     $('#producto_cantidad').val('1.00');
@@ -2413,6 +2822,8 @@ function cargarFacturaParaVisualizar(facturaId) {
             <table class="table table-sm table-bordered table-hover mb-0" style="min-width: 1200px;">
                 <thead class="table-light">
                     <tr>
+                        <th style="min-width: 90px;">Nuestro cód.</th>
+                        <th style="min-width: 90px;">Cód. prov.</th>
                         <th style="min-width: 200px;">Producto</th>
                         <th class="text-center" style="min-width: 70px;">Cant.</th>
                         <th class="text-end" style="min-width: 100px;">Precio</th>
@@ -2436,6 +2847,14 @@ function cargarFacturaParaVisualizar(facturaId) {
             var claseFila = esNuevo ? 'table-info' : '';
             
             var nombreProducto = detalle.producto_nombre || '';
+            // Código nuestro y del proveedor en sus columnas (el nombre puede traer el código: "Nombre (cód.)" o "cód. - Nombre")
+            var codigoNuestro = detalle.producto_codigo ? String(detalle.producto_codigo) : '';
+            var codigoProveedor = detalle.codigo_proveedor ? String(detalle.codigo_proveedor) : '';
+            if (codigoNuestro) {
+                var sufijoCodigo = ' (' + codigoNuestro + ')', prefijoCodigo = codigoNuestro + ' - ';
+                if (nombreProducto.slice(-sufijoCodigo.length) === sufijoCodigo) nombreProducto = nombreProducto.slice(0, -sufijoCodigo.length);
+                else if (nombreProducto.indexOf(prefijoCodigo) === 0) nombreProducto = nombreProducto.slice(prefijoCodigo.length);
+            }
             
             // Asegurar que todos los valores sean números
             var cantidad = typeof detalle.cantidad === 'number' ? detalle.cantidad : parseFloat(detalle.cantidad) || 0;
@@ -2453,6 +2872,8 @@ function cargarFacturaParaVisualizar(facturaId) {
             
             html += `
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
+                <td class="text-nowrap">${escapeHtml(codigoNuestro)}</td>
+                <td class="text-nowrap">${codigoProveedor ? escapeHtml(codigoProveedor) : '<span class="text-muted">-</span>'}</td>
                 <td>
                     <div class="fw-bold">${escapeHtml(nombreProducto.substring(0, 50))}${nombreProducto.length > 50 ? '...' : ''}</div>
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
@@ -2460,12 +2881,12 @@ function cargarFacturaParaVisualizar(facturaId) {
                 </td>
                 <td class="text-center">${formatNumber(cantidad, 2)}</td>
                 <td class="text-end">${formatNumber(precioUnitario, 2)}</td>
-                <td class="text-center">${descuentoItemPct.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(descuentoItemPct, 2)}%</td>
                 <td class="text-end">${formatNumber(descuentoItem, 2)}</td>
-                <td class="text-center">${descuentoGeneralPct.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(descuentoGeneralPct, 2)}%</td>
                 <td class="text-end">${formatNumber(descuentoGeneral, 2)}</td>
                 <td class="text-end">${formatNumber(netoGravado, 2)}</td>
-                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
                 <td class="text-end">${formatNumber(ivaImporte, 2)}</td>
                 <td class="text-end">${formatNumber(noGravado, 2)}</td>
                 <td class="text-end">${formatNumber(exento, 2)}</td>
@@ -2549,6 +2970,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         if (detalle) {
             // Cargar datos en el formulario
             $('#busqueda_producto').val(detalle.producto_nombre);
+            $('#busqueda_producto').data('codigos', { producto_codigo: detalle.producto_codigo || '', codigo_proveedor: detalle.codigo_proveedor || '' });
             $('#producto_seleccionado_id').val(detalle.producto_id);
             $('#producto_iva_id').val(detalle.iva_alicuota_id);
             $('#producto_cantidad').val(detalle.cantidad);
@@ -2714,6 +3136,10 @@ function cargarFacturaParaVisualizar(facturaId) {
         $('#otros_impuestos').val('0');
         $('#total').val('0');
         $('#otros_impuestos_display').text('0.00');
+        $('#modalidad_descuento_factura').val('EN_FACTURA_GLOBAL');
+        $('#precio_compra_contempla_descuento').val('1');
+        $('#descuento_nc_pct').val('0');
+        $('#col_descuento_nc').hide();
         $('#formFacturaProveedor').removeClass('was-validated');
         $('#deposito_id').val('');
         
@@ -2722,6 +3148,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         proveedorSucursalActualId = null;
         detalleEnEdicionOC = null;
         setOrdenCompraVinculada(null, null, null);
+        quitarVinculoCert();
         $('#asociado_wrap').addClass('d-none');
         $('#comprobante_asociado_id').html('<option value="">Sin comprobante asociado</option>');
         $('#debito_wrap').addClass('d-none');
@@ -2747,6 +3174,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         
         window.sucursalIdEditar = null;
         $('#f_contabilidad').val('');
+        if (window.fpLecturaLimpiar) window.fpLecturaLimpiar();   // carga desde archivo (facturas_proveedores_lectura.js)
     }
 
     $(document).on('click', '#btnNuevo', function () {
@@ -2794,6 +3222,14 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
                 $('#descuento_general_pct').val(res.descuento_general_pct || 0);
+                $('#modalidad_descuento_factura').val(res.modalidad_descuento_factura || 'EN_FACTURA_GLOBAL');
+                $('#precio_compra_contempla_descuento').val(res.precio_compra_contempla_descuento !== undefined && res.precio_compra_contempla_descuento !== null ? res.precio_compra_contempla_descuento : 1);
+                $('#descuento_nc_pct').val(res.descuento_nc_pct || 0);
+                if (res.modalidad_descuento_factura === 'NOTA_CREDITO') {
+                    $('#col_descuento_nc').show();
+                } else {
+                    $('#col_descuento_nc').hide();
+                }
                 $('#subtotal').val(res.subtotal || 0);
                 $('#descuentos').val(res.descuentos || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
@@ -2802,15 +3238,20 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#otros_impuestos').val(res.otros_impuestos || 0);
                 $('#total').val(res.total || 0);
                 
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#descuentos_display').text(parseFloat(res.descuentos || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#otros_impuestos_display').text(parseFloat(res.otros_impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+                $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+                $('#descuentos_display').text(Fmt.numero(parseFloat(res.descuentos || 0), 2));
+                $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+                $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+                $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+                $('#otros_impuestos_display').text(Fmt.numero(parseFloat(res.otros_impuestos || 0), 2));
+                $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
                 $('#modalLabel').text('Editar Factura de Proveedor');
                 setOrdenCompraVinculada(res.orden_compra_id, res.orden_compra_nro, res.entidad_id);
+                if (res.certificacion_id) {
+                    setCertificacionVinculada(res.certificacion_id, res.nro_certificado, res.cert_periodo_mes, res.cert_monto_neto);
+                } else {
+                    quitarVinculoCert();
+                }
                 cargarImpuestosFactura(res.factura_proveedor_id);
                 cargarAsientoProveedor(res.factura_proveedor_id);
 
@@ -2856,6 +3297,8 @@ function cargarFacturaParaVisualizar(facturaId) {
                                 ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
                                 producto_id: detalle.producto_id,
                                 producto_nombre: detalle.producto_nombre,
+                                producto_codigo: detalle.producto_codigo || '',
+                                codigo_proveedor: detalle.codigo_proveedor || '',
                                 cantidad: detalle.cantidad,
                                 precio_unitario: detalle.precio_unitario,
                                 descuento_item_pct: detalle.descuento_item_pct || 0,
@@ -2893,10 +3336,70 @@ function cargarFacturaParaVisualizar(facturaId) {
         }, 'json');
     }
 
+    // ========== NUEVA FACTURA PRE-CARGADA DESDE ARCHIVO ==========
+    // La llama facturas_proveedores_lectura.js con form = propuesta.form de facturas_proveedores_lectura_model.php.
+    // Abre el formulario de siempre como alta (Borrador); el usuario revisa y guarda con "Guardar Factura".
+    window.fpPrecargarDesdeArchivo = function (form, alListo) {
+        resetModal();
+        window.fpLecturaEnCurso = true;   // cargarImpuestosConfig no pone las percepciones por defecto
+        $('#modalLabel').text('Nueva Factura de Proveedor (desde archivo)');
+        cargarCombosFormulario();
+        cargarProveedoresYSucursales(function () {
+            if (form.entidad_id) {
+                seleccionarProveedorEnCombo(form.entidad_id, form.entidad_sucursal_id);
+                $('#entidad_combo').trigger('change');   // condición de pago del proveedor y comprobante asociado
+            }
+        });
+        $('#comprobante_pv').val(form.comprobante_pv || 0);
+        $('#comprobante_nro').val(form.comprobante_nro || 0);
+        $('#f_emision').val(form.f_emision || new Date().toISOString().split('T')[0]);
+        $('#f_contabilidad').val(form.f_contabilidad || form.f_emision || '');
+        $('#observaciones').val(form.observaciones || '');
+
+        // Los combos se cargan por AJAX: mismo intervalo que la edición
+        setTimeout(function () {
+            if (form.comprobante_tipo_id) $('#comprobante_tipo_id').val(String(form.comprobante_tipo_id)).trigger('change');
+            if (!$('#sucursal_id').val() && $('#sucursal_id option').length === 2) {
+                $('#sucursal_id').val($('#sucursal_id option').eq(1).val()).trigger('change');
+            }
+            detalles = (form.detalles || []).map(function (d) { return $.extend({}, d); });
+            // Descuento general leído del pie (ya aplicado a las líneas de ítems; el campo no recalcula si no se cambia)
+            $('#descuento_general_pct').val(form.descuento_general_pct || 0);
+            if (form.modalidad_descuento_factura) {
+                $('#modalidad_descuento_factura').val(form.modalidad_descuento_factura);
+                if (form.modalidad_descuento_factura === 'NOTA_CREDITO') {
+                    $('#col_descuento_nc').show();
+                    $('#descuento_nc_pct').val(form.descuento_nc_pct || 0);
+                } else {
+                    $('#col_descuento_nc').hide();
+                }
+            }
+            if (form.precio_compra_contempla_descuento !== undefined && form.precio_compra_contempla_descuento !== null) {
+                $('#precio_compra_contempla_descuento').val(form.precio_compra_contempla_descuento);
+            }
+            impuestosFactura = (form.impuestos || []).map(function (i) { return $.extend({}, i); });
+            renderizarDetalles();
+            renderizarImpuestos();
+            actualizarTotales();
+            actualizarVencimientoPorCondicionPago();
+            if (typeof alListo === 'function') alListo();
+        }, 600);
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalFacturaProveedor')).show();
+    };
+
+    // Percepción elegida en el panel del documento (pendiente de provincia / configuración)
+    window.fpAgregarImpuestoLectura = function (impuesto) {
+        impuestosFactura.push(impuesto);
+        renderizarImpuestos();
+        actualizarTotales();
+    };
+
     // ========== GUARDAR FACTURA ==========
     $('#btnGuardar').click(function() {
         var form = document.getElementById('formFacturaProveedor');
         var fEmision = $('#f_emision').val();
+        if (!$('#f_vencimiento').val()) $('#f_vencimiento').val(vencimientoDelDia());
         var fVencimiento = $('#f_vencimiento').val();
 
         if (fVencimiento && fVencimiento < fEmision) {
@@ -2971,12 +3474,18 @@ function cargarFacturaParaVisualizar(facturaId) {
         formData.append('total', $('#total').val() || '0');
         formData.append('detalles', JSON.stringify(detalles));
         formData.append('orden_compra_id', $('#orden_compra_id').val() || '');
+        formData.append('certificacion_id', $('#certificacion_id').val() || '');
         formData.append('comprobante_asociado_id', $('#comprobante_asociado_id').val() || '');
         formData.append('tesoreria_cuenta_debito_id', $('#debito_wrap').hasClass('d-none') ? '' : ($('#tesoreria_cuenta_debito_id').val() || ''));
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
+        formData.append('modalidad_descuento_factura', $('#modalidad_descuento_factura').val() || 'EN_FACTURA_GLOBAL');
+        formData.append('precio_compra_contempla_descuento', $('#precio_compra_contempla_descuento').val() !== undefined ? $('#precio_compra_contempla_descuento').val() : '1');
+        formData.append('descuento_nc_pct', $('#descuento_nc_pct').val() || '0');
         formData.append('deposito_id', $('#deposito_id').val() || '');
         formData.append('impuestos_adicionales', JSON.stringify(impuestosFactura));
-        
+        // Cargada desde archivo: el servidor liga el archivo original y el CAE leído a la factura nueva
+        if (!id && window.fpLecturaAdjuntoId) formData.append('lectura_adjunto_id', window.fpLecturaAdjuntoId);
+
         console.log("Impuestos a guardar:", impuestosFactura);
         
 
@@ -2988,7 +3497,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         
         var savedState = {
             page: tabla ? tabla.page() : 0,
-            order: tabla ? tabla.order() : [[1, 'asc']],
+            order: tabla ? tabla.order() : [[6, 'desc'], [0, 'desc']],
             search: tabla ? tabla.search() : ''
         };
         
@@ -3004,6 +3513,8 @@ function cargarFacturaParaVisualizar(facturaId) {
                 btnGuardar.prop('disabled', false).html(originalText);
                 
                 if (res.resultado) {
+                    // Cargada desde archivo (lote): marca la fila como guardada (facturas_proveedores_lectura.js)
+                    if (!id && window.fpLecturaAdjuntoId && window.fpLecturaGuardada) window.fpLecturaGuardada(res.factura_proveedor_id);
                     if (tabla) {
                         tabla.ajax.reload(function(json) {
                             if (savedState.page !== undefined) {
@@ -3188,8 +3699,10 @@ function cargarFacturaParaVisualizar(facturaId) {
     });
 
     // ========== INICIALIZACIÓN ==========
-    inicializarDataTable();
-    cargarBotonAgregar();
+    if (!window.FP_EMBED) {
+        inicializarDataTable();
+        cargarBotonAgregar();
+    }
 
     $('[title]').tooltip({
         trigger: 'hover',
@@ -3234,11 +3747,37 @@ function cargarFacturaParaVisualizar(facturaId) {
                     console.log("No hay condición de pago para este proveedor");
                 }
                 
-                // Aplicar descuento general
+                // Cargar modalidad y si contempla costo desde la entidad
+                var modalidad = res.data.modalidad_descuento_factura || 'EN_FACTURA_GLOBAL';
+                var contempla = (res.data.precio_compra_contempla_descuento !== undefined && res.data.precio_compra_contempla_descuento !== null) ? res.data.precio_compra_contempla_descuento : 1;
+                $('#modalidad_descuento_factura').val(modalidad);
+                $('#precio_compra_contempla_descuento').val(contempla);
+
+                // Carga desde archivo: el descuento general es el del comprobante (fpPrecargarDesdeArchivo), no el del proveedor
+                if (window.fpLecturaEnCurso) {
+                    actualizarTotales();
+                    return;
+                }
+
+                // Aplicar descuento general según modalidad
                 var descuentoGeneral = parseFloat(res.data.proveedor_descuento_general) || 0;
-                console.log("Aplicando descuento general:", descuentoGeneral);
-                
-                $('#descuento_general_pct').val(descuentoGeneral);
+                console.log("Aplicando condiciones proveedor - Modalidad:", modalidad, "Descuento:", descuentoGeneral);
+
+                if (modalidad === 'NOTA_CREDITO') {
+                    $('#col_descuento_nc').show();
+                    $('#descuento_nc_pct').val(descuentoGeneral);
+                    $('#descuento_general_pct').val(0);
+                    descuentoGeneral = 0; // en la factura legal actual no va descuento general
+                } else if (modalidad === 'EN_FACTURA_ITEM' || modalidad === 'SIN_DESCUENTO') {
+                    $('#col_descuento_nc').hide();
+                    $('#descuento_nc_pct').val(0);
+                    $('#descuento_general_pct').val(0);
+                    descuentoGeneral = 0;
+                } else {
+                    $('#col_descuento_nc').hide();
+                    $('#descuento_nc_pct').val(0);
+                    $('#descuento_general_pct').val(descuentoGeneral);
+                }
                 
                 if (detalles.length > 0) {
                     detalles.forEach(function(detalle, index) {
@@ -3265,6 +3804,10 @@ function cargarFacturaParaVisualizar(facturaId) {
                 }
             } else {
                 console.log("No hay condiciones para este proveedor o error:", res);
+                if (window.fpLecturaEnCurso) {   // carga desde archivo: las líneas traen el descuento del comprobante
+                    actualizarTotales();
+                    return;
+                }
                 $('#descuento_general_pct').val(0);
                 
                 if (detalles.length > 0) {
@@ -3294,16 +3837,17 @@ function cargarFacturaParaVisualizar(facturaId) {
             console.error("Respuesta:", jqXHR.responseText);
         });
     }
-
     $('#modalFacturaProveedor').on('shown.bs.modal', function () {
-        $('#datos-tab').tab('show');
-    });
+    $('#datos-tab').tab('show');
+});
 
     // =========================================================================
     // IMPORTACIÓN DE COMPROBANTES RECIBIDOS DE ARCA / AFIP
+    // El navegador solo lee las celdas del archivo; el servidor interpreta cada fila
+    // (fpArcaNormalizarFila) tanto en la previsualización como al importar.
     // =========================================================================
-    var loteArca = [];
-    var loteArcaPrevisualizado = [];
+    var filasArca = [];
+    var previewArca = [];
     var arcaModalObj = null;
 
     $('#btnImportarArca').on('click', function() {
@@ -3311,6 +3855,10 @@ function cargarFacturaParaVisualizar(facturaId) {
     });
 
     function abrirModalImportarArca() {
+        if (typeof XLSX === 'undefined') {
+            Swal.fire('Error', 'No se pudo cargar el lector de Excel (xlsx).', 'error');
+            return;
+        }
         if (!arcaModalObj) {
             arcaModalObj = new bootstrap.Modal(document.getElementById('modalImportarArca'));
         }
@@ -3323,16 +3871,13 @@ function cargarFacturaParaVisualizar(facturaId) {
         $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_opciones_importacion_arca' }, function(res) {
             if (!res || !res.success) return;
 
-            // Sucursales
             var selectSuc = $('#arca_sucursal_id').empty();
             (res.sucursales || []).forEach(function(s) {
                 selectSuc.append($('<option>', { value: s.sucursal_id, text: s.sucursal_nombre }));
             });
 
-            // Depósitos
             actualizarDepositosArca(res.depositos || []);
 
-            // Condiciones
             var selectCp = $('#arca_condicion_pago_id').empty();
             (res.condiciones || []).forEach(function(c) {
                 selectCp.append($('<option>', { value: c.condicion_pago_id, text: c.condicion_pago }));
@@ -3350,11 +3895,8 @@ function cargarFacturaParaVisualizar(facturaId) {
 
     function actualizarDepositosArca(depositos) {
         var selectDep = $('#arca_deposito_id').empty();
-        if (!depositos || !depositos.length) {
-            selectDep.append($('<option>', { value: '', text: 'Sin depósito' }));
-            return;
-        }
-        depositos.forEach(function(d) {
+        selectDep.append($('<option>', { value: '', text: 'Sin depósito' }));
+        (depositos || []).forEach(function(d) {
             selectDep.append($('<option>', { value: d.deposito_id, text: d.deposito_nombre }));
         });
     }
@@ -3363,10 +3905,15 @@ function cargarFacturaParaVisualizar(facturaId) {
         limpiarImportadorArca();
     });
 
+    // El alta automática cambia qué filas quedan listas: se vuelve a previsualizar
+    $('#arca_crear_proveedores').on('change', function() {
+        if (filasArca.length) enviarPrevisualizacionArca(filasArca);
+    });
+
     function limpiarImportadorArca() {
         $('#inputArchivoArca').val('');
-        loteArca = [];
-        loteArcaPrevisualizado = [];
+        filasArca = [];
+        previewArca = [];
         $('#arca_resumen').addClass('d-none');
         $('#arca_tabla_contenedor').addClass('d-none');
         $('#arca_progreso_contenedor').addClass('d-none');
@@ -3375,156 +3922,27 @@ function cargarFacturaParaVisualizar(facturaId) {
         $('#tbodyPreviewArca').empty();
     }
 
-    // Procesar archivo seleccionado (CSV o Excel)
+    // Lectura del archivo con el lector común de Mis Comprobantes (assets/js/arca-mis-comprobantes.js, global ArcaMC),
+    // el mismo que usa la importación del estudio contable.
     $('#inputArchivoArca').on('change', function(e) {
         var file = e.target.files[0];
+        var $input = $(this);
         if (!file) return;
-
-        var ext = file.name.split('.').pop().toLowerCase();
-        if (['csv', 'xlsx', 'xls'].indexOf(ext) === -1) {
-            Swal.fire('Formato no soportado', 'Por favor seleccione un archivo .csv, .xlsx o .xls exportado de ARCA.', 'warning');
-            $(this).val('');
-            return;
-        }
-
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            try {
-                var data = new Uint8Array(ev.target.result);
-                var workbook = XLSX.read(data, { type: 'array' });
-                var sheetName = workbook.SheetNames[0];
-                var sheet = workbook.Sheets[sheetName];
-                var rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-                if (!rawRows || rawRows.length < 2) {
-                    Swal.fire('Archivo vacío', 'El archivo no contiene filas suficientes.', 'warning');
-                    return;
-                }
-
-                // Identificar fila de encabezados buscando "Fecha" o "Tipo" o "Punto de Venta"
-                var headerIdx = -1;
-                for (var r = 0; r < Math.min(10, rawRows.length); r++) {
-                    var filaStr = rawRows[r].map(function(c) { return String(c).toLowerCase().trim(); }).join(' ');
-                    if (filaStr.indexOf('fecha') !== -1 && (filaStr.indexOf('tipo') !== -1 || filaStr.indexOf('comprobante') !== -1 || filaStr.indexOf('emisor') !== -1 || filaStr.indexOf('total') !== -1)) {
-                        headerIdx = r;
-                        break;
-                    }
-                }
-
-                if (headerIdx === -1) {
-                    Swal.fire('Formato no reconocido', 'No se pudieron detectar las columnas de Comprobantes de ARCA.', 'error');
-                    return;
-                }
-
-                var headers = rawRows[headerIdx].map(function(h) { return String(h).trim(); });
-                var colMap = mapearColumnasArca(headers);
-
-                if (colMap.tipo === -1 && colMap.nro === -1 && colMap.cuit === -1) {
-                    Swal.fire('Columnas faltantes', 'No se encontraron las columnas Tipo, Número o CUIT en el archivo.', 'error');
-                    return;
-                }
-
-                loteArca = [];
-                for (var i = headerIdx + 1; i < rawRows.length; i++) {
-                    var row = rawRows[i];
-                    if (!row || !row.length) continue;
-
-                    var fechaRaw = colMap.fecha !== -1 ? String(row[colMap.fecha] || '').trim() : '';
-                    var tipoRaw = colMap.tipo !== -1 ? String(row[colMap.tipo] || '').trim() : '';
-                    var pvRaw = colMap.pv !== -1 ? parseInt(row[colMap.pv], 10) || 0 : 0;
-                    var nroRaw = colMap.nro !== -1 ? parseInt(row[colMap.nro], 10) || 0 : 0;
-                    var cuitRaw = colMap.cuit !== -1 ? String(row[colMap.cuit] || '').replace(/\D/g, '') : '';
-                    var razonRaw = colMap.razon !== -1 ? String(row[colMap.razon] || '').trim() : '';
-                    var caeRaw = colMap.cae !== -1 ? String(row[colMap.cae] || '').trim() : '';
-                    var netoRaw = colMap.neto !== -1 ? parsearNumeroArca(row[colMap.neto]) : 0;
-                    var noGravRaw = colMap.no_gravado !== -1 ? parsearNumeroArca(row[colMap.no_gravado]) : 0;
-                    var exentoRaw = colMap.exento !== -1 ? parsearNumeroArca(row[colMap.exento]) : 0;
-                    var ivaRaw = colMap.iva !== -1 ? parsearNumeroArca(row[colMap.iva]) : 0;
-                    var otrosRaw = colMap.otros !== -1 ? parsearNumeroArca(row[colMap.otros]) : 0;
-                    var totalRaw = colMap.total !== -1 ? parsearNumeroArca(row[colMap.total]) : 0;
-
-                    // Si no hay total pero hay neto + iva
-                    if (totalRaw === 0 && (netoRaw > 0 || ivaRaw > 0)) {
-                        totalRaw = netoRaw + noGravRaw + exentoRaw + ivaRaw + otrosRaw;
-                    }
-
-                    if (cuitRaw && (nroRaw > 0 || totalRaw > 0)) {
-                        loteArca.push({
-                            fecha: fechaRaw,
-                            tipo: tipoRaw,
-                            pv: pvRaw,
-                            nro: nroRaw,
-                            cuit: cuitRaw,
-                            razon_social: razonRaw,
-                            cae: caeRaw,
-                            neto: netoRaw,
-                            no_gravado: noGravRaw,
-                            exento: exentoRaw,
-                            iva: ivaRaw,
-                            otros_tributos: otrosRaw,
-                            total: totalRaw
-                        });
-                    }
-                }
-
-                if (!loteArca.length) {
-                    Swal.fire('Sin comprobantes', 'No se detectaron comprobantes válidos para importar.', 'warning');
-                    return;
-                }
-
-                // Enviar al servidor para previsualización y validación
-                enviarPrevisualizacionArca(loteArca);
-
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Error al procesar archivo', err.message || 'Error desconocido al leer el archivo.', 'error');
+        ArcaMC.leerArchivo(file).then(function(r) {
+            if (r.sentido !== 'RECIBIDOS') {
+                $input.val('');
+                Swal.fire('Archivo equivocado', 'Este archivo es de Mis Comprobantes Emitidos: acá va el de Recibidos.', 'warning');
+                return;
             }
-        };
-        reader.readAsArrayBuffer(file);
+            filasArca = r.filas;
+            enviarPrevisualizacionArca(filasArca);
+        }).catch(function(err) {
+            $input.val('');
+            Swal.fire('Error al procesar archivo', err.message || 'Error desconocido al leer el archivo.', 'error');
+        });
     });
 
-    function mapearColumnasArca(headers) {
-        var map = {
-            fecha: -1, tipo: -1, pv: -1, nro: -1, cae: -1,
-            cuit: -1, razon: -1, neto: -1, no_gravado: -1,
-            exento: -1, iva: -1, otros: -1, total: -1
-        };
-
-        headers.forEach(function(h, idx) {
-            var norm = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
-            if (/fecha/.test(norm) && map.fecha === -1) map.fecha = idx;
-            else if (/tipo\s*(de)?\s*comprobante|^tipo$/i.test(norm) && map.tipo === -1) map.tipo = idx;
-            else if (/punto.*venta|^pv$/i.test(norm) && map.pv === -1) map.pv = idx;
-            else if (/n[uú]mero\s*desde|nro\s*desde|^n[uú]mero$|^nro$/i.test(norm) && map.nro === -1) map.nro = idx;
-            else if (/c[oó]d.*autorizacion|cae/i.test(norm) && map.cae === -1) map.cae = idx;
-            else if (/nro.*doc.*emisor|cuit.*emisor|cuit|doc.*emisor/i.test(norm) && map.cuit === -1) map.cuit = idx;
-            else if (/denominacion.*emisor|razon.*social|nombre.*emisor|^emisor$/i.test(norm) && map.razon === -1) map.razon = idx;
-            else if (/neto.*gravado/i.test(norm) && map.neto === -1) map.neto = idx;
-            else if (/no.*gravado/i.test(norm) && map.no_gravado === -1) map.no_gravado = idx;
-            else if (/exent/i.test(norm) && map.exento === -1) map.exento = idx;
-            else if (/\biva\b/i.test(norm) && map.iva === -1) map.iva = idx;
-            else if (/tributo/i.test(norm) && map.otros === -1) map.otros = idx;
-            else if (/\btotal\b/i.test(norm) && map.total === -1) map.total = idx;
-        });
-
-        return map;
-    }
-
-    function parsearNumeroArca(val) {
-        if (typeof val === 'number') return val;
-        if (!val) return 0;
-        var s = String(val).trim().replace(/\$/g, '').trim();
-        if (s.indexOf('.') !== -1 && s.indexOf(',') !== -1) {
-            s = s.replace(/\./g, '').replace(',', '.');
-        } else if (s.indexOf(',') !== -1) {
-            s = s.replace(',', '.');
-        }
-        var n = parseFloat(s);
-        return isNaN(n) ? 0 : n;
-    }
-
-    function enviarPrevisualizacionArca(items) {
+    function enviarPrevisualizacionArca(filas) {
         Swal.fire({
             title: 'Analizando comprobantes...',
             text: 'Validando proveedores, duplicados y tipos de comprobantes...',
@@ -3537,107 +3955,109 @@ function cargarFacturaParaVisualizar(facturaId) {
             type: 'POST',
             data: {
                 accion: 'previsualizar_importacion_arca',
-                items: JSON.stringify(items)
+                filas: JSON.stringify(filas),
+                crear_proveedores_auto: $('#arca_crear_proveedores').is(':checked') ? 1 : 0
             },
             dataType: 'json'
         }).done(function(res) {
             Swal.close();
-            if (res.error) {
-                return Swal.fire('Error', res.error, 'error');
+            if (!res || !res.success) {
+                return Swal.fire('Error', (res && res.error) || 'No se pudo analizar el archivo.', 'error');
             }
+            previewArca = res.items || [];
 
-            loteArcaPrevisualizado = res.items || [];
-
-            // Actualizar contadores
             $('#cnt_arca_total').text(res.total_filas || 0);
             $('#cnt_arca_listos').text(res.listos || 0);
             $('#cnt_arca_duplicados').text(res.duplicados || 0);
             $('#cnt_arca_nuevos_prov').text(res.proveedores_nuevos || 0);
+            $('#cnt_arca_errores').text(res.errores || 0);
+            $('#cnt_arca_avisos').text(res.con_avisos || 0);
             $('#txtCantAImportar').text(res.listos || 0);
 
             $('#arca_resumen').removeClass('d-none');
             $('#arca_tabla_contenedor').removeClass('d-none');
+            renderizarTablaPreviewArca(previewArca);
 
-            // Renderizar tabla preview
-            renderizarTablaPreviewArca(loteArcaPrevisualizado);
-
-            var hayImportables = (res.listos || 0) > 0;
-            $('#btnConfirmarImportarArca').prop('disabled', !hayImportables);
-
-        }).fail(function(xhr) {
+            $('#btnConfirmarImportarArca').prop('disabled', !(res.listos > 0));
+        }).fail(function() {
             Swal.close();
             Swal.fire('Error', 'No se pudo analizar el archivo en el servidor.', 'error');
         });
     }
 
+    function importeArca(v) {
+        return '$' + Fmt.numero(Number(v || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function renderizarTablaPreviewArca(items) {
         var tbody = $('#tbodyPreviewArca').empty();
         if (!items || !items.length) {
-            tbody.append('<tr><td colspan="11" class="text-center text-muted">No hay filas para mostrar.</td></tr>');
+            tbody.append('<tr><td colspan="12" class="text-center text-muted">No hay filas para mostrar.</td></tr>');
             return;
         }
 
         items.forEach(function(item, idx) {
-            var badge = '';
-            var trClass = '';
+            var badge, trClass = '';
+            var mensaje = escapeHtml(String(item.mensaje || ''));
             if (item.estado === 'listo') {
                 badge = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Listo</span>';
             } else if (item.estado === 'nuevo_proveedor') {
-                badge = '<span class="badge bg-primary" title="Proveedor nuevo: se creará automáticamente"><i class="fas fa-user-plus me-1"></i>Nuevo Prov.</span>';
+                badge = '<span class="badge bg-primary" title="' + mensaje + '"><i class="fas fa-user-plus me-1"></i>Nuevo Prov.</span>';
             } else if (item.estado === 'duplicado') {
-                badge = '<span class="badge bg-warning text-dark" title="Ya existe: se omitirá"><i class="fas fa-ban me-1"></i>Duplicado</span>';
+                badge = '<span class="badge bg-warning text-dark" title="' + mensaje + '"><i class="fas fa-ban me-1"></i>Duplicado</span>';
                 trClass = 'table-light opacity-75';
             } else {
-                badge = '<span class="badge bg-danger" title="' + (item.mensaje || 'Error') + '"><i class="fas fa-exclamation-triangle me-1"></i>Error</span>';
+                badge = '<span class="badge bg-danger" title="' + mensaje + '"><i class="fas fa-exclamation-triangle me-1"></i>Error</span>';
                 trClass = 'table-danger';
             }
+            var notas = [];
+            if (item.estado === 'error') notas.push('<div class="text-danger">' + mensaje + '</div>');
+            (item.avisos || []).forEach(function(a) {
+                notas.push('<div class="text-warning-emphasis"><i class="fas fa-info-circle me-1"></i>' + escapeHtml(String(a)) + '</div>');
+            });
+            var noIva = Number(item.no_gravado || 0) + Number(item.exento || 0) + Number(item.otros_tributos || 0);
+            var imputacion = escapeHtml(String(item.producto_nombre || '')) +
+                (item.imputacion_origen === 'ultima' ? '<div class="text-muted">Última compra del proveedor</div>' : '');
 
             var tr = $('<tr class="' + trClass + '">')
                 .append('<td class="text-center small text-muted">' + (idx + 1) + '</td>')
                 .append('<td>' + badge + '</td>')
-                .append('<td class="small">' + (item.f_emision_formato || item.f_emision) + '</td>')
-                .append('<td><span class="badge bg-secondary">' + (item.comprobante_tipo_nombre || item.tipo_raw) + '</span></td>')
-                .append('<td class="font-monospace small">' + item.pv_formato + '-' + item.nro_formato + '</td>')
-                .append('<td class="font-monospace small">' + item.cuit + '</td>')
-                .append('<td class="small fw-semibold">' + item.razon_social + '</td>')
-                .append('<td class="text-end small">$' + Number(item.neto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }) + '</td>')
-                .append('<td class="text-end small">$' + Number(item.iva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }) + '</td>')
-                .append('<td class="text-end fw-bold small">$' + Number(item.total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }) + '</td>')
-                .append('<td class="font-monospace small text-muted">' + (item.cae || '-') + '</td>');
-
+                .append('<td class="small">' + escapeHtml(String(item.f_emision_formato || '')) + '</td>')
+                .append('<td><span class="badge bg-secondary">' + escapeHtml(String(item.comprobante_tipo_nombre || '')) + '</span></td>')
+                .append('<td class="font-monospace small">' + escapeHtml(item.pv_formato + '-' + item.nro_formato) + '</td>')
+                .append('<td class="font-monospace small">' + escapeHtml(String(item.cuit || '')) + '</td>')
+                .append('<td class="small"><span class="fw-semibold">' + escapeHtml(String(item.razon_social || '')) + '</span>' + notas.join('') + '</td>')
+                .append('<td class="small">' + imputacion + '</td>')
+                .append('<td class="text-end small">' + importeArca(item.neto) + '</td>')
+                .append('<td class="text-end small">' + importeArca(item.iva) + '</td>')
+                .append('<td class="text-end small" title="No gravado + exento + otros tributos">' + importeArca(noIva) + '</td>')
+                .append('<td class="text-end fw-bold small">' + importeArca(item.total) + '</td>');
             tbody.append(tr);
         });
     }
 
-    // Confirmar e importar comprobantes
     $('#btnConfirmarImportarArca').on('click', function() {
-        var importables = loteArcaPrevisualizado.filter(function(i) {
+        var cantidad = previewArca.filter(function(i) {
             return i.estado === 'listo' || i.estado === 'nuevo_proveedor';
-        });
-
-        if (!importables.length) {
+        }).length;
+        if (!cantidad) {
             return Swal.fire('Sin comprobantes', 'No hay comprobantes listos para importar.', 'warning');
         }
 
         Swal.fire({
-            title: '¿Confirmar Importación?',
-            text: 'Se importarán ' + importables.length + ' comprobantes de compra a la empresa actual.',
+            title: '¿Confirmar importación?',
+            text: 'Se cargarán ' + cantidad + ' comprobantes de compra en Borrador. Las filas con error o duplicadas se omiten.',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Sí, importar ahora',
+            confirmButtonText: 'Sí, importar',
             cancelButtonText: 'Cancelar'
         }).then(function(result) {
             if (!result.isConfirmed) return;
-            ejecutarImportacionArcaLote(importables);
+            ejecutarImportacionArcaLote();
         });
     });
 
-    function ejecutarImportacionArcaLote(items) {
-        var sucursalId = $('#arca_sucursal_id').val();
-        var depositoId = $('#arca_deposito_id').val();
-        var condicionId = $('#arca_condicion_pago_id').val();
-        var crearProvAuto = $('#arca_crear_proveedores').is(':checked') ? 1 : 0;
-
+    function ejecutarImportacionArcaLote() {
         $('#btnConfirmarImportarArca').prop('disabled', true);
         $('#arca_progreso_contenedor').removeClass('d-none');
         $('#arca_progreso_barra').css('width', '50%').text('Importando comprobantes...');
@@ -3647,23 +4067,25 @@ function cargarFacturaParaVisualizar(facturaId) {
             type: 'POST',
             data: {
                 accion: 'ejecutar_importacion_arca',
-                items: JSON.stringify(items),
-                sucursal_id: sucursalId,
-                deposito_id: depositoId,
-                condicion_pago_id: condicionId,
-                crear_proveedores_auto: crearProvAuto
+                filas: JSON.stringify(filasArca),
+                sucursal_id: $('#arca_sucursal_id').val(),
+                deposito_id: $('#arca_deposito_id').val(),
+                condicion_pago_id: $('#arca_condicion_pago_id').val(),
+                crear_proveedores_auto: $('#arca_crear_proveedores').is(':checked') ? 1 : 0
             },
             dataType: 'json'
         }).done(function(res) {
             $('#arca_progreso_barra').css('width', '100%').text('¡Completado!');
 
             if (res.success) {
+                var omitidos = (res.errores || []).length;
                 Swal.fire({
                     icon: 'success',
-                    title: '¡Importación Exitosa!',
-                    html: '<p>Se han importado <strong>' + res.importados + '</strong> comprobantes de compra.</p>' +
-                          (res.proveedores_creados > 0 ? '<p class="text-primary">Proveedores nuevos dados de alta: <strong>' + res.proveedores_creados + '</strong></p>' : '') +
-                          (res.duplicados > 0 ? '<p class="text-warning">Comprobantes duplicados omitidos: <strong>' + res.duplicados + '</strong></p>' : ''),
+                    title: 'Importación terminada',
+                    html: '<p>Comprobantes importados en Borrador: <strong>' + res.importados + '</strong></p>' +
+                          (res.proveedores_creados > 0 ? '<p class="text-primary">Proveedores nuevos: <strong>' + res.proveedores_creados + '</strong></p>' : '') +
+                          (res.duplicados > 0 ? '<p class="text-warning">Duplicados omitidos: <strong>' + res.duplicados + '</strong></p>' : '') +
+                          (omitidos > 0 ? '<p class="text-danger">Filas con error omitidas: <strong>' + omitidos + '</strong></p>' : ''),
                     confirmButtonText: 'Aceptar'
                 }).then(function() {
                     if (arcaModalObj) arcaModalObj.hide();
@@ -3671,10 +4093,11 @@ function cargarFacturaParaVisualizar(facturaId) {
                     $('#tablaFacturasProveedor').DataTable().ajax.reload();
                 });
             } else {
-                Swal.fire('Error en la importación', res.error || 'Ocurrió un error al procesar la importación.', 'error');
+                $('#arca_progreso_contenedor').addClass('d-none');
+                Swal.fire('Error en la importación', res.error || 'No se importó ningún comprobante.', 'error');
                 $('#btnConfirmarImportarArca').prop('disabled', false);
             }
-        }).fail(function(xhr) {
+        }).fail(function() {
             $('#arca_progreso_contenedor').addClass('d-none');
             $('#btnConfirmarImportarArca').prop('disabled', false);
             Swal.fire('Error de comunicación', 'Error en el servidor al ejecutar la importación.', 'error');
@@ -3682,4 +4105,3 @@ function cargarFacturaParaVisualizar(facturaId) {
     }
 
 });
-

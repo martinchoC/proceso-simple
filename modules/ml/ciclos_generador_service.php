@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/posiciones_model.php';
+
 /**
  * Calcular la fecha de vencimiento según la regla de la obligación y ajustar por feriados locales.
  */
@@ -319,13 +321,19 @@ function ciclos_instanciar_tareas(
         $t_venc = clone $dt_venc_c;
         if ($off_venc != 0) $t_venc->modify("{$off_venc} days");
 
-        // Buscar versión vigente del procedimiento si tiene procedimiento asociado
+        // Buscar versión vigente del procedimiento (estado 2059) si tiene procedimiento asociado
         $prc_ver_id = null;
         if (!empty($tpl['procedimiento_id'])) {
             $pid = intval($tpl['procedimiento_id']);
-            $res_pv = mysqli_query($conexion, "SELECT procedimiento_version_id FROM ml__procedimientos_versiones WHERE procedimiento_id = {$pid} AND tabla_estado_registro_id = 1 ORDER BY vigente_desde DESC LIMIT 1");
+            $res_pv = mysqli_query($conexion, "SELECT procedimiento_version_id FROM ml__procedimientos_versiones WHERE procedimiento_id = {$pid} AND tabla_estado_registro_id = 2059 ORDER BY vigente_desde DESC LIMIT 1");
             if ($rpv = mysqli_fetch_assoc($res_pv)) {
                 $prc_ver_id = intval($rpv['procedimiento_version_id']);
+            } else {
+                // Si no hay versión 2059 confirmada, asociar la última versión registrada
+                $res_pv_fallback = mysqli_query($conexion, "SELECT procedimiento_version_id FROM ml__procedimientos_versiones WHERE procedimiento_id = {$pid} ORDER BY procedimiento_version_id DESC LIMIT 1");
+                if ($rpv_fb = mysqli_fetch_assoc($res_pv_fallback)) {
+                    $prc_ver_id = intval($rpv_fb['procedimiento_version_id']);
+                }
             }
         }
 
@@ -393,6 +401,101 @@ function ciclos_instanciar_tareas(
             }
         }
         mysqli_stmt_close($stmt_dep);
+    }
+
+    // 3. Instanciar roles RACI dinámicos vinculados a la posición y supervisor (ml__ciclos_tareas_raci)
+    foreach ($plantillas as $tpl) {
+        $tpl_id = intval($tpl['tarea_plantilla_id']);
+        $cta_id = $mapa_plantilla_tarea[$tpl_id] ?? 0;
+        if ($cta_id <= 0) continue;
+
+        // Consultar roles RACI definidos en la plantilla
+        $sql_raci = "SELECT tpr.posicion_id, tpr.raci_rol_id, tpr.usar_supervisor_como_aprobador
+                     FROM ml__tareas_plantillas_raci tpr
+                     WHERE tpr.tarea_plantilla_id = ? AND tpr.tabla_estado_registro_id = 1
+                     ORDER BY tpr.raci_rol_id ASC";
+        $stmt_r = mysqli_prepare($conexion, $sql_raci);
+        mysqli_stmt_bind_param($stmt_r, "i", $tpl_id);
+        mysqli_stmt_execute($stmt_r);
+        $res_r = mysqli_stmt_get_result($stmt_r);
+        $roles_plantilla = mysqli_fetch_all($res_r, MYSQLI_ASSOC);
+        mysqli_stmt_close($stmt_r);
+
+        // Si la plantilla no tiene roles, buscar en ml__obligaciones_asignadas_raci por ciclo
+        if (empty($roles_plantilla)) {
+            $sql_oa_r = "SELECT oar.posicion_id, oar.raci_rol_id, oar.usuario_id
+                         FROM ml__obligaciones_asignadas_raci oar
+                         INNER JOIN ml__ciclos c ON c.obligacion_asignada_id = oar.obligacion_asignada_id
+                         WHERE c.ciclo_id = ? AND oar.tabla_estado_registro_id = 1";
+            $stmt_oar = mysqli_prepare($conexion, $sql_oa_r);
+            mysqli_stmt_bind_param($stmt_oar, "i", $ciclo_id);
+            mysqli_stmt_execute($stmt_oar);
+            $res_oar = mysqli_stmt_get_result($stmt_oar);
+            while ($ro = mysqli_fetch_assoc($res_oar)) {
+                $pos_id = !empty($ro['posicion_id']) ? intval($ro['posicion_id']) : null;
+                $u_id = intval($ro['usuario_id']);
+                if ($u_id > 0) {
+                    $sql_ins_r = "INSERT INTO ml__ciclos_tareas_raci 
+                                  (ciclo_tarea_id, raci_rol_id, posicion_id, usuario_id, empresa_id, vigente_desde, tabla_estado_registro_id, creado_en, creado_por)
+                                  VALUES (?, ?, ?, ?, ?, CURRENT_DATE, 1, CURRENT_TIMESTAMP, ?)";
+                    $stmt_ir = mysqli_prepare($conexion, $sql_ins_r);
+                    mysqli_stmt_bind_param($stmt_ir, "iiiiii", $cta_id, $ro['raci_rol_id'], $pos_id, $u_id, $empresa_id, $usuario_id);
+                    mysqli_stmt_execute($stmt_ir);
+                    mysqli_stmt_close($stmt_ir);
+                }
+            }
+            mysqli_stmt_close($stmt_oar);
+            continue;
+        }
+
+        // Si hay roles configurados en la plantilla:
+        // Primero localizamos la posición del Responsable (R = 1) por si el rol Aprobador (A = 2) usa al supervisor
+        $posicion_responsable_id = null;
+        foreach ($roles_plantilla as $rp) {
+            if (intval($rp['raci_rol_id']) === 1) {
+                $posicion_responsable_id = intval($rp['posicion_id']);
+                break;
+            }
+        }
+
+        foreach ($roles_plantilla as $rp) {
+            $raci_rol_id = intval($rp['raci_rol_id']);
+            $pos_id = intval($rp['posicion_id']);
+            $usar_sup = intval($rp['usar_supervisor_como_aprobador'] ?? 0);
+            $dest_posicion_id = $pos_id;
+            $dest_usuario_id = null;
+
+            // Si es Aprobador (rol 2) y usa supervisor:
+            if ($raci_rol_id === 2 && $usar_sup === 1) {
+                $pos_base = $posicion_responsable_id ?: $pos_id;
+                $sup_info = posicion_obtener_supervisor_de_posicion($conexion, $pos_base);
+                if ($sup_info && !empty($sup_info['superior_posicion_id'])) {
+                    $dest_posicion_id = intval($sup_info['superior_posicion_id']);
+                    if (!empty($sup_info['supervisor_id'])) {
+                        $dest_usuario_id = intval($sup_info['supervisor_id']);
+                    }
+                }
+            }
+
+            // Si aún no tenemos usuario resuelto, resolver el titular activo de la posición
+            if (!$dest_usuario_id && $dest_posicion_id > 0) {
+                $titular = posicion_obtener_titular($conexion, $dest_posicion_id);
+                if ($titular && !empty($titular['usuario_id'])) {
+                    $dest_usuario_id = intval($titular['usuario_id']);
+                }
+            }
+
+            // Si encontramos titular u ocupante, insertamos en ml__ciclos_tareas_raci
+            if ($dest_usuario_id && $dest_usuario_id > 0) {
+                $sql_ins_r = "INSERT INTO ml__ciclos_tareas_raci 
+                              (ciclo_tarea_id, raci_rol_id, posicion_id, usuario_id, empresa_id, vigente_desde, tabla_estado_registro_id, creado_en, creado_por)
+                              VALUES (?, ?, ?, ?, ?, CURRENT_DATE, 1, CURRENT_TIMESTAMP, ?)";
+                $stmt_ir = mysqli_prepare($conexion, $sql_ins_r);
+                mysqli_stmt_bind_param($stmt_ir, "iiiiii", $cta_id, $raci_rol_id, $dest_posicion_id, $dest_usuario_id, $empresa_id, $usuario_id);
+                mysqli_stmt_execute($stmt_ir);
+                mysqli_stmt_close($stmt_ir);
+            }
+        }
     }
 
     return count($plantillas);

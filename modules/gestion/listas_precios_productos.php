@@ -2,6 +2,7 @@
 // Configuración de la página
 $pageTitle = "Gestión de Listas de Precios - Productos";
 $currentPage = 'paginas';
+$ui_simple = true;
 $modudo_idx = 2;
 $empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
@@ -107,19 +108,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </style>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Listas de Precios - Productos</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active">Listas Precios Productos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Precios por lista','', '', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -168,8 +157,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
                                 <div class="col-md-3 d-flex align-items-end justify-content-end">
-                                    <button class="btn btn-primary me-2" id="btnNuevo">Nuevo Precio</button>
-                                    <button class="btn btn-success" id="btnImportarExcel">Importar Excel</button>
+                                    <button class="btn btn-primary me-2" id="btnNuevo" data-funcion="agregar">Nuevo Precio</button>
+                                    <button class="btn btn-success" id="btnImportarExcel" data-funcion="agregar">Importar Excel</button>
                                 </div>
                             </div>
                             <!-- Fila 2: Filtros de lista + buscador combinado -->
@@ -327,7 +316,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div style="position: relative; height: 300px;">
                                     <canvas id="chartMeses"></canvas>
                                 </div>
-                                <small class="text-muted">Hacé click en una barra para ver el listado de ese mes.</small>
+                                <?= ui_ayuda('Hacé click en una barra para ver el listado de ese mes.') ?>
                             </div>
                         </div>
                     </div>
@@ -340,7 +329,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div style="position: relative; height: 300px;">
                                     <canvas id="chartAntiguedad"></canvas>
                                 </div>
-                                <small class="text-muted">Click en una barra para ver el detalle.</small>
+                                <?= ui_ayuda('Click en una barra para ver el detalle.') ?>
                             </div>
                         </div>
                     </div>
@@ -409,9 +398,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx)</label>
+                            <label for="archivoExcel" class="form-label">Archivo Excel (.xlsx) <?= ui_ayuda('El archivo debe tener la columna A con el código del producto y la columna C con el precio.') ?></label>
                             <input type="file" class="form-control" id="archivoExcel" accept=".xlsx, .xls" required>
-                            <small class="text-muted">El archivo debe tener la columna A con el código del producto y la columna C con el precio.</small>
                         </div>
                         <div id="importProgress" style="display: none;">
                             <div class="progress">
@@ -459,7 +447,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <label>Precio Unitario *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="precio_unitario" step="0.01" min="0" required>
+                                    <input type="number" class="form-control" id="precio_unitario" step="0.0001" min="0" required>
                                 </div>
                                 <div class="invalid-feedback">El precio es obligatorio</div>
                             </div>
@@ -816,7 +804,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     d.busqueda = terminoBusquedaActual;
                 }
             },
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
             drawCallback: function(settings) {
                 // Server-side: el total ya viene filtrado desde el backend
                 // (recordsFiltered), no se recuenta en el navegador.
@@ -910,7 +898,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: 'precio_unitario',
                     className: 'text-end',
                     responsivePriority: 3,
-                    render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    render: data => '$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                 },
                 {
                     data: 'precio_con_iva',
@@ -920,17 +908,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     render: function(data, type, row) {
                         if (type !== 'display') return data;
                         var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
-                        var formateado = parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        var formateado = Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         return '<span title="IVA ' + iva + '%">$ ' + formateado + '</span>';
                     }
                 },
-                { data: 'f_actualizacion', responsivePriority: 7, render: data => data ? new Date(data).toLocaleString() : '-' },
+                { data: 'f_actualizacion', responsivePriority: 7, render: data => data ? Fmt.fechaHora(data) : '-' },
                 {
                     data: null, orderable: false, className: "text-center",
                     responsivePriority: 1,
                     render: data => `<div class="btn-group btn-group-sm">
-                                        <button class="btn btn-primary btnEditar"><i class="fa fa-edit"></i></button>
-                                        <button class="btn btn-danger btnEliminar"><i class="fa fa-trash"></i></button>
+                                        <button class="btn btn-primary btnEditar" data-funcion="editar"><i class="fa fa-edit"></i></button>
+                                        <button class="btn btn-danger btnEliminar" data-funcion="inactivar"><i class="fa fa-trash"></i></button>
                                     </div>`
                 }
             ]
@@ -967,9 +955,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
                     $('#lista_precio_id').val(res.lista_precio_id);
                     $('#producto_id').val(res.producto_id);
-                    // toFixed(2): la base guarda más decimales de precisión, pero
-                    // para editar a mano alcanza con 2 (evita ver "1500.000000").
-                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
+                    // toFixed(4): la base guarda 6 decimales; 4 alcanzan para cargar netos
+                    // que con el IVA cierren al centavo (evita ver "1500.000000").
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(4));
                     $('#ajuste_id').val(res.ajuste_id);
                     new bootstrap.Modal(document.getElementById('modalListaPrecioProducto')).show();
                 } else Swal.fire('Error', 'Error al obtener datos', 'error');
@@ -1242,7 +1230,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     });
     </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="<?= asset_local('js/chart.js-4.4.1/chart.umd.min.js') ?>"></script>
     <script>
     // ========== DASHBOARD (pestaña) ==========
     // VERSION 2026-09-30. Se carga recién la primera vez que se abre la
@@ -1257,11 +1245,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         let tablaDetalle = null;
         let totalListasActual = 0;
 
-        const fmtNum = n => (n || 0).toLocaleString('es-AR');
+        const fmtNum = n => Fmt.numero((n || 0));
         const fmtMoneda = n => (n === null || n === undefined || n === '') ? '-' :
-            '$ ' + parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const fmtPct = (parte, total) => total > 0 ? (parte * 100 / total).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%' : '-';
-        const fmtFecha = f => f ? new Date(f.replace(' ', 'T')).toLocaleString('es-AR') : '-';
+            '$ ' + Fmt.numero(parseFloat(n), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtPct = (parte, total) => total > 0 ? Fmt.numero((parte * 100 / total), { maximumFractionDigits: 1 }) + '%' : '-';
+        const fmtFecha = f => f ? Fmt.fechaHora(f) : '-';
         const esc = t => $('<div>').text(t === null || t === undefined ? '' : String(t)).html();
 
         function etiquetaMes(mes) {
@@ -1337,7 +1325,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             $('#kpiPrecios').text(fmtNum(k.precios_activos));
             $('#kpiPreciosSub').text(k.margen_promedio !== null
-                ? 'Margen promedio s/costo: ' + k.margen_promedio.toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '%'
+                ? 'Margen promedio s/costo: ' + Fmt.numero(k.margen_promedio, { maximumFractionDigits: 1 }) + '%'
                 : 'Sin costos cargados para calcular margen');
 
             $('#kpiAct30').text(fmtNum(k.actualizados_30));
@@ -1503,7 +1491,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     { title: 'Listas con precio', data: 'listas_con_precio', className: 'text-center',
                       render: (d, t) => t === 'display' ? d + ' de ' + totalListas : d },
                     { title: '', data: null, orderable: false, className: 'text-center',
-                      render: () => '<button class="btn btn-success btn-sm btnDashCargarPrecio" title="Cargar precio"><i class="fas fa-plus"></i></button>' }
+                      render: () => '<button class="btn btn-success btn-sm btnDashCargarPrecio" data-funcion="agregar" title="Cargar precio"><i class="fas fa-plus"></i></button>' }
                 ];
                 orden = [[0, 'asc']];
             } else {
@@ -1518,12 +1506,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                           if (t !== 'display') return d === null ? -99999 : parseFloat(d);
                           if (d === null) return '-';
                           const v = parseFloat(d);
-                          return `<span class="${v < 0 ? 'text-danger fw-semibold' : ''}">${v.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%</span>`;
+                          return `<span class="${v < 0 ? 'text-danger fw-semibold' : ''}">${Fmt.numero(v, { maximumFractionDigits: 1 })}%</span>`;
                       } },
                     { title: 'Últ. actualización', data: 'f_actualizacion', render: (d, t) => t === 'display' ? fmtFecha(d) : d },
                     { title: 'Días', data: 'dias', className: 'text-end' },
                     { title: '', data: null, orderable: false, className: 'text-center',
-                      render: () => '<button class="btn btn-primary btn-sm btnDashEditarPrecio" title="Editar precio"><i class="fa fa-edit"></i></button>' }
+                      render: () => '<button class="btn btn-primary btn-sm btnDashEditarPrecio" data-funcion="editar" title="Editar precio"><i class="fa fa-edit"></i></button>' }
                 ];
                 orden = [[7, 'desc']];
             }
@@ -1539,7 +1527,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     { extend: 'excelHtml5', text: '<i class="fas fa-file-excel"></i> Excel', className: 'btn btn-success btn-sm',
                       title: titulo, exportOptions: { columns: columnasExport } }
                 ],
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' }
+                language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' }
             });
             $('#tablaDashDetalle').data('lista-contexto', listaId);
         }
@@ -1574,7 +1562,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     $('#lista_precio_producto_id').val(res.lista_precio_producto_id);
                     $('#lista_precio_id').val(res.lista_precio_id);
                     $('#producto_id').val(res.producto_id);
-                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(2));
+                    $('#precio_unitario').val(parseFloat(res.precio_unitario).toFixed(4));
                     $('#ajuste_id').val(res.ajuste_id);
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('modalListaPrecioProducto')).show();
                 });
@@ -1620,13 +1608,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     });
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+     <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
      <!-- Plugin Responsive de DataTables: no asumo que ya esté cargado en el
           template compartido (no tengo header1.php/footer para confirmarlo),
           así que lo incluyo acá para que "responsive: true" funcione seguro. -->
-     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-     <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 </main>
 
 <?php

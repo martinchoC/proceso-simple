@@ -137,10 +137,11 @@ $(document).ready(function () {
 
     // Cargar botón de agregar según permisos
     $.get('ddjj_ajax.php', { accion: 'obtener_boton_agregar' }, function (res) {
-        if (res.tiene_permiso) {
+        if (res && (res.tiene_permiso || res.nombre_funcion)) {
+            const texto = res.nombre_funcion || res.texto || 'Nueva DDJJ';
             $('#contenedor-boton-agregar').html(
                 `<button type="button" class="btn btn-primary btn-sm" id="btnNuevaDdjj">
-                    <i class="fas fa-plus me-1"></i>${res.texto || 'Nueva DDJJ'}
+                    <i class="fas fa-plus me-1"></i>${texto}
                 </button>`
             );
         }
@@ -192,14 +193,26 @@ $(document).ready(function () {
         $('#empleador_id').prop('disabled', false);
         $('#periodo').prop('disabled', false);
 
-        // Período actual por defecto AAAAMM
-        const hoy = new Date();
-        const a = hoy.getFullYear();
-        const m = String(hoy.getMonth() + 1).padStart(2, '0');
-        $('#periodo').val(`${a}${m}`);
+        // Preseleccionar empleador si estaba seleccionado en el filtro superior
+        const empFiltro = $('#filtroEmpleador').val();
+        if (empFiltro) {
+            $('#empleador_id').val(empFiltro).trigger('change');
+        } else {
+            cargarSucursales(null);
+        }
+
+        // Período actual o filtrado por defecto AAAAMM
+        const perFiltro = $('#filtroPeriodo').val();
+        if (perFiltro && perFiltro.length === 6) {
+            $('#periodo').val(perFiltro);
+        } else {
+            const hoy = new Date();
+            const a = hoy.getFullYear();
+            const m = String(hoy.getMonth() + 1).padStart(2, '0');
+            $('#periodo').val(`${a}${m}`);
+        }
 
         empleadosMemoria = [];
-        cargarSucursales(null);
         renderizarTablaNomina();
         $('#modalDdjj').modal('show');
     });
@@ -620,7 +633,7 @@ $(document).ready(function () {
             <html>
                 <head>
                     <title>Constancia DDJJ</title>
-                    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+                    <link rel="stylesheet" href="${window.APP_ASSETS_URL}css/bootstrap-5.3.2/bootstrap.min.css">
                     <style>body { font-family: sans-serif; padding: 2rem; }</style>
                 </head>
                 <body>${contenido}</body>

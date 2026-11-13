@@ -13,6 +13,8 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 45);
+// Solo una página de este módulo (si no, la de comprobantes_tipos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'comprobantes_tipos.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -67,6 +69,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'codigo' => trim($_POST['codigo'] ?? ''),
                 'comprobante_tipo' => trim($_POST['comprobante_tipo'] ?? ''),
@@ -90,6 +94,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['comprobante_tipo_id'] ?? 0);
             $data = [
                 'codigo' => trim($_POST['codigo'] ?? ''),
@@ -121,6 +127,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $comprobante_tipo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -140,21 +148,68 @@ try {
             }
             break;
         
+        // Función "Copiar": el formulario llega precargado con el original y editado por el usuario
         case 'copiar':
-            $id = intval($_POST['comprobante_tipo_id'] ?? 0);
+            $pagina_copia = pagina_id_por_url($conexion, 5, 'comprobantes_tipos.php');
+            if (!usuario_puede_funcion($conexion, intval($ctx['usuario_id']), $empresa_idx, $pagina_copia, 'copiar')) {
+                http_response_code(403);
+                echo json_encode(['resultado' => false, 'error' => 'No tiene permiso para copiar tipos de comprobante.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $id = intval($_POST['copia_de_id'] ?? 0);
             $data = [
                 'codigo' => trim($_POST['codigo'] ?? ''),
                 'comprobante_tipo' => trim($_POST['comprobante_tipo'] ?? ''),
+                'comprobante_grupo_id' => intval($_POST['comprobante_grupo_id'] ?? 0),
+                'comprobante_subgrupo_id' => intval($_POST['comprobante_subgrupo_id'] ?? 0),
+                'comprobante_fiscal_id' => intval($_POST['comprobante_fiscal_id'] ?? 0),
+                'letra' => trim($_POST['letra'] ?? ''),
+                'signo' => $_POST['signo'] ?? '+',
+                'orden' => intval($_POST['orden'] ?? 1),
+                'comentario' => trim($_POST['comentario'] ?? ''),
+                'impacta_stock' => intval($_POST['impacta_stock'] ?? 0),
+                'stock_signo' => $_POST['stock_signo'] ?? null,
+                'impacta_contabilidad' => intval($_POST['impacta_contabilidad'] ?? 0),
+                'impacta_ctacte' => intval($_POST['impacta_ctacte'] ?? 0),
+                'copiar_relaciones' => intval($_POST['copiar_relaciones'] ?? 0),
+                'copiar_puntos_venta' => intval($_POST['copiar_puntos_venta'] ?? 0),
                 'empresa_idx' => $empresa_idx
             ];
-            
+
             if (empty($id)) {
                 echo json_encode(['resultado' => false, 'error' => 'ID del tipo original no proporcionado'], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            
-            $resultado = copiarComprobanteTipo($conexion, $id, $data);
+
+            $resultado = copiarComprobanteTipo($conexion, $id, $data, intval($ctx['usuario_id']));
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        // Función "Relaciones": qué tipos cancela y de qué comprobante padre depende (comprobantes_tipos_relaciones_model.php)
+        case 'relaciones_obtener':
+        case 'relaciones_guardar':
+            require_once __DIR__ . '/comprobantes_tipos_relaciones_model.php';
+            $pagina_rel = pagina_id_por_url($conexion, 5, 'comprobantes_tipos.php');
+            if (!usuario_puede_funcion($conexion, intval($ctx['usuario_id']), $empresa_idx, $pagina_rel, 'relaciones')) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tiene permiso para las relaciones entre tipos.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            try {
+                $tipo_id = intval($_GET['comprobante_tipo_id'] ?? $_POST['comprobante_tipo_id'] ?? 0);
+                if ($accion === 'relaciones_obtener') {
+                    echo json_encode(['success' => true, 'data' => ctrObtener($conexion, $empresa_idx, $tipo_id)], JSON_UNESCAPED_UNICODE);
+                } else {
+                    $cancela = json_decode($_POST['cancela'] ?? '[]', true);
+                    $padres = json_decode($_POST['padres'] ?? '[]', true);
+                    [$altas, $bajas] = ctrGuardar($conexion, $empresa_idx, intval($ctx['usuario_id']), $tipo_id,
+                                                  is_array($cancela) ? $cancela : [], is_array($padres) ? $padres : []);
+                    echo json_encode(['success' => true, 'data' => ['altas' => $altas, 'bajas' => $bajas],
+                                      'message' => "Relaciones guardadas ($altas cambios, $bajas quitadas)."], JSON_UNESCAPED_UNICODE);
+                }
+            } catch (Exception $ex) {
+                echo json_encode(['success' => false, 'message' => $ex->getMessage()], JSON_UNESCAPED_UNICODE);
+            }
             break;
 
         default:

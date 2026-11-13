@@ -56,6 +56,34 @@ function obtenerIconos($conexion)
     return $data;
 }
 
+/** Colores del catálogo para destacar páginas en el menú (header1.php usa el color de Bootstrap de color_clase). */
+function obtenerColoresMenu($conexion)
+{
+    $res = mysqli_query($conexion, "SELECT color_id, nombre_color, color_clase FROM conf__colores
+                                    WHERE tabla_estado_registro_id = 1 ORDER BY color_id");
+    $data = [];
+    while ($res && ($fila = mysqli_fetch_assoc($res))) {
+        $data[] = $fila;
+    }
+    return $data;
+}
+
+/**
+ * Destacado en el menú, normalizado: [menu_estilo ('' | RESALTADO | BORDE), menu_color_id (int|null),
+ * menu_etiqueta (string|null, hasta 15 caracteres)].
+ */
+function paginaMenuDestacado(array $data): array
+{
+    $estilo = strtoupper(trim((string) ($data['menu_estilo'] ?? '')));
+    if (!in_array($estilo, ['RESALTADO', 'BORDE'], true)) {
+        $estilo = '';
+    }
+    $color = isset($data['menu_color_id']) && is_numeric($data['menu_color_id']) && intval($data['menu_color_id']) > 0
+        ? intval($data['menu_color_id']) : null;
+    $etiqueta = mb_substr(trim((string) ($data['menu_etiqueta'] ?? '')), 0, 15);
+    return [$estilo, $color, $etiqueta !== '' ? $etiqueta : null];
+}
+
 function obtenerTablaTipos($conexion)
 {
     $sql = "SELECT * FROM conf__tablas_tipos WHERE tabla_estado_registro_id = 1 ORDER BY tabla_tipo_nombre";
@@ -459,13 +487,14 @@ function obtenerpaginas($conexion, $modulo_id = null)
 {
     $sql = "SELECT p.*,  m.modulo,  padre.pagina as padre_nombre, 
                    conf__tablas.tabla_nombre, conf__iconos.icono_nombre, 
-                   conf__iconos.icono_clase,
+                   conf__iconos.icono_clase, mc.color_clase AS menu_color_clase,
                    (SELECT COUNT(*) FROM conf__paginas_funciones pf WHERE pf.pagina_id = p.pagina_id) as tiene_funciones
             FROM conf__paginas p
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id
             LEFT JOIN conf__paginas padre ON p.padre_id = padre.pagina_id
             LEFT JOIN conf__tablas ON p.tabla_id = conf__tablas.tabla_id
-            LEFT JOIN conf__iconos ON p.icono_id = conf__iconos.icono_id";
+            LEFT JOIN conf__iconos ON p.icono_id = conf__iconos.icono_id
+            LEFT JOIN conf__colores mc ON mc.color_id = p.menu_color_id";
 
     if ($modulo_id !== null && $modulo_id !== '' && $modulo_id > 0) {
         $modulo_id = intval($modulo_id);
@@ -501,9 +530,12 @@ function agregarpagina($conexion, $data)
     // Sin acceso directo no tiene sentido un orden de acceso directo
     $orden_acceso_directo = $es_acceso_directo && isset($data['orden_acceso_directo']) && is_numeric($data['orden_acceso_directo']) ? intval($data['orden_acceso_directo']) : null;
 
+    [$menu_estilo, $menu_color_id, $menu_etiqueta] = paginaMenuDestacado($data);
+
     $sql = "INSERT INTO conf__paginas
-            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, pagina_patron_id, es_acceso_directo, orden_acceso_directo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            (pagina, url, pagina_descripcion, orden, tabla_id, padre_id, modulo_id, tabla_estado_registro_id, icono_id, pagina_patron_id, es_acceso_directo, orden_acceso_directo,
+             menu_estilo, menu_color_id, menu_etiqueta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -511,7 +543,7 @@ function agregarpagina($conexion, $data)
         return false;
     }
 
-    mysqli_stmt_bind_param($stmt, "sssiiiiiiiii",
+    mysqli_stmt_bind_param($stmt, "sssiiiiiiiiisis",
         $pagina,
         $url,
         $pagina_descripcion,
@@ -523,7 +555,10 @@ function agregarpagina($conexion, $data)
         $icono_id,
         $pagina_patron_id,
         $es_acceso_directo,
-        $orden_acceso_directo
+        $orden_acceso_directo,
+        $menu_estilo,
+        $menu_color_id,
+        $menu_etiqueta
     );
 
     $res = mysqli_stmt_execute($stmt);
@@ -567,8 +602,13 @@ function editarpagina($conexion, $id, $data)
             tabla_estado_registro_id = ?,
             pagina_patron_id = ?,
             es_acceso_directo = ?,
-            orden_acceso_directo = ?
+            orden_acceso_directo = ?,
+            menu_estilo = ?,
+            menu_color_id = ?,
+            menu_etiqueta = ?
             WHERE pagina_id = ?";
+
+    [$menu_estilo, $menu_color_id, $menu_etiqueta] = paginaMenuDestacado($data);
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
@@ -576,7 +616,7 @@ function editarpagina($conexion, $id, $data)
         return false;
     }
 
-    mysqli_stmt_bind_param($stmt, "sssiiiiiiiiii",
+    mysqli_stmt_bind_param($stmt, "sssiiiiiiiiisisi",
         $pagina,
         $url,
         $pagina_descripcion,
@@ -589,6 +629,9 @@ function editarpagina($conexion, $id, $data)
         $pagina_patron_id,
         $es_acceso_directo,
         $orden_acceso_directo,
+        $menu_estilo,
+        $menu_color_id,
+        $menu_etiqueta,
         $id
     );
 

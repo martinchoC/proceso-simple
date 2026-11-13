@@ -2,34 +2,20 @@
 /**
  * Vista: IVA - Posición Mensual — IVA Ventas, IVA Compras, percepciones y retenciones por mes, y liquidación
  * de la posición del período (I_LIQ si da a pagar). Módulo 2: Gestión de Empresas — Página ID 117.
- * Script: sql/mantenimiento/20261011_iva_posiciones_01.sql
+ * Script: _local/sql/mantenimiento/20261011_iva_posiciones_01.sql
  */
 $pageTitle = "IVA - Posición Mensual";
 $currentPage = 'iva_posiciones';
 $modudo_idx = 2;
 $pagina_idx = 117;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold"><i class="fas fa-percent me-2 text-primary"></i>IVA - Posición Mensual</h3>
-                    <small class="text-muted">Débito y crédito fiscal, percepciones y retenciones por mes; liquidación de la posición del período.</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">IVA - Posición Mensual</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Posición mensual de IVA','fas fa-percent', 'Débito y crédito fiscal, percepciones y retenciones por mes; liquidación de la posición del período.', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -69,7 +55,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="card-header py-2 d-flex flex-wrap gap-2 align-items-center">
                     <span class="fw-bold">Período <span id="ivaPeriodoTitulo"></span></span>
                     <div class="ms-auto d-flex gap-2">
-                        <button type="button" id="btnIvaLibro" class="btn btn-outline-primary btn-sm"><i class="fas fa-file-csv me-1"></i>Libro IVA (CSV)</button>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-file-csv me-1"></i>Libro IVA (CSV)</button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item btn-iva-csv" href="#" data-libro="VENTAS">Libro IVA Ventas</a></li>
+                                <li><a class="dropdown-item btn-iva-csv" href="#" data-libro="COMPRAS">Libro IVA Compras</a></li>
+                                <li><a class="dropdown-item btn-iva-csv" href="#" data-libro="">Ventas y compras (resumido)</a></li>
+                            </ul>
+                        </div>
                         <button type="button" id="btnIvaLiquidar" class="btn btn-success btn-sm d-none"><i class="fas fa-file-invoice-dollar me-1"></i>Liquidar período</button>
                         <button type="button" id="btnIvaAnular" class="btn btn-outline-danger btn-sm d-none"><i class="fas fa-ban me-1"></i>Anular liquidación</button>
                     </div>
@@ -82,27 +75,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabVentas" type="button">IVA Ventas</button></li>
                         <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabCompras" type="button">IVA Compras</button></li>
                         <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabPercRet" type="button">Percepciones y retenciones</button></li>
-                        <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabLibro" type="button">Comprobantes</button></li>
+                        <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabLibroVentas" type="button">Libro IVA Ventas</button></li>
+                        <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#ivaTabLibroCompras" type="button">Libro IVA Compras</button></li>
                     </ul>
                     <div class="tab-content border border-top-0 p-2">
                         <div class="tab-pane fade show active" id="ivaTabPosicion"></div>
                         <div class="tab-pane fade" id="ivaTabVentas"></div>
                         <div class="tab-pane fade" id="ivaTabCompras"></div>
                         <div class="tab-pane fade" id="ivaTabPercRet"></div>
-                        <div class="tab-pane fade" id="ivaTabLibro">
-                            <div class="table-responsive">
-                                <table id="tablaIvaLibro" class="table table-sm table-striped align-middle mb-0" style="width:100%">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Libro</th><th>Fecha</th><th>Comprobante</th><th>Entidad</th><th>CUIT</th>
-                                            <th class="text-end">Neto</th><th class="text-end">IVA</th><th class="text-end">No grav. / Exento</th>
-                                            <th class="text-end">Percep. / otros</th><th class="text-end">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <div class="tab-pane fade" id="ivaTabLibroVentas" data-libro="VENTAS"></div>
+                        <div class="tab-pane fade" id="ivaTabLibroCompras" data-libro="COMPRAS"></div>
                     </div>
                 </div>
             </div>
@@ -125,9 +107,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                     <div id="ivaLiqPagar">
                         <div class="mb-2">
-                            <label class="form-label small fw-bold mb-0" for="ivaLiqEntidad">Organismo recaudador *</label>
+                            <label class="form-label small fw-bold mb-0" for="ivaLiqEntidad">Organismo recaudador * <?= ui_ayuda('Entidad proveedora a la que se le debe (ARCA).') ?></label>
                             <select class="form-select form-select-sm" id="ivaLiqEntidad"></select>
-                            <div class="form-text">Entidad proveedora a la que se le debe (ARCA).</div>
                         </div>
                         <div class="row g-2">
                             <div class="col-6">
@@ -154,7 +135,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="iva_posiciones.js?v=<?= filemtime(__DIR__ . '/iva_posiciones.js') ?>"></script>
 
 <?php

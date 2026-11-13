@@ -1,5 +1,6 @@
 <?php
 // Configuración de la página
+require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
 
@@ -7,37 +8,22 @@ $pageTitle = "Gestión de Productos";
 $currentPage = 'productos';
 $modudo_idx = 2;
 $pagina_idx = 40; // ID de página para gestión de productos
-$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
-
-// Las listas de precios se traen acá (en el render de la página) y no por AJAX
-// al cargar, para no sumar una vuelta de red extra antes de poder pedir los
-// productos: el DataTable arranca directo con esto ya resuelto.
-$listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+
+// Las listas de precios se traen acá (después de header1.php para asegurar sesión
+// y empresa activa resueltas) y no por AJAX al cargar, para no sumar una vuelta de red:
+// el DataTable arranca directo con esto ya resuelto.
+$empresa_idx = intval($current_empresa_id ?? $_SESSION['empresa_id'] ?? $_GET['empresa_id'] ?? 0);
+$listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
+require_once ROOT_PATH . '/core/productos_presentaciones.php';
+$usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-boxes me-2"></i>Gestión de Productos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Productos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Productos','fas fa-boxes', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -134,12 +120,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="form-control p-1" id="buscadorTagsContainer" style="min-height: 38px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; cursor: text;">
                                                         <input type="text" id="buscadorTagsInput" class="border-0 flex-grow-1" style="min-width: 100px; outline: none; padding: 4px 8px; font-size: 14px;" placeholder="Escribí una palabra y presioná espacio...">
                                                     </div>
+                                                    <span class="input-group-text bg-white"><?= ui_ayuda('Cada palabra que confirmás con Espacio se suma como etiqueta y se combinan. Para dos palabras juntas usá comillas, por ejemplo "renault 18", y confirmá con Espacio o Enter. La X limpia todos los filtros.') ?></span>
                                                     <button type="button" class="btn btn-outline-secondary" id="btnLimpiarTags" title="Limpiar todos los filtros">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </div>
                                                 <small class="text-muted">
-                                                    Presioná <kbd>Espacio</kbd> para agregar una etiqueta (se combinan). Para nombres de dos palabras usá comillas, ej. <em>"renault 18"</em>, y luego espacio o <kbd>Enter</kbd> para confirmarla como una sola. La <i class="fas fa-times"></i> limpia todos los filtros.
                                                     <span id="infoFiltros" class="badge bg-light text-dark ms-1" style="display:none;"></span>
                                                 </small>
                                             </div>
@@ -336,6 +322,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <span><i class="bi bi-circle-fill text-secondary"></i>Sin control (mínimo vacío)</span>
                                             </div>
                                         </div>
+
+                                        <?php if ($usa_presentaciones): ?>
+                                        <!-- Presentaciones (caja, pack, pallet): solo si la empresa las usa. Se graban con el producto. -->
+                                        <div class="mt-3">
+                                            <?php include ROOT_PATH . '/templates/productos/presentaciones_seccion.php'; ?>
+                                        </div>
+                                        <?php endif; ?>
                                     </form>
                                 </div>
 
@@ -456,9 +449,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <table id="tablaProveedores" class="table table-sm table-hover mb-0">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th width="35%" class="py-1">Proveedor</th>
+                                                    <th width="10%" class="py-1 text-center">Principal</th>
+                                                    <th width="30%" class="py-1">Proveedor</th>
                                                     <th width="20%" class="py-1">CUIT</th>
-                                                    <th width="30%" class="py-1">Código de Proveedor</th>
+                                                    <th width="25%" class="py-1">Código de Proveedor</th>
                                                     <th width="15%" class="py-1 text-center">Acciones</th>
                                                 </tr>
                                             </thead>
@@ -468,6 +462,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <div class="alert alert-info mt-3">
                                         <i class="fas fa-info-circle me-2"></i>
                                         Puede asignar múltiples proveedores a un mismo producto con diferentes códigos.
+                                        El proveedor <i class="fas fa-star text-warning"></i> principal es el único cuya lista
+                                        (Lista Precios Proveedores) actualiza el costo y los precios de venta del producto;
+                                        si no se elige ninguno, es el primero que se vinculó.
                                     </div>
                                 </div>
 
@@ -556,13 +553,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="submodelo_id" class="form-label form-label-sm">Submodelo</label>
+                                        <label for="submodelo_id" class="form-label form-label-sm">Submodelo <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select form-select-sm" id="submodelo_id" name="submodelo_id"
                                             disabled>
                                             <option value="">Seleccionar submodelo...</option>
                                             <option value="0">Sin submodelo</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label for="anio_desde" class="form-label form-label-sm">Año Desde *</label>
@@ -573,12 +569,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">Seleccione el año inicial</div>
                                     </div>
                                     <div class="col-md-3 mb-3">
-                                        <label for="anio_hasta" class="form-label form-label-sm">Año Hasta</label>
+                                        <label for="anio_hasta" class="form-label form-label-sm">Año Hasta <?= ui_ayuda('Dejar vacío para actual') ?></label>
                                         <select class="form-select form-select-sm" id="anio_hasta" name="anio_hasta">
                                             <option value="">Año...</option>
                                             <option value="0">Actual</option>
                                         </select>
-                                        <div class="form-text">Dejar vacío para actual</div>
                                     </div>
                                 </div>
                             </form>
@@ -674,12 +669,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row mb-3">
                                     <div class="col-md-12">
-                                        <label for="imagen_archivo" class="form-label form-label-sm">Imagen *</label>
+                                        <label for="imagen_archivo" class="form-label form-label-sm">Imagen * <?= ui_ayuda('JPG, PNG, GIF o WebP de hasta 1 MB. Se guarda achicada a 1200 px de lado y optimizada para la web.') ?></label>
                                         <input type="file" class="form-control form-control-sm" id="imagen_archivo"
                                             name="imagen" accept="image/*" required>
                                         <div class="invalid-feedback">Seleccione una imagen</div>
-                                        <div class="form-text">Formatos permitidos: JPG, PNG, GIF, WebP. Tamaño máximo:
-                                            5MB</div>
+                                        
                                     </div>
                                 </div>
 
@@ -705,10 +699,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="form-text">La imagen principal se mostrará como destacada</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="orden_imagen" class="form-label form-label-sm">Orden</label>
+                                        <label for="orden_imagen" class="form-label form-label-sm">Orden <?= ui_ayuda('Orden de visualización (menor = primero)') ?></label>
                                         <input type="number" class="form-control form-control-sm" id="orden_imagen"
                                             name="orden" min="0" value="0">
-                                        <div class="form-text">Orden de visualización (menor = primero)</div>
                                     </div>
                                 </div>
 
@@ -938,10 +931,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="codigo_proveedor" class="form-label">Código de Proveedor</label>
+                                    <label for="codigo_proveedor" class="form-label">Código de Proveedor <?= ui_ayuda('Opcional - Código con el que el proveedor identifica este producto') ?></label>
                                     <input type="text" class="form-control" id="codigo_proveedor"
                                         name="codigo_proveedor" maxlength="50" placeholder="Código que usa el proveedor">
-                                    <div class="form-text">Opcional - Código con el que el proveedor identifica este producto</div>
+                                </div>
+
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="proveedor_es_principal" name="es_principal" value="1">
+                                    <label class="form-check-label" for="proveedor_es_principal">Proveedor principal</label>
+                                    <div class="form-text" id="proveedor_es_principal_ayuda">Su lista de precios es la que actualiza el costo y los precios de venta del producto.</div>
                                 </div>
                             </form>
                         </div>
@@ -975,12 +973,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <input type="hidden" id="lista_precio_producto_id_precio" name="lista_precio_producto_id" />
 
                                 <div class="mb-3">
-                                    <label for="lista_precio_id_precio" class="form-label">Lista de Precios *</label>
+                                    <label for="lista_precio_id_precio" class="form-label">Lista de Precios * <?= ui_ayuda('Al editar, la lista no se puede cambiar: elimine el precio y agréguelo en la lista correcta si se equivocó.') ?></label>
                                     <select class="form-select" id="lista_precio_id_precio" name="lista_precio_id" required>
                                         <option value="">Seleccionar lista...</option>
                                     </select>
                                     <div class="invalid-feedback">Seleccione una lista</div>
-                                    <div class="form-text">Al editar, la lista no se puede cambiar: elimine el precio y agréguelo en la lista correcta si se equivocó.</div>
+                                    
                                 </div>
 
                                 <div class="mb-3">
@@ -1021,11 +1019,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formAltaProducto" class="needs-validation" novalidate>
                                 <input type="hidden" id="alta_producto_id" name="alta_producto_id" />
                                 <div class="mb-3">
-                                    <label for="motivo_alta" class="form-label">Motivo del Alta *</label>
+                                    <label for="motivo_alta" class="form-label">Motivo del Alta * <?= ui_ayuda('Máximo 500 caracteres') ?></label>
                                     <textarea class="form-control" id="motivo_alta" name="motivo_alta" rows="3"
                                         maxlength="500" required></textarea>
                                     <div class="invalid-feedback">Por favor ingrese el motivo del alta</div>
-                                    <div class="form-text">Máximo 500 caracteres</div>
+                                    
                                 </div>
                                 <div class="mb-3">
                                     <label for="fecha_alta" class="form-label">Fecha de Alta *</label>
@@ -1699,6 +1697,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             var productoActualCompatibilidad = null;
             var productoActualImagenes = null;
             var productoActualUbicaciones = null;
+            // Presentaciones (caja, pack, pallet): solo si la empresa las usa (la sección está en el formulario)
+            var PRES = window.ProdPres && window.ProdPres.activo() ? window.ProdPres : null;
+            if (PRES) PRES.init({ ajaxUrl: 'productos_ajax.php', empresaIdx: empresa_idx });
             var productoActualProveedores = null;
             var productoActualPrecios = null;
             var imagenesProductoActual = [];
@@ -1801,7 +1802,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <div class="col-auto mb-2">
                                 <div class="thumbnail-wrapper" onclick="$('#carruselProducto').carousel(${idx})"
                                     style="cursor: pointer; border: 3px solid ${idx === indiceInicial ? '#007bff' : 'transparent'}; border-radius: 8px; overflow: hidden; transition: all 0.3s;">
-                                    <img src="${img.imagen_url}" style="width: 80px; height: 80px; object-fit: cover;" 
+                                    <img src="${img.imagen_url}&thumb=1" loading="lazy" decoding="async" width="80" height="80" style="width: 80px; height: 80px; object-fit: cover;" 
                                         alt="Miniatura ${idx + 1}"
                                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'#f8f9fa\'/><text x=\'40\' y=\'40\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';">
                                 </div>
@@ -1890,7 +1891,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         var gravado = selected.data('gravado');
                         var exento = selected.data('exento');
                         var noGravado = selected.data('no-gravado');
-                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
+                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + Fmt.numero(parseFloat(porcentaje), 2) + '%</span>' : '<span class="text-muted">0%</span>');
                         var infoHtml = '';
                         if (exento == 1) infoHtml = '<span class="badge bg-success">EXENTO</span>';
                         else if (noGravado == 1) infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
@@ -2510,7 +2511,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
                     pageLength: 10,
                     searching: false,
@@ -2698,8 +2699,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     dom: 't',
                     buttons: [],
                     pageLength: 10,
@@ -2865,7 +2867,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="col-md-3 mb-3" data-id="${imagen.producto_imagen_id}" data-orden="${imagen.orden || 0}">
                                     <div class="card card-imagen ${clasePrincipal} h-100">
                                         <div class="position-relative">
-                                            <img src="${srcImagen}" class="card-img-top imagen-miniatura" 
+                                            <img src="${srcImagen}&thumb=1&size=200" loading="lazy" decoding="async" class="card-img-top imagen-miniatura" 
                                                 alt="${imagen.descripcion || 'Imagen del producto'}"
                                                 onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'><rect width=\'150\' height=\'150\' fill=\'#f8f9fa\'/><text x=\'75\' y=\'75\' text-anchor=\'middle\' fill=\'#6c757d\' font-family=\'Arial\' font-size=\'12\'>Error</text></svg>';"
                                                 onclick="mostrarImagenGrande('${srcImagen}', '${imagen.descripcion || ''}', ${productoId})">
@@ -2961,6 +2963,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         dataSrc: ''
                     },
                     columns: [
+                        {
+                            data: 'es_principal', className: 'text-center', orderable: false, responsivePriority: 1,
+                            render: function(data, type, row) {
+                                if (parseInt(data) === 1) {
+                                    return '<i class="fas fa-star text-warning" title="Proveedor principal: su lista actualiza el costo del producto"></i>';
+                                }
+                                return `<button type="button" class="btn btn-sm btn-link p-0 text-muted btn-principal-proveedor" data-id="${row.producto_proveedor_id}" title="Marcar como proveedor principal"><i class="far fa-star"></i></button>`;
+                            }
+                        },
                         { data: 'entidad_nombre', responsivePriority: 1, render: function(data) { return data || '-'; } },
                         { data: 'cuit', responsivePriority: 3, render: function(data) { return data || '-'; } },
                         { data: 'codigo_proveedor', responsivePriority: 2, render: function(data) { return data || '-'; } },
@@ -2974,8 +2985,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     pageLength: 10,
                     searching: false,
                     paging: false,
@@ -2996,6 +3008,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             if (res && res.producto_proveedor_id) {
                                 $('#entidad_id').val(res.entidad_id);
                                 $('#codigo_proveedor').val(res.codigo_proveedor || '');
+                                // El principal no se desmarca: se cambia marcando otro proveedor
+                                var esPrincipal = parseInt(res.es_principal_efectivo) === 1;
+                                $('#proveedor_es_principal').prop('checked', esPrincipal).prop('disabled', esPrincipal);
+                                if (esPrincipal) $('#proveedor_es_principal_ayuda').text('Es el proveedor principal. Para cambiarlo, marcá otro proveedor como principal.');
                             }
                         }, 'json');
                     });
@@ -3011,6 +3027,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#producto_proveedor_id').val('');
                 $('#formProveedor').removeClass('was-validated');
                 $('#entidad_id').empty().append('<option value="">Seleccionar proveedor...</option>').prop('disabled', false);
+                $('#proveedor_es_principal').prop('checked', false).prop('disabled', false);
+                $('#proveedor_es_principal_ayuda').text('Su lista de precios es la que actualiza el costo y los precios de venta del producto.');
             }
 
             // ========== FUNCIONES DE PRECIOS (por lista de precios) ==========
@@ -3035,16 +3053,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { data: 'lista_nombre', responsivePriority: 1, render: function(data) { return data || '-'; } },
                         {
                             data: 'precio_unitario', className: 'text-end', responsivePriority: 2,
-                            render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            render: data => '$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         },
                         {
                             data: 'precio_con_iva', className: 'text-end', responsivePriority: 3,
                             render: function(data, type, row) {
                                 var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
-                                return '<span title="IVA ' + iva + '%">$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
+                                return '<span title="IVA ' + iva + '%">$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
                             }
                         },
-                        { data: 'f_actualizacion', responsivePriority: 4, render: data => data ? new Date(data).toLocaleString() : '-' },
+                        { data: 'f_actualizacion', responsivePriority: 4, render: data => data ? Fmt.fechaHora(data) : '-' },
                         {
                             data: 'lista_precio_producto_id', orderable: false, searchable: false, className: "text-center", responsivePriority: 1,
                             render: function(data) {
@@ -3055,8 +3073,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     pageLength: 10,
                     searching: false,
                     paging: false,
@@ -3191,10 +3210,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         cargarIvaAlicuotas();
                         setTimeout(function() {
                             $('#producto_tipo_id').val(res.producto_tipo_id);
-                            $('#unidad_medida_id').val(res.unidad_medida_id || '');
+                            $('#unidad_medida_id').val(res.unidad_medida_id || '').trigger('change');
                             $('#iva_alicuota_id').val(res.iva_alicuota_id || '');
                             if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
                         }, 500);
+                        if (PRES) PRES.cargar(productoId);
                         $('#modalLabel').text('Editar Producto');
                         cargarCompatibilidad(productoId);
                         cargarImagenesProducto(productoId);
@@ -3251,7 +3271,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             }
 
             // Etiqueta de stock según el mínimo que está escrito (se actualiza mientras se tipea).
-            var fmtNivelStock = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
+            var fmtNivelStock = Fmt.numberFormat({ maximumFractionDigits: 4 });
             function pintarNivelStock($tr) {
                 var stock = parseFloat($tr.data('stock')) || 0;
                 var minTxt = $tr.find('.nivel-minimo').val().trim();
@@ -3306,6 +3326,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#galeriaImagenes').empty();
                 $('#sinImagenes').show();
                 cargarNivelesStock(0);
+                if (PRES) PRES.limpiar();
                 if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
                     $('#tablaUbicaciones').DataTable().destroy();
                     $('#tablaUbicaciones tbody').empty();
@@ -3379,7 +3400,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         data: null, width: '150px', className: 'text-end', orderable: false, searchable: false, responsivePriority: 5,
                         render: function(data, type, row) {
                             var fmt = function(n) {
-                                return parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return Fmt.numero(parseFloat(n), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             };
                             var entry = (row.precios_listas || []).find(function(p) {
                                 return String(p.lista_precio_id) === String(lista.lista_precio_id);
@@ -3632,6 +3653,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 return data.map(function(p) {
                                     var titulo = escapeHtml(p.entidad_nombre || 'Proveedor');
                                     var codigo = escapeHtml(p.codigo_proveedor || '');
+                                    if (parseInt(p.es_principal) === 1) {
+                                        return '<span class="badge bg-primary d-block mb-1" title="' + titulo + ' (principal)"><i class="fas fa-star me-1"></i>' + codigo + '</span>';
+                                    }
                                     return '<span class="badge bg-secondary d-block mb-1" title="' + titulo + '">' + codigo + '</span>';
                                 }).join('');
                             }
@@ -3642,8 +3666,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 if (type === 'export') return data ? 'Sí' : 'No';
                                 if (data) {
                                     var rutaImagen = 'get_imagen.php?id=' + data;
+                                    var rutaThumb = 'get_imagen.php?id=' + data + '&thumb=1';
                                     var titulo = (row.producto_nombre || '').replace(/'/g, "\\'");
-                                    return '<img src="' + rutaImagen + '" alt="Prod" class="img-thumbnail rounded-circle" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" onclick="mostrarImagenGrande(\'' + rutaImagen + '\', \'' + titulo + '\', ' + row.producto_id + ')" onerror="this.onerror=null; this.src=\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'50\\\' height=\\\'50\\\'><rect width=\\\'50\\\' height=\\\'50\\\' fill=\\\'#f8f9fa\\\'/><text x=\\\'25\\\' y=\\\'25\\\' text-anchor=\\\'middle\\\' fill=\\\'#6c757d\\\' font-family=\\\'Arial\\\' font-size=\\\'10\\\'>Error</text></svg>\';">';
+                                    return '<img src="' + rutaThumb + '" alt="Prod" loading="lazy" decoding="async" width="50" height="50" class="img-thumbnail rounded-circle" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer;" onclick="mostrarImagenGrande(\'' + rutaImagen + '\', \'' + titulo + '\', ' + row.producto_id + ')" onerror="this.onerror=null; this.src=\'data:image/svg+xml;utf8,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'50\\\' height=\\\'50\\\'><rect width=\\\'50\\\' height=\\\'50\\\' fill=\\\'#f8f9fa\\\'/><text x=\\\'25\\\' y=\\\'25\\\' text-anchor=\\\'middle\\\' fill=\\\'#6c757d\\\' font-family=\\\'Arial\\\' font-size=\\\'10\\\'>Error</text></svg>\';">';
                                 }
                                 return '<div class="text-center text-muted"><i class="fas fa-image fa-lg"></i></div>';
                             }
@@ -3665,7 +3690,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ]),
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     order: currentOrder,
                     responsive: true,
                     createdRow: function(row, data) {
@@ -4001,6 +4026,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
 
                 $('#imagen_archivo').change(function() {
+                    // Mismo tope que IMG_MAX_SUBIDA de core/imagenes.php
+                    if (this.files[0] && this.files[0].size > 1048576) {
+                        UiSimple.aviso('La imagen pesa ' + formatBytes(this.files[0].size) + '. El máximo es 1 MB.');
+                        $(this).val('');
+                        $('#vistaPreviaContainer').hide();
+                        return;
+                    }
                     if (this.files[0]) {
                         var reader = new FileReader();
                         reader.onload = function(e) {
@@ -4207,6 +4239,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     });
                 });
 
+                $(document).on('click', '.btn-principal-proveedor', function() {
+                    var productoProveedorId = $(this).data('id');
+                    Swal.fire({
+                        title: '¿Marcar como proveedor principal?',
+                        text: 'Su lista de precios pasa a ser la que actualiza el costo y los precios de venta del producto.',
+                        icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, marcar', cancelButtonText: 'Cancelar'
+                    }).then(function(result) {
+                        if (!result.isConfirmed) return;
+                        $.post('productos_ajax.php', {
+                            accion: 'marcar_proveedor_principal',
+                            producto_proveedor_id: productoProveedorId,
+                            empresa_idx: empresa_idx
+                        }, function(res) {
+                            if (res.success) {
+                                tablaProveedores.ajax.reload();
+                            } else Swal.fire('Error', res.message || 'No se pudo marcar el proveedor principal', 'error');
+                        }, 'json');
+                    });
+                });
+
                 $('#btnGuardarProveedor').click(function() {
                     var form = document.getElementById('formProveedor');
                     if (!form.checkValidity()) { form.classList.add('was-validated'); return false; }
@@ -4219,6 +4271,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         producto_id: $('#proveedor_producto_id').val(),
                         entidad_id: $('#entidad_id').val(),
                         codigo_proveedor: $('#codigo_proveedor').val(),
+                        es_principal: $('#proveedor_es_principal').is(':checked') ? 1 : 0,
                         empresa_idx: empresa_idx
                     }, function(res) {
                         btn.prop('disabled', false).html('Guardar');
@@ -4308,6 +4361,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         Swal.fire({ icon: "warning", title: "Stock mínimo / máximo", text: nivelesStock });
                         return false;
                     }
+                    var presentaciones = PRES ? PRES.recolectar() : null;
+                    if (typeof presentaciones === 'string') {
+                        bootstrap.Tab.getOrCreateInstance(document.getElementById('nav-info-tab')).show();
+                        Swal.fire({ icon: "warning", title: "Presentaciones", text: presentaciones });
+                        return false;
+                    }
                     var btnGuardar = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
                     $.ajax({
                         url: 'productos_ajax.php',
@@ -4329,6 +4388,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             dimensiones: $('#dimensiones').val(),
                             garantia: $('#garantia').val(),
                             niveles_stock: JSON.stringify(nivelesStock),
+                            presentaciones: presentaciones !== null ? JSON.stringify(presentaciones) : undefined,
                             empresa_idx: empresa_idx,
                             pagina_idx: pagina_idx
                         },
@@ -4339,6 +4399,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     if (res.aviso) {
                                         // El producto se guardó pero los niveles no: el modal queda abierto para corregir.
                                         if (!id && res.producto_id) $('#producto_id').val(res.producto_id);
+                                        // Si se grabaron, se recargan con sus ids (si no, quedan como están para reintentar)
+                                        if (PRES && res.presentaciones_guardadas) PRES.cargar($('#producto_id').val());
                                         Swal.fire({ icon: "warning", title: "Producto guardado", text: res.aviso });
                                         return;
                                     }
@@ -4400,21 +4462,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
 
     <!-- Librerías necesarias -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
 
     <!-- Extensión Responsive de DataTables (necesaria para que responsive:true funcione) -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sortablejs-1.14.0/Sortable.min.js') ?>"></script>
+    <?php if ($usa_presentaciones): ?>
+    <script src="<?= asset_local('js/productos-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-presentaciones.js') ?>"></script>
+    <?php endif; ?>
 
 </main>
 

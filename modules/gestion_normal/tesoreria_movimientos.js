@@ -11,11 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const AJAX_URL = 'tesoreria_movimientos_ajax.php';
 
     // Formateador de moneda
-    const formatoMoneda = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
-    });
+    const formatoMoneda = { format: (v) => Fmt.moneda(v) };
 
     // 1. Cargar Maestros (Cuentas y Sucursales)
     function cargarMaestros() {
@@ -197,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 4. Modal Nueva Transferencia
     const modalTransferencia = new bootstrap.Modal(document.getElementById('modalTransferencia'));
 
-    document.getElementById('btnNuevaTransferencia').addEventListener('click', function () {
+    document.getElementById('btnNuevaTransferencia')?.addEventListener('click', function () {
         document.getElementById('formTransferencia').reset();
         document.getElementById('transFecha').value = new Date().toISOString().split('T')[0];
         actualizarSaldosVisuales();

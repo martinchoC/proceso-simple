@@ -45,8 +45,9 @@ $(function () {
                 searching: false,
                 order: [[2, 'desc']],
                 columns: [
-                    { data: 'entidad_nombre', render: function (v, t, r) {
-                        return t === 'display' ? UI.esc(v) + (r.entidad_fantasia ? '<div class="text-muted">' + UI.esc(r.entidad_fantasia) + '</div>' : '') : v;
+                    { data: 'entidad_fantasia', render: function (v, t, r) {
+                        const nombre = r.entidad_fantasia || r.entidad_nombre || '';
+                        return t === 'display' ? UI.esc(nombre) : nombre;
                     } },
                     { data: 'cuit', defaultContent: '' },
                     { data: 'saldo', className: 'text-end fw-semibold', render: function (v, t) {

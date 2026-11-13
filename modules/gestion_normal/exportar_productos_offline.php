@@ -1,13 +1,13 @@
 <?php
 /**
- * modules/gestion/exportar_productos_offline.php
+ * modules/gestion_normal/exportar_productos_offline.php
  * 
  * Genera la página de productos en HTML autocontenido (100% offline) con toda
  * la información disponible (códigos, nombres, compatibilidades, ubicaciones,
  * proveedores, listas de precios, stock, etc.) y la envía por email usando la
  * función nativa mail() pura de PHP a pablo.passoni@gmail.com.
  * 
- * Guarda los archivos en modules/gestion/exports/ y mantiene únicamente los últimos 10
+ * Guarda los archivos en modules/gestion_normal/exports/ y mantiene únicamente los últimos 10
  * archivos generados, eliminando automáticamente los que superen los 10 días de antigüedad.
  * 
  * Estructura segura contra falsos positivos de antivirus:
@@ -15,8 +15,8 @@
  * - Sin uso de constructores Blob ni generadores de descargas automáticas que alerten heurísticas.
  * 
  * Puede ejecutarse:
- * 1. Desde el navegador: http://localhost/casalucho/modules/gestion/exportar_productos_offline.php
- * 2. Desde CLI: php modules/gestion/exportar_productos_offline.php [--enviar-email] [--to=email@ejemplo.com]
+ * 1. Desde el navegador: http://localhost/casalucho/modules/gestion_normal/exportar_productos_offline.php
+ * 2. Desde CLI: php modules/gestion_normal/exportar_productos_offline.php [--enviar-email] [--to=email@ejemplo.com]
  * 3. Como opción en el menú Exportar de productos.php y productos_consulta.php
  */
 
@@ -1673,7 +1673,7 @@ $datos = extraerDatosCatalogoProductos($conn, $empresa_id);
 // Generar HTML seguro (sin alertar a McAfee ni antivirus)
 $html_catalogo = generarHtmlOffline($datos);
 
-// Guardar archivo HTML en el servidor (en modules/gestion/exports/)
+// Guardar archivo HTML en el servidor (en modules/gestion_normal/exports/)
 $fecha_archivo = date('Ymd_His');
 $nombre_archivo_export = "productos_offline_{$fecha_archivo}.html";
 $ruta_archivo_export = $directorio_exports . '/' . $nombre_archivo_export;
@@ -1743,7 +1743,7 @@ if ($enviar_email) {
 if ($es_cli) {
     echo "========================================================\n";
     echo "  EXPORTADOR DE PRODUCTOS OFFLINE - CASA LUCHO\n";
-    echo "  Ubicación: modules/gestion/exportar_productos_offline.php\n";
+    echo "  Ubicación: modules/gestion_normal/exportar_productos_offline.php\n";
     echo "========================================================\n";
     echo "Total productos exportados: " . $datos['total_productos'] . "\n";
     echo "Archivo generado: $ruta_archivo_export ($tamanio_mb MB)\n";
@@ -1758,7 +1758,7 @@ if ($es_cli) {
         }
     } else {
         echo "\nPara enviar por email, ejecute:\n";
-        echo "  php modules/gestion/exportar_productos_offline.php --enviar-email --to=$destinatario\n";
+        echo "  php modules/gestion_normal/exportar_productos_offline.php --enviar-email --to=$destinatario\n";
     }
     echo "========================================================\n";
     exit;
@@ -1814,7 +1814,7 @@ $url_ver_online = "exports/productos_offline_latest.html";
                         <i class="fas fa-info-circle fa-2x me-3"></i>
                         <div>
                             <h5 class="alert-heading mb-1">Catálogo HTML Generado Exitosamente</h5>
-                            <div>El archivo HTML autocontenido está listo en <code>modules/gestion/exports/</code> para ser consultado offline o enviado por correo.</div>
+                            <div>El archivo HTML autocontenido está listo en <code>modules/gestion_normal/exports/</code> para ser consultado offline o enviado por correo.</div>
                         </div>
                     </div>
                 <?php endif; ?>

@@ -31,6 +31,8 @@ if (empty($accion)) manejarError('Acción no especificada', 400);
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 120);
+// Solo una página de este módulo (si no, la de medios_pago.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'medios_pago.php');
 
 if (!$conexion) manejarError('Error de conexión a la base de datos', 500);
 
@@ -73,6 +75,8 @@ try {
                 manejarError('Parámetros incompletos para ejecutar acción', 400);
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id_req), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoMedioPago($conexion, $medio_pago_id, $accion_js, $empresa_id_req, $pagina_id_req);
             enviarRespuesta($resultado);
             break;

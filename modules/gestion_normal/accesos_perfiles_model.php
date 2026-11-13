@@ -14,7 +14,7 @@ class AccesosPerfilesModel
         $this->conexion = $conexion;
     }
 
-    /** Perfiles (empresa_perfil) activos de la empresa actual en módulo Gestión Normal (5) */
+    /** Perfiles (empresa_perfil) activos de la empresa actual en módulo Gestión */
     public function listarPerfiles(int $empresaId): array
     {
         $sql = "SELECT ep.empresa_perfil_id, ep.empresa_perfil_nombre, p.perfil_nombre

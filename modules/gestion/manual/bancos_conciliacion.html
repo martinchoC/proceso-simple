@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Conciliación Bancaria</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-danger { background: var(--rojo); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #212529; }
+    .badge-info { background: #0dcaf0; color: #212529; }
+    .badge-light { background: #fff; color: #212529; border: 1px solid var(--gris-borde); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .boton-gris { background: #fff; border-color: #6c757d; color: #6c757d; }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-bank"></i> Manual de usuario: Conciliación Bancaria</h1>
+<p class="subtitulo">Cómo comparar lo que dice el banco con lo que registró tesorería, unir cada línea del extracto con su movimiento y encontrar las diferencias.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#indicadores">Los indicadores de arriba</a></li>
+        <li><a href="#grillas">Las dos grillas: Banco y Tesorería</a></li>
+        <li><a href="#flujo">El proceso completo</a></li>
+        <li><a href="#clasificar">Clasificar líneas (Líneas marcadas)</a></li>
+        <li><a href="#automatica">Conciliar automáticamente</a></li>
+        <li><a href="#sugerencias">Sugerencias</a></li>
+        <li><a href="#conciliar">Conciliar a mano</a></li>
+        <li><a href="#historial">Solapa Conciliaciones (historial)</a></li>
+        <li><a href="#deshacer">Deshacer una conciliación</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p><strong>Conciliar</strong> es marcar, uno por uno, que cada movimiento que informa el banco corresponde a algo que la empresa ya registró: una cobranza por transferencia, un pago a un proveedor, un depósito de cheques. Lo que queda sin conciliar de un lado o del otro es una diferencia para revisar.</p>
+<div class="nota-lateral">La conciliación <strong>no crea ni modifica</strong> cobranzas, pagos ni saldos. Si en el banco aparece algo que no está en tesorería, hay que registrarlo en la pantalla que corresponda (Cobranzas, Órdenes de Pago, Movimientos Internos...) y después conciliarlo acá.</div>
+<div class="alert alert-info"><strong>Los gastos del banco no se concilian en esta pantalla.</strong> Comisiones, impuesto ley 25.413, IVA y percepciones del banco se registran y concilian juntos, una vez por mes, en <a href="bancos_gastos.html">Gastos Bancarios</a>. Acá se ven en gris con la etiqueta <span class="badge badge-light">gasto</span>, solo como referencia.</div>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<div class="flujo">
+    <div class="flujo-caja"><a href="bancos_formatos.html">1. Formatos<small>cómo viene el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conceptos.html">2. Conceptos<small>qué es cada línea</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_reglas.html">3. Reglas<small>cómo reconocerla</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_importar.html">4. Extractos<small>importar el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja actual">5. Conciliación<small>banco contra tesorería</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final"><a href="bancos_gastos.html">6. Gastos Bancarios<small>comisiones e impuestos</small></a></div>
+</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Se abre desde <strong>Tesorería &gt; Conciliación Bancaria</strong>. Arriba a la derecha están los filtros:</p>
+<table class="tabla-referencia">
+    <tr><th>Filtro</th><th>Para qué sirve</th></tr>
+    <tr><td>Cuenta bancaria</td><td>La cuenta que vas a conciliar. Se trabaja de a una cuenta por vez.</td></tr>
+    <tr><td>Desde / Hasta</td><td>Período a mirar. Por defecto, desde el primer día del mes anterior hasta hoy.</td></tr>
+    <tr><td>Recargar (flechas)</td><td>Vuelve a traer los datos.</td></tr>
+</table>
+<p>La pantalla tiene dos solapas: <strong>Pendientes</strong> (donde se trabaja) y <strong>Conciliaciones</strong> (el <a href="#historial">historial</a>).</p>
+
+<h2 id="indicadores">Los indicadores de arriba</h2>
+<table class="tabla-referencia">
+    <tr><th>Indicador</th><th>Qué significa</th></tr>
+    <tr><td>Saldo según el banco</td><td>El último saldo del extracto importado hasta la fecha "Hasta". Si dice "sin extracto importado", todavía no importaste nada para esa cuenta.</td></tr>
+    <tr><td>Saldo según tesorería</td><td>El saldo de la cuenta en el sistema a la fecha "Hasta".</td></tr>
+    <tr><td>Banco sin conciliar</td><td>Suma de las líneas del banco (movimientos propios) que faltan conciliar. Debajo: cuánto suman los <strong>gastos del banco</strong> pendientes y cuántas líneas están <strong>sin concepto</strong> (en amarillo si hay).</td></tr>
+    <tr><td>Tesorería sin conciliar</td><td>Suma de los movimientos de tesorería del período que todavía no aparecen conciliados con el banco.</td></tr>
+</table>
+
+<h2 id="grillas">Las dos grillas: Banco y Tesorería</h2>
+<p>En la solapa <strong>Pendientes</strong> hay dos listas, una al lado de la otra:</p>
+<table class="tabla-referencia">
+    <tr><th>Grilla</th><th>Qué muestra</th></tr>
+    <tr><td><strong>Banco</strong> (izquierda)</td><td>Las líneas del extracto todavía no conciliadas: casilla para marcar, fecha, descripción, concepto (o <span class="badge badge-warning">Sin concepto</span>) e importe. En el detalle (▸), la referencia leída de la descripción (por ejemplo un CUIT).</td></tr>
+    <tr><td><strong>Tesorería</strong> (derecha)</td><td>Los movimientos de la cuenta registrados en el sistema y no conciliados: casilla, fecha, concepto (con el CUIT si lo tiene) e importe. En el detalle (▸), el medio de pago y el número de cheque.</td></tr>
+</table>
+<p>En las dos grillas los importes usan el mismo signo: <strong>lo que entra a la cuenta es positivo</strong> y <strong>lo que sale es negativo</strong>, en rojo.</p>
+<p>Encima de las grillas está la <strong>barra de selección</strong>: muestra cuánto suma lo que marcaste del Banco, cuánto lo que marcaste de Tesorería, y la <strong>Diferencia</strong> (en rojo si no es cero, en verde cuando es cero).</p>
+
+<h2 id="flujo">El proceso completo</h2>
+<ol>
+    <li>Elegí la cuenta y el período.</li>
+    <li>Si hay líneas <strong>Sin concepto</strong>, <a href="#clasificar">clasificalas</a>.</li>
+    <li>Apretá <a href="#automatica">Conciliar automáticamente</a> para resolver las coincidencias seguras.</li>
+    <li>Pedí <a href="#sugerencias">Sugerencias</a> y aceptá las que correspondan.</li>
+    <li>Lo que quede, <a href="#conciliar">concilialo a mano</a>.</li>
+    <li>Lo que sigue pendiente es una diferencia real: algo que falta registrar en tesorería, o algo registrado que el banco todavía no procesó.</li>
+    <li>Los gastos del banco se terminan en <a href="bancos_gastos.html">Gastos Bancarios</a>.</li>
+</ol>
+<div class="flujo">
+    <div class="flujo-caja inactivo">Línea sin concepto</div>
+    <div class="flujo-flecha">→ Asignar concepto →</div>
+    <div class="flujo-caja">Clasificada</div>
+    <div class="flujo-flecha">→ Conciliar →</div>
+    <div class="flujo-caja final">Conciliada</div>
+    <div class="flujo-flecha">→ Deshacer →</div>
+    <div class="flujo-caja">vuelve a Clasificada</div>
+</div>
+
+<h2 id="clasificar">Clasificar líneas (Líneas marcadas)</h2>
+<p>Marcá una o varias líneas en la grilla Banco y abrí el menú <span class="boton-ejemplo boton-gris">Líneas marcadas ▾</span>:</p>
+<table class="tabla-referencia">
+    <tr><th>Opción</th><th>Qué hace</th></tr>
+    <tr><td>Concepto en la fila</td><td>En la grilla Banco, la columna Concepto es una lista: elegí el concepto ahí mismo y se guarda al instante, con el mismo efecto que "Asignar concepto…" (también lo aprende para la misma descripción). Elegir "Sin concepto" equivale a "Quitar concepto". Lo que tengas marcado para conciliar sigue marcado.</td></tr>
+    <tr><td>Asignar concepto…</td><td>Para varias líneas a la vez. Pide elegir un concepto de la lista (los gastos dicen "(gasto del banco)") y se lo pone a las líneas marcadas. Las asignaciones a mano no las pisan las reglas. Además, el sistema recuerda esa descripción: le pone el mismo concepto a las demás líneas <b>sin concepto</b> del mismo banco que tengan exactamente la misma descripción (y el mismo sentido, débito o crédito), y en los próximos extractos esas líneas ya entran clasificadas. Lo aprendido se ve en Reglas Bancarias con la marca "aprendida".</td></tr>
+    <tr><td>Quitar concepto (volver a las reglas)</td><td>Borra el concepto de las líneas marcadas y vuelve a pasarles las reglas del banco. Si esa descripción se había aprendido, se deja de aplicar en los próximos extractos.</td></tr>
+    <tr><td>Ignorar</td><td>Deja las líneas afuera de la conciliación: desaparecen de la grilla y no entran a Gastos Bancarios.</td></tr>
+</table>
+<p>Al terminar vas a ver "Se actualizaron N líneas." Si no marcaste nada: "Marcá líneas del banco."</p>
+<div class="alert alert-warning"><strong>Ignorar no se puede deshacer desde la pantalla.</strong> Usalo solo para líneas que de verdad no corresponden (por ejemplo, un movimiento que el banco anuló el mismo día). Si te equivocaste, consultá con el administrador.</div>
+<p>Este menú solo aparece si tu perfil tiene permiso para clasificar.</p>
+
+<h2 id="automatica">Conciliar automáticamente</h2>
+<p>El botón <span class="boton-ejemplo boton-outline">Conciliar automáticamente</span> concilia solo, sin preguntar, los casos <strong>seguros</strong>: una línea del banco y un movimiento de tesorería con el <strong>mismo importe</strong>, fechas separadas por <strong>5 días o menos</strong>, y una <strong>referencia que coincide</strong> (el CUIT del cliente o proveedor, o el número de cheque).</p>
+<p>Al terminar: "Se conciliaron N movimientos por importe y referencia." o "No hay coincidencias seguras para conciliar solas."</p>
+
+<h2 id="sugerencias">Sugerencias</h2>
+<p>El botón <span class="boton-ejemplo boton-outline">Sugerencias</span> muestra, arriba de las grillas, una lista de posibles parejas. No concilia nada hasta que lo aceptes:</p>
+<table class="tabla-referencia">
+    <tr><th>Etiqueta</th><th>Qué significa</th></tr>
+    <tr><td><span class="badge badge-success">Segura</span></td><td>Mismo importe y misma referencia, dentro de los 5 días. Son las que concilia el botón automático.</td></tr>
+    <tr><td><span class="badge badge-info">Probable</span></td><td>Mismo importe y es el único movimiento posible en ±5 días. Revisá que corresponda.</td></tr>
+    <tr><td><span class="badge badge-warning">Agrupada</span></td><td>Varios movimientos de tesorería (hasta 4) suman exactamente una línea del banco. Típico de un depósito de varios cheques juntos.</td></tr>
+</table>
+<p>Pasando el mouse por la etiqueta se ve el motivo. Cada sugerencia tiene su botón <span class="boton-ejemplo boton-exito">Conciliar</span>: al apretarlo se concilia y desaparece de la lista ("Conciliado"). Si no hay ninguna: "No hay sugerencias: conciliá a mano marcando los dos lados."</p>
+
+<h2 id="conciliar">Conciliar a mano</h2>
+<ol>
+    <li>Marcá en la grilla <strong>Banco</strong> la línea o las líneas.</li>
+    <li>Marcá en la grilla <strong>Tesorería</strong> el movimiento o los movimientos que les corresponden. Se puede unir una línea con varios movimientos, varias líneas con un movimiento, o varias con varias.</li>
+    <li>Mirá la <strong>Diferencia</strong> en la barra de selección. Cuando llega a <strong style="color:#198754">0,00</strong> se habilita el botón verde <span class="boton-ejemplo boton-exito">Conciliar</span>.</li>
+    <li>Apretalo: vas a ver "Conciliado" y las filas desaparecen de las grillas.</li>
+</ol>
+<div class="nota-lateral">Solo se pueden conciliar líneas con concepto de <strong>movimiento propio</strong>. Las "Sin concepto" hay que clasificarlas antes; los gastos del banco van por Gastos Bancarios.</div>
+
+<h2 id="historial">Solapa Conciliaciones (historial)</h2>
+<p>Lista las conciliaciones vigentes de la cuenta en el período elegido (las deshechas no se muestran): las hechas contra tesorería (automáticas, sugeridas y a mano) y las de <strong>gastos bancarios</strong> (columna Tipo, con el número del resumen bancario). Las líneas de gastos ya registradas no aparecen en Pendientes: están en su conciliación. Las de gastos se deshacen desde <a href="bancos_gastos.html#historial">Gastos Bancarios</a>, porque al deshacer se anula el comprobante.</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>N° / Fecha</td><td>Número de la conciliación y fecha (la de la última línea del banco incluida).</td></tr>
+    <tr><td>Líneas / Movimientos</td><td>Cuántas líneas del banco y cuántos movimientos de tesorería se unieron.</td></tr>
+    <tr><td>Importe</td><td>Lo conciliado.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-success">Confirmado</span> = vigente; <span class="badge badge-danger">Anulado</span> = se deshizo.</td></tr>
+</table>
+<p>En el detalle (▸) se ven las observaciones (por ejemplo "Automática: Mismo importe y referencia ..." o el motivo por el que se deshizo).</p>
+<p>El botón <strong>Visualizar</strong> (ojo) abre una ventana con las líneas del banco y los movimientos de tesorería que forman la conciliación.</p>
+
+<h2 id="deshacer">Deshacer una conciliación</h2>
+<p>En las conciliaciones vigentes aparece el botón rojo <strong>Deshacer</strong>. Pregunta "¿Deshacer la conciliación?" y pide <strong>el motivo</strong> (obligatorio). Al aceptar: "Conciliación deshecha: las líneas y los movimientos vuelven a estar pendientes." La conciliación deja de verse en el historial (queda registrada como Anulada, con su motivo).</p>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Los gastos del banco se registran desde Gastos Bancarios, no se concilian a mano.</td><td>Marcaste una línea de gasto del banco. Desmarcala y usá <a href="bancos_gastos.html">Gastos Bancarios</a>.</td></tr>
+    <tr><td>Solo se concilian líneas clasificadas y sin conciliar (alguna cambió: recargá).</td><td>Marcaste una línea sin concepto, o alguien la concilió mientras tanto. Clasificala o recargá.</td></tr>
+    <tr><td>No cierra: el banco suma ... y tesorería ... (diferencia ...).</td><td>Lo marcado no suma lo mismo de los dos lados.</td></tr>
+    <tr><td>Algún movimiento ya está conciliado: recargá.</td><td>Otro usuario lo concilió. Recargá.</td></tr>
+    <tr><td>Un movimiento anulado o revertido no se concilia.</td><td>Ese movimiento de tesorería se anuló.</td></tr>
+    <tr><td>Elegí al menos una línea del banco y un movimiento de tesorería.</td><td>Falta marcar de alguno de los dos lados.</td></tr>
+    <tr><td>Esta conciliación es de gastos del banco: deshacela desde Gastos Bancarios.</td><td>Se deshace desde la otra pantalla porque además anula el comprobante.</td></tr>
+    <tr><td>La conciliación ya está deshecha.</td><td>Alguien la deshizo antes. Recargá.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>En el banco hay una transferencia de un cliente que no está en tesorería.</td><td>Falta registrar la cobranza. Cargala en <a href="cobranzas.html">Cobranzas</a> con la cuenta bancaria como medio, y después concilialas acá.</td></tr>
+    <tr><td>En tesorería hay un cheque depositado que el banco todavía no muestra.</td><td>Es normal: el banco lo acredita días después. Queda pendiente hasta que importes el extracto donde aparece.</td></tr>
+    <tr><td>Deposité 4 cheques juntos y el banco muestra un solo crédito.</td><td>Marcá la línea del banco y los 4 movimientos de tesorería, o buscalo en <a href="#sugerencias">Sugerencias</a> como "Agrupada".</td></tr>
+    <tr><td>¿Por qué el saldo del banco y el de tesorería no coinciden?</td><td>Por lo que falta conciliar de cada lado y por los gastos del banco del mes, que no entran a tesorería hasta que se genera su comprobante en <a href="bancos_gastos.html">Gastos Bancarios</a>.</td></tr>
+    <tr><td>¿Por qué no puedo conciliar las comisiones contra un movimiento?</td><td>Los gastos del banco no tienen un movimiento previo en tesorería: el resumen bancario de Gastos Bancarios los registra y los concilia en un solo paso.</td></tr>
+    <tr><td>No veo los botones Conciliar ni Conciliar automáticamente.</td><td>Tu perfil no tiene permiso para conciliar; podés mirar y pedir sugerencias, pero no aceptarlas.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_importar.html">Extractos Bancarios</a> (paso 4)</li>
+        <li><a href="bancos_gastos.html">Gastos Bancarios</a> (paso 6)</li>
+        <li><a href="cobranzas.html">Cobranzas</a> · <a href="pagos.html">Órdenes de Pago</a> · <a href="tesoreria_movimientos.html">Movimientos Internos</a> · <a href="cheques_cartera.html">Cartera de Cheques</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Conciliación Bancaria. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

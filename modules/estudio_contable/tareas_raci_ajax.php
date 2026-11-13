@@ -24,6 +24,13 @@ $empresa_id = $ctx['empresa_id'];
 $usuario_id = $ctx['usuario_id'];
 
 $action = trim($_POST['action'] ?? $_GET['action'] ?? '');
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php);
+// los botones de esas acciones están marcados data-funcion y header1.php oculta los que el perfil no tiene.
+permisos_exigir_accion($conn, 408, (string)$action, [
+    'guardar' => (intval($_POST['tarea_id'] ?? 0) > 0 ? 'editar' : 'agregar'),
+    'cambiar_estado' => 'editar',
+    'registrar_tiempo' => 'editar',
+]);
 
 try {
     switch ($action) {

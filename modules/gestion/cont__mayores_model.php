@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/formato.php';
 $conexion = $conn;
 
 /**
@@ -331,8 +332,9 @@ function obtenerDetalleCuenta($conexion, $empresa_idx, $cuenta_id, $fecha_desde,
         $num_asiento = ($fila['anio'] ?? date('Y', strtotime($fila['fecha']))) . str_pad($fila['cont_asiento_id'], 6, '0', STR_PAD_LEFT);
 
         $movimientos[] = [
-            'fecha' => date('d/m/Y', strtotime($fila['fecha'])),
+            'fecha' => fmt_fecha($fila['fecha']),
             'numero_asiento' => $num_asiento,
+            'cont_asiento_id' => intval($fila['cont_asiento_id']),
             'comprobante' => !empty($fila['comprobante_nombre']) ? $fila['comprobante_nombre'] : '-',
             'descripcion' => !empty($descripcion) ? $descripcion : '-',
             'debe' => $debe,

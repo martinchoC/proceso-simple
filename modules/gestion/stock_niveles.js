@@ -8,7 +8,7 @@ $(function () {
 
     const AJAX_URL = 'stock_niveles_ajax.php';
     const empresaIdx = typeof SNV_EMPRESA_ID !== 'undefined' ? SNV_EMPRESA_ID : 0;
-    const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
+    const fmt = Fmt.numberFormat({ maximumFractionDigits: 4 });
 
     let tabla = null;
     let bocas = [];
@@ -140,7 +140,7 @@ $(function () {
             ],
             order: [[0, 'asc'], [1, 'asc'], [3, 'asc']],
             pageLength: 25,
-            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' },
             createdRow: function (tr, row) {
                 if (row.tabla_estado_registro_id != 1) $(tr).addClass('table-secondary');
             }

@@ -6,67 +6,45 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 require_once "perfiles_model.php";
 
-$accion = $_GET['accion'] ?? '';
+$accion = $_REQUEST['accion'] ?? '';
 
 header('Content-Type: application/json; charset=utf-8');
 
+function perfilesDatosRequest(): array
+{
+    return [
+        'perfil_nombre' => $_POST['perfil_nombre'] ?? '',
+        'modulo_id' => $_POST['modulo_id'] ?? 0,
+        'tipo_operacion' => $_POST['tipo_operacion'] ?? 'TODAS',
+        'tabla_estado_registro_id' => $_POST['tabla_estado_registro_id'] ?? 1,
+    ];
+}
+
 switch ($accion) {
     case 'listar':
-        $perfiles = obtenerPerfiles($conexion);
-        echo json_encode($perfiles);
+        echo json_encode(obtenerPerfiles($conexion));
         break;
-    
+
     case 'agregar':
-        $data = [
-            'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
-            'modulo_id' => $_GET['modulo_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
-        ];
-        
-        if (empty($data['perfil_nombre'])) {
-            echo json_encode(['resultado' => false, 'error' => 'El nombre es obligatorio']);
-            break;
-        }
-        
-        $resultado = agregarPerfil($conexion, $data);
-        echo json_encode(['resultado' => $resultado]);
+        echo json_encode(agregarPerfil($conexion, perfilesDatosRequest()));
         break;
 
     case 'editar':
-        $id = intval($_GET['perfil_id']);
-        $data = [
-            'perfil_nombre' => $_GET['perfil_nombre'] ?? '',
-            'modulo_id' => $_GET['modulo_id'] ?? null,
-            'tabla_estado_registro_id' => $_GET['tabla_estado_registro_id'] ?? 1
-        ];
-        
-        if (empty($data['perfil_nombre'])) {
-            echo json_encode(['resultado' => false, 'error' => 'El nombre es obligatorio']);
-            break;
-        }
-        
-        $resultado = editarPerfil($conexion, $id, $data);
-        echo json_encode(['resultado' => $resultado]);
+        echo json_encode(editarPerfil($conexion, intval($_POST['perfil_id'] ?? 0), perfilesDatosRequest()));
         break;
 
     case 'cambiar_estado':
-        $id = intval($_GET['perfil_id']);
-        $nuevo_estado = intval($_GET['nuevo_estado']);
-        $resultado = cambiarEstadoPerfil($conexion, $id, $nuevo_estado);
-        echo json_encode(['resultado' => $resultado]);
+        echo json_encode(cambiarEstadoPerfil($conexion, intval($_POST['perfil_id'] ?? 0), intval($_POST['nuevo_estado'] ?? 0)));
         break;
 
     case 'obtener':
-        $id = intval($_GET['perfil_id']);
-        $perfil = obtenerPerfilPorId($conexion, $id);
-        echo json_encode($perfil);
+        echo json_encode(obtenerPerfilPorId($conexion, intval($_GET['perfil_id'] ?? 0)));
         break;
-        
+
     case 'obtener_modulos':
-        $modulos = obtenerModulos($conexion);
-        echo json_encode($modulos);
+        echo json_encode(obtenerModulos($conexion));
         break;
 
     default:
-        echo json_encode(['error' => 'Acción no definida']);
+        echo json_encode(['success' => false, 'message' => 'Acción no definida']);
 }

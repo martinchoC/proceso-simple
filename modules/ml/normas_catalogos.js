@@ -13,7 +13,7 @@ $(document).ready(function () {
                   '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>';
 
     const dtLang = {
-        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json',
+        url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json',
         lengthMenu: 'Mostrar _MENU_ registros',
         info: 'Página _PAGE_ de _PAGES_',
         infoEmpty: 'Página 0 de 0',

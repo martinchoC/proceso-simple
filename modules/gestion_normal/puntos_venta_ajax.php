@@ -33,6 +33,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 70);
+// Solo una página de este módulo (si no, la de puntos_venta.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'puntos_venta.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -80,6 +82,8 @@ try {
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
             $pagina_id = intval($_POST['pagina_idx'] ?? 0);
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $punto_venta_id, $accion_js, $empresa_idx, $pagina_id);
             echo json_encode($resultado);
             break;
@@ -89,6 +93,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
                 'boca_id' => intval($_POST['boca_id'] ?? 0),
@@ -107,6 +113,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['punto_venta_id'] ?? 0);
 
             error_log("=== EDITAR - ID recibido: $id ===");

@@ -10,6 +10,12 @@ $accion = $_REQUEST['accion'] ?? '';
 
 header('Content-Type: application/json; charset=utf-8');
 
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+permisos_exigir_accion($conn, pagina_id_por_url($conn, 2, 'productos_categorias.php'), (string)$accion, [
+    'agregar' => 'agregar',
+    'editar' => 'editar',
+    'eliminar' => 'inactivar',
+]);
 switch ($accion) {
     case 'listar':
         $categorias = obtenerCategorias($conexion, $ctx['empresa_id']);

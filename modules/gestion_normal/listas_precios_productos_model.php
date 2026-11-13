@@ -14,21 +14,15 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     // producto, iva): no hay fan-out que armar, así que LIMIT/OFFSET sí
     // recorta trabajo real en vez de recortar sobre un resultado ya inflado.
     //
-    // Búsqueda de texto: pega contra p.compatibilidad_busqueda (materializada
-    // por trigger sobre gestion__productos_compatibilidad), no contra un
-    // JOIN+EXISTS — evita repetir ese join por cada palabra buscada.
+    // Gestión Normal: sin compatibilidad de productos (marca/modelo/submodelo).
+    // Lista productos y servicios por igual; filtro_tipo 'P' = solo productos,
+    // 'S' = solo servicios (gestion__productos.es_servicio).
     //
     // Imagen y ubicación (1 a muchos de verdad) se siguen resolviendo aparte,
     // en bloque, pero ahora SOLO para los producto_id de la página ya
     // recortada, no para todo el resultado filtrado.
-    //
-    // ASUNCIÓN A CONFIRMAR (arrastrada de versiones anteriores): nombres de
-    // tabla gestion__marcas/modelos/submodelos, iva_alicuota_id en
-    // gestion__productos, y gestion__sucursales(sucursal_id, sucursal_nombre).
     $filtro_lista     = $params['filtro_lista'] ?? '';
-    $filtro_marca     = $params['filtro_marca'] ?? '';
-    $filtro_modelo    = $params['filtro_modelo'] ?? '';
-    $filtro_submodelo = $params['filtro_submodelo'] ?? '';
+    $filtro_tipo      = $params['filtro_tipo'] ?? '';
     $busqueda         = trim((string) ($params['busqueda'] ?? ''));
     $start            = max(0, intval($params['start'] ?? 0));
     $length           = intval($params['length'] ?? 10);
@@ -50,7 +44,7 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     // principal (nada que dependa del segundo paso de imagen/ubicación).
     $columnas_permitidas = [
         'lp.lista_precio_nombre', 'p.producto_codigo', 'p.producto_nombre',
-        'p.compatibilidad_texto', 'lpp.precio_final', 'lpp.actualizado_en'
+        'p.es_servicio', 'lpp.precio_final', 'lpp.actualizado_en'
     ];
     $order_column = $params['order_column'] ?? 'p.producto_codigo';
     if (!in_array($order_column, $columnas_permitidas, true)) {
@@ -74,33 +68,17 @@ function obtenerListasPreciosProductos($conexion, $params = [])
         $types .= 'i';
     }
 
-    if (!empty($filtro_marca) || !empty($filtro_modelo) || !empty($filtro_submodelo)) {
-        $where .= " AND EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pcf
-                                 WHERE pcf.producto_id = p.producto_id
-                                 AND pcf.tabla_estado_registro_id = 1";
-        if (!empty($filtro_marca)) {
-            $where .= " AND pcf.marca_id = ?";
-            $where_params[] = intval($filtro_marca);
-            $types .= 'i';
-        }
-        if (!empty($filtro_modelo)) {
-            $where .= " AND pcf.modelo_id = ?";
-            $where_params[] = intval($filtro_modelo);
-            $types .= 'i';
-        }
-        if (!empty($filtro_submodelo)) {
-            $where .= " AND pcf.submodelo_id = ?";
-            $where_params[] = intval($filtro_submodelo);
-            $types .= 'i';
-        }
-        $where .= ")";
+    if ($filtro_tipo === 'P' || $filtro_tipo === 'S') {
+        $where .= " AND p.es_servicio = ?";
+        $where_params[] = $filtro_tipo === 'S' ? 1 : 0;
+        $types .= 'i';
     }
 
     if ($busqueda !== '') {
         $palabras = preg_split('/\s+/', $busqueda, -1, PREG_SPLIT_NO_EMPTY);
         foreach ($palabras as $palabra) {
             $like = '%' . $palabra . '%';
-            $where .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.compatibilidad_busqueda LIKE ? OR lp.lista_precio_nombre LIKE ?)";
+            $where .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.producto_descripcion LIKE ? OR lp.lista_precio_nombre LIKE ?)";
             for ($i = 0; $i < 4; $i++) {
                 $where_params[] = $like;
                 $types .= 's';
@@ -118,7 +96,7 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     $total_records = $res_total ? (int) mysqli_fetch_assoc($res_total)['total'] : 0;
     mysqli_stmt_close($stmt_total);
 
-    // --- recordsFiltered: con lista/marca/modelo/submodelo/búsqueda aplicados ---
+    // --- recordsFiltered: con lista/tipo/búsqueda aplicados ---
     $sql_filtered = "SELECT COUNT(*) AS total
                       FROM gestion__listas_precios_productos lpp
                       INNER JOIN gestion__listas_precios lp ON lpp.lista_precio_id = lp.lista_precio_id
@@ -140,16 +118,11 @@ function obtenerListasPreciosProductos($conexion, $params = [])
         return ['total' => $total_records, 'filtered' => 0, 'data' => []];
     }
 
-    // MATERIALIZADO: compatibilidad_texto / compatibilidad_busqueda ya NO se
-    // calculan acá — se leen directo de gestion__productos, mantenidas por
-    // triggers en gestion__productos_compatibilidad (ver
-    // materializar_compatibilidad.sql).
     $sql = "SELECT lpp.lista_precio_producto_id, lpp.lista_precio_id, lpp.producto_id, lpp.precio_final,
                    lp.lista_precio_nombre AS lista_nombre,
                    p.producto_codigo,
                    p.producto_nombre,
-                   p.compatibilidad_texto AS compatibilidad,
-                   p.compatibilidad_busqueda,
+                   p.es_servicio,
                    lpp.precio_final AS precio_unitario,
                    IFNULL(iva.porcentaje, 0) AS iva_porcentaje,
                    ROUND(lpp.precio_final * (1 + IFNULL(iva.porcentaje, 0) / 100), 2) AS precio_con_iva,
@@ -423,10 +396,11 @@ function obtenerListasPrecios($conexion, int $empresa_idx)
 
 function obtenerProductos($conexion, int $empresa_id)
 {
-    $sql = "SELECT producto_id, producto_codigo, producto_nombre 
-            FROM gestion__productos 
+    // Productos y servicios activos (es_servicio lo usa el selector para separarlos)
+    $sql = "SELECT producto_id, producto_codigo, producto_nombre, es_servicio
+            FROM gestion__productos
             WHERE empresa_id = ? AND tabla_estado_registro_id = 1
-            ORDER BY producto_codigo";
+            ORDER BY es_servicio DESC, producto_codigo";
     $stmt = mysqli_prepare($conexion, $sql);
     mysqli_stmt_bind_param($stmt, "i", $empresa_id);
     mysqli_stmt_execute($stmt);

@@ -13,28 +13,14 @@ $pageTitle = "Cuenta Corriente de Proveedores";
 $currentPage = 'proveedores_ctacte';
 $modudo_idx = 2; // Typo intencional y consistente con todo el ERP (ver CLAUDE.md)
 $pagina_idx = 118;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0"><i class="fas fa-balance-scale text-primary me-2"></i>Cuenta Corriente de Proveedores</h3>
-                    <small class="text-muted">Saldos, deuda vencida y movimientos por proveedor</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Compras</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Cuenta Corriente</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Cuenta corriente de proveedores','fas fa-balance-scale', 'Saldos, deuda vencida y movimientos por proveedor', ['Compras']); ?>
 
     <div class="app-content">
         <div class="container-fluid">

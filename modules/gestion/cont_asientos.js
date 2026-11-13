@@ -2,7 +2,9 @@ $(document).ready(function () {
     var tabla;
     var tablaDetalles;
     var asientoActualId = null;
-    
+    var asientoAutomatico = false;   // asiento automático: solo se cambia la cuenta de los renglones de productos
+    var cambioCuentaClave = null;    // renglón cuya cuenta se está cambiando (modal de detalle en modo "cambiar cuenta")
+
     // ========== FUNCIONES DE DATATABLE ==========
     function inicializarDataTable() {
         if ($.fn.DataTable.isDataTable('#tablaContAsientos')) {
@@ -28,7 +30,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             columns: [
-                { data: 'cont_asiento_id', className: 'text-center fw-bold', width: '50px' },
+                { data: 'cont_asiento_id', className: 'ui-detalle', width: '50px' },
                 { data: 'numero_asiento', width: '120px' },
                 { 
                     data: 'f_asiento',
@@ -36,8 +38,7 @@ $(document).ready(function () {
                     className: 'text-center',
                     render: function(data) {
                         if (!data) return '-';
-                        var parts = data.split('-');
-                        return parts.length === 3 ? parts[2] + '/' + parts[1] + '/' + parts[0] : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 { data: 'descripcion', width: '150px', render: function(data) { return data ? data.substring(0, 50) : '-'; } },
@@ -99,7 +100,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             responsive: true
         });
@@ -159,6 +160,18 @@ $(document).ready(function () {
                     searchable: false,
                     className: "text-center",
                     render: function(data, type, row) {
+                        if (asientoAutomatico) {
+                            // Automático: solo la cuenta de los renglones de productos
+                            if (row.cuenta_editable) {
+                                return `<button type="button" class="btn btn-sm btn-warning btn-cambiar-cuenta" title="Cambiar cuenta"
+                                                data-clave="${escapeHtml(row.clave)}" data-cuenta-id="${row.cuenta_id}" data-asiento="${asientoId}">
+                                            <i class="fas fa-exchange-alt"></i>
+                                        </button>`;
+                            }
+                            return `<span class="badge bg-secondary" title="Cuenta generada por el comprobante (cliente / proveedor, impuestos, etc.): no se modifica">
+                                        <i class="fas fa-lock"></i> Automático
+                                    </span>`;
+                        }
                         if (row.tipo === 'M') {
                             return `<div class="btn-group" role="group">
                                         <button type="button" class="btn btn-sm btn-warning me-1 btn-editar-detalle" 
@@ -182,7 +195,7 @@ $(document).ready(function () {
                 actualizarTotales(asientoId);
             },
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             responsive: true
         });
@@ -375,7 +388,11 @@ $(document).ready(function () {
         $('#total_haber_mostrar').text('0.00');
         $('#diferencia_mostrar').text('0.00');
         $('#estado').val('borrador');
-        
+        asientoAutomatico = false;
+        $('#avisoAsientoAutomatico').addClass('d-none');
+        $('#formContAsiento :input').prop('disabled', false);
+        $('#btnGuardarAsiento, #btnNuevoDetalle').show();
+
         var hoy = new Date();
         var fecha = hoy.getFullYear() + '-' + 
                     String(hoy.getMonth() + 1).padStart(2, '0') + '-' + 
@@ -397,7 +414,9 @@ $(document).ready(function () {
         $('#formContAsientoDetalle').removeClass('was-validated');
         $('#importe_local_debe').val('0.00');
         $('#importe_local_haber').val('0.00');
-        
+        cambioCuentaClave = null;
+        $('#importe_local_debe, #importe_local_haber, #detalle_descripcion').prop('disabled', false);
+
         if ($('#cuenta_id').data('select2')) {
             $('#cuenta_id').val('').trigger('change');
         }
@@ -766,23 +785,8 @@ function imprimirAsiento(id) {
         var asiento_id = $(this).data('asiento');
         
         // Obtener el estado del asiento actual
-        var estadoAsiento = $('#estado').val();
-        console.log("Estado del asiento:", estadoAsiento);
-
-        var estadoAsiento = $('#estado').val();
-        console.log("ESTADO DEL ASIENTO AL EDITAR DETALLE:", estadoAsiento);
-        
-        // Si el asiento está registrado/confirmado, no permitir edición
-        if (estadoAsiento === 'registrado') {
-            Swal.fire({
-                icon: "warning",
-                title: "Operación no permitida",
-                text: "No se pueden editar líneas de un asiento ya registrado/confirmado",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
+        // Se puede editar hasta el cierre del período contable (lo controla el servidor); un asiento
+        // confirmado al que se le modifican las líneas vuelve a Borrador.
         // Obtener el tipo de la fila
         var $fila = $(this).closest('tr');
         var tipo = tablaDetalles.row($fila).data()?.tipo;
@@ -869,26 +873,57 @@ function imprimirAsiento(id) {
         });
     });
 
+    // Cambiar la cuenta de un renglón de producto de un asiento automático: el modal de detalle con importes fijos
+    $(document).on('click', '.btn-cambiar-cuenta', function() {
+        var fila = tablaDetalles.row($(this).closest('tr')).data();
+        if (!fila) { return; }
+        resetModalDetalle();
+        cargarCombosDetalle();
+        cambioCuentaClave = fila.clave;
+        setTimeout(function() {
+            $('#detalle_cont_asiento_id').val(fila.cont_asiento_id);
+            $('#cuenta_id').val(fila.cuenta_id).trigger('change');
+            $('#importe_local_debe').val(Number(fila.importe_local_debe || 0).toFixed(2));
+            $('#importe_local_haber').val(Number(fila.importe_local_haber || 0).toFixed(2));
+            $('#detalle_descripcion').val(fila.descripcion || '');
+            $('#importe_local_debe, #importe_local_haber, #detalle_descripcion').prop('disabled', true);
+            new bootstrap.Modal(document.getElementById('modalContAsientoDetalle')).show();
+        }, 300);
+    });
+
+    function guardarCambioCuenta(btnGuardar, originalText) {
+        var asiento_id = $('#detalle_cont_asiento_id').val();
+        $.post('cont_asientos_ajax.php', {
+            accion: 'cambiar_cuenta_detalle',
+            empresa_idx: empresa_id,
+            pagina_id: pagina_id,
+            cont_asiento_id: asiento_id,
+            clave: cambioCuentaClave,
+            cuenta_id: $('#cuenta_id').val()
+        }, null, 'json').done(function(res) {
+            if (!res.resultado) {
+                UiSimple.error(res.error || 'No se pudo cambiar la cuenta', 'No se pudo guardar');
+                return;
+            }
+            UiSimple.ok(res.message || 'Cuenta cambiada');
+            var modal = bootstrap.Modal.getInstance(document.getElementById('modalContAsientoDetalle'));
+            if (modal) modal.hide();
+            if (tablaDetalles) tablaDetalles.ajax.reload(null, false);
+            tabla.ajax.reload(null, false);
+        }).fail(function(xhr) {
+            var msg = (xhr.responseJSON && (xhr.responseJSON.error || xhr.responseJSON.message)) || 'Revisá la conexión e intentá de nuevo.';
+            UiSimple.error(msg, 'No se pudo guardar');
+        }).always(function() {
+            btnGuardar.prop('disabled', false).html(originalText);
+        });
+    }
+
     // Eliminar detalle - verificar estado del asiento y tipo
     $(document).on('click', '.btn-eliminar-detalle', function() {
         var cuenta_id = $(this).data('cuenta-id');
         var asiento_id = $(this).data('asiento');
         
-        // Obtener el estado del asiento actual
-        var estadoAsiento = $('#estado').val();
-        console.log("Estado del asiento:", estadoAsiento);
-        
-        // Si el asiento está registrado/confirmado, no permitir eliminación
-        if (estadoAsiento === 'registrado') {
-            Swal.fire({
-                icon: "warning",
-                title: "Operación no permitida",
-                text: "No se pueden eliminar líneas de un asiento ya registrado/confirmado",
-                confirmButtonText: "Entendido"
-            });
-            return;
-        }
-        
+        // Hasta el cierre del período contable (lo controla el servidor)
         var $fila = $(this).closest('tr');
         var tipo = tablaDetalles.row($fila).data()?.tipo;
         
@@ -1036,9 +1071,20 @@ function imprimirAsiento(id) {
                     $('#modalLabel').text('Editar Asiento Contable');
                     asientoActualId = res.cont_asiento_id;
                     
-                    // Si está registrado, cargar en modo solo lectura
-                    if (res.estado === 'registrado') {
+                    // Editable hasta el cierre del período contable; un automático solo cambia cuentas de productos
+                    asientoAutomatico = !!res.es_automatico;
+                    $('#avisoAsientoAutomatico').toggleClass('d-none', !(res.editable && asientoAutomatico));
+                    if (!res.editable) {
                         cargarDetallesSoloLectura(res.cont_asiento_id);
+                        $('#btnNuevoDetalle').hide();
+                        $('#formContAsiento :input').prop('disabled', true);
+                        $('#btnGuardarAsiento').hide();
+                        if (res.motivo_no_editable) {
+                            UiSimple.aviso(res.motivo_no_editable);
+                        }
+                    } else if (asientoAutomatico) {
+                        // Cabecera e importes fijos: solo el botón "cambiar cuenta" en los renglones de productos
+                        inicializarDataTableDetalles(res.cont_asiento_id);
                         $('#btnNuevoDetalle').hide();
                         $('#formContAsiento :input').prop('disabled', true);
                         $('#btnGuardarAsiento').hide();
@@ -1174,7 +1220,7 @@ function imprimirAsiento(id) {
                 actualizarTotales(asientoId);
             },
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'                
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'                
             },
             responsive: true
         });
@@ -1354,9 +1400,18 @@ function imprimirAsiento(id) {
             return false;
         }
         
+        if (cambioCuentaClave) {
+            // Asiento automático: solo cambia la cuenta del renglón de producto
+            var btnCambio = $(this);
+            var textoCambio = btnCambio.html();
+            btnCambio.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+            guardarCambioCuenta(btnCambio, textoCambio);
+            return false;
+        }
+
         var importeDebe = parseFloat($('#importe_local_debe').val()) || 0;
         var importeHaber = parseFloat($('#importe_local_haber').val()) || 0;
-        
+
         if (importeDebe == 0 && importeHaber == 0) {
             Swal.fire({
                 icon: "error",

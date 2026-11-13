@@ -7,36 +7,20 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 
 $pageTitle = "Movimientos Internos de Tesorería";
 $currentPage = 'tesoreria_movimientos';
 $modudo_idx = 5; // Typo intencional y consistente del ERP
 $pagina_idx = 608;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-exchange-alt text-primary me-2"></i>Movimientos Internos de Tesorería
-                    </h3>
-                    <small class="text-muted">Transferencias entre Cajas y Cuentas Bancarias de la misma empresa con impacto contable automático</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Movimientos Internos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Movimientos internos','fas fa-exchange-alt', 'Transferencias entre Cajas y Cuentas Bancarias de la misma empresa con impacto contable automático', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -51,9 +35,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar listado">
                                 <i class="fas fa-sync-alt me-1"></i> Actualizar
                             </button>
+                            <?php if (permisos_puede($conexion, $pagina_idx, 'agregar')): ?>
                             <button type="button" class="btn btn-sm btn-primary" id="btnNuevaTransferencia">
                                 <i class="fas fa-plus me-1"></i> Nueva Transferencia
                             </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -215,5 +201,5 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>
 
 <!-- SweetAlert2 y Script de Movimientos -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="tesoreria_movimientos.js"></script>

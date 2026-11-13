@@ -69,8 +69,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </select>
                         </div>
                         <div class="col-md-2 col-sm-4 text-end mt-auto pb-1">
-                            <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevoCliente">
+                            <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevoCliente" data-funcion="agregar">
                                 <i class="fas fa-plus-circle me-1"></i>Nuevo Cliente
+                            </button>
+                            <button type="button" class="btn btn-sm btn-success w-100 mt-1" id="btnAltaAsistente" data-funcion="alta_asistente" title="Crea la empresa en el ERP, la vincula al estudio y la copia desde una plantilla">
+                                <i class="fas fa-magic me-1"></i>Alta con asistente
                             </button>
                         </div>
                     </div>
@@ -144,7 +147,57 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="modal_cliente_id" name="cliente_id" value="0">
-                    
+
+                    <!-- Alta desde la constancia de inscripción de ARCA (solo cliente nuevo) -->
+                    <div id="bloqueConstanciaCliente" class="d-flex align-items-center gap-2 mb-3 p-2 border rounded bg-light">
+                        <i class="fas fa-file-pdf text-danger fs-5"></i>
+                        <span class="small flex-grow-1">¿Tenés la constancia de CUIT de ARCA? Subila y se completan los datos.
+                            <?= ui_ayuda('Se lee con la IA del estudio (Configuración > Empresas: su clave o la de la principal). PDF, también escaneado, o foto de hasta 5 MB. No graba nada: revisá y guardá.') ?></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="btnLeerConstanciaCliente">
+                            <i class="fas fa-robot me-1"></i>Leer constancia
+                        </button>
+                    </div>
+
+                    <!-- Empresa ERP Vinculada (Primero para permitir precarga inmediata) -->
+                    <div class="card bg-light border-primary-subtle shadow-none mb-3">
+                        <div class="card-body p-2">
+                            <label for="modal_empresa_vinculada_id" class="form-label form-label-sm fw-bold text-primary mb-1 d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-building me-1"></i>Empresa ERP Vinculada</span>
+                                <span class="badge bg-primary-subtle text-primary border border-primary"><i class="fas fa-magic me-1"></i>Precarga Automática</span>
+                            </label>
+                            <select class="form-select form-select-sm border-primary" id="modal_empresa_vinculada_id" name="empresa_vinculada_id">
+                                <option value="">-- No vinculada / Cliente externo (O seleccione para precargar datos) --</option>
+                            </select>
+                            <div class="form-text fs-8 text-muted mt-1">
+                                <i class="fas fa-info-circle me-1 text-info"></i>Al seleccionar una empresa existente del ERP, se precargan automáticamente Razón Social, CUIT, Condición IVA, Régimen IIBB, Jurisdicción y datos de nómina. Dejar sin seleccionar si es un cliente externo.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-1">
+                        <div class="col-md-4 mb-2">
+                            <label for="modal_nivel_servicio" class="form-label form-label-sm fw-semibold">Servicio del estudio</label>
+                            <select class="form-select form-select-sm" id="modal_nivel_servicio" name="nivel_servicio">
+                                <option value="PADRON">Padrón (vencimientos, tareas, honorarios)</option>
+                                <option value="FISCAL">Fiscal (comprobantes, IVA, IIBB)</option>
+                                <option value="CONTABLE">Contable (además contabilidad)</option>
+                                <option value="GESTION">Gestión completa</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <label for="modal_origen_datos" class="form-label form-label-sm fw-semibold">Origen de los datos</label>
+                            <select class="form-select form-select-sm" id="modal_origen_datos" name="origen_datos">
+                                <option value="LOCAL">Este ERP</option>
+                                <option value="REMOTO">Servidor propio del cliente</option>
+                                <option value="EXTERNO">Otro software</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-2 d-none" id="grupo_remoto_url">
+                            <label for="modal_remoto_url" class="form-label form-label-sm fw-semibold">URL del ERP del cliente <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control form-control-sm" id="modal_remoto_url" name="remoto_url" maxlength="255" placeholder="https://erp.cliente.com.ar">
+                        </div>
+                    </div>
+
                     <div class="row g-2">
                         <div class="col-md-8 mb-2">
                             <label for="modal_razon_social" class="form-label form-label-sm fw-semibold">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
@@ -190,7 +243,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
 
                     <div class="row g-2">
-                        <div class="col-md-4 mb-2">
+                        <div class="col-md-6 mb-2">
                             <label for="modal_ingresos_brutos_tipo" class="form-label form-label-sm fw-semibold">Régimen IIBB</label>
                             <select class="form-select form-select-sm" id="modal_ingresos_brutos_tipo" name="ingresos_brutos_tipo">
                                 <option value="LOCAL">Local / Directo</option>
@@ -198,16 +251,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="EXENTO">Exento</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-2">
+                        <div class="col-md-6 mb-2">
                             <label for="modal_jurisdiccion_sede_id" class="form-label form-label-sm fw-semibold">Jurisdicción Sede</label>
                             <select class="form-select form-select-sm" id="modal_jurisdiccion_sede_id" name="jurisdiccion_sede_id">
                                 <option value="">Seleccione...</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-2">
-                            <label for="modal_empresa_vinculada_id" class="form-label form-label-sm fw-semibold">Empresa ERP Vinculada</label>
-                            <select class="form-select form-select-sm" id="modal_empresa_vinculada_id" name="empresa_vinculada_id">
-                                <option value="">-- No vinculada a tenant --</option>
                             </select>
                         </div>
                     </div>
@@ -230,7 +277,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <select class="form-select form-select-sm" id="modal_tabla_estado_registro_id" name="tabla_estado_registro_id">
                                 <option value="1">Activo</option>
                                 <option value="2">Inactivo</option>
-                                <option value="3">Suspendido</option>
+                                <option value="16">Suspendido</option>
                             </select>
                         </div>
                     </div>
@@ -278,7 +325,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
             <div class="modal-body">
                 <!-- Formulario de incorporación rápida de jurisdicción -->
-                <form id="formJurisdiccion" class="border rounded p-2 mb-3 bg-light">
+                <form id="formJurisdiccion" data-funcion="editar" class="border rounded p-2 mb-3 bg-light">
                     <input type="hidden" id="mj_cliente_id" name="cliente_id">
                     <h6 class="fw-bold fs-7 text-primary mb-2">Asignar Jurisdicción Provincial</h6>
                     <div class="row g-2 align-items-end">
@@ -331,8 +378,121 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- Modal Asistente: Alta de cliente (empresa ERP + vinculación + plantilla) -->
+<div class="modal fade" id="modalAlta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white py-2">
+                <h5 class="modal-title fs-6"><i class="fas fa-magic me-2"></i>Alta de cliente con asistente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAlta" autocomplete="off">
+                    <!-- Datos de la constancia de inscripción de ARCA para la empresa que se crea (vacíos = los del estudio) -->
+                    <input type="hidden" name="localidad_id" id="al_localidad_id" value="">
+                    <input type="hidden" name="domicilio" id="al_domicilio" value="">
+                    <input type="hidden" name="inicio_actividades" id="al_inicio_actividades" value="">
+                    <div class="d-flex align-items-center gap-2 mb-2 p-2 border rounded bg-light">
+                        <i class="fas fa-file-pdf text-danger fs-5"></i>
+                        <span class="small flex-grow-1" id="al_constancia_texto">¿Tenés la constancia de CUIT de ARCA? Subila y se completan los datos.
+                            <?= ui_ayuda('Se lee con la IA del estudio (Configuración > Empresas: su clave o la de la principal). Además de razón social, CUIT, condición frente al IVA y cierre de ejercicio, la empresa se crea con el domicilio fiscal y la localidad de la constancia.') ?></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="btnLeerConstanciaAlta">
+                            <i class="fas fa-robot me-1"></i>Leer constancia
+                        </button>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label form-label-sm fw-bold">Servicio que recibe el cliente</label>
+                            <select class="form-select form-select-sm" name="nivel_servicio" id="al_nivel">
+                                <option value="PADRON">Padrón: vencimientos, tareas y honorarios (sin datos contables)</option>
+                                <option value="FISCAL" selected>Fiscal: comprobantes, IVA, IIBB y percepciones</option>
+                                <option value="CONTABLE">Contable: además contabilidad y balances</option>
+                                <option value="GESTION">Gestión completa: administración tercerizada</option>
+                            </select>
+                            <small class="text-muted" id="al_nivel_ayuda"></small>
+                        </div>
+                        <div class="col-12" id="al_bloque_origen">
+                            <label class="form-label form-label-sm fw-bold">¿Dónde se llevan los datos del cliente?</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="origen_datos" id="al_origen_local" value="LOCAL" checked>
+                                <label class="btn btn-sm btn-outline-success" for="al_origen_local"><i class="fas fa-server me-1"></i>En este ERP</label>
+                                <input type="radio" class="btn-check" name="origen_datos" id="al_origen_remoto" value="REMOTO">
+                                <label class="btn btn-sm btn-outline-secondary" for="al_origen_remoto"><i class="fas fa-cloud me-1"></i>Tiene su propio servidor</label>
+                                <input type="radio" class="btn-check" name="origen_datos" id="al_origen_externo" value="EXTERNO">
+                                <label class="btn btn-sm btn-outline-secondary" for="al_origen_externo"><i class="fas fa-file-import me-1"></i>Otro software</label>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label form-label-sm fw-semibold">Razón social <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="razon_social" maxlength="150" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm fw-semibold">CUIT <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" name="cuit" maxlength="13" placeholder="30-12345678-9" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm fw-semibold">Tipo de cliente <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" name="cliente_tipo_id" id="al_tipo" required></select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label form-label-sm fw-semibold">Condición frente al IVA <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" name="condicion_iva_id" id="al_cond" required></select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label form-label-sm fw-semibold">Cierre de ejercicio</label>
+                            <select class="form-select form-select-sm" name="mes_cierre_ejercicio" id="al_cierre"></select>
+                        </div>
+
+                        <div class="col-12 al-local">
+                            <hr class="my-2">
+                            <small class="text-muted">Empresa en este ERP</small>
+                        </div>
+                        <div class="col-md-6 al-local">
+                            <label class="form-label form-label-sm fw-semibold">Plantilla de configuración</label>
+                            <div class="input-group input-group-sm">
+                                <select class="form-select form-select-sm" name="plantilla_empresa_id" id="al_plantilla" title="Se copia todo lo que copia &quot;Copiar Datos Iniciales&quot; del Inicio de empresa"></select>
+                                <button type="button" class="btn btn-outline-secondary" id="btnRegistrarPlantilla" title="Registrar una empresa vinculada como plantilla"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 al-local">
+                            <label class="form-label form-label-sm fw-semibold">Acceso del estudio a la empresa</label>
+                            <select class="form-select form-select-sm" name="modo_acceso">
+                                <option value="LECTURA">Solo lectura (auditoría)</option>
+                                <option value="LECTURA_ESCRITURA">Lectura y escritura (el estudio la gestiona)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 al-local">
+                            <label class="form-label form-label-sm fw-semibold">Régimen de Ingresos Brutos</label>
+                            <select class="form-select form-select-sm" name="iibb_regimen_id" id="al_iibb"></select>
+                        </div>
+                        <div class="col-md-6 al-local">
+                            <label class="form-label form-label-sm fw-semibold">Jurisdicción sede</label>
+                            <select class="form-select form-select-sm" name="jurisdiccion_sede_id" id="al_sede"></select>
+                        </div>
+
+                        <div class="col-12 al-remoto d-none">
+                            <hr class="my-2">
+                            <label class="form-label form-label-sm fw-semibold">URL del ERP del cliente (https) <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control form-control-sm" name="remoto_url" maxlength="255" placeholder="https://erp.cliente.com.ar">
+                            <small class="text-muted">Por ahora solo se registra el cliente y su URL. La lectura de sus datos se habilita cuando esté disponible la sincronización.</small>
+                        </div>
+                    </div>
+                </form>
+                <div id="alResultado" class="mt-3 d-none"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-sm btn-success" id="btnAltaEjecutar"><i class="fas fa-check me-1"></i>Crear cliente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/constancia-cuit-ia.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/constancia-cuit-ia.js') ?>"></script>
 <script src="estudio_clientes.js"></script>
+<script src="estudio_clientes_alta.js"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

@@ -8,42 +8,24 @@ $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 110;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $pagina_idx = $pagina_id;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <!-- Estilos y librerías requeridas (Select2 y DataTables Buttons) -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+<link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+<link rel="stylesheet" href="<?= asset_local('css/select2-4.1.0-rc.0/select2.min.css') ?>" />
+<link rel="stylesheet" href="<?= asset_local('css/select2-bootstrap-5-theme-1.3.0/select2-bootstrap-5-theme.min.css') ?>" />
 
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+<script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/select2.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/i18n/es.js') ?>"></script>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-balance-scale me-2"></i>Fiscales - Relación Comprobantes
-                    </h3>
-                    <small class="text-muted">Matriz de Emisión Fiscal: Condición Emisor vs Receptor</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tablas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Relación Fiscal</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Relación fiscal de comprobantes','fas fa-balance-scale', 'Matriz de Emisión Fiscal: Condición Emisor vs Receptor', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -129,34 +111,34 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="condicion_fiscal_emisor_id" class="form-label fw-bold">Condición Fiscal Emisor *</label>
+                                        <label for="condicion_fiscal_emisor_id" class="form-label fw-bold">Condición Fiscal Emisor * <?= ui_ayuda('Condición impositiva de la empresa que emite') ?></label>
                                         <select class="form-select select2-catalog" id="condicion_fiscal_emisor_id" 
                                             name="condicion_fiscal_emisor_id" required>
                                             <option value="">Seleccione condición del emisor...</option>
                                         </select>
                                         <div class="invalid-feedback">Debe seleccionar la condición fiscal del emisor</div>
-                                        <small class="text-muted">Condición impositiva de la empresa que emite</small>
+                                        
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="condicion_fiscal_receptor_id" class="form-label fw-bold">Condición Fiscal Receptor *</label>
+                                        <label for="condicion_fiscal_receptor_id" class="form-label fw-bold">Condición Fiscal Receptor * <?= ui_ayuda('Condición impositiva del cliente / proveedor receptor') ?></label>
                                         <select class="form-select select2-catalog" id="condicion_fiscal_receptor_id" 
                                             name="condicion_fiscal_receptor_id" required>
                                             <option value="">Seleccione condición del receptor...</option>
                                         </select>
                                         <div class="invalid-feedback">Debe seleccionar la condición fiscal del receptor</div>
-                                        <small class="text-muted">Condición impositiva del cliente / proveedor receptor</small>
+                                        
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-8 mb-3">
-                                        <label for="comprobante_fiscal_id" class="form-label fw-bold">Comprobante Fiscal Resultante *</label>
+                                        <label for="comprobante_fiscal_id" class="form-label fw-bold">Comprobante Fiscal Resultante * <?= ui_ayuda('Letra y tipo legal (A, B, C, E, etc.)') ?></label>
                                         <select class="form-select select2-catalog" id="comprobante_fiscal_id" 
                                             name="comprobante_fiscal_id" required>
                                             <option value="">Seleccione tipo de comprobante...</option>
                                         </select>
                                         <div class="invalid-feedback">Debe seleccionar el comprobante fiscal</div>
-                                        <small class="text-muted">Letra y tipo legal (A, B, C, E, etc.)</small>
+                                        
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <label class="form-label fw-bold">Discriminación de IVA</label>
@@ -311,7 +293,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { extend: 'print', text: '<i class="fas fa-print"></i> Imprimir', className: 'btn btn-secondary btn-sm', title: 'Relacion Fiscal Comprobantes' }
                     ],
                     columns: [
-                        { data: 'relacion_fiscal_id', className: 'text-center fw-bold' },
+                        { data: 'relacion_fiscal_id', className: 'ui-detalle' },
                         {
                             data: 'emisor_nombre',
                             render: function (data, type, row) {

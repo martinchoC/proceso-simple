@@ -2,25 +2,14 @@
 // Configuración de la página
 $pageTitle = "Gestión de Estados por Tabla";
 $currentPage = 'perfiles';
+$ui_simple = true;
 $modudo_idx = 2;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Estados por Tabla</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Tablas - Estados</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Estados por tabla','', '', ['Sistema']); ?>
     <div class="app-content">
         <div class="container-fluid">
             <div class="content-wrapper">
@@ -548,7 +537,7 @@ $(document).ready(function(){
     });
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
 
 <?php

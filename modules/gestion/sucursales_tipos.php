@@ -7,31 +7,14 @@ $pageTitle = "Tipos de Sucursales";
 $currentPage = 'sucursales_tipos';
 $modudo_idx = 2;
 $pagina_idx = 43; // ID de página para tipos de sucursales (ajustar según tu BD)
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-store-alt me-2"></i>Tipos de Sucursales
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Tipos de Sucursales</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Tipos de sucursal','fas fa-store-alt', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -89,17 +72,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formSucursalTipo" class="needs-validation" novalidate>
                                 <input type="hidden" id="sucursal_tipo_id" name="sucursal_tipo_id" />
                                 <div class="mb-3">
-                                    <label for="sucursal_tipo" class="form-label">Tipo de Sucursal *</label>
+                                    <label for="sucursal_tipo" class="form-label">Tipo de Sucursal * <?= ui_ayuda('Máximo 50 caracteres') ?></label>
                                     <input type="text" class="form-control" id="sucursal_tipo" name="sucursal_tipo"
                                         maxlength="50" required>
                                     <div class="invalid-feedback">El tipo de sucursal es obligatorio</div>
-                                    <div class="form-text">Máximo 50 caracteres</div>
+                                    
                                 </div>
                                 <div class="mb-3">
-                                    <label for="descripcion" class="form-label">Descripción</label>
+                                    <label for="descripcion" class="form-label">Descripción <?= ui_ayuda('Máximo 150 caracteres') ?></label>
                                     <textarea class="form-control" id="descripcion" name="descripcion" maxlength="150"
                                         rows="3"></textarea>
-                                    <div class="form-text">Máximo 150 caracteres</div>
                                 </div>
                             </form>
                         </div>
@@ -229,7 +211,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                 },
                 order: [[1, 'asc']],
                 responsive: true,
@@ -477,7 +459,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

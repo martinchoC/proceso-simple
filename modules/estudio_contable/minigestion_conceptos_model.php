@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/empresa_config.php';
 
 class MiniGestionConceptosModel {
     private $conn;
@@ -44,10 +45,16 @@ class MiniGestionConceptosModel {
         $es_servicio = intval($data['es_servicio'] ?? 1);
         $cuenta_venta = intval($data['cont_cuenta_venta_id'] ?? 0);
         $cuenta_compra = intval($data['cont_cuenta_compra_id'] ?? 0);
-        $alicuota = intval($data['iva_alicuota_id'] ?? 1); // 1 = 21%
+        $alicuota = intval($data['iva_alicuota_id'] ?? 0);
 
         if (empty($codigo) || empty($nombre)) {
             throw new Exception("Código y nombre del concepto son obligatorios.");
+        }
+        // Las alícuotas son por empresa: sin elegir, la del 21% de la empresa; elegida, tiene que ser suya
+        if ($alicuota <= 0) {
+            $alicuota = emp_iva_alicuota_id($this->conn, $empresa_id, 21.0);
+        } elseif (!$this->alicuotaDeEmpresa($empresa_id, $alicuota)) {
+            throw new Exception("La alícuota de IVA elegida no es de esta empresa.");
         }
 
         if ($id > 0) {
@@ -62,18 +69,42 @@ class MiniGestionConceptosModel {
             if (!$res) throw new Exception("Error al actualizar concepto.");
             return $id;
         } else {
+            // Tipo de producto de la empresa que no maneja stock (la columna tiene default 1, de otra empresa)
+            $producto_tipo_id = emp_producto_tipo_id($this->conn, $empresa_id, false);
             $sql = "INSERT INTO gestion__productos
-                    (empresa_id, producto_codigo, producto_nombre, es_servicio, controla_stock,
+                    (empresa_id, producto_codigo, producto_nombre, producto_tipo_id, es_servicio, controla_stock,
                      cont_cuenta_venta_id, cont_cuenta_compra_id, iva_alicuota_id, tabla_estado_registro_id)
-                    VALUES (?, ?, ?, ?, 0, ?, ?, ?, 1)";
+                    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, 1)";
             $stmt = mysqli_prepare($this->conn, $sql);
-            mysqli_stmt_bind_param($stmt, "issiiii", $empresa_id, $codigo, $nombre, $es_servicio, $cuenta_venta, $cuenta_compra, $alicuota);
+            mysqli_stmt_bind_param($stmt, "issiiiii", $empresa_id, $codigo, $nombre, $producto_tipo_id, $es_servicio, $cuenta_venta, $cuenta_compra, $alicuota);
             $res = mysqli_stmt_execute($stmt);
             $new_id = mysqli_insert_id($this->conn);
             mysqli_stmt_close($stmt);
             if (!$res) throw new Exception("Error al insertar concepto.");
             return $new_id;
         }
+    }
+
+    /** Alícuotas de IVA activas de la empresa (catálogo por empresa: nunca ids fijos). */
+    public function listarAlicuotas($empresa_id) {
+        $sql = "SELECT iva_alicuota_id, iva_alicuota, porcentaje, es_gravado
+                FROM gestion__impuestos__iva_alicuotas
+                WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+                ORDER BY es_gravado DESC, porcentaje DESC, iva_alicuota ASC";
+        $stmt = mysqli_prepare($this->conn, $sql);
+        if (!$stmt) return [];
+        mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $list = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+        mysqli_stmt_close($stmt);
+        return $list;
+    }
+
+    private function alicuotaDeEmpresa($empresa_id, $iva_alicuota_id) {
+        foreach ($this->listarAlicuotas($empresa_id) as $a) {
+            if (intval($a['iva_alicuota_id']) === intval($iva_alicuota_id)) return true;
+        }
+        return false;
     }
 
     public function anularConcepto($empresa_id, $id) {

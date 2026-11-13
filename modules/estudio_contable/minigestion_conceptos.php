@@ -16,7 +16,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 require_once __DIR__ . '/../../db.php';
 $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numero FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC");
@@ -62,7 +62,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             </select>
                         </div>
                         <div class="col-md-7 text-md-end mt-auto pb-1">
-                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevoConcepto">
+                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevoConcepto" data-funcion="agregar">
                                 <i class="fas fa-plus me-1"></i>+ Nuevo Concepto
                             </button>
                         </div>
@@ -156,11 +156,9 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
 
                     <div class="mb-2">
                         <label class="form-label form-label-sm mb-1 fw-bold">Alícuota IVA por Defecto</label>
+                        <!-- Alícuotas de la empresa elegida: las carga minigestion_conceptos.js -->
                         <select id="con_alicuota" name="iva_alicuota_id" class="form-select form-select-sm">
-                            <option value="1">21,00 %</option>
-                            <option value="2">10,50 %</option>
-                            <option value="3">27,00 %</option>
-                            <option value="4">0,00 % (Exento)</option>
+                            <option value="0">IVA 21%</option>
                         </select>
                     </div>
 

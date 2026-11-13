@@ -205,7 +205,7 @@ function vencimientos_generador_ejecutar(mysqli $conexion, int $empresa_id, int 
                         importe_a_pagar, tabla_estado_registro_id
                     ) VALUES (
                         ?, 1, 0, 0, 0, NULL, 0, CURDATE(),
-                        ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 3
+                        ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, 17
                     )";
         $stmt_ins = mysqli_prepare($conexion, $sql_ins);
 

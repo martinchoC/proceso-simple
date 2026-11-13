@@ -2,8 +2,11 @@
 /**
  * Modelo para Parámetros Generales e Historial de Empresa
  * Tabla principal: gestion__empresas_parametros
- * Sincroniza: conf__empresas.condicion_fiscal_id
+ * Sincroniza: conf__empresas.condicion_fiscal_id y el logo (core/empresa_logo.php)
  */
+
+require_once __DIR__ . '/../../arca/arca_lib.php';
+require_once __DIR__ . '/../../core/empresa_logo.php';
 
 if (!function_exists('obtenerEmpresasCatalogo')) {
     function obtenerEmpresasCatalogo($conexion) {
@@ -140,7 +143,7 @@ function empresasLogoColumnaExiste($conexion) {
     return $existe;
 }
 
-// compra_actualiza_lista_proveedor / compra_actualiza_listas_venta (sql/mantenimiento/20261010_precios_compra_01_estructura.sql)
+// compra_actualiza_lista_proveedor / compra_actualiza_listas_venta (_local/sql/mantenimiento/20261010_precios_compra_01_estructura.sql)
 function empresasComprasColumnasExisten($conexion) {
     static $existe = null;
     if ($existe === null) {
@@ -148,6 +151,81 @@ function empresasComprasColumnasExisten($conexion) {
         $existe = $res && mysqli_num_rows($res) > 0;
     }
     return $existe;
+}
+
+// ia_lectura_habilitada / ia_lectura_tope_diario (_local/sql/mantenimiento/20261027_fp_lectura_archivo_01.sql)
+function empresasIaColumnasExisten($conexion) {
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'ia_lectura_tope_diario'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
+// Topes diarios de la IA (lectura de facturas y Asistente IA). Si la empresa usa la IA y con qué clave se define en
+// Configuración > Empresas (core/ia_empresa.php, _local/sql/mantenimiento/20261111_ia_empresa_01.sql): las columnas
+// ia_lectura_habilitada, ia_asistente_habilitado e ia_api_key_cifrada de esta tabla ya no se usan.
+function guardarOpcionesIaEmpresa($conexion, $empresa_parametro_id, $data, $empresa_id = 0, $nueva_vigencia = false) {
+    if (!empresasIaColumnasExisten($conexion)) return;
+    $tope = min(1000, max(0, intval($data['ia_lectura_tope_diario'] ?? 20)));
+    $id = intval($empresa_parametro_id);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__empresas_parametros SET ia_lectura_tope_diario = ? WHERE empresa_parametro_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $tope, $id);
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception("Error al guardar el tope de lecturas con IA: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+
+    // Asistente IA (_local/sql/mantenimiento/20261104_asistente_ia_01.sql)
+    $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'ia_asistente_tope_diario'");
+    if ($res && mysqli_num_rows($res) > 0) {
+        $asis_tope = min(1000, max(0, intval($data['ia_asistente_tope_diario'] ?? 50)));
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__empresas_parametros SET ia_asistente_tope_diario = ? WHERE empresa_parametro_id = ?");
+        mysqli_stmt_bind_param($stmt, "ii", $asis_tope, $id);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Error al guardar el tope del Asistente IA: " . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+    }
+}
+
+// La clave cifrada nunca sale al navegador. Para mostrar: si la empresa usa la IA y de dónde sale la clave
+// (core/ia_empresa.php: propia, de la principal o del servidor).
+function ocultarIaClaveEmpresa($conexion, array &$row) {
+    unset($row['ia_api_key_cifrada']);
+    require_once __DIR__ . '/../../core/ia_empresa.php';
+    $e = ia_empresa_estado($conexion, intval($row['empresa_id'] ?? 0));
+    $row['ia_empresa_habilitada'] = intval($e['ia_habilitada']);
+    $row['ia_empresa_origen'] = $e['origen'];
+    $row['ia_empresa_mascara'] = $e['mascara'];
+    $row['ia_empresa_principal'] = $e['principal'];
+}
+
+// mes_cierre_ejercicio (_local/sql/mantenimiento/20261030_cont_periodos_cierres_02_mes_cierre_ejercicio.sql)
+function empresasMesCierreColumnaExiste($conexion) {
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'mes_cierre_ejercicio'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
+// Mes de cierre del ejercicio contable (1-12): define el año contable de Cierre de Períodos Contables (core/cont_periodos.php).
+function guardarMesCierreEjercicioEmpresa($conexion, $empresa_parametro_id, $data) {
+    if (!empresasMesCierreColumnaExiste($conexion)) return;
+    $mes = intval($data['mes_cierre_ejercicio'] ?? 12);
+    if ($mes < 1 || $mes > 12) {
+        throw new Exception('El mes de cierre del ejercicio tiene que estar entre 1 y 12.');
+    }
+    $id = intval($empresa_parametro_id);
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__empresas_parametros SET mes_cierre_ejercicio = ? WHERE empresa_parametro_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $mes, $id);
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception("Error al guardar el mes de cierre del ejercicio: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
 }
 
 // Graba qué hace la confirmación de una factura de proveedor con la lista del proveedor y las de venta.
@@ -165,44 +243,125 @@ function guardarOpcionesComprasEmpresa($conexion, $empresa_parametro_id, $data) 
     mysqli_stmt_close($stmt);
 }
 
+// arca_integracion_empresa_id (_local/sql/mantenimiento/20261018_arca_certificado_parametros_01.sql)
+function empresasArcaIntegracionColumnaExiste($conexion) {
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'arca_integracion_empresa_id'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
+// Integraciones WSFE que la empresa puede usar para pedir el CAE: las propias (Integraciones ARCA,
+// página 99 / 599) y las que otra empresa le delegó con vigencia a hoy. Certificado, ambiente y si se
+// puede usar (activa, ambiente activo, certificado vigente). De las delegadas no sale la ruta.
+function obtenerIntegracionesArcaCatalogo($conexion, $empresa_id) {
+    $con_delegaciones = arca_delegaciones_existen($conexion);
+    $sql = "SELECT ie.integracion_empresa_id, ie.empresa_id AS titular_empresa_id, ie.cuit, ie.certificado_ruta,
+                   ie.observaciones, ie.tabla_estado_registro_id, a.codigo AS ambiente_codigo,
+                   a.nombre AS ambiente_nombre, a.activo AS ambiente_activo, t.empresa AS titular_empresa
+            FROM gestion__integraciones_empresas ie
+            INNER JOIN conf__integraciones_ambientes a ON a.integracion_ambiente_id = ie.integracion_ambiente_id
+            LEFT JOIN conf__empresas t ON t.empresa_id = ie.empresa_id"
+        . ($con_delegaciones
+            ? " LEFT JOIN gestion__integraciones_delegaciones d
+                    ON d.integracion_empresa_id = ie.integracion_empresa_id AND d.empresa_destino_id = ?
+                   AND " . arca_sql_delegacion_vigente()
+            : "") . "
+            WHERE ie.servicio = 'wsfe' AND (ie.empresa_id = ?"
+        . ($con_delegaciones ? " OR d.integracion_delegacion_id IS NOT NULL" : "") . ")
+            ORDER BY (ie.empresa_id = ?) DESC, ie.tabla_estado_registro_id ASC, a.integracion_ambiente_id DESC, ie.integracion_empresa_id";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return [];
+    $empresa_id = intval($empresa_id);
+    if ($con_delegaciones) {
+        mysqli_stmt_bind_param($stmt, "iii", $empresa_id, $empresa_id, $empresa_id);
+    } else {
+        mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $empresa_id);
+    }
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $data = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $cert = arca_info_certificado($row['certificado_ruta']);
+        $row['delegada'] = intval($row['titular_empresa_id']) !== $empresa_id ? 1 : 0;
+        $row['certificado_archivo'] = basename($row['certificado_ruta']);
+        if ($row['delegada']) {
+            unset($row['certificado_ruta']);
+        } else {
+            unset($row['titular_empresa']);
+        }
+        $row['certificado_vence'] = $cert['ok'] ? substr($cert['valido_hasta'], 0, 10) : null;
+        $row['certificado_vencido'] = (!$cert['ok'] || $cert['vencido']) ? 1 : 0;
+        $row['utilizable'] = (intval($row['tabla_estado_registro_id']) === 1 && intval($row['ambiente_activo']) === 1 && $cert['ok'] && !$cert['vencido']) ? 1 : 0;
+        $data[] = $row;
+    }
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+// Valida la integración elegida para pedir el CAE. Con ARCA habilitado es obligatoria y tiene que
+// poder usarse; sin ARCA se conserva la elección, pero tiene que ser de la empresa. Devuelve error o null.
+function validarIntegracionArcaParametros($conexion, $empresa_id, $arca_habilitado, $integracion_id) {
+    if (!empresasArcaIntegracionColumnaExiste($conexion)) return null;
+    if ($integracion_id <= 0) {
+        return $arca_habilitado ? 'Elija el certificado (integración ARCA) con el que se pide el CAE.' : null;
+    }
+    foreach (obtenerIntegracionesArcaCatalogo($conexion, $empresa_id) as $i) {
+        if (intval($i['integracion_empresa_id']) !== $integracion_id) continue;
+        if (!$arca_habilitado || intval($i['utilizable']) === 1) return null;
+        if (intval($i['tabla_estado_registro_id']) !== 1) return 'La integración ARCA elegida está inactiva.';
+        if (intval($i['ambiente_activo']) !== 1) return 'El ambiente ' . $i['ambiente_nombre'] . ' está inactivo.';
+        return 'El certificado de la integración elegida no se encuentra o está vencido.';
+    }
+    return 'La integración ARCA elegida no es de esta empresa ni tiene una delegación vigente para ella.';
+}
+
+function guardarIntegracionArcaEmpresa($conexion, $empresa_parametro_id, $empresa_id, $integracion_id) {
+    if (!empresasArcaIntegracionColumnaExiste($conexion)) return;
+    $integracion_id = $integracion_id > 0 ? $integracion_id : null;
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__empresas_parametros SET arca_integracion_empresa_id = ? WHERE empresa_parametro_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "iii", $integracion_id, $empresa_parametro_id, $empresa_id);
+    if (!mysqli_stmt_execute($stmt)) {
+        throw new Exception("Error al guardar la integración ARCA: " . mysqli_stmt_error($stmt));
+    }
+    mysqli_stmt_close($stmt);
+}
+
+// Texto de la integración elegida para la tarjeta de parámetros vigentes.
+function agregarResumenIntegracionArca($conexion, &$row) {
+    $id = intval($row['arca_integracion_empresa_id'] ?? 0);
+    $row['arca_integracion'] = null;
+    if ($id <= 0) return;
+    foreach (obtenerIntegracionesArcaCatalogo($conexion, $row['empresa_id']) as $i) {
+        if (intval($i['integracion_empresa_id']) === $id) {
+            $row['arca_integracion'] = $i;
+            return;
+        }
+    }
+}
+
 // Valida y guarda el logo subido. Devuelve ['ruta' => 'uploads/empresas/...' | null] o ['error' => '...'].
+// Código único en core/empresa_logo.php (lo comparte Empresas, conf).
 function guardarArchivoLogoEmpresa($archivo, $empresa_id) {
-    if (!is_array($archivo) || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-        return ['ruta' => null];
-    }
-    if ($archivo['error'] !== UPLOAD_ERR_OK) {
-        return ['error' => 'No se pudo recibir el archivo del logo (código ' . intval($archivo['error']) . ').'];
-    }
-    if ($archivo['size'] > EMPRESAS_LOGO_MAX_BYTES) {
-        return ['error' => 'El logo no puede superar 1 MB.'];
-    }
-    // El tipo se toma del contenido, no de la extensión ni del navegador (sin SVG: puede llevar scripts)
-    $info = @getimagesize($archivo['tmp_name']);
-    $extensiones = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-    if (!$info || !isset($extensiones[$info['mime']])) {
-        return ['error' => 'El logo debe ser una imagen PNG, JPG, GIF o WEBP.'];
-    }
-    $dir = __DIR__ . '/../../' . EMPRESAS_LOGO_DIR_REL;
-    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
-        return ['error' => 'No se pudo crear la carpeta de logos.'];
-    }
-    $nombre = 'logo_' . intval($empresa_id) . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extensiones[$info['mime']];
-    if (!move_uploaded_file($archivo['tmp_name'], $dir . '/' . $nombre)) {
-        error_log("=== guardarArchivoLogoEmpresa: no se pudo mover el archivo a $dir/$nombre ===");
-        return ['error' => 'No se pudo guardar el archivo del logo.'];
-    }
-    return ['ruta' => EMPRESAS_LOGO_DIR_REL . '/' . $nombre];
+    return emp_logo_guardar_archivo($archivo, $empresa_id);
 }
 
 // Logo como data URI para la vista previa (vacío si no hay o el archivo no está).
 function logoEmpresaDataUri($ruta_relativa) {
-    if (empty($ruta_relativa)) return '';
-    $base = realpath(__DIR__ . '/../../' . EMPRESAS_LOGO_DIR_REL);
-    $archivo = realpath(__DIR__ . '/../../' . $ruta_relativa);
-    if (!$base || !$archivo || strpos($archivo, $base . DIRECTORY_SEPARATOR) !== 0 || !is_file($archivo)) return '';
-    $info = @getimagesize($archivo);
-    if (!$info) return '';
-    return 'data:' . $info['mime'] . ';base64,' . base64_encode(file_get_contents($archivo));
+    return emp_logo_data_uri($ruta_relativa);
+}
+
+// La vigencia abierta guardada define el logo actual de la empresa (conf__empresas + colores del encabezado).
+function sincronizarLogoEmpresaDesdeParametro($conexion, $empresa_parametro_id, $empresa_id) {
+    if (!empresasLogoColumnaExiste($conexion)) return;
+    $stmt = mysqli_prepare($conexion, "SELECT logo_archivo FROM gestion__empresas_parametros WHERE empresa_parametro_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_parametro_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if ($row) emp_logo_actualizar_empresa($conexion, intval($empresa_id), $row['logo_archivo'] ?? null);
 }
 
 // Último logo cargado para la empresa (lo hereda una vigencia nueva que no sube otro).
@@ -249,6 +408,8 @@ function obtenerParametrosVigentesEmpresa($conexion, $empresa_id) {
     $res = mysqli_query($conexion, $sql);
     if ($res && $row = mysqli_fetch_assoc($res)) {
         $row['logo_data'] = logoEmpresaDataUri($row['logo_archivo'] ?? '');
+        agregarResumenIntegracionArca($conexion, $row);
+        ocultarIaClaveEmpresa($conexion, $row);
         return $row;
     }
     return null;
@@ -280,6 +441,7 @@ function obtenerHistorialParametrosEmpresa($conexion, $empresa_id) {
     $data = [];
     if ($res) {
         while ($row = mysqli_fetch_assoc($res)) {
+            ocultarIaClaveEmpresa($conexion, $row);
             $row['estado_info'] = [
                 'estado_registro' => $row['estado_registro'],
                 'bg_clase' => $row['bg_clase']
@@ -303,6 +465,7 @@ function obtenerParametroEmpresaPorId($conexion, $id) {
     $res = mysqli_query($conexion, $sql);
     if ($res && $row = mysqli_fetch_assoc($res)) {
         $row['logo_data'] = logoEmpresaDataUri($row['logo_archivo'] ?? '');
+        ocultarIaClaveEmpresa($conexion, $row);
         return $row;
     }
     return null;
@@ -321,6 +484,8 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
     $leyenda_fiscal = !empty($data['leyenda_fiscal']) ? trim($data['leyenda_fiscal']) : null;
     // 1 = las facturas fiscales se confirman recién con el CAE de ARCA (ventas_facturas)
     $arca_habilitado = !empty($data['arca_habilitado']) ? 1 : 0;
+    // Certificado + ambiente (gestion__integraciones_empresas) con el que se pide el CAE
+    $arca_integracion_id = intval($data['arca_integracion_empresa_id'] ?? 0);
     $f_desde = !empty($data['f_desde']) ? trim($data['f_desde']) : null;
     $f_hasta = !empty($data['f_hasta']) ? trim($data['f_hasta']) : null;
     $observaciones = !empty($data['observaciones']) ? trim($data['observaciones']) : null;
@@ -343,6 +508,10 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
     }
     if (!empty($f_hasta) && $f_hasta < $f_desde) {
         return ['resultado' => false, 'error' => 'La fecha hasta no puede ser menor a la fecha desde.'];
+    }
+    $error_arca = validarIntegracionArcaParametros($conexion, $empresa_id, $arca_habilitado, $arca_integracion_id);
+    if ($error_arca !== null) {
+        return ['resultado' => false, 'error' => $error_arca];
     }
 
     mysqli_begin_transaction($conexion);
@@ -396,6 +565,9 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
             }
 
             guardarOpcionesComprasEmpresa($conexion, $empresa_parametro_id, $data);
+            guardarOpcionesIaEmpresa($conexion, $empresa_parametro_id, $data, $empresa_id);
+            guardarMesCierreEjercicioEmpresa($conexion, $empresa_parametro_id, $data);
+            guardarIntegracionArcaEmpresa($conexion, $empresa_parametro_id, $empresa_id, $arca_integracion_id);
 
             // Si este registro es o quedó como vigente (f_hasta IS NULL), sincronizar conf__empresas
             if (empty($f_hasta)) {
@@ -403,6 +575,7 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
                 mysqli_stmt_bind_param($syncStmt, "iiii", $condicion_fiscal_id, $iibb_regimen_id, $jurisdiccion_sede_id, $empresa_id);
                 mysqli_stmt_execute($syncStmt);
                 mysqli_stmt_close($syncStmt);
+                sincronizarLogoEmpresaDesdeParametro($conexion, $empresa_parametro_id, $empresa_id);
             }
 
             mysqli_commit($conexion);
@@ -459,6 +632,9 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
             }
 
             guardarOpcionesComprasEmpresa($conexion, $nuevoId, $data);
+            guardarOpcionesIaEmpresa($conexion, $nuevoId, $data, $empresa_id, true);
+            guardarMesCierreEjercicioEmpresa($conexion, $nuevoId, $data);
+            guardarIntegracionArcaEmpresa($conexion, $nuevoId, $empresa_id, $arca_integracion_id);
 
             // Sincronizar conf__empresas SOLO si la nueva vigencia es la activa (f_hasta IS NULL)
             if (empty($f_hasta)) {
@@ -466,6 +642,7 @@ function guardarParametrosEmpresa($conexion, $data, $usuario_id = null) {
                 mysqli_stmt_bind_param($syncStmt, "iiii", $condicion_fiscal_id, $iibb_regimen_id, $jurisdiccion_sede_id, $empresa_id);
                 mysqli_stmt_execute($syncStmt);
                 mysqli_stmt_close($syncStmt);
+                sincronizarLogoEmpresaDesdeParametro($conexion, $nuevoId, $empresa_id);
             }
 
             mysqli_commit($conexion);
@@ -545,7 +722,7 @@ function listarConfiguracionesImpresion($conexion, $empresa_id) {
 
 function guardarConfiguracionImpresion($conexion, $empresa_id, $data, $usuario_id = null) {
     if (!impresion_tabla_existe($conexion)) {
-        return ['resultado' => false, 'error' => 'Falta la tabla gestion__empresas_impresion (script sql/mantenimiento/20261010_empresas_impresion_01_tabla.sql).'];
+        return ['resultado' => false, 'error' => 'Falta la tabla gestion__empresas_impresion (script _local/sql/mantenimiento/20261010_empresas_impresion_01_tabla.sql).'];
     }
     $empresa_id = intval($empresa_id);
     $cfg = impresion_normalizar($data);

@@ -2,6 +2,7 @@
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['obligaciones_rendiciones.php']]);
+$teso_pagina_id = pagina_id_por_url($conn, 5, 'obligaciones_rendiciones.php');
 /**
  * obligaciones_rendiciones_ajax.php
  *
@@ -30,6 +31,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
 require_once __DIR__ . '/tesoreria_movimientos_model.php';
 require_once __DIR__ . '/obligaciones_rendiciones_model.php';
@@ -49,6 +51,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 $usuario_id = intval($_SESSION['usuario_id'] ?? 1);
+
+// Cada acción exige la función de la página asignada al perfil del usuario (los botones se arman con el mismo criterio)
+function tesoExigirFuncion($conexion, int $pagina_id, string $accion_js): void
+{
+    if (!permisos_puede($conexion, $pagina_id, $accion_js)) {
+        manejarError('Tu perfil no tiene permiso para esta acción.', 403);
+    }
+}
 
 try {
     switch ($accion) {
@@ -84,13 +94,14 @@ try {
                 'desde' => $_GET['desde'] ?? $_POST['desde'] ?? null,
                 'hasta' => $_GET['hasta'] ?? $_POST['hasta'] ?? null
             ];
-            $resultado = obtenerRendicionesListado($conexion, $empresa_idx, $filtros);
+            $resultado = obtenerRendicionesListado($conexion, $empresa_idx, $filtros, $teso_pagina_id);
             enviarRespuesta($resultado);
             break;
 
         case 'guardar_anticipo':
             $input_raw = file_get_contents('php://input');
             $data_json = json_decode($input_raw, true) ?: $_POST;
+            tesoExigirFuncion($conexion, $teso_pagina_id, 'agregar_anticipo');
             $resultado = registrarAnticipoRendir($conexion, $data_json, $empresa_idx, $usuario_id);
             enviarRespuesta($resultado);
             break;
@@ -98,6 +109,7 @@ try {
         case 'guardar_rendicion':
             $input_raw = file_get_contents('php://input');
             $data_json = json_decode($input_raw, true) ?: $_POST;
+            tesoExigirFuncion($conexion, $teso_pagina_id, 'agregar_rendicion');
             $resultado = registrarRendicionGastos($conexion, $data_json, $empresa_idx, $usuario_id);
             enviarRespuesta($resultado);
             break;
@@ -105,6 +117,7 @@ try {
         case 'reembolsar_rendicion':
             $input_raw = file_get_contents('php://input');
             $data_json = json_decode($input_raw, true) ?: $_POST;
+            tesoExigirFuncion($conexion, $teso_pagina_id, 'reembolsar');
             $resultado = reembolsarRendicion($conexion, $data_json, $empresa_idx, $usuario_id);
             enviarRespuesta($resultado);
             break;

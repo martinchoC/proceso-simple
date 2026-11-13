@@ -35,6 +35,8 @@ if (empty($accion)) {
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 96);
+// Solo una página de este módulo (si no, la de productos_tipos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'productos_tipos.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');
@@ -73,10 +75,14 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             enviarRespuesta(agregarProductoTipo($conexion, $_POST, $empresa_idx, $pagina_idx));
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['producto_tipo_id'] ?? 0);
             if ($id <= 0) {
                 manejarError('ID no proporcionado', 400);
@@ -90,6 +96,8 @@ try {
             if ($id <= 0 || $accion_js === '') {
                 enviarRespuesta(['success' => false, 'message' => 'Datos incompletos']);
             }
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             enviarRespuesta(ejecutarTransicionEstado($conexion, $id, $accion_js, $empresa_idx, $pagina_idx));
             break;
 

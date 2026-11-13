@@ -3,7 +3,7 @@
  * Datos del cliente para percepciones IIBB (se editan desde Historial de Situación Fiscal de clientes / entidades):
  *  - jurisdicciones de alta de la condición IIBB vigente (Convenio Multilateral): gestion__entidades_condiciones_iibb_jurisdicciones
  *  - certificados de no percepción / exclusión: gestion__entidades_iibb_exclusiones
- * Diseño: docs/gestion/09_percepciones_iibb.md §4.3 / §4.5.
+ * Diseño: _local/docs/gestion/09_percepciones_iibb.md §4.3 / §4.5.
  */
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
 
@@ -44,7 +44,7 @@ function pcliDatos($conexion, $empresa_id, $entidad_id) {
     $exclusiones = perIibbFilas($conexion,
         "SELECT x.*, j.jurisdiccion_nombre FROM gestion__entidades_iibb_exclusiones x
          JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = x.jurisdiccion_id
-         WHERE x.empresa_id = ? AND x.entidad_id = ? AND x.tabla_estado_registro_id = 1
+         WHERE x.empresa_id = ? AND x.entidad_id = ? AND x.sentido = 'PERCEPCION' AND x.tabla_estado_registro_id = 1
          ORDER BY x.f_desde DESC", 'ii', intval($empresa_id), intval($entidad_id));
     return [
         'condicion' => $cond,
@@ -52,8 +52,12 @@ function pcliDatos($conexion, $empresa_id, $entidad_id) {
         'exclusiones' => $exclusiones,
         'sedes' => perIibbFilas($conexion, "SELECT jurisdiccion_sede_id, codigo_comarb, jurisdiccion_sede FROM gestion__iibb_jurisdicciones_sedes
                                             WHERE tabla_estado_registro_id = 1 ORDER BY codigo_comarb", ''),
-        'jurisdicciones_provinciales' => perIibbFilas($conexion, "SELECT jurisdiccion_id, jurisdiccion_nombre FROM gestion__jurisdicciones
-                                            WHERE tabla_estado_registro_id = 1 AND provincia_id IS NOT NULL ORDER BY jurisdiccion_nombre", ''),
+        // Provincias (exclusión de percepción IIBB) + la nacional (tipo 1: exclusión de percepción de IVA)
+        'jurisdicciones_provinciales' => perIibbFilas($conexion, "SELECT jurisdiccion_id,
+                                                   IF(jurisdiccion_tipo_id = 1, CONCAT('IVA - ', jurisdiccion_nombre), jurisdiccion_nombre) AS jurisdiccion_nombre
+                                            FROM gestion__jurisdicciones
+                                            WHERE tabla_estado_registro_id = 1 AND (provincia_id IS NOT NULL OR jurisdiccion_tipo_id = 1)
+                                            ORDER BY jurisdiccion_tipo_id <> 1, jurisdiccion_nombre", ''),
     ];
 }
 
@@ -94,7 +98,9 @@ function pcliQuitarJurisdiccion($conexion, $empresa_id, $id) {
 function pcliAgregarExclusion($conexion, $empresa_id, $entidad_id, $data) {
     pcliExigirEntidad($conexion, $empresa_id, $entidad_id);
     $jur = intval($data['jurisdiccion_id'] ?? 0);
-    if (!perIibbFila($conexion, "SELECT 1 FROM gestion__jurisdicciones WHERE jurisdiccion_id = ?", 'i', $jur)) throw new Exception('Jurisdicción inválida.');
+    $j = perIibbFila($conexion, "SELECT jurisdiccion_tipo_id FROM gestion__jurisdicciones WHERE jurisdiccion_id = ?", 'i', $jur);
+    if (!$j) throw new Exception('Jurisdicción inválida.');
+    $impuesto = intval($j['jurisdiccion_tipo_id']) === 1 ? PER_IVA_IMPUESTO_TIPO_ID : null;   // nacional: exclusión de percepción de IVA
     $pct = floatval($data['porcentaje_exclusion'] ?? 100);
     if ($pct <= 0 || $pct > 100) throw new Exception('El porcentaje de exclusión va de 0,01 a 100.');
     $desde = pcliFecha($data['f_desde'] ?? '');
@@ -103,10 +109,10 @@ function pcliAgregarExclusion($conexion, $empresa_id, $entidad_id, $data) {
     $nro = trim((string)($data['numero_certificado'] ?? '')) ?: null;
     $obs = trim((string)($data['observaciones'] ?? '')) ?: null;
     $stmt = mysqli_prepare($conexion, "INSERT INTO gestion__entidades_iibb_exclusiones
-            (empresa_id, entidad_id, jurisdiccion_id, porcentaje_exclusion, numero_certificado, f_desde, f_hasta, observaciones, tabla_estado_registro_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)");
+            (empresa_id, entidad_id, impuesto_tipo_id, jurisdiccion_id, porcentaje_exclusion, numero_certificado, f_desde, f_hasta, observaciones, tabla_estado_registro_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
     $empresa_id = intval($empresa_id); $entidad_id = intval($entidad_id);
-    mysqli_stmt_bind_param($stmt, 'iiidssss', $empresa_id, $entidad_id, $jur, $pct, $nro, $desde, $hasta, $obs);
+    mysqli_stmt_bind_param($stmt, 'iiiidssss', $empresa_id, $entidad_id, $impuesto, $jur, $pct, $nro, $desde, $hasta, $obs);
     if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
     mysqli_stmt_close($stmt);
 }

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Estudio Contable: Importación ARCA</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --cian: #055160; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #cff4fc; color: #055160; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-cyan { border-left: 4px solid var(--cian); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_estudio_contable.html">← Volver al manual de Estudio Contable</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Estudio Contable · Auditoría Fiscal</span>
+<h1>Manual de usuario: Importación "Mis Comprobantes" ARCA</h1>
+<p class="subtitulo">Cruce masivo de ventas y compras descargadas del portal oficial de ARCA para auditoría fiscal, conciliación de Libro IVA y carga acelerada.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">¿Para qué sirve esta herramienta?</a></li>
+        <li><a href="#archivos">Archivos soportados (Emitidos y Recibidos)</a></li>
+        <li><a href="#cruce">Cruce y detección de inconsistencias</a></li>
+        <li><a href="#incorporacion">Incorporación masiva al sistema</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">¿Para qué sirve esta herramienta?</h2>
+<p>En <code>importar_arca.php</code> el estudio sube las planillas oficiales descargadas de ARCA ("Mis Comprobantes Emitidos" y "Mis Comprobantes Recibidos"). Es la herramienta fundamental para auditar que el cliente no haya omitido facturas de venta ni de compra antes de liquidar el IVA mensual.</p>
+
+<h2 id="archivos">Archivos soportados (Emitidos y Recibidos)</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Archivo</th>
+        <th>Origen en ARCA</th>
+        <th>Uso en el sistema</th>
+    </tr>
+    <tr>
+        <td><strong>Emitidos (.xlsx / .csv)</strong></td>
+        <td>Portal ARCA → <em>Mis Comprobantes Emitidos</em></td>
+        <td>Compara las ventas informadas a ARCA contra las registradas en el ERP. Detecta facturas no contabilizadas.</td>
+    </tr>
+    <tr>
+        <td><strong>Recibidos (.xlsx / .csv)</strong></td>
+        <td>Portal ARCA → <em>Mis Comprobantes Recibidos</em></td>
+        <td>Verifica el Crédito Fiscal computable y detecta facturas de proveedores que el cliente no envió al estudio.</td>
+    </tr>
+</table>
+
+<h2 id="cruce">Cruce y detección de inconsistencias</h2>
+<p>El sistema analiza línea a línea y resalta:</p>
+<ul>
+    <li><strong style="color:var(--verde);">Coincidentes:</strong> Comprobantes que coinciden en tipo, punto de venta, número e importes.</li>
+    <li><strong style="color:var(--rojo);">Faltantes en el Sistema:</strong> Comprobantes informados en ARCA que no están cargados en el sistema del cliente.</li>
+    <li><strong style="color:var(--amarillo);">Diferencias de Importe / IVA:</strong> Comprobantes cargados pero con discrepancia en el IVA computado.</li>
+</ul>
+
+<h2 id="incorporacion">Incorporación masiva al sistema</h2>
+<p>Para comprobantes faltantes, el operador puede seleccionar los registros y pulsar <em>"Importar Comprobantes al Sistema"</em>: el sistema da de alta a los clientes o proveedores faltantes y genera los registros en estado Confirmado.</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Se pueden importar facturas de meses ya cerrados?</td>
+        <td>Si el período fiscal se encuentra cerrado en el Control Fiscal, el sistema bloqueará la importación exigiendo la reapertura formal motivada del período.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Estudio Contable — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

@@ -4,6 +4,7 @@ $pageTitle = 'Facturas de Clientes';
 $currentPage = 'ventas_facturas';
 $modudo_idx = 5;
 $pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 56;
+$ui_simple = true;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 // Deep-link: llega desde ventas_remitos.php (botón "Facturado"/"Facturado Parcial") con un
@@ -12,13 +13,17 @@ $remito_id_inicial = isset($_GET['remito_id']) ? intval($_GET['remito_id']) : 0;
 // Deep-link: llega desde la lista "Facturas de este remito" (solapa Facturar de
 // ventas_remitos.php) para abrir directo una factura puntual en editar/visualizar.
 $factura_id_inicial = isset($_GET['factura_id']) ? intval($_GET['factura_id']) : 0;
-$factura_accion_inicial = ($_GET['factura_accion'] ?? '') === 'visualizar' ? 'visualizar' : 'editar';
+$factura_accion_inicial = in_array($_GET['factura_accion'] ?? '', ['visualizar', 'cobrar'], true) ? $_GET['factura_accion'] : 'editar';   // cobrar = solapa Medios de Pago
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+// Importación de Mis Comprobantes Emitidos de ARCA (función "Importar de ARCA" de la página)
+require_once ROOT_PATH . '/core/permisos.php';
+$puede_importar_arca = usuario_puede_funcion($conn, intval($_SESSION['usuario_id'] ?? 0), intval($current_empresa_id),
+                                             pagina_id_por_url($conn, 5, 'ventas_facturas.php'), 'importar_arca');
 ?>
 <main class="app-main">
-  <div class="app-content-header"><div class="container-fluid"><div class="row"><div class="col-sm-6"><h3 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Facturas de Clientes</h3></div><div class="col-sm-6"><ol class="breadcrumb float-sm-end"><li class="breadcrumb-item">Ventas</li><li class="breadcrumb-item active">Facturas de Clientes</li></ol></div></div></div></div>
-  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><div class="input-group input-group-sm" style="width: 250px;"><span class="input-group-text"><i class="fas fa-search"></i></span><input type="text" class="form-control" id="filtro_facturas" placeholder="Buscar factura / cliente..."></div></div><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm table-slim" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>CAE</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
+  <?php ui_encabezado('Facturas de venta','fas fa-file-invoice-dollar', '', ['Ventas']); ?>
+  <div class="app-content"><div class="container-fluid"><div class="card"><div class="card-header d-flex justify-content-between align-items-center"><div class="d-flex align-items-center gap-2"><button class="btn btn-sm btn-primary" id="btnNuevaFactura"><i class="fas fa-plus me-1"></i>Nueva Factura</button><?php if ($puede_importar_arca): ?><button class="btn btn-sm btn-outline-primary" id="btnImportarArcaVentas" title="Importar Mis Comprobantes Emitidos de ARCA"><i class="fas fa-file-import me-1"></i>Importar de ARCA</button><?php endif; ?><div class="input-group input-group-sm" style="width: 250px;"><span class="input-group-text"><i class="fas fa-search"></i></span><input type="text" class="form-control" id="filtro_facturas" placeholder="Buscar factura / cliente..."></div></div><button class="btn btn-sm btn-outline-secondary" id="btnRecargar"><i class="fas fa-sync-alt"></i></button></div><div class="card-body"><table id="tablaFacturasCliente" class="table table-striped table-bordered table-sm table-slim" style="width:100%"><thead><tr><th>Número</th><th>Cliente</th><th>Tipo</th><th>Emisión</th><th>Condición De Pago</th><th>Total</th><th>CAE</th><th>Estado</th><th class="text-center">Acciones</th></tr></thead><tbody></tbody></table></div></div></div></div>
 </main>
 <div class="modal fade" id="modalFacturaCliente" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -90,7 +95,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="col-md-12 d-none" id="factura_asociado_wrap">
                   <label class="form-label">Comprobante asociado <small class="text-muted">(nota de crédito / débito)</small></label>
                   <select class="form-select form-select-sm" id="factura_comprobante_asociado_id"><option value="">Sin comprobante asociado</option></select>
-                  <small class="text-muted">Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con recibo en $0).</small>
+                  <?= ui_ayuda('Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con recibo en $0).') ?>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label">Número</label>
@@ -99,7 +104,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
               </div>
               <div class="card border-primary mb-3" id="cardRemitosFactura">
-                <div class="card-header py-2" id="tituloCardRemitosFactura">Remitos Pendientes De Facturar</div>
+                <div class="card-header py-2" id="tituloCardRemitosFactura">Ítems De La Factura</div>
                 <div class="card-body p-2" id="contenedorRemitosFactura"><div class="text-muted small">Seleccione un cliente.</div></div>
               </div>
               <div class="card border-secondary mb-3" id="cardAgregarProductoManual">
@@ -255,6 +260,52 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
   </div>
 </div>
+<?php if ($puede_importar_arca): ?>
+<div class="modal fade" id="modalImportarArcaVentas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-file-import me-2"></i>Importar Comprobantes Emitidos de ARCA</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="small text-muted mb-2">
+          Archivo de ARCA &gt; Mis Comprobantes &gt; <strong>Emitidos</strong> (.xlsx o .csv). Los comprobantes entran <strong>Confirmados</strong>, con su número y CAE, comprobante y asiento.
+          Se saltean los que ya están cargados (mismo tipo, punto de venta y número).
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-5">
+            <label class="form-label">Archivo</label>
+            <input type="file" class="form-control form-control-sm" id="vfiArchivo" accept=".xlsx,.xls,.csv">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Producto / concepto para las líneas <span class="text-danger">*</span></label>
+            <select class="form-select form-select-sm" id="vfiProducto"></select>
+            <small class="text-muted">Una línea por alícuota de IVA. Solo conceptos de venta sin stock.</small>
+          </div>
+          <div class="col-md-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="vfiCrearClientes" checked>
+              <label class="form-check-label" for="vfiCrearClientes">Dar de alta los clientes que no existen (por CUIT)</label>
+            </div>
+          </div>
+        </div>
+        <div id="vfiResumen" class="mb-2"></div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-0 d-none" id="vfiTabla">
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Número</th><th>CAE</th><th>Cliente</th><th class="text-end">Total</th><th>Estado</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-sm btn-primary" id="vfiImportar" disabled><i class="fas fa-file-import me-1"></i>Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 <style>
 #factura_productos_resultados:empty{display:none}
 #factura_productos_resultados .list-group-item{cursor:pointer}
@@ -267,6 +318,24 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 .no-spinner::-webkit-inner-spin-button,.no-spinner::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .no-spinner{-moz-appearance:textfield;appearance:textfield}
 .factura-precio{width:100px;margin-left:auto}
+
+/* Ítems de la factura: una línea por ítem. "A facturar" muestra todo; "Pendientes" (plegado) solo el
+   resumen y el botón Agregar (ventas_facturas.js, tablaItemsFactura) */
+.factura-items th,.factura-items td{white-space:nowrap;vertical-align:middle;padding:.25rem .4rem}
+.factura-items thead th{font-weight:600;font-size:.72rem;color:#6c757d}
+.factura-items .col-detalle{width:100%;max-width:0;min-width:180px}
+.factura-items .factura-item-nombre{min-width:0}
+.factura-items .factura-leyenda{white-space:normal}
+.factura-items .factura-precio{width:90px}
+.factura-items .factura-descuento-renglon{width:82px;margin-left:auto}
+.factura-items-pendientes .col-edit,.factura-items-elegidos .col-agregar{display:none}
+.factura-items-pendientes{background:#fafbfc}
+.factura-items .btn-agregar-pendiente{padding:.1rem .45rem;font-size:.72rem}
+.factura-items .btn-quitar-item{padding:.1rem .4rem}
+.factura-pendientes{border:1px dashed #ced4da;border-radius:6px;padding:.35rem .5rem}
+.factura-pendientes>summary{cursor:pointer;list-style-position:inside}
+.factura-pendientes[open] .factura-pendientes-hint{display:none}
+.factura-pendientes-hint{color:#0d6efd;text-decoration:underline}
 
 /* ===== TABLA MÁS COMPACTA (slim) ===== */
 #tablaFacturasCliente.table-slim th,
@@ -312,6 +381,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 .factura-totales-final .factura-totales-valor{font-size:1.15rem;font-weight:700;color:#fff}
 .modal-footer strong{color:#1a73e8;font-size:.95rem}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<?php if ($puede_importar_arca): ?><script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script><?php endif; ?>
 <script>const PAGINA_ID = <?= $pagina_idx ?>; const EMPRESA_ID = <?= $empresa_id ?>; const REMITO_ID_INICIAL = <?= $remito_id_inicial ?>; const FACTURA_ID_INICIAL = <?= $factura_id_inicial ?>; const FACTURA_ACCION_INICIAL = '<?= $factura_accion_inicial ?>';</script><script src="ventas_facturas.js?v=<?= filemtime(__DIR__.'/ventas_facturas.js') ?>"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

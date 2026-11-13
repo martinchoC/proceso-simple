@@ -6,7 +6,7 @@ $pageTitle = "Gestión de Clientes";
 $currentPage = 'clientes';
 $modudo_idx = 5;
 // ABM de Clientes: reutiliza la misma tabla gestion__entidades que
-// entidades.php (filtrada acá por es_cliente = 1), pero el pagina_id NO
+// entidades.php (filtrada acá por el rol CLI), pero el pagina_id NO
 // se hardcodea: se resuelve desde conf__paginas por url porque esta pantalla vive como una página
 // propia en conf__paginas (con sus propias conf__paginas_funciones), distinta
 // de la de "Entidades" (pagina_id 50) y de la de Proveedores.
@@ -15,29 +15,12 @@ require_once ROOT_PATH . '/config.php';
 // El pagina_id del GET solo elige entre las páginas configuradas con esta url: no puede
 // apuntar a otra página ni valer 0 (header1.php no controla permisos con pagina_idx <= 0).
 $pagina_idx = pagina_id_por_url($conexion, $modudo_idx, 'clientes.php', intval($_GET['pagina_id'] ?? 0));
+$ui_simple = true;
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-user-tie me-2"></i>Gestión de Clientes
-                    </h3>
-                    <small class="text-muted">Gestión Normal Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión Normal</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Clientes</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Clientes','fas fa-user-tie', '', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -103,10 +86,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <tr>
                                                     <th width="80">ID</th>
                                                     <th width="200">Nombre</th>
-                                                    <th width="100">Tipo</th>
                                                     <th width="120">CUIT</th>
                                                     <th width="160">Condición Fiscal</th>
                                                     <th width="180">Condiciones Clientes</th>
+                                                    <th>Domicilio</th>
+                                                    <th>Localidad</th>
+                                                    <th>Provincia</th>
+                                                    <th width="110">Teléfono</th>
                                                     <th width="120">Estado</th>
                                                     <th width="200" class="text-center">Acciones</th>
                                                 </tr>
@@ -693,10 +679,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-3 mb-3">
-                                        <label for="sucursal_numero" class="form-label">N° Sucursal</label>
+                                        <label for="sucursal_numero" class="form-label">N° Sucursal <?= ui_ayuda('1 para Casa Central') ?></label>
                                         <input type="number" class="form-control" id="sucursal_numero"
                                             name="sucursal_numero" min="1" max="65535" placeholder="Auto (1, 2...)">
-                                        <div class="form-text">1 para Casa Central</div>
                                     </div>
                                     <div class="col-md-9 mb-3">
                                         <label for="sucursal_nombre" class="form-label">Nombre de la Sucursal *</label>
@@ -708,10 +693,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-4 mb-3">
-                                        <label for="sucursal_direccion" class="form-label">Dirección</label>
+                                        <label for="sucursal_direccion" class="form-label">Dirección <?= ui_ayuda('Domicilio comercial') ?></label>
                                         <input type="text" class="form-control" id="sucursal_direccion"
                                             name="sucursal_direccion" maxlength="255">
-                                        <div class="form-text">Domicilio comercial</div>
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
@@ -741,19 +725,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="sucursal_email" class="form-label">Email</label>
+                                        <label for="sucursal_email" class="form-label">Email <?= ui_ayuda('Correo electrónico de contacto') ?></label>
                                         <input type="email" class="form-control" id="sucursal_email"
                                             name="sucursal_email" maxlength="150">
-                                        <div class="form-text">Correo electrónico de contacto</div>
                                     </div>
                                 </div>
                                 
                                 <div class="row">
                                     <div class="col-md-12 mb-3">
-                                        <label for="sucursal_contacto" class="form-label">Persona de Contacto</label>
+                                        <label for="sucursal_contacto" class="form-label">Persona de Contacto <?= ui_ayuda('Nombre de la persona responsable') ?></label>
                                         <input type="text" class="form-control" id="sucursal_contacto"
                                             name="sucursal_contacto" maxlength="100">
-                                        <div class="form-text">Nombre de la persona responsable</div>
                                     </div>
                                 </div>
                             </form>
@@ -826,9 +808,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="f_hasta_cliente" class="form-label">Fecha Hasta</label>
+                                        <label for="f_hasta_cliente" class="form-label">Fecha Hasta <?= ui_ayuda('Dejar vacío si es vigente') ?></label>
                                         <input type="date" class="form-control" id="f_hasta_cliente" name="f_hasta">
-                                        <div class="form-text">Dejar vacío si es vigente</div>
                                     </div>
                                 </div>
                             </form>
@@ -884,9 +865,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="f_hasta_proveedor" class="form-label">Fecha Hasta</label>
+                                        <label for="f_hasta_proveedor" class="form-label">Fecha Hasta <?= ui_ayuda('Dejar vacío si es vigente') ?></label>
                                         <input type="date" class="form-control" id="f_hasta_proveedor" name="f_hasta">
-                                        <div class="form-text">Dejar vacío si es vigente</div>
                                     </div>
                                 </div>
                             </form>
@@ -939,9 +919,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="vinculacion_f_hasta" class="form-label">Fecha Hasta</label>
+                                        <label for="vinculacion_f_hasta" class="form-label">Fecha Hasta <?= ui_ayuda('Dejar vacío si es vigente') ?></label>
                                         <input type="date" class="form-control" id="vinculacion_f_hasta" name="vinculacion_f_hasta">
-                                        <div class="form-text">Dejar vacío si es vigente</div>
                                     </div>
                                 </div>
                                 
@@ -991,9 +970,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">La fecha de inicio es requerida</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="cf_f_hasta" class="form-label fw-bold">Fecha Hasta</label>
+                                        <label for="cf_f_hasta" class="form-label fw-bold">Fecha Hasta <?= ui_ayuda('Vacío para vigencia indefinida') ?></label>
                                         <input type="date" class="form-control" id="cf_f_hasta" name="f_hasta">
-                                        <small class="text-muted">Vacío para vigencia indefinida</small>
                                     </div>
                                 </div>
 
@@ -1040,17 +1018,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
 
                                 <div class="mb-3" id="grupo_numero_inscripcion">
-                                    <label for="iibb_numero_inscripcion" class="form-label fw-bold">Número de Inscripción en IIBB</label>
+                                    <label for="iibb_numero_inscripcion" class="form-label fw-bold">Número de Inscripción en IIBB <?= ui_ayuda('Número local o número de CUIT / Convenio Interprovincial') ?></label>
                                     <input type="text" class="form-control" id="iibb_numero_inscripcion" name="numero_inscripcion" placeholder="Número local o número de CUIT / Convenio">
-                                    <small class="text-muted">Número local o número de CUIT / Convenio Interprovincial</small>
                                 </div>
 
                                 <div class="mb-3" id="grupo_jurisdiccion_sede">
-                                    <label for="select_jurisdiccion_sede_id" class="form-label fw-bold">Sede Principal / Jurisdicción Sede</label>
+                                    <label for="select_jurisdiccion_sede_id" class="form-label fw-bold">Sede Principal / Jurisdicción Sede <?= ui_ayuda('Código de provincia ARCA/COMARB (ej. 901 para CABA, 902 para Bs. As.)') ?></label>
                                     <select class="form-select" id="select_jurisdiccion_sede_id" name="jurisdiccion_sede_id">
                                         <option value="">Seleccione jurisdicción sede (código ARCA/COMARB)...</option>
                                     </select>
-                                    <small class="text-muted">Código de provincia ARCA/COMARB (ej. 901 para CABA, 902 para Bs. As.)</small>
                                 </div>
 
                                 <div class="row">
@@ -1060,9 +1036,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">La fecha de inicio es requerida</div>
                                     </div>
                                     <div class="col-md-6 mb-3">
-                                        <label for="iibb_f_hasta" class="form-label fw-bold">Fecha Hasta</label>
+                                        <label for="iibb_f_hasta" class="form-label fw-bold">Fecha Hasta <?= ui_ayuda('Vacío para vigencia indefinida') ?></label>
                                         <input type="date" class="form-control" id="iibb_f_hasta" name="f_hasta">
-                                        <small class="text-muted">Vacío para vigencia indefinida</small>
                                     </div>
                                 </div>
 
@@ -1608,7 +1583,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
-                { data: 'entidad_sucursal_compra_id', className: 'text-center fw-bold' },
+                { data: 'entidad_sucursal_compra_id', className: 'ui-detalle' },
                 { 
                     data: 'sucursal_nombre',
                     render: function(data, type, row) {
@@ -1637,14 +1612,14 @@ $(document).ready(function () {
                     data: 'f_desde',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                        return data ? Fmt.fecha(data) : '-';
                     }
                 },
                 {
                     data: 'f_hasta',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Vigente</span>';
                     }
                 },
                 {
@@ -1819,7 +1794,7 @@ $(document).ready(function () {
             $('#entidad_id_vinculacion').val(entidadActualId);
             
             // Set fecha desde por defecto a hoy
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#vinculacion_f_desde').val(today);
             
             // Si no hay sucursales activas, marcar automáticamente como principal
@@ -1861,7 +1836,7 @@ $(document).ready(function () {
             $('#modalVinculacionCompraLabel').text('Vincular Sucursal de Compra');
             $('#entidad_id_vinculacion').val(entidadActualId);
             
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#vinculacion_f_desde').val(today);
             
             var modal = new bootstrap.Modal(document.getElementById('modalVinculacionCompra'));
@@ -1880,7 +1855,7 @@ $(document).ready(function () {
 
         var fDesde = $('#vinculacion_f_desde').val();
         var fHasta = $('#vinculacion_f_hasta').val();
-        var hoy = new Date().toISOString().split('T')[0];
+        var hoy = Fmt.hoyISO();
         
         if (fDesde < hoy) {
             Swal.fire({
@@ -2017,11 +1992,11 @@ $(document).ready(function () {
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <th width="40%">Límite de Crédito:</th>
-                                <td><span class="fw-bold">${condicion.limite_credito ? '$ ' + parseFloat(condicion.limite_credito).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') : '-'}</span></td>
+                                <td><span class="fw-bold">${condicion.limite_credito ? '$ ' + Fmt.numero(parseFloat(condicion.limite_credito), 2) : '-'}</span></td>
                             </tr>
                             <tr>
                                 <th>Vigencia Desde:</th>
-                                <td>${moment(condicion.f_desde).format('DD/MM/YYYY')}</td>
+                                <td>${Fmt.fecha(condicion.f_desde)}</td>
                             </tr>
                             <tr>
                                 <th>Acceso Web:</th>
@@ -2276,11 +2251,11 @@ $(document).ready(function () {
                         <table class="table table-sm table-borderless">
                             <tr>
                                 <th width="40%">Vigencia Desde:</th>
-                                <td>${moment(condicion.f_desde).format('DD/MM/YYYY')}</td>
+                                <td>${Fmt.fecha(condicion.f_desde)}</td>
                             </tr>
                             <tr>
                                 <th>Vigencia Hasta:</th>
-                                <td>${condicion.f_hasta ? moment(condicion.f_hasta).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>'}</td>
+                                <td>${condicion.f_hasta ? Fmt.fecha(condicion.f_hasta) : '<span class="badge bg-success">Vigente</span>'}</td>
                             </tr>
                         </table>
                     </div>
@@ -2309,14 +2284,14 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             columns: [
-                { data: 'entidad_condicion_cliente_id', className: 'text-center' },
+                { data: 'entidad_condicion_cliente_id', className: 'ui-detalle' },
                 { data: 'condicion_pago' },
                 { data: 'lista_precio' },
                 { 
                     data: 'limite_credito',
                     className: 'text-end',
                     render: function(data) {
-                        return data ? '$ ' + parseFloat(data).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,') : '-';
+                        return data ? '$ ' + Fmt.numero(parseFloat(data), 2) : '-';
                     }
                 },
                 { 
@@ -2329,13 +2304,13 @@ $(document).ready(function () {
                 { 
                     data: 'f_desde',
                     render: function(data) {
-                        return moment(data).format('DD/MM/YYYY');
+                        return Fmt.fecha(data);
                     }
                 },
                 { 
                     data: 'f_hasta',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Vigente</span>';
                     }
                 },
                 {
@@ -2371,7 +2346,7 @@ $(document).ready(function () {
                 dataSrc: ''
             },
             columns: [
-                { data: 'entidad_condicion_proveedor_id', className: 'text-center' },
+                { data: 'entidad_condicion_proveedor_id', className: 'ui-detalle' },
                 { data: 'condicion_pago' },
                 { data: 'proveedor_categoria' },
                 { 
@@ -2384,13 +2359,13 @@ $(document).ready(function () {
                 { 
                     data: 'f_desde',
                     render: function(data) {
-                        return moment(data).format('DD/MM/YYYY');
+                        return Fmt.fecha(data);
                     }
                 },
                 { 
                     data: 'f_hasta',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Vigente</span>';
                     }
                 },
                 {
@@ -2497,7 +2472,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
-                { data: 'entidad_condicion_cliente_id', className: 'text-center fw-bold' },
+                { data: 'entidad_condicion_cliente_id', className: 'ui-detalle' },
                 {
                     data: 'entidad_cliente_tipo',
                     className: 'text-center',
@@ -2526,7 +2501,7 @@ $(document).ready(function () {
                             return data || '';
                         }
                         if (data !== null && data !== '') {
-                            return '$ ' + parseFloat(data).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                            return '$ ' + Fmt.numero(parseFloat(data), 2);
                         }
                         return '<span class="text-muted">-</span>';
                     }
@@ -2545,14 +2520,14 @@ $(document).ready(function () {
                     data: 'f_desde',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                        return data ? Fmt.fecha(data) : '-';
                     }
                 },
                 { 
                     data: 'f_hasta',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Vigente</span>';
                     }
                 },
                 {
@@ -2629,7 +2604,7 @@ $(document).ready(function () {
             pageLength: 10,
             lengthMenu: [[5, 10, 25, 50], [5, 10, 25, 50]],
             columns: [
-                { data: 'entidad_condicion_proveedor_id', className: 'text-center fw-bold' },
+                { data: 'entidad_condicion_proveedor_id', className: 'ui-detalle' },
                 { 
                     data: 'condicion_pago',
                     render: function(data, type, row) {
@@ -2656,14 +2631,14 @@ $(document).ready(function () {
                     data: 'f_desde',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                        return data ? Fmt.fecha(data) : '-';
                     }
                 },
                 { 
                     data: 'f_hasta',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Vigente</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Vigente</span>';
                     }
                 },
                 {
@@ -2830,6 +2805,44 @@ $(document).ready(function () {
             }, 250);
         });
 
+        // Teclado: flechas para recorrer la lista, Enter para elegir, Escape para cerrar
+        $inputTexto.on('keydown', function (e) {
+            var $items = $dropdown.find('.dropdown-item');
+            var visible = $dropdown.is(':visible') && $items.length > 0;
+            var idx = $items.index($items.filter('.active'));
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!visible) return;
+                e.preventDefault();
+                if (e.key === 'ArrowDown') {
+                    idx = idx < $items.length - 1 ? idx + 1 : 0;
+                } else {
+                    idx = idx > 0 ? idx - 1 : $items.length - 1;
+                }
+                $items.removeClass('active');
+                var $actual = $items.eq(idx).addClass('active');
+                $actual[0].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+                if (!visible) return;
+                // Nunca envía el formulario mientras la lista está abierta
+                e.preventDefault();
+                if (idx < 0 && $items.length === 1) idx = 0;
+                if (idx >= 0) $items.eq(idx).trigger('click');
+            } else if (e.key === 'Escape') {
+                if ($dropdown.is(':visible')) {
+                    // Que no cierre también el modal
+                    e.preventDefault();
+                    e.stopPropagation();
+                    $dropdown.hide();
+                }
+            }
+        });
+
+        $dropdown.on('mouseenter', '.dropdown-item', function () {
+            $dropdown.find('.dropdown-item').removeClass('active');
+            $(this).addClass('active');
+        });
+
         $dropdown.on('click', '.dropdown-item', function (e) {
             e.preventDefault();
             var id = $(this).data('id');
@@ -2882,6 +2895,14 @@ $(document).ready(function () {
             btnLimpiar: '#btnLimpiarLocalidadSucursal',
             ajaxUrl: 'clientes_ajax.php'
         });
+    }
+
+    // Texto simple escapado; vacío = guion (en la exportación, vacío)
+    function renderTextoEntidad(data, type) {
+        var texto = (data === null || data === undefined) ? '' : String(data).trim();
+        if (type !== 'display') return texto;
+        if (!texto) return '<span class="text-muted">-</span>';
+        return $('<div>').text(texto).html();
     }
 
     // Función para inicializar DataTable de entidades
@@ -2967,7 +2988,7 @@ $(document).ready(function () {
                     className: 'btn btn-success btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                         orthogonal: 'export'
                     }
                 },
@@ -2979,7 +3000,7 @@ $(document).ready(function () {
                     orientation: 'portrait',
                     pageSize: 'A4',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                         orthogonal: 'export'
                     }
                 },
@@ -2989,7 +3010,7 @@ $(document).ready(function () {
                     className: 'btn btn-primary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6]
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                     }
                 },
                 {
@@ -2998,7 +3019,7 @@ $(document).ready(function () {
                     className: 'btn btn-secondary btn-sm',
                     title: 'Entidades',
                     exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5, 6],
+                        columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
                         stripHtml: false
                     }
                 }
@@ -3006,32 +3027,16 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'entidad_id',
-                    className: 'text-center fw-bold'
+                    className: 'ui-detalle'
                 },
                 {
-                    data: 'entidad_nombre',
+                    data: 'entidad_fantasia',
                     render: function (data, type, row) {
+                        var nombreMostrar = row.entidad_fantasia || row.entidad_nombre || '';
                         if (type === 'export') {
-                            return data + (row.entidad_fantasia ? ' - ' + row.entidad_fantasia : '');
+                            return nombreMostrar;
                         }
-                        return `<div class="fw-medium">${data}</div>` +
-                            (row.entidad_fantasia ? `<small class="d-block text-muted">${row.entidad_fantasia}</small>` : '');
-                    }
-                },
-                {
-                    data: 'entidad_tipo_info',
-                    className: 'text-center',
-                    render: function (data, type, row) {
-                        if (type === 'export') {
-                            return data && data.entidad_tipo ? data.entidad_tipo : '';
-                        }
-                        
-                        if (!data || !data.entidad_tipo) {
-                            return '<span class="text-muted fst-italic">No especificado</span>';
-                        }
-                        
-                        var badgeClass = data.bg_clase ? 'badge ' + data.bg_clase : 'badge bg-secondary';
-                        return `<span class="${badgeClass}">${data.entidad_tipo}</span>`;
+                        return `<div class="fw-medium">${nombreMostrar}</div>`;
                     }
                 },
                 {
@@ -3094,6 +3099,11 @@ $(document).ready(function () {
                         return html;
                     }
                 },
+                // Domicilio (calle, localidad y provincia) y teléfono de la sucursal principal
+                { data: 'sucursal_direccion', render: renderTextoEntidad },
+                { data: 'sucursal_localidad', render: renderTextoEntidad },
+                { data: 'sucursal_provincia', render: renderTextoEntidad },
+                { data: 'sucursal_telefono', className: 'text-nowrap', render: renderTextoEntidad },
                 {
                     data: 'estado_info',
                     className: 'text-center',
@@ -3268,7 +3278,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'sucursal_id',
-                    className: 'text-center fw-bold'
+                    className: 'ui-detalle'
                 },
                 {
                     data: 'sucursal_nombre',
@@ -3650,7 +3660,7 @@ $(document).ready(function () {
             }
             
             // Set fecha desde por defecto a hoy
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#f_desde_cliente').val(today);
             
             var modal = new bootstrap.Modal(document.getElementById('modalCondicionCliente'));
@@ -3662,7 +3672,7 @@ $(document).ready(function () {
             $('#modalCondicionClienteLabel').text('Nueva Condición de Cliente');
             $('#entidad_id_condicion_cliente').val(entidadActualId);
             
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#f_desde_cliente').val(today);
             
             var modal = new bootstrap.Modal(document.getElementById('modalCondicionCliente'));
@@ -3723,7 +3733,7 @@ $(document).ready(function () {
             }
             
             // Set fecha desde por defecto a hoy
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#f_desde_proveedor').val(today);
             
             var modal = new bootstrap.Modal(document.getElementById('modalCondicionProveedor'));
@@ -3735,7 +3745,7 @@ $(document).ready(function () {
             $('#modalCondicionProveedorLabel').text('Nueva Condición de Proveedor');
             $('#entidad_id_condicion_proveedor').val(entidadActualId);
             
-            var today = new Date().toISOString().split('T')[0];
+            var today = Fmt.hoyISO();
             $('#f_desde_proveedor').val(today);
             
             var modal = new bootstrap.Modal(document.getElementById('modalCondicionProveedor'));
@@ -4133,7 +4143,7 @@ $(document).ready(function () {
                     actualizarBadgeDefectoCliente();
                 });
                 
-                $('#modalLabel').text('Editar Entidad');
+                UiSimple.encabezadoEntidad('#modalLabel', 'Editar Entidad', res);
                 entidadActualId = res.entidad_id;
                 $('#sucursales-tab').removeClass('disabled');
                 habilitarSolapaCtacte(entidadActualId);
@@ -4337,6 +4347,12 @@ $(document).ready(function () {
             search: tablaEntidades.search()
         };
 
+        var entidadFantasia = $('#entidad_fantasia').val().trim();
+        if (!entidadFantasia) {
+            entidadFantasia = entidadNombre;
+            $('#entidad_fantasia').val(entidadFantasia);
+        }
+
         $.ajax({
             url: 'clientes_ajax.php',
             type: 'POST',
@@ -4344,7 +4360,7 @@ $(document).ready(function () {
                 accion: accionBackend,
                 entidad_id: id,
                 entidad_nombre: entidadNombre,
-                entidad_fantasia: $('#entidad_fantasia').val().trim(),
+                entidad_fantasia: entidadFantasia,
                 entidad_tipo_id: $('#entidad_tipo_id').val(),
                 cont_cuenta_id_proveedor: $('#cont_cuenta_id_proveedor').val() || null,
                 cont_cuenta_id_cliente: $('#cont_cuenta_id_cliente').val() || null,
@@ -4737,7 +4753,7 @@ $(document).ready(function () {
         }, function(condicion) {
             if (condicion && condicion.entidad_condicion_fiscal_id) {
                 $('#condicion_fiscal_id').val(condicion.condicion_fiscal_id);
-                $('#vigencia-iva').html('<i class="fas fa-check-circle text-success me-1"></i>Vigente desde ' + moment(condicion.f_desde).format('DD/MM/YYYY'));
+                $('#vigencia-iva').html('<i class="fas fa-check-circle text-success me-1"></i>Vigente desde ' + Fmt.fecha(condicion.f_desde));
             } else {
                 $('#condicion_fiscal_id').val('');
                 $('#vigencia-iva').html('<i class="fas fa-exclamation-circle text-warning me-1"></i>Sin condición IVA vigente');
@@ -4784,7 +4800,7 @@ $(document).ready(function () {
             lengthMenu: [[5, 10, 25], [5, 10, 25]],
             order: [[3, 'desc']],
             columns: [
-                { data: 'entidad_condicion_fiscal_id', className: 'text-center fw-bold' },
+                { data: 'entidad_condicion_fiscal_id', className: 'ui-detalle' },
                 {
                     data: 'condicion_fiscal',
                     render: function(data, type, row) {
@@ -4805,14 +4821,14 @@ $(document).ready(function () {
                     data: 'f_desde',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                        return data ? Fmt.fecha(data) : '-';
                     }
                 },
                 {
                     data: 'f_hasta',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Abierta</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Abierta</span>';
                     }
                 },
                 {
@@ -4870,7 +4886,7 @@ $(document).ready(function () {
         $('#formCondicionFiscal').removeClass('was-validated');
         $('#divCerrarAnterior').show();
         $('#cerrar_anterior').prop('checked', true);
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#cf_f_desde').val(today);
         $('#cf_f_hasta').val('');
         $('#modalCondicionFiscalLabel').html('<i class="fas fa-file-invoice-dollar me-2"></i>Nueva Condición Fiscal');
@@ -5091,7 +5107,7 @@ $(document).ready(function () {
                 $('#regimen_iibb_id').val(condicion.regimen_iibb_id);
                 $('#numero_inscripcion_iibb').val(condicion.numero_inscripcion || '');
                 $('#jurisdiccion_sede_id').val(condicion.jurisdiccion_sede_id || '');
-                var desde = condicion.f_desde ? ' desde ' + moment(condicion.f_desde).format('DD/MM/YYYY') : '';
+                var desde = condicion.f_desde ? ' desde ' + Fmt.fecha(condicion.f_desde) : '';
                 $('#vigencia-iibb').html('<i class="fas fa-check-circle text-success me-1"></i>Vigente' + desde);
             } else {
                 $('#regimen_iibb_id, #jurisdiccion_sede_id, #numero_inscripcion_iibb').val('');
@@ -5145,7 +5161,7 @@ $(document).ready(function () {
             lengthMenu: [[5, 10, 25], [5, 10, 25]],
             order: [[4, 'desc']],
             columns: [
-                { data: 'entidad_condicion_iibb_id', className: 'text-center fw-bold' },
+                { data: 'entidad_condicion_iibb_id', className: 'ui-detalle' },
                 {
                     data: 'regimen_iibb',
                     render: function(data, type, row) {
@@ -5176,18 +5192,18 @@ $(document).ready(function () {
                     data: 'f_desde',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '-';
+                        return data ? Fmt.fecha(data) : '-';
                     }
                 },
                 {
                     data: 'f_hasta',
                     className: 'text-center',
                     render: function(data) {
-                        return data ? moment(data).format('DD/MM/YYYY') : '<span class="badge bg-success">Abierta</span>';
+                        return data ? Fmt.fecha(data) : '<span class="badge bg-success">Abierta</span>';
                     }
                 },
                 {
-                    data: 'estado_info',
+                    data: 'tabla_estado_registro_id',
                     className: 'text-center',
                     render: function(data, type, row) {
                         if (row.tabla_estado_registro_id == 1) {
@@ -5237,7 +5253,7 @@ $(document).ready(function () {
         $('#descripcion_regimen_iibb').text('');
         $('#divCerrarAnteriorIIBB').show();
         $('#cerrar_anterior_iibb').prop('checked', true);
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#iibb_f_desde').val(today);
         $('#iibb_f_hasta').val('');
         $('#modalCondicionIIBBLabel').html('<i class="fas fa-landmark me-2"></i>Nueva Condición IIBB (Nivel Provincial)');
@@ -5405,10 +5421,10 @@ $(document).ready(function () {
                 tablaEntidades.settings()[0].oInit.pageLength = 10;
                 tablaEntidades.page.len(10).draw();
             }
-            $('#tablaEntidades').DataTable().columns([2, 3, 4]).visible(false);
+            $('#tablaEntidades').DataTable().columns([2, 3]).visible(false);
         } else {
             if ($.fn.DataTable.isDataTable('#tablaEntidades')) {
-                $('#tablaEntidades').DataTable().columns([2, 3, 4]).visible(true);
+                $('#tablaEntidades').DataTable().columns([2, 3]).visible(true);
             }
         }
     }
@@ -5472,22 +5488,26 @@ $(document).ready(function () {
 
     <!-- Librerías necesarias para DataTables Buttons -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/es.min.js"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+    <script src="<?= asset_local('js/moment-2.29.4/moment.min.js') ?>"></script>
+    <script src="<?= asset_local('js/moment-2.29.4/locale/es.min.js') ?>"></script>
     <!-- Solapa Cuenta Corriente -->
     <script src="comprobantes_ui.js?v=<?= filemtime(__DIR__ . '/comprobantes_ui.js') ?>"></script>
     <script src="ctacte_cliente.js?v=<?= filemtime(__DIR__ . '/ctacte_cliente.js') ?>"></script>
 <script src="percepciones_iibb_clientes.js?v=<?= filemtime(__DIR__ . '/percepciones_iibb_clientes.js') ?>"></script>
 </main>
+<!-- Botón "Buscar en ARCA" junto al CUIT (padrón de ARCA, core/arca_padron_service.php) -->
+<script>window.EMPRESA_ID = window.EMPRESA_ID || <?= intval($current_empresa_id) ?>;</script>
+<script src="<?= asset_local('js/arca-padron.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/arca-padron.js') ?>"></script>
+
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

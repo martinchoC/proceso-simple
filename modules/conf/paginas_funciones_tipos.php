@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Tipos de Funciones de Páginas";
 $currentPage = 'paginas_funciones_tipos';
 $modudo_idx = 1;
+$pagina_idx = 59; // conf__paginas
+$ui_simple = true;
 
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -81,25 +83,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <main class="app-main">
     <!--begin::App Content Header-->
-    <div class="app-content-header">
-        <!--begin::Container-->
-        <div class="container-fluid">
-        <!--begin::Row-->
-        <div class="row">
-            <div class="col-sm-6"><h3 class="mb-0">Tipos de Funciones de Páginas</h3></div>
-            <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Funciones de Páginas</li>
-            </ol>
-            </div>
-        </div>
-        <!--end::Row-->
-        </div>
-        <!--end::Container-->
-    </div>
-    <!--end::App Content Header-->
-    <!--begin::App Content-->
+    <?php ui_encabezado('Tipos de funciones', 'bi bi-gear-wide-connected', 'Tipos de función estándar que se usan al definir los botones de las páginas.', ['Estructura del sistema']); ?>
+
     <div class="app-content">
         <!--begin::Container-->
         <div class="container-fluid">
@@ -882,7 +867,7 @@ $(document).ready(function(){
 });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

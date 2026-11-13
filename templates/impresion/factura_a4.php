@@ -12,8 +12,8 @@ $fuente = impresion_fuente($cfg_impresion);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= h($factura['comprobante_tipo']) ?> <?= h($numero) ?> - <?= h($cliente_nombre) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="<?= asset_local('css/bootstrap-5.3.0/bootstrap.min.css') ?>" rel="stylesheet">
+    <link rel="stylesheet" href="<?= asset_local('css/fontawesome-6.4.0/css/all.min.css') ?>">
     <?= $fuente['link'] ?>
     <style>
         @page { size: A4; margin: 0; }   /* sin margen el navegador no agrega fecha/título/URL */
@@ -42,6 +42,7 @@ $fuente = impresion_fuente($cfg_impresion);
         table.detalle th { background: <?= h($color_acento) ?>; border-bottom: 1px solid #000; border-top: 1px solid #000; padding: 4px 5px; font-weight: 600; }
         table.detalle td { padding: 1px 5px; vertical-align: top; line-height: 1.15; }
         table.detalle .num { text-align: right; white-space: nowrap; }
+        table.detalle .leyenda-item { font-size: 10px; color: #444; }
         .detalle-wrap { flex: 1; }
         .totales-wrap { border-top: 1px solid #000; padding: 8px 12px; display: flex; justify-content: flex-end; }
         table.totales td { padding: 2px 6px; font-size: 12px; }
@@ -106,6 +107,7 @@ $fuente = impresion_fuente($cfg_impresion);
             <div class="linea"><?= !empty($empresa['telefono']) ? '<b>Tel.:</b> ' . h($empresa['telefono']) . ' ' : '' ?><?= !empty($empresa['email']) ? '<b>Email:</b> ' . h($empresa['email']) : '' ?></div>
             <?php endif; ?>
             <div class="linea"><b>Condición frente al IVA:</b> <?= h($empresa['condicion_fiscal'] ?? '') ?></div>
+            <?php if (!empty($leyenda_emisor)): ?><div class="linea"><?= h($leyenda_emisor) ?></div><?php endif; ?>
         </div>
         <div class="lado">
             <div class="cab-titulo"><div class="tipo-doc"><?= h(mb_strtoupper($titulo_tipo)) ?></div></div>
@@ -180,7 +182,7 @@ $fuente = impresion_fuente($cfg_impresion);
                 ?>
                 <tr>
                     <?php if ($ver_codigo): ?><td><?= h($d['producto_codigo'] ?? '') ?></td><?php endif; ?>
-                    <td><?= h($d['producto_nombre'] ?? '') ?></td>
+                    <td><?= h($d['producto_nombre'] ?? '') ?><?php if (trim((string)($d['leyenda'] ?? '')) !== ''): ?><div class="leyenda-item"><?= nl2br(h($d['leyenda'])) ?></div><?php endif; ?></td>
                     <td class="num"><?= number_format($cant, $cant == floor($cant) ? 0 : 2, ',', '.') ?></td>
                     <td class="num"><?= vfPrintImporte($precio_mostrar) ?></td>
                     <?php if ($ver_bonif): ?><td class="num"><?= vfPrintImporte($d['descuento_general_pct'] ?? 0) ?></td><?php endif; ?>
@@ -216,7 +218,7 @@ $fuente = impresion_fuente($cfg_impresion);
             <tr><td class="lbl">Subtotal: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($total - $otros) ?></td></tr>
             <?php endif; ?>
             <?php foreach ($percepciones_iibb as $p): ?>
-            <tr><td class="lbl"><?= h($p['leyenda'] ?: ('Percepción IIBB ' . $p['jurisdiccion_nombre'])) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($p['importe']) ?></td></tr>
+            <tr><td class="lbl"><?= h($p['leyenda'] ?: ($p['descripcion'] ?? ('Percepción IIBB ' . $p['jurisdiccion_nombre']))) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($p['importe']) ?></td></tr>
             <?php endforeach; ?>
             <?php if (round($otros, 2) != 0): ?>
             <tr><td class="lbl">Importe Otros Tributos: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($otros) ?></td></tr>
@@ -261,7 +263,7 @@ $fuente = impresion_fuente($cfg_impresion);
 <?php endfor; ?>
 
 <?php if ($con_cae): ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="<?= asset_local('js/qrcodejs-1.0.0/qrcode.min.js') ?>"></script>
 <script>
     document.querySelectorAll('[data-qr]').forEach(function (el) {
         new QRCode(el, { text: el.getAttribute('data-qr'), width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });

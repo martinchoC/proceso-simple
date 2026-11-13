@@ -45,6 +45,11 @@ $(document).ready(function() {
                 optModC += `<option value="${c.cliente_id}">${txt}</option>`;
             });
             $('#filtroCliente').html(optC);
+            // Cliente activo del estudio (estudio_cliente_activo.js): ?cliente_id=N o el último elegido
+            const activo = window.EstudioCliente ? EstudioCliente.inicial() : 0;
+            if (activo > 0 && $('#filtroCliente option[value="' + activo + '"]').length) {
+                $('#filtroCliente').val(String(activo));
+            }
             $('#modal_cliente_id').html(optModC);
 
             // Estados
@@ -65,7 +70,7 @@ $(document).ready(function() {
         tabla = $('#tablaTareas').DataTable({
             responsive: true,
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                url: window.APP_ASSETS_URL + "js/datatables-i18n-1.13.6/es-ES.json"
             },
             ajax: {
                 url: 'tareas_raci_ajax.php',
@@ -142,11 +147,11 @@ $(document).ready(function() {
                     render: function(data, type, row) {
                         const est = parseInt(row.tabla_estado_registro_id);
                         let cls = 'bg-secondary';
-                        if (est === 4) cls = 'bg-secondary'; // Pendiente
-                        if (est === 5) cls = 'bg-warning text-dark'; // En Proceso
-                        if (est === 6) cls = 'bg-info text-dark'; // En Revision
-                        if (est === 7) cls = 'bg-success'; // Finalizada
-                        if (est === 8) cls = 'bg-danger'; // Cancelada
+                        if (est === 17) cls = 'bg-secondary'; // Pendiente
+                        if (est === 18) cls = 'bg-warning text-dark'; // En Proceso
+                        if (est === 19) cls = 'bg-info text-dark'; // En Revision
+                        if (est === 21) cls = 'bg-success'; // Finalizada
+                        if (est === 26) cls = 'bg-danger'; // Cancelada
                         return `<span class="badge ${cls}">${data || 'N/A'}</span>`;
                     }
                 },
@@ -157,13 +162,13 @@ $(document).ready(function() {
                     render: function(data, type, row) {
                         return `
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-success btn-tiempo" data-id="${row.tarea_id}" data-titulo="${row.titulo}" title="Cargar Minutos">
+                                <button class="btn btn-outline-success btn-tiempo" data-funcion="editar" data-id="${row.tarea_id}" data-titulo="${row.titulo}" title="Cargar Minutos">
                                     <i class="fas fa-stopwatch"></i>
                                 </button>
                                 <button class="btn btn-outline-dark btn-historial" data-id="${row.tarea_id}" data-titulo="${row.titulo}" title="Historial Tiempos">
                                     <i class="fas fa-history"></i>
                                 </button>
-                                <button class="btn btn-outline-primary btn-estado" data-id="${row.tarea_id}" data-estado="${row.tabla_estado_registro_id}" title="Cambiar Estado">
+                                <button class="btn btn-outline-primary btn-estado" data-funcion="editar" data-id="${row.tarea_id}" data-estado="${row.tabla_estado_registro_id}" title="Cambiar Estado">
                                     <i class="fas fa-exchange-alt"></i>
                                 </button>
                             </div>
@@ -202,6 +207,10 @@ $(document).ready(function() {
     $(document).on('click', '#btnExportarPrint', function () { tabla.button('.buttons-print').trigger(); });
 
     // Filtros
+    $('#filtroCliente').on('change', function () {
+        if (window.EstudioCliente) { EstudioCliente.guardar($(this).val()); }
+    });
+
     $('#btnFiltrar').on('click', function() {
         if (tabla) tabla.ajax.reload();
     });
@@ -220,7 +229,7 @@ $(document).ready(function() {
         $('#tarea_id').val(0);
         $('#modalTareaTitle').text('Nueva Tarea RACI');
         $('#modal_f_inicio').val(new Date().toISOString().substring(0, 10));
-        $('#modal_estado_id').val(4); // Pendiente
+        $('#modal_estado_id').val(17); // Pendiente
         $('#modalTarea').modal('show');
     });
 

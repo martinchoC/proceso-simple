@@ -18,9 +18,7 @@ $(document).ready(function () {
     }
 
     function formatoFecha(valor) {
-        if (!valor) return '';
-        var p = String(valor).split(/[- :]/);
-        return p.length >= 5 ? p[2] + '/' + p[1] + '/' + p[0] + ' ' + p[3] + ':' + p[4] : valor;
+        return Fmt.fechaHora(valor);
     }
 
     function badgeAmbiente(codigo, nombre) {
@@ -78,7 +76,9 @@ $(document).ready(function () {
 
             var $amb = $('#integracion_ambiente_id').empty().append('<option value="">Seleccionar ambiente</option>');
             combos.ambientes.forEach(function (a) {
-                $amb.append('<option value="' + a.integracion_ambiente_id + '">' + escapeHtml(a.integracion_nombre + ' - ' + a.nombre) + '</option>');
+                // El servicio de WSAA sale de la integración: facturación (wsfe) o padrón (ws_sr_constancia_inscripcion)
+                var servicio = a.integracion_codigo === 'ARCA_PADRON' ? 'ws_sr_constancia_inscripcion' : 'wsfe';
+                $amb.append('<option value="' + a.integracion_ambiente_id + '" data-servicio="' + servicio + '">' + escapeHtml(a.integracion_nombre + ' - ' + a.nombre) + '</option>');
             });
 
             $('#listaCertificados').html(combos.archivos.certificados.map(function (r) { return '<option value="' + escapeHtml(r) + '">'; }).join(''));
@@ -157,7 +157,13 @@ $(document).ready(function () {
                     data: 'estado_registro', className: 'text-center', render: function (d, type, row) {
                         if (type !== 'display') return d;
                         var clase = row.tabla_estado_registro_id == 1 ? 'bg-success' : 'bg-secondary';
-                        return '<span class="badge ' + clase + '">' + escapeHtml(d) + '</span>';
+                        var uso = row.en_uso_cae == 1
+                            ? '<div><span class="badge bg-primary mt-1" title="Elegida en Parámetros de Empresa para pedir el CAE"><i class="fas fa-file-invoice me-1"></i>Factura (CAE)</span></div>'
+                            : '';
+                        var delegada = row.delegaciones_vigentes > 0
+                            ? '<div><span class="badge bg-info text-dark mt-1" title="Empresas que pueden usar este certificado"><i class="bi bi-link-45deg me-1"></i>Delegado a ' + row.delegaciones_vigentes + '</span></div>'
+                            : '';
+                        return '<span class="badge ' + clase + '">' + escapeHtml(d) + '</span>' + uso + delegada;
                     }
                 },
                 {
@@ -168,7 +174,7 @@ $(document).ready(function () {
                             var nombre = boton.accion_js || boton.nombre_funcion.toLowerCase();
                             var clase = 'btn-xs me-1 ';
                             clase += nombre === 'editar' ? 'btn-outline-primary' :
-                                nombre === 'pruebas' ? 'btn-outline-info' :
+                                (nombre === 'pruebas' || nombre === 'delegar') ? 'btn-outline-info' :
                                 (nombre === 'inactivar' || nombre === 'eliminar' || nombre === 'baja') ? 'btn-outline-danger' :
                                 (nombre === 'habilitar' || nombre === 'activar' || nombre === 'alta') ? 'btn-outline-success' : 'btn-outline-secondary';
                             return '<button type="button" class="btn ' + clase + ' btn-accion"' +
@@ -182,7 +188,7 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             order: [[0, 'asc'], [1, 'asc']],
             responsive: true,
             createdRow: function (row, data) {
@@ -224,7 +230,7 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             order: [[0, 'desc']]
         });
     }
@@ -497,6 +503,122 @@ $(document).ready(function () {
         });
     }
 
+    // ========== DELEGACIÓN DEL CERTIFICADO ==========
+
+    var delegacionActual = null; // integracion_empresa_id abierta en el modal de delegaciones
+
+    function fechaCorta(valor) {
+        return valor ? Fmt.fecha(valor) : '';
+    }
+
+    // Hoy en la hora local (toISOString da la fecha UTC: después de las 21 hs ya es mañana)
+    function hoyLocal() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function abrirDelegaciones(id) {
+        var fila = null;
+        tabla.rows().every(function () {
+            if (this.data().integracion_empresa_id == id) fila = this.data();
+        });
+        delegacionActual = id;
+        $('#delegacionTitulo').text(fila ? (fila.ambiente_nombre + ' · CUIT ' + fila.cuit + ' · ' + fila.certificado_ruta.split('/').pop()) : '');
+        $('#formDelegacion')[0].reset();
+        $('#delegacion_fecha_desde').val(hoyLocal());
+        $.get(AJAX_URL, { accion: 'empresas_delegables', empresa_idx: empresa_idx, pagina_idx: pagina_idx }, function (res) {
+            var $sel = $('#delegacion_empresa_destino_id').empty().append('<option value="">Seleccione la empresa...</option>');
+            ((res && res.data) || []).forEach(function (e) {
+                $sel.append($('<option>').val(e.empresa_id).text(e.empresa + ' (' + e.documento_numero + ')'));
+            });
+        }, 'json');
+        cargarDelegaciones();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDelegaciones')).show();
+    }
+
+    function cargarDelegaciones() {
+        var $tbody = $('#tablaDelegaciones tbody').html('<tr><td colspan="5" class="text-center text-muted small">Cargando...</td></tr>');
+        $.get(AJAX_URL, { accion: 'listar_delegaciones', integracion_empresa_id: delegacionActual, empresa_idx: empresa_idx, pagina_idx: pagina_idx }, function (res) {
+            if (!res || !res.success) {
+                $tbody.html('<tr><td colspan="5" class="text-danger small">' + escapeHtml((res && res.message) || 'Error') + '</td></tr>');
+                return;
+            }
+            if (!res.data.length) {
+                $tbody.html('<tr><td colspan="5" class="text-center text-muted small">El certificado no está delegado a ninguna empresa.</td></tr>');
+                return;
+            }
+            $tbody.html(res.data.map(function (d) {
+                var estado = d.tabla_estado_registro_id != 1 ? '<span class="badge bg-secondary">Revocada</span>'
+                    : d.vigente == 1 ? '<span class="badge bg-success">Vigente</span>'
+                        : '<span class="badge bg-warning text-dark">Fuera de vigencia</span>';
+                if (d.en_uso_cae == 1 && d.tabla_estado_registro_id == 1) estado += ' <span class="badge bg-primary" title="La empresa la tiene elegida para pedir el CAE">Factura (CAE)</span>';
+                var boton = d.tabla_estado_registro_id == 1
+                    ? '<button type="button" class="btn btn-xs btn-outline-danger btn-revocar-delegacion" data-id="' + d.integracion_delegacion_id + '"' +
+                    ' data-empresa="' + escapeHtml(d.empresa_destino) + '" data-en-uso="' + d.en_uso_cae + '" title="Revocar"><i class="fas fa-ban"></i></button>'
+                    : '';
+                return '<tr><td>' + escapeHtml(d.empresa_destino) + '<div class="small text-muted">CUIT ' + escapeHtml(d.cuit_destino) +
+                    (d.observaciones ? ' · ' + escapeHtml(d.observaciones) : '') + '</div></td>' +
+                    '<td class="small">' + fechaCorta(d.fecha_desde) + '</td>' +
+                    '<td class="small">' + (d.fecha_hasta ? fechaCorta(d.fecha_hasta) : '<span class="text-muted">Sin vencimiento</span>') + '</td>' +
+                    '<td>' + estado + '</td><td class="text-center">' + boton + '</td></tr>';
+            }).join(''));
+        }, 'json');
+    }
+
+    function guardarDelegacion() {
+        if (!$('#delegacion_empresa_destino_id').val()) {
+            Swal.fire({ icon: 'warning', title: 'Falta la empresa', text: 'Elija la empresa a la que se delega el certificado.' });
+            return;
+        }
+        ajaxPost({
+            accion: 'guardar_delegacion',
+            integracion_empresa_id: delegacionActual,
+            empresa_destino_id: $('#delegacion_empresa_destino_id').val(),
+            fecha_desde: $('#delegacion_fecha_desde').val(),
+            fecha_hasta: $('#delegacion_fecha_hasta').val(),
+            observaciones: $('#delegacion_observaciones').val().trim()
+        }).done(function (res) {
+            if (res.success) {
+                $('#formDelegacion')[0].reset();
+                $('#delegacion_fecha_desde').val(hoyLocal());
+                cargarDelegaciones();
+                tabla.ajax.reload(null, false);
+                Swal.fire({ icon: 'success', title: 'Delegado', text: res.message, showConfirmButton: false, timer: 2000, toast: true, position: 'top-end' });
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo delegar' });
+            }
+        }).fail(function (xhr) {
+            Swal.fire({ icon: 'error', title: 'Error', text: mensajeError(xhr) });
+        });
+    }
+
+    $('#btnGuardarDelegacion').on('click', guardarDelegacion);
+
+    $(document).on('click', '.btn-revocar-delegacion', function () {
+        var $b = $(this);
+        var aviso = $b.data('en-uso') == 1
+            ? '<br><strong class="text-danger">La empresa lo usa para pedir el CAE: no va a poder autorizar facturas hasta elegir otro certificado.</strong>'
+            : '';
+        Swal.fire({
+            title: '¿Revocar la delegación?',
+            html: escapeHtml($b.data('empresa')) + ' deja de poder usar este certificado.' + aviso,
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, revocar', cancelButtonText: 'Cancelar'
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            ajaxPost({ accion: 'revocar_delegacion', integracion_empresa_id: delegacionActual, integracion_delegacion_id: $b.data('id') }).done(function (res) {
+                if (res.success) {
+                    cargarDelegaciones();
+                    tabla.ajax.reload(null, false);
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Error', text: res.message || 'No se pudo revocar' });
+                }
+            }).fail(function (xhr) {
+                Swal.fire({ icon: 'error', title: 'Error', text: mensajeError(xhr) });
+            });
+        });
+    });
+
     // ========== EVENTOS ==========
 
     $(document).on('click', '#btnNuevo', mostrarModalNuevo);
@@ -511,6 +633,10 @@ $(document).ready(function () {
         }
         if (accionJs === 'pruebas') {
             abrirPruebas(id);
+            return;
+        }
+        if (accionJs === 'delegar') {
+            abrirDelegaciones(id);
             return;
         }
         ejecutarAccion(id, accionJs, $b.data('nombre-funcion') || accionJs, $b.data('confirmable'));
@@ -568,4 +694,10 @@ $(document).ready(function () {
     cargarBotonAgregar();
     cargarFiltroEstado(inicializarDataTable);
     inicializarTablaResultados();
+
+    // Al elegir el ambiente se propone el servicio de su integración (se puede cambiar a mano)
+    $(document).on('change', '#integracion_ambiente_id', function () {
+        var servicio = $(this).find('option:selected').data('servicio');
+        if (servicio) $('#servicio').val(servicio);
+    });
 });

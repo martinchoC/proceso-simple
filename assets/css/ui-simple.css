@@ -1,0 +1,679 @@
+/* =========================================================================
+   Estilo base "ui-simple" (gestion / gestion_normal)
+   Se activa con <body class="ui-simple"> ($ui_simple = true en la página).
+   Un solo color de acento (primary), grises neutros, más aire, sin sombras.
+   ========================================================================= */
+
+body.ui-simple {
+    --ui-acento: var(--bs-primary);
+    --ui-fondo: #f5f6f8;
+    --ui-superficie: #ffffff;
+    --ui-borde: #e4e7ec;
+    --ui-texto: #1f2937;
+    --ui-texto-sec: #6b7280;
+    --ui-radio: 0.5rem;
+    --ui-espacio: 1rem;
+    color: var(--ui-texto);
+}
+
+body.ui-simple .app-main {
+    background: var(--ui-fondo);
+}
+
+/* ---------- Encabezado de página ---------- */
+body.ui-simple .ui-encabezado {
+    padding: 1rem 0 0.75rem;
+    background: transparent;
+    border: 0;
+}
+body.ui-simple .ui-migas {
+    font-size: 0.8125rem;
+    margin: 0 0 0.25rem;
+    padding: 0;
+    background: none;
+}
+body.ui-simple .ui-migas a { color: var(--ui-texto-sec); text-decoration: none; }
+body.ui-simple .ui-migas a:hover { color: var(--ui-acento); }
+body.ui-simple .ui-migas .breadcrumb-item.active { color: var(--ui-texto-sec); }
+/* Sección de las migas: desplegable con las páginas de esa sección del menú */
+body.ui-simple .ui-migas .dropdown-toggle::after { vertical-align: 0.15em; margin-left: 0.2em; border-top-width: 0.25em; border-right-width: 0.25em; border-left-width: 0.25em; }
+body.ui-simple .ui-migas-menu { font-size: 0.875rem; max-height: 70vh; overflow-y: auto; }
+body.ui-simple .ui-migas-menu .dropdown-item { display: flex; align-items: center; gap: 0.5rem; }
+body.ui-simple .ui-migas-menu .dropdown-item > i { width: 1rem; text-align: center; color: var(--ui-texto-sec); }
+body.ui-simple .ui-migas-menu .dropdown-item.active > i { color: inherit; }
+body.ui-simple .ui-encabezado-fila {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+body.ui-simple .ui-titulo {
+    font-size: 1.375rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ui-texto);
+}
+body.ui-simple .ui-titulo > i { color: var(--ui-acento); font-size: 1.25rem; }
+body.ui-simple .ui-encabezado-acciones {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Ayuda "?" */
+.ui-ayuda {
+    color: var(--ui-texto-sec, #6b7280);
+    font-size: 0.9375rem;
+    line-height: 1;
+    cursor: help;
+    font-weight: 400;
+}
+.ui-ayuda:hover, .ui-ayuda:focus { color: var(--ui-acento, var(--bs-primary)); outline: none; }
+.form-label .ui-ayuda { font-size: 0.8125rem; margin-left: 0.25rem; }
+
+/* ---------- Cards ---------- */
+body.ui-simple .app-content .card {
+    border: 1px solid var(--ui-borde);
+    border-radius: var(--ui-radio);
+    box-shadow: none !important;
+    margin-bottom: var(--ui-espacio);
+}
+body.ui-simple .app-content .card.card-outline { border-top: 1px solid var(--ui-borde); }
+body.ui-simple .app-content .card > .card-header {
+    background: var(--ui-superficie);
+    border-bottom: 1px solid var(--ui-borde);
+    padding: 0.75rem 1rem;
+}
+body.ui-simple .app-content .card > .card-body { padding: 1rem; }
+body.ui-simple .card-title,
+body.ui-simple .ui-seccion-titulo {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--ui-texto);
+}
+
+/* Barra de herramientas de un listado: botón principal + búsqueda + filtros */
+body.ui-simple .ui-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+body.ui-simple .ui-barra .ui-barra-fin { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
+body.ui-simple .ui-barra .ui-buscador { margin: 0; }
+body.ui-simple .ui-barra .ui-buscador label { margin: 0; width: 100%; }
+body.ui-simple .ui-barra .ui-buscador input { width: 240px; margin: 0 !important; }
+body.ui-simple .ui-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.5rem 0.75rem;
+}
+body.ui-simple .ui-filtros .form-label { margin-bottom: 0.125rem; }
+body.ui-simple .ui-filtros > div { min-width: 140px; }
+
+/* ---------- Tablas ---------- */
+body.ui-simple .table {
+    --bs-table-striped-bg: transparent;
+    font-size: 0.875rem;
+    margin-bottom: 0;
+}
+body.ui-simple .table > :not(caption) > * > * {
+    padding: 0.5rem 0.75rem;
+    border-left-width: 0;
+    border-right-width: 0;
+}
+body.ui-simple .table-bordered > :not(caption) > * { border-width: 0; }
+body.ui-simple .table-bordered > :not(caption) > * > * { border-bottom-width: 1px; }
+body.ui-simple .table > thead > tr > th,
+body.ui-simple .table > thead.table-dark > tr > th,
+body.ui-simple .table > thead.table-light > tr > th {
+    background: #f8f9fb;
+    color: var(--ui-texto-sec);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--ui-borde);
+    white-space: nowrap;
+}
+body.ui-simple .table > tbody > tr > td { border-color: #eef0f3; }
+body.ui-simple .table-hover > tbody > tr:hover > * { --bs-table-bg-state: #f6f8fb; }
+body.ui-simple .table td small,
+body.ui-simple .ui-sub { color: var(--ui-texto-sec); font-size: 0.8125rem; }
+body.ui-simple .ui-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Acciones por fila: todos los botones a la vista, íconos discretos en una sola línea */
+body.ui-simple .ui-acciones { white-space: nowrap; text-align: right; width: 1%; }
+/* Los colores de cada botón vienen de la configuración de funciones: en la fila se ven
+   todos iguales (ícono gris) y el color aparece al pasar el mouse. */
+body.ui-simple .ui-acciones .btn {
+    padding: 0.25rem 0.45rem;
+    line-height: 1;
+    background: transparent !important;
+    border-color: transparent !important;
+    color: var(--ui-texto-sec) !important;
+    box-shadow: none;
+}
+body.ui-simple .ui-acciones .btn:hover {
+    background: #eef1f5 !important;
+    color: var(--ui-acento) !important;
+}
+body.ui-simple .ui-acciones .btn i { color: inherit !important; }
+
+/* Botón principal de la página (el "Agregar" sale de la configuración con su color): siempre el acento */
+body.ui-simple #contenedor-boton-agregar .btn {
+    background: var(--ui-acento);
+    border-color: var(--ui-acento);
+    color: #fff;
+}
+/* Tablas responsive (DataTables Responsive): la flecha del detalle en lugar del círculo azul */
+body.ui-simple table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control:before,
+body.ui-simple table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control:before {
+    content: "\25B8";
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    color: var(--ui-texto-sec);
+    font-size: 1rem;
+    line-height: 1;
+    width: auto;
+    height: auto;
+    margin-right: 0.5rem;
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+body.ui-simple table.dataTable.dtr-inline.collapsed > tbody > tr.parent > td.dtr-control:before,
+body.ui-simple table.dataTable.dtr-inline.collapsed > tbody > tr.parent > th.dtr-control:before {
+    content: "\25B8";
+    background: transparent;
+    transform: rotate(90deg);
+}
+body.ui-simple table.dataTable > tbody > tr.child ul.dtr-details { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem 1.5rem; width: 100%; }
+body.ui-simple table.dataTable > tbody > tr.child ul.dtr-details > li { border: 0; padding: 0; }
+body.ui-simple table.dataTable > tbody > tr.child span.dtr-title { display: block; min-width: 0; font-size: 0.75rem; font-weight: 500; color: var(--ui-texto-sec); }
+body.ui-simple table.dataTable > tbody > tr.child { background: #f8fafc; }
+
+/* Detalle expandible de fila (tablas sin Responsive) */
+body.ui-simple .ui-detalle-toggle {
+    color: var(--ui-texto-sec) !important;
+    border: 0;
+    background: transparent;
+    color: var(--ui-texto-sec);
+    padding: 0 0.375rem 0 0;
+    line-height: 1;
+}
+body.ui-simple .ui-detalle-toggle i { transition: transform 0.15s ease; display: inline-block; }
+body.ui-simple tr.ui-detalle-abierto .ui-detalle-toggle i { transform: rotate(90deg); }
+body.ui-simple .ui-detalle-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.5rem 1.5rem;
+    margin: 0;
+    padding: 0.25rem 0 0.25rem 1.5rem;
+}
+body.ui-simple .ui-detalle-lista dt { font-size: 0.75rem; font-weight: 500; color: var(--ui-texto-sec); }
+body.ui-simple .ui-detalle-lista dd { margin: 0; font-size: 0.875rem; }
+
+/* DataTables: controles discretos */
+body.ui-simple .dataTables_wrapper .dataTables_length,
+body.ui-simple .dataTables_wrapper .dataTables_info { font-size: 0.8125rem; color: var(--ui-texto-sec); }
+body.ui-simple .dataTables_wrapper .pagination { margin: 0; }
+body.ui-simple .dataTables_wrapper .pagination .page-link { font-size: 0.8125rem; padding: 0.3rem 0.65rem; }
+
+/* ---------- Estados (badges suaves) ---------- */
+body.ui-simple .badge {
+    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 0.3em 0.6em;
+    border-radius: 999px;
+}
+
+/* ---------- Formularios ---------- */
+body.ui-simple .form-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+body.ui-simple .form-label.fw-bold,
+body.ui-simple .form-label.fw-semibold { font-weight: 500 !important; }
+body.ui-simple .ui-requerido::after { content: " *"; color: var(--bs-danger); }
+body.ui-simple .ui-seccion { margin-bottom: 1.25rem; }
+body.ui-simple .ui-seccion:last-child { margin-bottom: 0; }
+body.ui-simple .ui-seccion-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+}
+body.ui-simple .ui-seccion-titulo { font-size: 0.9375rem; }
+body.ui-simple details.ui-mas-opciones {
+    border-top: 1px dashed var(--ui-borde);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+}
+body.ui-simple details.ui-mas-opciones > summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--ui-acento);
+    list-style: none;
+    margin-bottom: 0.5rem;
+}
+body.ui-simple details.ui-mas-opciones > summary::-webkit-details-marker { display: none; }
+body.ui-simple details.ui-mas-opciones > summary::before {
+    content: "\F285";   /* bi-chevron-right */
+    font-family: "bootstrap-icons";
+    display: inline-block;
+    margin-right: 0.375rem;
+    font-size: 0.75rem;
+    transition: transform 0.15s ease;
+}
+body.ui-simple details.ui-mas-opciones[open] > summary::before { transform: rotate(90deg); }
+
+/* ---------- Modales ---------- */
+body.ui-simple .modal-content { border: 0; border-radius: 0.75rem; }
+body.ui-simple .modal-header { padding: 0.875rem 1.25rem; }
+body.ui-simple .modal-title { font-size: 1.0625rem !important; font-weight: 600; }
+body.ui-simple .modal-body { padding: 1.25rem; }
+
+/* Encabezado de todos los modales (todos los módulos, no solo ui-simple): degradé con los
+   colores del logo, azul marino → azul. Pisa los bg-* / text-* que traiga el header. */
+:root {
+    --ui-logo-marino: #03112f;
+    --ui-logo-medio: #062a5e;
+    --ui-logo-azul: #054a96;
+}
+.modal .modal-header {
+    background: linear-gradient(90deg, var(--ui-logo-marino) 0%, var(--ui-logo-medio) 55%, var(--ui-logo-azul) 100%) !important;
+    color: #fff !important;
+    border-bottom: 3px solid var(--ui-logo-azul) !important;
+}
+.modal .modal-header .modal-title,
+.modal .modal-header .modal-title i,
+.modal .modal-header h1, .modal .modal-header h2, .modal .modal-header h3,
+.modal .modal-header h4, .modal .modal-header h5, .modal .modal-header h6 { color: #fff !important; }
+.modal .modal-header .text-muted,
+.modal .modal-header small { color: rgba(255, 255, 255, 0.75) !important; }
+.modal .modal-header .btn-close { filter: invert(1) grayscale(100%) brightness(200%); opacity: 0.85; }
+.modal .modal-header .btn-close:hover { opacity: 1; }
+.modal .modal-header .ui-entidad-datos { border-left-color: rgba(255, 255, 255, 0.35) !important; }
+.modal .modal-header .ui-entidad-nombre { color: #fff !important; }
+.modal .modal-header .ui-entidad-chip { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.modal .modal-header .ui-entidad-chip i { color: inherit !important; font-size: 0.75rem; }
+.modal .modal-header .ui-entidad-chip.ui-entidad-fantasia { background: #fef3c7; color: #92400e; }
+.modal .modal-header .ui-entidad-chip.ui-chip-claro { background: #fff; color: var(--ui-logo-marino); }
+
+/* Título del modal de entidad con sus datos (UiSimple.encabezadoEntidad) */
+body.ui-simple .modal-title.ui-titulo-entidad {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+}
+body.ui-simple .ui-entidad-datos {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    padding-left: 0.75rem;
+    border-left: 2px solid var(--ui-borde);
+    min-width: 0;
+}
+body.ui-simple .ui-entidad-nombre {
+    color: var(--ui-acento);
+    font-weight: 700;
+    font-size: 1.0625rem;
+    overflow-wrap: anywhere;
+}
+body.ui-simple .ui-entidad-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+body.ui-simple .ui-entidad-cuit {
+    background: rgba(var(--bs-primary-rgb), 0.1);
+    color: var(--ui-acento);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+body.ui-simple .ui-entidad-fantasia {
+    background: #fef3c7;
+    color: #92400e;
+}
+body.ui-simple .modal-title .ui-entidad-fantasia i { color: inherit !important; font-size: 0.75rem; }
+@media (max-width: 576px) {
+    body.ui-simple .ui-entidad-datos { padding-left: 0; border-left: 0; width: 100%; }
+}
+body.ui-simple .modal-footer {
+    background: var(--ui-superficie) !important;
+    border-top: 1px solid var(--ui-borde);
+    padding: 0.75rem 1.25rem;
+}
+body.ui-simple .ui-aviso {
+    font-size: 0.875rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--ui-radio);
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+/* ---------- Indicadores (dashboards) ---------- */
+body.ui-simple .ui-kpi {
+    background: var(--ui-superficie);
+    border: 1px solid var(--ui-borde);
+    border-radius: var(--ui-radio);
+    padding: 0.875rem 1rem;
+    height: 100%;
+}
+body.ui-simple .ui-kpi-etiqueta { font-size: 0.8125rem; color: var(--ui-texto-sec); margin-bottom: 0.25rem; }
+body.ui-simple .ui-kpi-valor {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+body.ui-simple .ui-kpi-sub { font-size: 0.8125rem; color: var(--ui-texto-sec); margin-top: 0.25rem; }
+body.ui-simple .ui-kpi.ui-kpi-chico { padding: 0.5rem 0.875rem; }
+body.ui-simple .ui-kpi.ui-kpi-chico .ui-kpi-valor { font-size: 1.125rem; }
+
+/* Solapas con subrayado */
+body.ui-simple .ui-solapas { border-bottom: 1px solid var(--ui-borde); gap: 0.25rem; flex-wrap: nowrap; overflow-x: auto; }
+body.ui-simple .ui-solapas .nav-link {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--ui-texto-sec);
+    font-weight: 500;
+    padding: 0.625rem 0.875rem;
+    white-space: nowrap;
+    background: none;
+}
+body.ui-simple .ui-solapas .nav-link.active { color: var(--ui-acento); border-bottom-color: var(--ui-acento); background: none; }
+
+/* Botones */
+body.ui-simple .btn { border-radius: 0.375rem; }
+body.ui-simple .ui-encabezado-acciones .btn,
+body.ui-simple .ui-barra .btn { white-space: nowrap; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 575.98px) {
+    body.ui-simple .ui-encabezado { padding-top: 0.75rem; }
+    body.ui-simple .ui-titulo { font-size: 1.1875rem; }
+    body.ui-simple .ui-encabezado-acciones { margin-left: 0; width: 100%; }    body.ui-simple .ui-encabezado-acciones > * { flex: 1 1 auto; }
+    body.ui-simple .ui-filtros > div { flex: 1 1 100%; }
+    body.ui-simple .ui-barra .ui-buscador { order: 3; flex: 1 1 100%; }
+    body.ui-simple .ui-barra .ui-buscador input { width: 100%; }
+    body.ui-simple .app-content .card > .card-body { padding: 0.75rem; }
+    body.ui-simple .table { font-size: 0.8125rem; }
+    body.ui-simple .table > :not(caption) > * > * { padding: 0.45rem 0.5rem; }
+    body.ui-simple .ui-kpi-valor { font-size: 1.25rem; }
+    body.ui-simple .modal-dialog { margin: 0; max-width: none; min-height: 100%; }
+    body.ui-simple .modal-content { border-radius: 0; min-height: 100vh; }
+    body.ui-simple .dataTables_wrapper .dataTables_length,
+    body.ui-simple .dataTables_wrapper .dataTables_info,
+    body.ui-simple .dataTables_wrapper .dataTables_paginate { text-align: center !important; justify-content: center !important; }
+}
+
+/* Filtros: anchos fijos y select2 a la altura de los controles chicos */
+body.ui-simple .ui-filtros .ui-f-fecha { width: 140px; min-width: 0; }
+body.ui-simple .ui-filtros .ui-f-media { width: 180px; min-width: 0; }
+body.ui-simple .ui-filtros .ui-f-ancha { width: 240px; min-width: 0; }
+body.ui-simple .ui-filtros .select2-container .select2-selection--single {
+    min-height: calc(1.5em + 0.5rem + 2px);
+    height: calc(1.5em + 0.5rem + 2px);
+    padding: 0.125rem 0.5rem;
+    font-size: 0.875rem;
+}
+body.ui-simple .ui-filtros .select2-container .select2-selection__rendered { line-height: 1.6; padding-left: 0; }
+body.ui-simple .ui-filtros .select2-container .select2-selection__arrow { height: 100%; }
+@media (max-width: 575.98px) {
+    body.ui-simple .ui-filtros .ui-f-fecha,
+    body.ui-simple .ui-filtros .ui-f-media,
+    body.ui-simple .ui-filtros .ui-f-ancha { width: 100%; }
+    body.ui-simple .ui-filtros .ui-f-fecha { flex: 1 1 45%; }
+}
+
+/* Panel de cuenta corriente (ctacte_cliente.js / ctacte_proveedor.js): mismo marcado en todas
+   las pantallas, en las de estilo nuevo se ve sobrio. */
+body.ui-simple .ctacte-widget .border-start.border-4 {
+    border: 1px solid var(--ui-borde) !important;
+    border-radius: var(--ui-radio) !important;
+    padding: 0.75rem 0.875rem !important;
+}
+body.ui-simple .ctacte-widget .text-uppercase { text-transform: none !important; }
+body.ui-simple .ctacte-widget .border-start.border-4 i { display: none; }
+body.ui-simple .ctacte-widget h6.text-warning,
+body.ui-simple .ctacte-widget h6.text-success { color: var(--ui-texto) !important; font-size: 0.9375rem; font-weight: 600; }
+body.ui-simple .ctacte-widget .nav-pills { border-bottom: 1px solid var(--ui-borde); }
+body.ui-simple .ctacte-widget .nav-pills .nav-link {
+    border-radius: 0;
+    background: none;
+    color: var(--ui-texto-sec);
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+}
+body.ui-simple .ctacte-widget .nav-pills .nav-link.active { color: var(--ui-acento); border-bottom-color: var(--ui-acento); }
+body.ui-simple .ctacte-widget .nav-pills .nav-link i { display: none; }
+body.ui-simple .ctacte-widget .tab-content { border: 0 !important; padding: 0.75rem 0 0 !important; }
+
+/* Ficha de datos (dt/dd en grilla) */
+body.ui-simple .ui-datos { margin: 0; }
+body.ui-simple .ui-datos dt { font-size: 0.8125rem; font-weight: 400; color: var(--ui-texto-sec); margin-bottom: 0.125rem; }
+body.ui-simple .ui-datos dd { margin: 0; font-weight: 500; }
+
+/* Estados (en TODAS las páginas, no solo ui-simple): el color configurado (conf__colores.bg_clase) es table-* (fondo de fila). En una etiqueta
+   dejaba el texto blanco sobre fondo claro; acá se ve como etiqueta suave. */
+.badge.table-primary { background-color: var(--bs-primary-bg-subtle) !important; color: var(--bs-primary-text-emphasis) !important; }
+.badge.table-secondary { background-color: var(--bs-secondary-bg-subtle) !important; color: var(--bs-secondary-text-emphasis) !important; }
+.badge.table-success { background-color: var(--bs-success-bg-subtle) !important; color: var(--bs-success-text-emphasis) !important; }
+.badge.table-danger { background-color: var(--bs-danger-bg-subtle) !important; color: var(--bs-danger-text-emphasis) !important; }
+.badge.table-warning { background-color: var(--bs-warning-bg-subtle) !important; color: var(--bs-warning-text-emphasis) !important; }
+.badge.table-info { background-color: var(--bs-info-bg-subtle) !important; color: var(--bs-info-text-emphasis) !important; }
+.badge.table-light { background-color: var(--bs-light-bg-subtle) !important; color: var(--bs-body-color) !important; border: 1px solid var(--ui-borde, #e4e7ec); }
+.badge.table-dark { background-color: var(--bs-dark-bg-subtle) !important; color: var(--bs-dark-text-emphasis) !important; }
+
+/* Filtros plegables (celular) */
+body.ui-simple .ui-filtros-toggle { display: none; }
+@media (max-width: 575.98px) {
+    body.ui-simple .ui-filtros-toggle { display: inline-flex; align-items: center; }
+    body.ui-simple .ui-filtros-plegable:not(.abierto) { display: none; }
+    body.ui-simple .ui-filtros-plegable.abierto { margin-top: 0.75rem; }
+}
+
+/* Cabecera clásica de listado (botón Agregar + recargar/exportar a la derecha): se comporta como .ui-barra */
+body.ui-simple .card-header:has(#contenedor-boton-agregar) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+body.ui-simple .card-header:has(#contenedor-boton-agregar) > .float-end,
+body.ui-simple .card-header:has(#contenedor-boton-agregar) > .card-tools { float: none !important; margin-left: auto; }
+body.ui-simple .card-header:has(#contenedor-boton-agregar)::after { display: none; }
+body.ui-simple .card-header .btn-outline-success.dropdown-toggle,
+body.ui-simple .card-header #btnRecargar {
+    background: var(--bs-light);
+    border-color: var(--bs-light);
+    color: var(--ui-texto);
+}
+/* Exportación duplicada: con el menú "Exportar" de la página, los botones sueltos de DataTables no se muestran
+   (siguen en la página porque el menú los dispara). */
+body.ui-simple .card:has(#btnExportarExcel) .dt-buttons { display: none !important; }
+body.ui-simple .card-header .ui-buscador { margin: 0; }
+body.ui-simple .card-header .ui-buscador label { margin: 0; }
+body.ui-simple .card-header .ui-buscador input { width: 240px; margin: 0 !important; display: inline-block; }
+@media (max-width: 575.98px) {
+    body.ui-simple .card-header .ui-buscador { order: 3; flex: 1 1 100%; }
+    body.ui-simple .card-header .ui-buscador input { width: 100%; }
+}
+
+/* Etiquetas dentro de tablas y fichas: versión suave de cada color (menos ruido que el color lleno) */
+body.ui-simple .table .badge.bg-primary, body.ui-simple .ui-datos .badge.bg-primary, body.ui-simple .table .badge.text-bg-primary { background-color: var(--bs-primary-bg-subtle) !important; color: var(--bs-primary-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-secondary, body.ui-simple .ui-datos .badge.bg-secondary, body.ui-simple .table .badge.text-bg-secondary { background-color: var(--bs-secondary-bg-subtle) !important; color: var(--bs-secondary-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-success, body.ui-simple .ui-datos .badge.bg-success, body.ui-simple .table .badge.text-bg-success { background-color: var(--bs-success-bg-subtle) !important; color: var(--bs-success-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-danger, body.ui-simple .ui-datos .badge.bg-danger, body.ui-simple .table .badge.text-bg-danger { background-color: var(--bs-danger-bg-subtle) !important; color: var(--bs-danger-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-warning, body.ui-simple .ui-datos .badge.bg-warning, body.ui-simple .table .badge.text-bg-warning { background-color: var(--bs-warning-bg-subtle) !important; color: var(--bs-warning-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-info, body.ui-simple .ui-datos .badge.bg-info, body.ui-simple .table .badge.text-bg-info { background-color: var(--bs-info-bg-subtle) !important; color: var(--bs-info-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-dark, body.ui-simple .ui-datos .badge.bg-dark, body.ui-simple .table .badge.text-bg-dark { background-color: var(--bs-dark-bg-subtle) !important; color: var(--bs-dark-text-emphasis) !important; }
+body.ui-simple .table .badge.bg-light, body.ui-simple .table .badge.bg-white { background-color: var(--bs-light-bg-subtle) !important; color: var(--ui-texto) !important; border: 1px solid var(--ui-borde); }
+body.ui-simple .table .badge i { color: inherit !important; }
+
+/* Solapas clásicas (nav-tabs) dentro del contenido: subrayado como .ui-solapas */
+body.ui-simple .app-content .nav-tabs { border-bottom: 1px solid var(--ui-borde); gap: 0.25rem; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+body.ui-simple .app-content .nav-tabs .nav-link {
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--ui-texto-sec);
+    font-weight: 500;
+    background: none;
+    white-space: nowrap;
+    padding: 0.625rem 0.875rem;
+}
+body.ui-simple .app-content .nav-tabs .nav-link:hover { color: var(--ui-texto); }
+body.ui-simple .app-content .nav-tabs .nav-link.active { color: var(--ui-acento); border-bottom-color: var(--ui-acento); background: none; }
+body.ui-simple .app-content .nav-tabs .nav-link i { opacity: 0.7; }
+body.ui-simple .app-content .tab-content > .tab-pane { padding-top: 0.75rem; }
+
+/* Cabeceras que arman su barra con .row/.col: la fila ocupa todo el ancho */
+body.ui-simple .card-header:has(#contenedor-boton-agregar) > .row { flex: 1 1 100%; margin: 0; }
+
+/* Flecha del detalle desplegable: fija a la izquierda de la celda, sin empujar el contenido a otra línea */
+body.ui-simple td:has(> .ui-detalle-toggle) { position: relative; padding-left: 1.75rem !important; }
+body.ui-simple td > .ui-detalle-toggle {
+    position: absolute;
+    left: 0.375rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Filtros por columna dentro de la cabecera: debajo del título, a lo ancho */
+body.ui-simple th .column-filter {
+    display: block;
+    width: 100%;
+    min-width: 70px;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--ui-borde);
+    border-radius: 4px;
+    background: var(--ui-superficie);
+}
+
+/* =========================================================================
+   Marco común (barra superior y menú lateral): vale para todos los módulos
+   ========================================================================= */
+.app-header { border-bottom: 1px solid var(--bs-border-color-translucent); box-shadow: none; }
+.app-header .navbar-nav { flex-wrap: nowrap; align-items: center; }
+
+/* Barra superior y menú lateral con los colores del logo de la empresa (las mismas variables que el
+   encabezado de los modales, las emite header1.php). Los desplegables siguen claros. */
+nav.app-header.navbar {
+    background: linear-gradient(90deg, var(--ui-logo-marino) 0%, var(--ui-logo-medio) 55%, var(--ui-logo-azul) 100%) !important;
+    border-bottom: 0;
+}
+.app-header .navbar-nav > .nav-item > .nav-link { color: rgba(255, 255, 255, 0.85); }
+.app-header .navbar-nav > .nav-item > .nav-link:hover,
+.app-header .navbar-nav > .nav-item > .nav-link:focus-visible,
+.app-header .navbar-nav > .nav-item > .nav-link.show { color: #fff; }
+.app-header .navbar-nav > .nav-item > .nav-link .user-image { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6) !important; }
+
+aside.app-sidebar {
+    background: linear-gradient(180deg, var(--ui-logo-marino) 0%, var(--ui-logo-medio) 100%) !important;
+}
+.app-sidebar .sidebar-brand { border-bottom-color: rgba(255, 255, 255, 0.12); }
+/* Logo de la empresa (Parámetros de Empresa): no es cuadrado ni está pensado para fondo oscuro */
+.app-sidebar .brand-link .brand-image-empresa {
+    width: auto; max-width: 64px; max-height: 33px; object-fit: contain;
+    background: #fff; border-radius: 4px; padding: 2px;
+}
+.app-sidebar .sidebar-menu .nav-link { color: rgba(255, 255, 255, 0.82); }
+.app-sidebar .sidebar-menu .nav-link:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.app-sidebar .sidebar-menu .nav-link.active,
+.app-sidebar .sidebar-menu .menu-open > .nav-link {
+    color: #fff !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+}
+.app-sidebar .sidebar-menu .nav-treeview .nav-link.active { box-shadow: inset 3px 0 0 #fff; }
+.app-sidebar .nav-header { color: rgba(255, 255, 255, 0.55) !important; }
+
+/* Páginas destacadas en el menú (conf/paginas.php: menu_estilo / menu_color_id / menu_etiqueta). header1.php pone
+   menu-destacado-resaltado o menu-destacado-borde en el link y el color en --menu-dest-rgb (un color de Bootstrap). */
+.app-sidebar .sidebar-menu .nav-link.menu-destacado-resaltado:not(.active) {
+    background: rgba(var(--menu-dest-rgb), 0.18);
+    box-shadow: inset 3px 0 0 rgb(var(--menu-dest-rgb));
+    color: #fff;
+    font-weight: 600;
+}
+.app-sidebar .sidebar-menu .nav-link.menu-destacado-resaltado:not(.active):hover { background: rgba(var(--menu-dest-rgb), 0.28); }
+.app-sidebar .sidebar-menu .nav-link.menu-destacado-borde:not(.active) { box-shadow: inset 3px 0 0 rgb(var(--menu-dest-rgb)); }
+.app-sidebar .sidebar-menu .nav-link.menu-destacado-resaltado .nav-icon { color: rgb(var(--menu-dest-rgb)); }
+.app-sidebar .sidebar-menu .nav-link.menu-destacado-resaltado.active .nav-icon { color: inherit; }
+.app-sidebar .sidebar-menu .nav-link .menu-etiqueta { font-size: 0.68rem; font-weight: 600; }
+
+/* Empresa · Módulo */
+.ui-contexto {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 420px;
+    font-weight: 600;
+    color: #fff !important;
+    padding: 0.375rem 0.625rem !important;
+    border-radius: 0.5rem;
+}
+.ui-contexto:hover, .ui-contexto.show { background: rgba(255, 255, 255, 0.14); }
+.ui-contexto-empresa { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-contexto-modulo {
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.72);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ui-contexto-modulo::before { content: "·"; margin-right: 0.5rem; }
+.ui-contexto-menu { min-width: 240px; max-height: 70vh; overflow-y: auto; }
+.ui-contexto-menu .dropdown-item.active { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); }
+
+/* Rol del usuario */
+.ui-rol {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.15em 0.5em;
+    border-radius: 999px;
+    background: var(--bs-danger-bg-subtle);
+    color: var(--bs-danger-text-emphasis);
+    vertical-align: middle;
+}
+.ui-usuario-menu { min-width: 200px; }
+
+/* Menú lateral: submenús con sangría y una línea guía suave */
+.app-sidebar .sidebar-menu .nav-treeview {
+    margin-left: 1.35rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.app-sidebar .sidebar-menu .nav-treeview .nav-link { padding-left: 0.625rem; font-size: 0.9rem; }
+.app-sidebar .sidebar-menu .nav-treeview .nav-link .nav-icon { font-size: 0.85rem; opacity: 0.75; }
+.app-sidebar .sidebar-menu .nav-link.active { font-weight: 500; }
+
+@media (max-width: 575.98px) {
+    .ui-contexto { max-width: 52vw; }
+    .app-header .container-fluid { padding-left: 0.5rem; padding-right: 0.5rem; }
+}

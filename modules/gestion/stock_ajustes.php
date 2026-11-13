@@ -6,31 +6,14 @@ $pageTitle = "Ajustes de Stock";
 $currentPage = 'stock_ajustes';
 $modulo_idx = 2;
 $pagina_idx = 77;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-boxes me-2"></i>Ajustes de Stock
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Stock</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Ajustes de Stock</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Ajustes de stock','fas fa-boxes', '', ['Stock']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -207,25 +190,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                                 <label class="small mb-1">Stock Sistema</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_stock_sistema" 
-                                                                    step="0.000001" value="0.000000" readonly>
+                                                                    step="0.01" value="0.00" readonly>
                                                             </div>
                                                             <div class="col-md-2">
                                                                 <label class="small mb-1">Stock Físico</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_stock_fisico" 
-                                                                    step="0.000001" min="0" value="0.000000">
+                                                                    step="0.01" min="0" value="0.00">
                                                             </div>
                                                             <div class="col-md-2">
                                                                 <label class="small mb-1">Diferencia</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_diferencia" 
-                                                                    step="0.000001" value="0.000000" readonly>
+                                                                    step="0.01" value="0.00" readonly>
                                                             </div>
                                                             <div class="col-md-2">
                                                                 <label class="small mb-1">Costo Unitario</label>
                                                                 <input type="number" class="form-control form-control-sm no-spinner" 
                                                                     id="producto_costo" 
-                                                                    step="0.000001" min="0" value="0.000000">
+                                                                    step="0.01" min="0" value="0.00">
                                                             </div>
                                                             <div class="col-md-1">
                                                                 <label class="small mb-1">&nbsp;</label>
@@ -246,7 +229,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="detalles-vacio text-center p-4 border rounded bg-light" id="detalles-vacio">
                                                         <i class="fas fa-box-open fa-2x text-muted mb-2"></i>
                                                         <p class="mb-0">No hay productos agregados</p>
-                                                        <small class="text-muted">Busque y agregue productos al ajuste</small>
+                                                        <?= ui_ayuda('Busque y agregue productos al ajuste') ?>
                                                     </div>
                                                 </div>
                                             </div>
@@ -427,14 +410,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
 
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     <script src="stock_ajustes.js?v=<?= filemtime(__DIR__.'/stock_ajustes.js') ?>"></script>
 </main>
 

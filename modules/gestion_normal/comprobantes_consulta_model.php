@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * comprobantes_consulta_model.php
@@ -67,7 +68,7 @@ function cconsSqlBase($conexion, $empresa_id)
                    ct.comprobante_grupo_id, cg.comprobante_grupo,
                    " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv, c.comprobante_nro,
                    c.f_emision, c.f_vto,
-                   c.entidad_id, e.entidad_nombre, e.cuit,
+                   c.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia, e.cuit,
                    c.moneda_id, m.simbolo AS moneda_simbolo, c.tipo_cambio,
                    c.importe_neto, c.importe_iva, c.importe_otros_impuestos, c.importe_total,
                    c.tabla_estado_registro_id AS estado_id, er.codigo_estandar,
@@ -396,7 +397,7 @@ function cconsBuscarEntidades($conexion, $texto, $solo_clientes = false, $limite
             WHERE tabla_estado_registro_id IN (1, 2)
               AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ?)";
     if ($solo_clientes) {
-        $sql .= " AND es_cliente = 1";
+        $sql .= " AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI');
     }
     $sql .= " ORDER BY entidad_nombre LIMIT $limite";
 

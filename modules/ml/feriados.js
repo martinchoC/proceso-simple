@@ -117,7 +117,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json'
             },
             dom: '<"row mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>' +
                  'rt' +

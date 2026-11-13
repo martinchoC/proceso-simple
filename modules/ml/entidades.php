@@ -15,6 +15,57 @@ define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
+<link rel="stylesheet" href="<?= asset_local('css/datatables-rowgroup-1.4.1/rowGroup.dataTables.min.css') ?>">
+<style>
+    /* Estilos vista jerárquica de Entidades */
+    tr.grupo-header-nivel-0 td {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+        font-weight: 700;
+        cursor: pointer;
+        border-top: 2px solid #94a3b8 !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        font-size: 0.95rem;
+    }
+    tr.grupo-header-nivel-0:hover td {
+        background-color: #cbd5e1 !important;
+    }
+    tr.grupo-header-nivel-1 td {
+        background-color: #f1f5f9 !important;
+        color: #1e293b !important;
+        font-weight: 600;
+        cursor: pointer;
+        padding-left: 2rem !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 0.4rem !important;
+        border-top: 1px solid #cbd5e1 !important;
+        font-size: 0.9rem;
+    }
+    tr.grupo-header-nivel-1:hover td {
+        background-color: #e2e8f0 !important;
+    }
+    tr.grupo-header-nivel-2 td {
+        background-color: #f8fafc !important;
+        color: #334155 !important;
+        font-weight: 600;
+        cursor: pointer;
+        padding-left: 3.5rem !important;
+        padding-top: 0.35rem !important;
+        padding-bottom: 0.35rem !important;
+        border-top: 1px dashed #e2e8f0 !important;
+        font-size: 0.85rem;
+    }
+    tr.grupo-header-nivel-2:hover td {
+        background-color: #f1f5f9 !important;
+    }
+    .icono-colapso {
+        width: 14px;
+        display: inline-block;
+        transition: transform 0.15s ease-in-out;
+    }
+</style>
+
 <main class="app-main">
     <div class="app-content-header">
         <div class="container-fluid">
@@ -81,6 +132,33 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
             <!-- Tabla Principal -->
             <div class="card shadow-sm">
+                <div class="card-header py-2 bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-secondary small"><i class="fas fa-eye me-1"></i>Visualización:</span>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Modo de Visualización">
+                            <input type="radio" class="btn-check" name="modo_vista" id="vistaJerarquica" value="jerarquica" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="vistaJerarquica" title="Visualización Jerárquica">
+                                <i class="fas fa-sitemap me-1"></i>Jerárquica
+                            </label>
+
+                            <input type="radio" class="btn-check" name="modo_vista" id="vistaPlana" value="plana" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="vistaPlana" title="Visualización Plana / Estándar">
+                                <i class="fas fa-list me-1"></i>Plana
+                            </label>
+                        </div>
+                        <span class="badge bg-light text-muted border d-none d-md-inline" id="badgeJerarquiaInfo">
+                            <i class="fas fa-project-diagram me-1 text-primary"></i>Jerarquía: Ubicación Territorial &rarr; Empresa &rarr; Tipo
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1" id="controlesJerarquia">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnColapsarTodo" title="Colapsar todos los niveles">
+                            <i class="fas fa-compress-alt me-1"></i>Colapsar Todo
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnExpandirTodo" title="Expandir todos los niveles">
+                            <i class="fas fa-expand-alt me-1"></i>Expandir Todo
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body p-3">
                     <div class="table-responsive">
                         <table id="tablaEntidades" class="table table-sm table-striped table-hover align-middle mb-0 w-100">
@@ -313,7 +391,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/datatables-rowgroup-1.4.1/dataTables.rowGroup.min.js') ?>"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="entidades.js"></script>
 
 <?php

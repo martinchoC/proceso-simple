@@ -6,9 +6,9 @@ $ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['clientes_ctacte.php', 'c
 /**
  * clientes_ctacte_ajax.php
  *
- * Dispatcher de la cuenta corriente de clientes (solo lectura).
+ * Dispatcher de la cuenta corriente de clientes (solo lectura, salvo el envío por correo).
  * Acciones: saldos, buscar_clientes, cliente, resumen, movimientos, pendientes,
- *           comprobantes, obtener_comprobante.
+ *           comprobantes, obtener_comprobante, emails_cliente, enviar_email (CSRF).
  */
 
 error_reporting(E_ALL);
@@ -128,6 +128,36 @@ try {
                 ctacteResponder(['success' => false, 'data' => null, 'message' => 'Comprobante no encontrado.'], 404);
             }
             ctacteResponder(['success' => true, 'data' => $detalle, 'message' => '']);
+            break;
+
+        case 'emails_cliente':
+            // Correos de las sucursales del cliente, para precargar el destinatario del envío
+            ctacteResponder(['success' => true, 'data' => ctacteEmailsCliente($conexion, $empresa_id, ctacteEntidadParam()), 'message' => '']);
+            break;
+
+        case 'enviar_email':
+            // Detalle de una solapa por correo: lo arma el servidor con los mismos datos de la pantalla
+            require_once __DIR__ . '/../../core/csrf.php';
+            require_once __DIR__ . '/../../core/correo.php';
+            csrf_exigir();
+            $entidad_id = ctacteEntidadParam();
+            if (!ctacteEntidadDeEmpresa($conexion, $empresa_id, $entidad_id)) {
+                ctacteResponder(['success' => false, 'data' => null, 'message' => 'Cliente no encontrado.'], 404);
+            }
+            $solapa = $_POST['solapa'] ?? '';
+            if (!in_array($solapa, ['deuda', 'cta', 'comp'], true)) {
+                ctacteResponder(['success' => false, 'data' => null, 'message' => 'Solapa inválida.'], 400);
+            }
+            $para = trim((string) ($_POST['para'] ?? ''));
+            if (!correo_email_valido($para)) {
+                ctacteResponder(['success' => false, 'data' => null, 'message' => 'Ingresá un correo válido.'], 400);
+            }
+            $mensaje = mb_substr((string) ($_POST['mensaje'] ?? ''), 0, 2000);
+            $correo = ctacteCorreoSolapa($conexion, $empresa_id, $usuario_id, $entidad_id, $solapa,
+                                         ctacteFechaParam('desde'), ctacteFechaParam('hasta'), $mensaje);
+            error_log("=== enviar_email ctacte cliente $entidad_id solapa $solapa a $para (usuario $usuario_id) ===");
+            $envio = correo_enviar($para, $correo['asunto'], $correo['html']);
+            ctacteResponder(['success' => $envio['success'], 'data' => null, 'message' => $envio['message']]);
             break;
 
         default:

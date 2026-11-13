@@ -8,7 +8,7 @@
 (function (window, $) {
     'use strict';
 
-    const fmtImporte = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtImporte = Fmt.numberFormat({ minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     function esc(valor) {
         return $('<div>').text(valor === null || valor === undefined ? '' : String(valor)).html();
@@ -21,9 +21,7 @@
     }
 
     function fecha(iso) {
-        if (!iso) return '';
-        const p = String(iso).substring(0, 10).split('-');
-        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : esc(iso);
+        return iso ? esc(Fmt.fecha(iso)) : '';
     }
 
     /** "FA A 0001-00000012" / "RCX 0001-00000003" / "PC (borrador)" */

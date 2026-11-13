@@ -160,7 +160,7 @@
                     data: 'perfil_sucursal_id',
                     orderable: false,
                     className: 'text-center',
-                    render: (id, type, row) => `<button type="button" class="btn btn-outline-danger btn-xs btn-eliminar" data-id="${id}" data-perfil-id="${row.empresa_perfil_id}" title="Eliminar regla"><i class="fas fa-trash"></i></button>`
+                    render: (id, type, row) => `<button type="button" class="btn btn-outline-danger btn-xs btn-eliminar" data-funcion="inactivar" data-id="${id}" data-perfil-id="${row.empresa_perfil_id}" title="Eliminar regla"><i class="fas fa-trash"></i></button>`
                 }
             ],
             language: {

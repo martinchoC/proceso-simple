@@ -4,7 +4,7 @@ $conexion = $conn;
 
 function obtenerModulos($conexion)
 {
-    $sql = "SELECT * FROM conf__modulos WHERE modulo_id=2 ORDER BY modulo";
+    $sql = "SELECT * FROM conf__modulos WHERE modulo_id=5 ORDER BY modulo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -30,7 +30,7 @@ function obtenerTablas($conexion)
             FROM conf__tablas t
             LEFT JOIN conf__modulos m ON t.modulo_id = m.modulo_id
             LEFT JOIN conf__tablas_tipos tt ON t.tabla_tipo_id = tt.tabla_tipo_id
-            WHERE m.modulo_id=2 
+            WHERE m.modulo_id=5 
             ORDER BY t.tabla_nombre";
     $res = mysqli_query($conexion, $sql);
     $data = [];

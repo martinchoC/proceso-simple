@@ -42,6 +42,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="card card-outline card-primary mb-3">
                 <div class="card-body py-2">
                     <div class="row g-2 align-items-center">
+                        <div class="col-md-2 col-sm-6">
+                            <label class="form-label form-label-sm mb-1 text-muted">Cargo / Posición</label>
+                            <select id="filtroPosicion" class="form-select form-select-sm">
+                                <option value="">-- Todos los cargos --</option>
+                            </select>
+                        </div>
                         <div class="col-md-3 col-sm-6">
                             <label class="form-label form-label-sm mb-1 text-muted">Usuario Asignado</label>
                             <select id="filtroUsuario" class="form-select form-select-sm">
@@ -58,18 +64,18 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="4">I - Informado</option>
                             </select>
                         </div>
-                        <div class="col-md-3 col-sm-6">
+                        <div class="col-md-2 col-sm-6">
                             <label class="form-label form-label-sm mb-1 text-muted">Entidad</label>
                             <select id="filtroEntidad" class="form-select form-select-sm">
                                 <option value="">-- Todas las entidades --</option>
                             </select>
                         </div>
-                        <div class="col-md-4 col-sm-6 text-end pt-3">
+                        <div class="col-md-3 col-sm-12 text-end pt-3">
                             <button id="btnNuevaAsignacion" class="btn btn-sm btn-primary me-1" title="Asignar rol RACI">
                                 <i class="fas fa-user-plus me-1"></i>Asignar Rol
                             </button>
                             <button id="btnReasignarBloque" class="btn btn-sm btn-danger me-1" title="Reasignación Masiva (Caso C27)">
-                                <i class="fas fa-exchange-alt me-1"></i>Reasignación Masiva
+                                <i class="fas fa-exchange-alt me-1"></i>Reasignación
                             </button>
                             <button id="btnHistorialReasig" class="btn btn-sm btn-outline-secondary" title="Historial">
                                 <i class="fas fa-history"></i>
@@ -91,8 +97,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <th>Obligación / Ciclo</th>
                                     <th>Tarea Operativa</th>
                                     <th style="width: 140px;">Rol RACI</th>
-                                    <th>Usuario Asignado</th>
-                                    <th style="width: 110px;">Vigente Desde</th>
+                                    <th>Cargo / Posición</th>
+                                    <th>Usuario Titular</th>
+                                    <th style="width: 100px;">Vigente Desde</th>
                                     <th style="width: 70px;" class="text-center">Acciones</th>
                                 </tr>
                             </thead>
@@ -110,7 +117,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white py-2">
-                <h5 class="modal-title"><i class="fas fa-user-tag me-2"></i>Asignar Rol RACI a Tarea</h5>
+                <h5 class="modal-title"><i class="fas fa-user-tag me-2"></i>Asignar Rol RACI por Cargo y Usuario</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="formAsignarRaci">
@@ -130,8 +137,32 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <option value="4">I - Informado (Recibe notificación de avance/cierre)</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label form-label-sm">Usuario Destino *</label>
+
+                    <!-- Opción inteligente: Aprobador automático por supervisor jerárquico -->
+                    <div class="mb-3 p-2 bg-light border rounded" id="boxSupervisorAuto" style="display: none;">
+                        <div class="form-check form-switch mb-1">
+                            <input class="form-check-input" type="checkbox" id="chkUsarSupervisor" name="usar_supervisor" value="1">
+                            <label class="form-check-label form-label-sm fw-bold" for="chkUsarSupervisor">
+                                <i class="fas fa-sitemap text-primary me-1"></i>Asignar automáticamente al supervisor del Responsable (R)
+                            </label>
+                        </div>
+                        <small class="text-muted d-block" id="txtSupervisorInfo">
+                            Determina el jefe directo de la posición ejecutora según el organigrama empresarial.
+                        </small>
+                    </div>
+
+                    <div class="mb-3" id="boxPosicion">
+                        <label class="form-label form-label-sm">Cargo / Posición Estructural</label>
+                        <select id="raciPosicionId" name="posicion_id" class="form-select form-select-sm">
+                            <option value="">-- Seleccionar cargo o definir por usuario --</option>
+                        </select>
+                        <div class="form-text text-muted" style="font-size: 0.75rem;">
+                            Al seleccionar el cargo, se autocompletará el usuario titular activo asignado a esa posición.
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="boxUsuario">
+                        <label class="form-label form-label-sm">Usuario Titular Asignado *</label>
                         <select id="raciUsuarioId" name="usuario_id" class="form-select form-select-sm" required>
                             <option value="">-- Seleccionar usuario --</option>
                         </select>

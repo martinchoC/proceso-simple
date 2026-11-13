@@ -17,7 +17,7 @@ $(document).ready(function () {
                   '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>';
 
     const dtLang = {
-        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json',
+        url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json',
         lengthMenu: 'Mostrar _MENU_ registros',
         info: 'Página _PAGE_ de _PAGES_',
         infoEmpty: 'Página 0 de 0',
@@ -141,8 +141,12 @@ $(document).ready(function () {
                 {
                     data: 'codigo',
                     render: function (val, type, row) {
+                        let sigla = row.sigla || val;
+                        let icono = row.icono || 'fas fa-shield-alt';
+                        let color = row.color_hex || '#0284c7';
+                        let badgeSigla = `<span class="badge text-white shadow-sm" style="background-color: ${color};"><i class="${icono} me-1"></i>${sigla}</span>`;
                         let art = row.articulo_referencia ? `<small class="badge bg-light text-muted border d-block mt-1">${row.articulo_referencia}</small>` : '';
-                        return `<strong class="text-primary">${val}</strong>${art}`;
+                        return `<div>${badgeSigla}<span class="small font-monospace text-muted d-block mt-1">${val}</span></div>${art}`;
                     }
                 },
                 {
@@ -175,8 +179,20 @@ $(document).ready(function () {
                     render: function (val, type, row) {
                         if (!val) return '<span class="text-muted fs-8">-</span>';
                         let p = parseInt(row.criticidad_peso, 10);
-                        let bg = p >= 10 ? 'bg-danger' : (p >= 5 ? 'bg-warning text-dark' : 'bg-info text-dark');
-                        return `<span class="badge ${bg}">${val}</span>`;
+                        let flagClass = 'cu-priority-normal';
+                        let icon = 'far fa-flag';
+                        let valLower = val.toLowerCase();
+                        if (p >= 10 || valLower.includes('crítica') || valLower.includes('urgente')) {
+                            flagClass = 'cu-priority-urgent';
+                            icon = 'fas fa-flag';
+                        } else if (p >= 5 || valLower.includes('alta') || valLower.includes('media')) {
+                            flagClass = 'cu-priority-high';
+                            icon = 'fas fa-flag';
+                        } else if (p <= 2 || valLower.includes('baja')) {
+                            flagClass = 'cu-priority-low';
+                            icon = 'fas fa-flag';
+                        }
+                        return `<span class="cu-priority-flag ${flagClass}"><i class="${icon}"></i> ${val}</span>`;
                     }
                 },
                 {

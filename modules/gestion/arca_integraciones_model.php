@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
 $conexion = $conn;
 
@@ -57,7 +58,8 @@ function obtenerIntegracionesEmpresa($conexion, $empresa_idx, $pagina_id, $filtr
                 ON au.empresa_id = ie.empresa_id
                AND au.integracion_ambiente_id = ie.integracion_ambiente_id
                AND au.servicio = ie.servicio
-               AND au.activo = 1
+               AND au.activo = 1"
+        . (arca_ta_por_integracion($conexion) ? " AND au.integracion_empresa_id = ie.integracion_empresa_id" : "") . "
             LEFT JOIN conf__tablas_estados_registros ter
                 ON ter.tabla_id = ? AND ter.estado_registro_id = ie.tabla_estado_registro_id
             WHERE ie.empresa_id = ?";
@@ -84,6 +86,8 @@ function obtenerIntegracionesEmpresa($conexion, $empresa_idx, $pagina_id, $filtr
     $result = mysqli_stmt_get_result($stmt);
 
     $limite_ta = date('Y-m-d H:i:s', time() + ARCA_TA_MARGEN_SEGUNDOS);
+    $en_uso_cae = integracionEnUsoParaCae($conexion, $empresa_idx);
+    $delegaciones = contarDelegacionesVigentes($conexion, $empresa_idx);
     $filas = [];
     while ($fila = mysqli_fetch_assoc($result)) {
         if (empty($fila['estado_registro'])) {
@@ -91,6 +95,8 @@ function obtenerIntegracionesEmpresa($conexion, $empresa_idx, $pagina_id, $filtr
         }
         $fila['certificado'] = arca_info_certificado($fila['certificado_ruta']);
         $fila['ta_vigente'] = !empty($fila['ta_vencimiento']) && $fila['ta_vencimiento'] > $limite_ta ? 1 : 0;
+        $fila['en_uso_cae'] = intval($fila['integracion_empresa_id']) === $en_uso_cae ? 1 : 0;
+        $fila['delegaciones_vigentes'] = $delegaciones[intval($fila['integracion_empresa_id'])] ?? 0;
         $fila['botones'] = obtenerBotonesPorEstado($conexion, $pagina_id, $fila['tabla_estado_registro_id']);
         $filas[] = $fila;
     }
@@ -128,7 +134,7 @@ function obtenerEstadosIntegraciones($conexion)
 // ✅ Ambientes activos (combo del ABM). Producción queda inactiva hasta habilitarla.
 function obtenerAmbientesActivos($conexion)
 {
-    $sql = "SELECT a.integracion_ambiente_id, a.codigo, a.nombre, i.nombre AS integracion_nombre
+    $sql = "SELECT a.integracion_ambiente_id, a.codigo, a.nombre, i.nombre AS integracion_nombre, i.codigo AS integracion_codigo
             FROM conf__integraciones_ambientes a
             INNER JOIN conf__integraciones i ON i.integracion_id = a.integracion_id
             WHERE a.activo = 1 AND i.activo = 1
@@ -221,7 +227,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     static $cache = [];
     if (!isset($cache[$pagina_id])) {
-        $cache[$pagina_id] = obtenerFuncionesPagina($conexion, $pagina_id);
+        $cache[$pagina_id] = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     }
 
     $botones = [];
@@ -252,7 +258,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // ✅ Obtener botón "Agregar" específico para la página (función con origen 0)
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -292,7 +301,7 @@ function obtenerEstadoInicialIntegraciones($conexion, $pagina_id)
 // La función accion_js está habilitada en la página para el estado dado
 function funcionPermitidaEnEstado($conexion, $pagina_id, $estado_id, $accion_js)
 {
-    foreach (obtenerFuncionesPagina($conexion, $pagina_id) as $funcion) {
+    foreach (permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id)) as $funcion) {
         if ($funcion['accion_js'] === $accion_js && intval($funcion['tabla_estado_registro_origen_id']) === intval($estado_id)) {
             return true;
         }
@@ -400,21 +409,45 @@ function normalizarDatosIntegracion($conexion, $data, $empresa_idx)
     return [$datos, null];
 }
 
-// Una sola vinculación por empresa + ambiente + servicio (índice UNIQUE)
+// Integración con la que la vigencia abierta de Parámetros de Empresa (página 111 / 611) pide el CAE,
+// si ARCA está habilitado; 0 si no hay. Columna de 20261018_arca_certificado_parametros_01.sql.
+function integracionEnUsoParaCae($conexion, $empresa_idx)
+{
+    $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'arca_integracion_empresa_id'");
+    if (!$res || mysqli_num_rows($res) === 0) {
+        return 0;
+    }
+    $stmt = mysqli_prepare($conexion, "SELECT arca_habilitado, arca_integracion_empresa_id FROM gestion__empresas_parametros
+                                       WHERE empresa_id = ? AND f_hasta IS NULL AND tabla_estado_registro_id = 1
+                                       ORDER BY f_desde DESC, empresa_parametro_id DESC LIMIT 1");
+    if (!$stmt) {
+        return 0;
+    }
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return ($row && intval($row['arca_habilitado']) === 1) ? intval($row['arca_integracion_empresa_id']) : 0;
+}
+
+// Puede haber varias integraciones por empresa + ambiente + servicio (varios certificados; cuál pide
+// el CAE se elige en Parámetros de Empresa), pero no el mismo certificado dos veces.
 function validarDuplicadoIntegracion($conexion, $datos, $empresa_idx, $excluir_id = 0)
 {
     $sql = "SELECT COUNT(*) AS total FROM gestion__integraciones_empresas
-            WHERE empresa_id = ? AND integracion_ambiente_id = ? AND servicio = ? AND integracion_empresa_id <> ?";
+            WHERE empresa_id = ? AND integracion_ambiente_id = ? AND servicio = ? AND certificado_ruta = ?
+              AND integracion_empresa_id <> ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return 'Error en la consulta';
     }
-    mysqli_stmt_bind_param($stmt, "iisi", $empresa_idx, $datos['integracion_ambiente_id'], $datos['servicio'], $excluir_id);
+    mysqli_stmt_bind_param($stmt, "iissi", $empresa_idx, $datos['integracion_ambiente_id'], $datos['servicio'], $datos['certificado_ruta'], $excluir_id);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
 
-    return intval($row['total']) > 0 ? 'La empresa ya tiene configurado ese ambiente para el servicio ' . $datos['servicio'] : null;
+    return intval($row['total']) > 0 ? 'Ese certificado ya está configurado en ese ambiente para el servicio ' . $datos['servicio'] : null;
 }
 
 // ✅ Agregar nueva integración
@@ -537,14 +570,21 @@ function editarIntegracionEmpresa($conexion, $id, $data, $empresa_idx)
         mysqli_stmt_close($stmt);
 
         if ($invalida_ta) {
+            // El TA es del certificado: solo el de esta integración (sin la columna, el del ambiente)
+            $por_integracion = arca_ta_por_integracion($conexion);
             $sql = "UPDATE gestion__integraciones_autenticaciones SET activo = 0
-                    WHERE empresa_id = ? AND integracion_ambiente_id = ? AND servicio = ?";
+                    WHERE empresa_id = ? AND integracion_ambiente_id = ? AND servicio = ?"
+                . ($por_integracion ? " AND integracion_empresa_id = ?" : "");
             $stmt = mysqli_prepare($conexion, $sql);
             if (!$stmt) {
                 throw new Exception('Error preparando la baja del TA: ' . mysqli_error($conexion));
             }
             $ambiente_anterior = intval($actual['integracion_ambiente_id']);
-            mysqli_stmt_bind_param($stmt, "iis", $empresa_idx, $ambiente_anterior, $actual['servicio']);
+            if ($por_integracion) {
+                mysqli_stmt_bind_param($stmt, "iisi", $empresa_idx, $ambiente_anterior, $actual['servicio'], $id);
+            } else {
+                mysqli_stmt_bind_param($stmt, "iis", $empresa_idx, $ambiente_anterior, $actual['servicio']);
+            }
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception('Error al desactivar el TA: ' . mysqli_stmt_error($stmt));
             }
@@ -558,6 +598,223 @@ function editarIntegracionEmpresa($conexion, $id, $data, $empresa_idx)
         mysqli_rollback($conexion);
         error_log("editarIntegracionEmpresa: " . $e->getMessage());
         return ['success' => false, 'message' => 'Error al actualizar la integración'];
+    }
+}
+
+// ---------- Delegación del certificado a otras empresas (gestion__integraciones_delegaciones) ----------
+// La titular delega; la empresa destino ve la integración en Parámetros de Empresa y pide el CAE con
+// este certificado y su propio CUIT (arca_obtener_configuracion_para_empresa). En ARCA, la empresa
+// destino tiene que haber delegado el servicio WSFE en el CUIT del certificado.
+
+// Delegaciones vigentes por integración de la empresa titular: [integracion_empresa_id => cantidad]
+function contarDelegacionesVigentes($conexion, $empresa_idx)
+{
+    if (!arca_delegaciones_existen($conexion)) {
+        return [];
+    }
+    $sql = "SELECT d.integracion_empresa_id, COUNT(*) AS total
+            FROM gestion__integraciones_delegaciones d
+            WHERE d.empresa_id = ? AND " . arca_sql_delegacion_vigente() . "
+            GROUP BY d.integracion_empresa_id";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $totales = [];
+    while ($f = mysqli_fetch_assoc($res)) {
+        $totales[intval($f['integracion_empresa_id'])] = intval($f['total']);
+    }
+    mysqli_stmt_close($stmt);
+    return $totales;
+}
+
+// Valida que la integración sea de la empresa y que "Delegar" esté habilitado en su estado.
+// Devuelve [registro, error].
+function integracionParaDelegar($conexion, $integracion_empresa_id, $empresa_idx, $pagina_id)
+{
+    if (!arca_delegaciones_existen($conexion)) {
+        return [null, 'Falta correr el script 20261019_arca_certificado_parametros_02_delegaciones.sql'];
+    }
+    $registro = obtenerIntegracionEmpresaPorId($conexion, $integracion_empresa_id, $empresa_idx);
+    if (!$registro) {
+        return [null, 'Integración no encontrada'];
+    }
+    if (!funcionPermitidaEnEstado($conexion, $pagina_id, $registro['tabla_estado_registro_id'], 'delegar')) {
+        return [null, 'La delegación no está habilitada para el estado de esta integración'];
+    }
+    return [$registro, null];
+}
+
+// Empresas a las que se puede delegar: las otras empresas activas a las que el usuario tiene acceso
+// (no se listan empresas ajenas al usuario), con CUIT cargado.
+function obtenerEmpresasDelegables($conexion, $usuario_id, $empresa_idx)
+{
+    $sql = "SELECT empresa_id, empresa, documento_numero FROM conf__empresas
+            WHERE tabla_estado_registro_id = 1 AND empresa_id <> ? AND empresa_id > 1
+            ORDER BY empresa";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return [];
+    }
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $acceso_total = defined('USUARIOS_ACCESO_TOTAL') && in_array(intval($usuario_id), USUARIOS_ACCESO_TOTAL, true);
+    $empresas = [];
+    while ($f = mysqli_fetch_assoc($res)) {
+        if (preg_replace('/\D/', '', (string)$f['documento_numero']) === '') {
+            continue;
+        }
+        if ($acceso_total || !empty(usuario_obtener_perfiles_empresa($conexion, intval($usuario_id), intval($f['empresa_id'])))) {
+            $empresas[] = $f;
+        }
+    }
+    mysqli_stmt_close($stmt);
+    return $empresas;
+}
+
+// Delegaciones de una integración (vigentes, futuras, vencidas y revocadas), con si la empresa destino
+// la tiene elegida hoy para pedir el CAE.
+function obtenerDelegacionesIntegracion($conexion, $integracion_empresa_id, $empresa_idx, $pagina_id)
+{
+    [$registro, $error] = integracionParaDelegar($conexion, $integracion_empresa_id, $empresa_idx, $pagina_id);
+    if ($error !== null) {
+        return ['success' => false, 'message' => $error];
+    }
+    $sql = "SELECT d.integracion_delegacion_id, d.empresa_destino_id, e.empresa AS empresa_destino,
+                   e.documento_numero AS cuit_destino, d.fecha_desde, d.fecha_hasta, d.observaciones,
+                   d.tabla_estado_registro_id,
+                   (" . arca_sql_delegacion_vigente() . ") AS vigente,
+                   EXISTS (SELECT 1 FROM gestion__empresas_parametros ep
+                           WHERE ep.empresa_id = d.empresa_destino_id AND ep.f_hasta IS NULL
+                             AND ep.tabla_estado_registro_id = 1 AND ep.arca_habilitado = 1
+                             AND ep.arca_integracion_empresa_id = d.integracion_empresa_id) AS en_uso_cae
+            FROM gestion__integraciones_delegaciones d
+            INNER JOIN conf__empresas e ON e.empresa_id = d.empresa_destino_id
+            WHERE d.integracion_empresa_id = ? AND d.empresa_id = ?
+            ORDER BY d.tabla_estado_registro_id, e.empresa";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        return ['success' => false, 'message' => 'Error en la consulta'];
+    }
+    $integracion_empresa_id = intval($integracion_empresa_id);
+    $empresa_idx = intval($empresa_idx);
+    mysqli_stmt_bind_param($stmt, "ii", $integracion_empresa_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $filas = [];
+    while ($f = mysqli_fetch_assoc($res)) {
+        $filas[] = $f;
+    }
+    mysqli_stmt_close($stmt);
+    return ['success' => true, 'data' => $filas];
+}
+
+// Alta o renovación de la delegación a una empresa (una fila por integración + empresa destino).
+function guardarDelegacionIntegracion($conexion, $integracion_empresa_id, $data, $empresa_idx, $pagina_id, $usuario_id)
+{
+    $integracion_empresa_id = intval($integracion_empresa_id);
+    $empresa_idx = intval($empresa_idx);
+    error_log("=== INICIO guardarDelegacionIntegracion ID: $integracion_empresa_id empresa: $empresa_idx ===");
+
+    [$registro, $error] = integracionParaDelegar($conexion, $integracion_empresa_id, $empresa_idx, $pagina_id);
+    if ($error !== null) {
+        return ['success' => false, 'message' => $error];
+    }
+    if ($registro['servicio'] !== 'wsfe') {
+        return ['success' => false, 'message' => 'Solo se delegan integraciones de facturación (WSFE)'];
+    }
+
+    $destino = intval($data['empresa_destino_id'] ?? 0);
+    $fecha_desde = trim($data['fecha_desde'] ?? '') ?: date('Y-m-d');
+    $fecha_hasta = trim($data['fecha_hasta'] ?? '') ?: null;
+    $observaciones = trim($data['observaciones'] ?? '');
+    $observaciones = $observaciones === '' ? null : mb_substr($observaciones, 0, 255);
+
+    $permitida = false;
+    foreach (obtenerEmpresasDelegables($conexion, $usuario_id, $empresa_idx) as $e) {
+        if (intval($e['empresa_id']) === $destino) {
+            $permitida = true;
+        }
+    }
+    if (!$permitida) {
+        return ['success' => false, 'message' => 'Elija una empresa a la que tenga acceso y con CUIT cargado'];
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_desde) || ($fecha_hasta !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_hasta))) {
+        return ['success' => false, 'message' => 'Fechas inválidas'];
+    }
+    if ($fecha_hasta !== null && $fecha_hasta < $fecha_desde) {
+        return ['success' => false, 'message' => 'La fecha hasta no puede ser anterior a la fecha desde'];
+    }
+
+    $usuario_id = $usuario_id ? intval($usuario_id) : null;
+    mysqli_begin_transaction($conexion);
+    try {
+        $sql = "INSERT INTO gestion__integraciones_delegaciones
+                    (empresa_id, integracion_empresa_id, empresa_destino_id, fecha_desde, fecha_hasta,
+                     observaciones, usuario_creacion_id, tabla_estado_registro_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                ON DUPLICATE KEY UPDATE fecha_desde = VALUES(fecha_desde), fecha_hasta = VALUES(fecha_hasta),
+                    observaciones = VALUES(observaciones), tabla_estado_registro_id = 1";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error preparando la delegación: ' . mysqli_error($conexion));
+        }
+        mysqli_stmt_bind_param($stmt, "iiisssi", $empresa_idx, $integracion_empresa_id, $destino, $fecha_desde, $fecha_hasta, $observaciones, $usuario_id);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error al guardar la delegación: ' . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
+        mysqli_commit($conexion);
+        error_log("=== FIN guardarDelegacionIntegracion ID: $integracion_empresa_id destino: $destino ===");
+        return ['success' => true, 'message' => 'Certificado delegado. La empresa ya puede elegirlo en Parámetros de Empresa.'];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("guardarDelegacionIntegracion: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error al guardar la delegación'];
+    }
+}
+
+// Revoca una delegación (queda registrada en estado 2). La empresa destino deja de poder pedir
+// el CAE con este certificado desde ese momento.
+function revocarDelegacionIntegracion($conexion, $integracion_empresa_id, $delegacion_id, $empresa_idx, $pagina_id)
+{
+    [$registro, $error] = integracionParaDelegar($conexion, $integracion_empresa_id, $empresa_idx, $pagina_id);
+    if ($error !== null) {
+        return ['success' => false, 'message' => $error];
+    }
+    $integracion_empresa_id = intval($integracion_empresa_id);
+    $delegacion_id = intval($delegacion_id);
+    $empresa_idx = intval($empresa_idx);
+    error_log("=== INICIO revocarDelegacionIntegracion ID: $delegacion_id ===");
+
+    mysqli_begin_transaction($conexion);
+    try {
+        $sql = "UPDATE gestion__integraciones_delegaciones SET tabla_estado_registro_id = 2
+                WHERE integracion_delegacion_id = ? AND integracion_empresa_id = ? AND empresa_id = ?";
+        $stmt = mysqli_prepare($conexion, $sql);
+        if (!$stmt) {
+            throw new Exception('Error preparando la revocación: ' . mysqli_error($conexion));
+        }
+        mysqli_stmt_bind_param($stmt, "iii", $delegacion_id, $integracion_empresa_id, $empresa_idx);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error al revocar: ' . mysqli_stmt_error($stmt));
+        }
+        $afectadas = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+        mysqli_commit($conexion);
+        return $afectadas > 0
+            ? ['success' => true, 'message' => 'Delegación revocada']
+            : ['success' => false, 'message' => 'Delegación no encontrada o ya revocada'];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log("revocarDelegacionIntegracion: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error al revocar la delegación'];
     }
 }
 
@@ -600,6 +857,9 @@ function ejecutarTransicionEstado($conexion, $integracion_empresa_id, $accion_js
     $estado_destino_id = intval($funcion['tabla_estado_registro_destino_id']);
     if ($estado_destino_id === $estado_actual_id) {
         return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+    if ($estado_destino_id !== 1 && integracionEnUsoParaCae($conexion, $empresa_idx) === $integracion_empresa_id) {
+        return ['success' => false, 'message' => 'Esta integración es la que pide el CAE en Parámetros de Empresa. Elija otra allí (o desactive ARCA) antes de inactivarla.'];
     }
 
     mysqli_begin_transaction($conexion);
@@ -764,7 +1024,20 @@ function ejecutarPruebaArca($conexion, $id, $operacion, $data, $empresa_idx, $pa
         return ['success' => false, 'message' => 'El ambiente ' . $cfg['ambiente_nombre'] . ' está inactivo'];
     }
 
+    // Padrón (ws_sr_constancia_inscripcion, arca/arca_padron.php): WSAA y el estado del servidor; el resto es de WSFE
+    if ($cfg['servicio'] !== 'wsfe' && !in_array($operacion, ['estado_ta', 'wsaa_login', 'wsaa_importar_ta', 'fe_dummy'], true)) {
+        return ['success' => false, 'message' => 'Esa prueba es de facturación electrónica (WSFE); esta integración es del servicio ' . $cfg['servicio']];
+    }
+    if ($cfg['servicio'] === 'ws_sr_constancia_inscripcion' && $operacion === 'fe_dummy') {
+        require_once __DIR__ . '/../../arca/arca_padron.php';
+        $r = arca_padron_dummy($conexion, $cfg);
+        $operacion = '';
+    }
+
     switch ($operacion) {
+        case '':
+            break;
+
         case 'estado_ta':
             return ['success' => true, 'data' => arca_estado_ta($conexion, $cfg)];
 

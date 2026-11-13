@@ -1,5 +1,5 @@
 // Impuestos Adic. - Conf: solapa "Agente de Percepción" (datos del agente + alícuota por situación del cliente).
-// Lee la config abierta en el modal desde #empresa_impuesto_config_id. docs/gestion/09_percepciones_iibb.md
+// Lee la config abierta en el modal desde #empresa_impuesto_config_id. _local/docs/gestion/09_percepciones_iibb.md
 $(function () {
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
     function configId() { return parseInt($('#empresa_impuesto_config_id').val() || 0, 10); }

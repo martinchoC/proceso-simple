@@ -53,12 +53,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <option value="">Todos los estados</option>
                                 <option value="3">Borrador</option>
                                 <option value="5">Vigente / Impactada</option>
-                                <option value="6">Derogada</option>
+                                <option value="20">Derogada</option>
                             </select>
                         </div>
                         <div class="col-md-3 col-sm-6"></div>
                         <div class="col-md-3 col-sm-6 text-end mt-auto pb-1">
-                            <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevaNorma">
+                            <button type="button" class="btn btn-sm btn-primary w-100" id="btnNuevaNorma" data-funcion="agregar">
                                 <i class="fas fa-plus-circle me-1"></i>Registrar Nueva Norma
                             </button>
                         </div>
@@ -274,7 +274,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="normas_gestion.js"></script>
 
 <?php

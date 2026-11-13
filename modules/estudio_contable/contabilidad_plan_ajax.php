@@ -21,6 +21,12 @@ require_once __DIR__ . '/contabilidad_plan_model.php';
 
 $empresa_id = $ctx['empresa_id'];
 $accion = $_REQUEST['accion'] ?? '';
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php);
+// los botones de esas acciones están marcados data-funcion y header1.php oculta los que el perfil no tiene.
+permisos_exigir_accion($conn, 416, (string)$accion, [
+    'guardar' => (intval($_POST['cont_cuenta_id'] ?? 0) > 0 ? 'editar' : 'agregar'),
+    'anular' => 'inhabilitar',
+]);
 
 $model = new ContabilidadPlanModel($conn);
 

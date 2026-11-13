@@ -7,31 +7,14 @@ $pageTitle = "Gestión de Grupos y Subgrupos de Comprobantes";
 $currentPage = 'comprobantes_grupos';
 $modudo_idx = 5; // Ajustar según tu sistema
 $pagina_idx = 546; // ID de página para grupos de comprobantes
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-sitemap me-2"></i>Gestión de Grupos y Subgrupos de Comprobantes
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa - Vista Jerárquica</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Grupos y Subgrupos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Grupos y subgrupos de comprobantes','fas fa-sitemap', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -147,18 +130,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formComprobanteGrupo" class="needs-validation" novalidate>
                                 <input type="hidden" id="comprobante_grupo_id" name="comprobante_grupo_id" />
                                 <div class="mb-3">
-                                    <label for="comprobante_grupo" class="form-label">Nombre del Grupo *</label>
+                                    <label for="comprobante_grupo" class="form-label">Nombre del Grupo * <?= ui_ayuda('Máximo 50 caracteres (ej: FACTURA, NOTA DE CRÉDITO, TICKET, etc.)') ?></label>
                                     <input type="text" class="form-control" id="comprobante_grupo"
                                         name="comprobante_grupo" maxlength="50" required>
                                     <div class="invalid-feedback">El nombre del grupo es obligatorio</div>
-                                    <small class="text-muted">Máximo 50 caracteres (ej: FACTURA, NOTA DE CRÉDITO,
-                                        TICKET, etc.)</small>
+                                    
                                 </div>
                                 <div class="mb-3">
-                                    <label for="orden_grupo" class="form-label">Orden</label>
+                                    <label for="orden_grupo" class="form-label">Orden <?= ui_ayuda('Número para ordenar los grupos (menor número = primero)') ?></label>
                                     <input type="number" class="form-control" id="orden_grupo"
                                         name="orden_grupo" min="0" max="999" value="0">
-                                    <small class="text-muted">Número para ordenar los grupos (menor número = primero)</small>
                                 </div>
                             </form>
                         </div>
@@ -186,34 +167,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <form id="formComprobanteSubgrupo" class="needs-validation" novalidate>
                                 <input type="hidden" id="comprobante_subgrupo_id" name="comprobante_subgrupo_id" />
                                 <div class="mb-3">
-                                    <label for="comprobante_subgrupo" class="form-label">Nombre del Subgrupo *</label>
+                                    <label for="comprobante_subgrupo" class="form-label">Nombre del Subgrupo * <?= ui_ayuda('Máximo 50 caracteres') ?></label>
                                     <input type="text" class="form-control" id="comprobante_subgrupo"
                                         name="comprobante_subgrupo" maxlength="50" required>
                                     <div class="invalid-feedback">El nombre del subgrupo es obligatorio</div>
-                                    <small class="text-muted">Máximo 50 caracteres</small>
+                                    
                                 </div>
                                 <div class="mb-3">
-                                    <label for="orden_subgrupo" class="form-label">Orden</label>
+                                    <label for="orden_subgrupo" class="form-label">Orden <?= ui_ayuda('Número para ordenar los subgrupos dentro del grupo (menor número = primero)') ?></label>
                                     <input type="number" class="form-control" id="orden_subgrupo"
                                         name="orden_subgrupo" min="0" max="999" value="0">
-                                    <small class="text-muted">Número para ordenar los subgrupos dentro del grupo (menor número = primero)</small>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="tabla_id" class="form-label">Tabla Asociada</label>
+                                    <label for="tabla_id" class="form-label">Tabla Asociada <?= ui_ayuda('Sólo se listan las tablas que todavía no tienen un subgrupo asociado') ?></label>
                                     <select class="form-select" id="tabla_id" name="tabla_id">
                                         <option value="0">Sin tabla asociada</option>
                                         <!-- Se llena dinámicamente: tablas sin subgrupo asociado + la actual -->
                                     </select>
-                                    <small class="text-muted">Sólo se listan las tablas que todavía no tienen un
-                                        subgrupo asociado</small>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="grupo_padre_id" class="form-label">Grupo Padre *</label>
+                                    <label for="grupo_padre_id" class="form-label">Grupo Padre * <?= ui_ayuda('Grupo al que pertenece el subgrupo') ?></label>
                                     <select class="form-select" id="grupo_padre_id" name="grupo_padre_id" required>
                                         <option value="">Seleccionar grupo...</option>
                                     </select>
                                     <div class="invalid-feedback">Debe seleccionar un grupo</div>
-                                    <small class="text-muted">Grupo al que pertenece el subgrupo</small>
+                                    
                                 </div>
                             </form>
                         </div>
@@ -963,7 +941,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         }
     </style>
     
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

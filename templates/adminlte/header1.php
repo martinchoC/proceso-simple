@@ -2,6 +2,11 @@
 // templates/adminlte/header1.php
 
 require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../../core/csrf.php';
+require_once __DIR__ . '/../../core/contexto.php';
+require_once __DIR__ . '/../../core/ui.php';
+require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../../core/empresa_logo.php';
 
 if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
   header("Location: " . url('login.php'));
@@ -57,25 +62,67 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   <meta name="google" content="notranslate" />
 
   <meta name="supported-color-schemes" content="light dark" />
-  <link rel="icon" type="image/png" href="<?= asset('img/logo.png') ?>">
-  <link rel="shortcut icon" href="<?= asset('img/logo.png') ?>">
-  <link href="<?= asset_local('css/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
-  <link rel="stylesheet" href="<?= asset_local('css/all.min.css') ?>" />
-  <link href="<?= asset_local('css/sweetalert2-bootstrap-4.min.css') ?>" rel="stylesheet" />
-  <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
-  <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars.min.css') ?>" />
-  <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons.css') ?>">
-  <link href="<?= asset_local('css/bootstrap.min.css') ?>" rel="stylesheet" />
+  <?php
+  $logo_barra = emp_logo_barra($conexion, (int)$current_empresa_id); // Parámetros de Empresa (core/empresa_logo.php)
+  $logo_fav = $logo_barra ? url($logo_barra) : emp_logo_inicial($conexion);
+  ?>
+  <link rel="icon" type="image/png" href="<?= htmlspecialchars($logo_fav) ?>">
+  <link rel="shortcut icon" href="<?= htmlspecialchars($logo_fav) ?>">
+  <link href="<?= asset_local('css/datatables-1.13.8/dataTables.bootstrap5.min.css') ?>" rel="stylesheet" />
+  <link rel="stylesheet" href="<?= asset_local('css/fontawesome-5.15.4/css/all.min.css') ?>" />
+  <link href="<?= asset_local('css/sweetalert2-theme-bootstrap-4-5.0.27/bootstrap-4.min.css') ?>" rel="stylesheet" />
+  <link rel="stylesheet" href="<?= asset_local('css/admin-lte-4.0.0-beta2/adminlte.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/overlayscrollbars-2.11.0/overlayscrollbars.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/bootstrap-icons-1.13.0/bootstrap-icons.css') ?>">
+  <link href="<?= asset_local('css/bootstrap-5.3.3/bootstrap.min.css') ?>" rel="stylesheet" />
   <link rel="stylesheet" href="<?= asset_local('css/styles.css') ?>">
+  <link href="<?= asset_local('css/datatables-responsive-2.5.0/responsive.bootstrap5.min.css') ?>" rel="stylesheet" />
+  <link rel="stylesheet" href="<?= asset_local('css/ui-simple.css') ?>?v=<?= @filemtime(__DIR__ . '/../../assets/css/ui-simple.css') ?>">
 
-  <script src="<?= asset_local('js/jquery.min.js') ?>"></script>
-  <script src="<?= asset_local('js/dataTables.min.js') ?>"></script>
-  <script src="<?= asset_local('js/dataTables.bootstrap5.min.js') ?>"></script>
-  <script src="<?= asset_local('js/dataTables.buttons.min.js') ?>"></script>
-  <script src="<?= asset_local('js/buttons.html5.min.js') ?>"></script>
-  <script src="<?= asset_local('js/jszip.min.js') ?>"></script>
-  <script src="<?= asset_local('js/pdfmake.min.js') ?>"></script>
-  <script src="<?= asset_local('js/vfs_fonts.js') ?>"></script>
+  <script>window.APP_ASSETS_URL = <?= json_encode(asset_local('')) ?>;</script>
+  <script src="<?= asset_local('js/jquery-3.6.0/jquery.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-1.13.6/jquery.dataTables.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-1.13.6/dataTables.bootstrap5.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+  <script>
+    // Todas las tablas son responsive (default más abajo). Antes de que Responsive arme cada tabla
+    // (este handler va antes de cargar la extensión, así corre primero): la columna de acciones
+    // nunca se oculta ("all") y las columnas "ui-detalle" van siempre al detalle desplegable ("none"), salvo
+    // el ID ("ID" / "#"): se oculta del todo (sigue en la búsqueda y en las exportaciones), así una tabla cuyo
+    // único dato secundario es el ID no muestra un ▸ que despliega solo eso.
+    if (window.jQuery) {
+      jQuery(document).on('preInit.dt', function (e, settings) {
+        if (e.namespace !== 'dt') return;
+        var cols = settings.aoColumns || [];
+        var ocultar = [];
+        cols.forEach(function (col, i) {
+          var th = col.nTh;
+          if (!th) return;
+          var clases = ' ' + (col.sClass || col.className || '') + ' ' + th.className + ' ';
+          var texto = jQuery.trim(jQuery(th).text());
+          if (/\sui-detalle\s/.test(clases) && /^(id|#|#\s*id)$/i.test(texto)) {
+            ocultar.push(i);
+          } else if (/\sui-detalle\s/.test(clases)) {
+            jQuery(th).addClass('none');
+          } else if (/^(acci[oó]n(es)?|opciones)$/i.test(texto) || (texto === '' && i === cols.length - 1)) {
+            jQuery(th).addClass('all');
+          }
+        });
+        if (ocultar.length) {
+          try { new jQuery.fn.dataTable.Api(settings).columns(ocultar).visible(false, false); }
+          catch (err) { console.warn('No se pudo ocultar la columna ID', err); }
+        }
+      });
+    }
+  </script>
+  <script src="<?= asset_local('js/datatables-responsive-2.5.0/dataTables.responsive.min.js') ?>"></script>
+  <script src="<?= asset_local('js/datatables-responsive-2.5.0/responsive.bootstrap5.min.js') ?>"></script>
+  <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+  <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+  <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+  <script src="<?= asset_local('js/formato.js') ?>?v=<?= @filemtime(__DIR__ . '/../../assets/js/formato.js') ?>"></script>
 
   <?php
   // En modules/gestion, modules/gestion_normal y modules/sindicatos las tablas con el dom por defecto van sin
@@ -86,6 +133,7 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     if (window.jQuery && $.fn && $.fn.dataTable) {
       var dtSinBotonesDefault = <?= $dtSinBotonesDefault ? 'true' : 'false' ?>;
       $.extend(true, $.fn.dataTable.defaults, {
+        responsive: true,
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         dom: (dtSinBotonesDefault
@@ -149,13 +197,37 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
   </script>
 
 
-  <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
-  <link rel="stylesheet" href="<?= asset_local('css/apexcharts.css') ?>" />
-  <link rel="stylesheet" href="<?= asset_local('css/jsvectormap.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/admin-lte-4.0.0-beta2/adminlte.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/apexcharts-3.37.1/apexcharts.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/jsvectormap-1.5.3/jsvectormap.min.css') ?>" />
 
+  <script>
+    // Ciberseguridad: Sanitización de la barra de navegación para evitar Information Disclosure (fuga de IDs y extensiones .php)
+    if (window.history && window.history.replaceState) {
+      try {
+        var _locUrl = new URL(window.location.href);
+        var _modificado = false;
+        if (_locUrl.searchParams.has('empresa_id') || _locUrl.searchParams.has('modulo_id') || _locUrl.searchParams.has('pagina_id')) {
+          _locUrl.searchParams.delete('empresa_id');
+          _locUrl.searchParams.delete('modulo_id');
+          _locUrl.searchParams.delete('pagina_id');
+          _modificado = true;
+        }
+        var _path = _locUrl.pathname;
+        if (_path.endsWith('.php') && !_path.endsWith('_ajax.php')) {
+          _path = _path.slice(0, -4);
+          _modificado = true;
+        }
+        if (_modificado) {
+          var _limpiaUrl = _path + (_locUrl.search ? _locUrl.search : '') + _locUrl.hash;
+          window.history.replaceState({}, document.title, _limpiaUrl);
+        }
+      } catch (e) {}
+    }
+  </script>
 </head>
 
-<body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary">
+<body class="layout-fixed sidebar-expand-lg sidebar-open bg-body-tertiary<?= !empty($ui_simple) ? ' ui-simple' : '' ?>">
   <div class="app-wrapper">
 
     <?php
@@ -221,6 +293,11 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     }
     // Empresa activa para los .js de las páginas (nunca hardcodear la empresa en el JS)
     echo '<script>window.EMPRESA_ID = ' . (int)$current_empresa_id . ';</script>';
+    // Formato de fechas y números de la empresa (conf__empresas, core/formato.php): Fmt en el JS, fmt_*() en PHP
+    $app_formato = fmt_config_js(fmt_usar_empresa($conexion, (int)$current_empresa_id));
+    echo '<script>window.APP_FORMATO = ' . json_encode($app_formato, JSON_UNESCAPED_UNICODE) . '; if (window.Fmt) Fmt.configurar(window.APP_FORMATO);</script>';
+    // Encabezado de los modales con los colores del logo de la empresa (conf__empresas, core/empresa_logo.php)
+    echo '<style id="tema-empresa">' . emp_logo_css(emp_logo_tema($conexion, (int)$current_empresa_id)) . '</style>';
     if ($current_modulo_id > 0) {
         $_SESSION['modulo_id'] = $current_modulo_id;
     }
@@ -250,13 +327,37 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     if ($current_empresa_id > 0 || $es_superusuario) {
       $paginas_permitidas = usuario_obtener_paginas_permitidas($conexion, $usuario_logueado_id, $current_empresa_id);
 
-      $pagina_actual_id = isset($pagina_idx) ? intval($pagina_idx) : 0;
+      $pagina_actual_id = isset($pagina_idx) ? intval($pagina_idx) : (isset($pagina_id) ? intval($pagina_id) : 0);
+      // Si la página no definió explícitamente $pagina_idx, se resuelve automáticamente por su URL y módulo
+      if ($pagina_actual_id <= 0 && $current_modulo_id > 0) {
+        $script_actual = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        if ($script_actual !== '' && $script_actual !== 'index.php') {
+          $pagina_actual_id = pagina_id_por_url($conexion, (int)$current_modulo_id, $script_actual);
+        }
+      }
+      $pagina_idx = $pagina_actual_id;
+      $pagina_id = $pagina_actual_id;
+      $GLOBALS['pagina_idx'] = $pagina_actual_id;
+      $GLOBALS['pagina_id'] = $pagina_actual_id;
+
+      if ($pagina_actual_id > 0) {
+        echo '<script>window.PAGINA_ID = ' . (int)$pagina_actual_id . '; window.PAGINA_IDX = ' . (int)$pagina_actual_id . ';</script>';
+      }
+
       if (!$es_superusuario && $pagina_actual_id > 0 && !isset($paginas_permitidas[$pagina_actual_id])) {
         echo "<script>
               alert('Acceso Denegado: No tienes permisos para acceder a esta página.');
               window.location.href = '" . url('index.php') . "';
           </script>";
         exit;
+      }
+      // Botones marcados data-funcion="accion_js" que el perfil no tiene en esta página: ocultos (core/permisos.php)
+      if ($pagina_actual_id > 0) {
+        permisos_fijar_contexto($usuario_logueado_id, (int)$current_empresa_id);
+        $css_funciones_ocultas = permisos_css_funciones_ocultas($conexion, $pagina_actual_id);
+        if ($css_funciones_ocultas !== '') {
+          echo '<style id="funciones-ocultas">' . $css_funciones_ocultas . '</style>';
+        }
       }
     }
     ?>
@@ -270,54 +371,66 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
             </a>
           </li>
 
-          <li class="nav-item d-flex align-items-center ms-2">
-            <select class="form-select form-select-sm shadow-sm" style="font-size: 0.85rem; max-width: 220px;"
-              aria-label="Empresa" onchange="if(this.value) window.location.href=this.value;">
-              <?php foreach ($empresas_modulos as $eid => $data): ?>
-                <?php
-                if (empty($data['modulos']))
-                  continue;
-                $primer_modulo = $data['modulos'][0];
-                $ruta_modulo = $primer_modulo['url'];
-                if (strpos($ruta_modulo, 'modules/') === false) {
-                  $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-                }
-                $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $primer_modulo['id'];
-                $selected = ($eid == $current_empresa_id) ? 'selected' : '';
-                ?>
-                <option value="<?= $target_url ?>" <?= $selected ?>>
-                  <?= htmlspecialchars($data['nombre']) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </li>
-
-          <li class="nav-item d-flex align-items-center ms-2">
-            <select class="form-select form-select-sm shadow-sm" style="font-size: 0.85rem; max-width: 200px;"
-              aria-label="Módulo activo" onchange="if(this.value) window.location.href=this.value;">
+          <?php
+          // Empresa y módulo activos en un solo botón; el menú lista los módulos de la empresa
+          // y las demás empresas del usuario (cada una entra por su primer módulo).
+          // Ciberseguridad: el cambio de contexto se procesa de forma segura vía core/contexto.php con CSRF
+          // y redirección 303 a la URL limpia sin parámetros sensibles visibles.
+          $ui_url_modulo = function ($empresa_id, $mod) {
+            return url('core/contexto.php') . '?empresa_id=' . (int)$empresa_id . '&modulo_id=' . (int)$mod['id'] . '&token=' . csrf_token();
+          };
+          $ui_modulos_actuales = $empresas_modulos[$current_empresa_id]['modulos'] ?? [];
+          ?>
+          <li class="nav-item dropdown ms-1">
+            <a class="nav-link dropdown-toggle ui-contexto" data-bs-toggle="dropdown" href="#" role="button"
+              aria-expanded="false" title="Cambiar de empresa o de módulo">
+              <span class="ui-contexto-empresa"><?= htmlspecialchars($nombre_empresa_actual ?: 'Elegí una empresa') ?></span>
+              <?php if ($nombre_modulo_actual !== ''): ?>
+                <span class="ui-contexto-modulo d-none d-sm-inline"><?= htmlspecialchars($nombre_modulo_actual) ?></span>
+              <?php endif; ?>
+            </a>
+            <div class="dropdown-menu ui-contexto-menu">
+              <?php if ($ui_modulos_actuales): ?>
+                <h6 class="dropdown-header">Módulos</h6>
+                <?php foreach ($ui_modulos_actuales as $mod): ?>
+                  <a class="dropdown-item<?= $mod['id'] == $current_modulo_id ? ' active' : '' ?>"
+                    href="<?= htmlspecialchars($ui_url_modulo($current_empresa_id, $mod)) ?>"><?= htmlspecialchars($mod['nombre']) ?></a>
+                <?php endforeach; ?>
+              <?php endif; ?>
               <?php
-              if (isset($empresas_modulos[$current_empresa_id]) && !empty($empresas_modulos[$current_empresa_id]['modulos'])):
-                foreach ($empresas_modulos[$current_empresa_id]['modulos'] as $mod):
-                  $ruta_modulo = $mod['url'];
-                  if (strpos($ruta_modulo, 'modules/') === false) {
-                    $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-                  }
-                  $url_mod = url($ruta_modulo) . "?empresa_id=" . $current_empresa_id . "&modulo_id=" . $mod['id'];
-                  $selected = ($mod['id'] == $current_modulo_id) ? 'selected' : '';
-                  ?>
-                  <option value="<?= $url_mod ?>" <?= $selected ?>>
-                    <?= htmlspecialchars($mod['nombre']) ?>
-                  </option>
-                  <?php
-                endforeach;
-              endif;
+              $ui_otras_empresas = array_filter($empresas_modulos, function ($data, $eid) use ($current_empresa_id) {
+                return $eid != $current_empresa_id && !empty($data['modulos']);
+              }, ARRAY_FILTER_USE_BOTH);
               ?>
-            </select>
+              <?php if ($ui_otras_empresas): ?>
+                <div class="dropdown-divider"></div>
+                <h6 class="dropdown-header">Cambiar de empresa</h6>
+                <?php foreach ($ui_otras_empresas as $eid => $data): ?>
+                  <a class="dropdown-item" href="<?= htmlspecialchars($ui_url_modulo($eid, $data['modulos'][0])) ?>"><?= htmlspecialchars($data['nombre']) ?></a>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
           </li>
 
           <?php
+          // Helper para normalizar enlaces de páginas en el menú y accesos directos:
+          // Si la URL en base de datos ya contiene 'modules/' o inicia con '/', se resuelve absoluta con url() para
+          // evitar duplicaciones como modules/conf/modules/conf/ al navegar desde un subdirectorio.
+          // Si es relativa simple (ej. 'usuarios.php' o 'auditoria.php'), se remueve .php manteniéndola relativa al módulo.
+          $fn_normalizar_link_pagina = function (string $url_db): string {
+            $url_limpia = trim($url_db);
+            if ($url_limpia === '' || $url_limpia === '#') {
+              return '#';
+            }
+            if (strpos($url_limpia, 'modules/') !== false || strpos($url_limpia, '/') === 0) {
+              return url($url_limpia);
+            }
+            return preg_replace('/\.php$/i', '', $url_limpia);
+          };
+
           // Accesos directos del módulo activo (conf__paginas.es_acceso_directo = 1),
-          // filtrados por los permisos del usuario en la empresa actual.
+          // filtrados por los permisos del usuario en la empresa actual. Son fijos por módulo: la
+          // personalización de la pantalla de inicio (core/dashboard/) no los cambia.
           $accesos_directos = [];
           if ($current_modulo_id > 0) {
             $sql_ad = "SELECT p.pagina_id, p.pagina, p.url, i.icono_clase
@@ -342,160 +455,64 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               error_log("header1 accesos directos: " . mysqli_error($conexion));
             }
           }
-          $qs_acceso = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
-          // Paleta de colores (RGB) que se asigna a cada acceso directo en forma cíclica
-          $colores_acceso = ['13, 110, 253', '25, 135, 84', '253, 126, 20', '111, 66, 193', '214, 51, 132', '13, 202, 240', '220, 53, 69', '32, 201, 151'];
+          $qs_acceso = "";
+          $req_uri_limpia = preg_replace('/\.php(\?.*)?$/i', '$1', (string)($_SERVER['REQUEST_URI'] ?? ''));
           foreach ($accesos_directos as $i_ad => $ad):
-            $ad_activo = strpos($_SERVER['REQUEST_URI'], trim($ad['url'], './')) !== false;
+            $ad_url_sin_php = $fn_normalizar_link_pagina((string)$ad['url']);
+            $ad_url_check = trim(preg_replace('/\.php$/i', '', (string)$ad['url']), './');
+            $ad_activo = ($ad_url_check !== '' && strpos($req_uri_limpia, $ad_url_check) !== false);
             ?>
-            <li class="nav-item<?= $i_ad === 0 ? ' ms-2' : '' ?>">
+            <li class="nav-item d-none d-lg-block<?= $i_ad === 0 ? ' ms-2' : '' ?>">
               <a class="nav-link acceso-directo<?= $ad_activo ? ' active' : '' ?>"
-                href="<?= htmlspecialchars($ad['url']) ?>?pagina_id=<?= (int) $ad['pagina_id'] ?><?= $qs_acceso ?>"
+                href="<?= htmlspecialchars($ad_url_sin_php) ?>"
                 data-label="<?= htmlspecialchars($ad['pagina']) ?>" aria-label="<?= htmlspecialchars($ad['pagina']) ?>"
-                style="--ad-i: <?= (int) $i_ad ?>; --ad-rgb: <?= $colores_acceso[$i_ad % count($colores_acceso)] ?>;">
+                style="--ad-i: <?= (int) $i_ad ?>;">
                 <i class="<?= htmlspecialchars($ad['icono_clase'] ?: 'bi bi-link-45deg') ?>"></i>
               </a>
             </li>
           <?php endforeach; ?>
           <?php if ($accesos_directos): ?>
             <style>
-              /* Accesos directos de la barra superior */
+              /* Accesos directos de la barra superior (fondo con los colores del logo, ui-simple.css):
+                 íconos blancos suaves, se resaltan al pasar el mouse */
               .acceso-directo {
                 position: relative;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 2.6rem;
-                height: 2.6rem;
-                margin: 0 2px;
+                width: 2.4rem;
+                height: 2.4rem;
+                margin: 0 1px;
                 padding: 0 !important;
-                border-radius: 0.75rem;
-                color: rgb(var(--ad-rgb));
-                isolation: isolate;
-                transition: color .25s ease, transform .35s cubic-bezier(.34, 1.56, .64, 1);
-                animation: ad-entrada .45s cubic-bezier(.34, 1.56, .64, 1) backwards;
-                animation-delay: calc(var(--ad-i) * 60ms);
+                border-radius: 0.5rem;
+                color: rgba(255, 255, 255, .78) !important;
+                transition: color .15s ease, background-color .15s ease;
               }
-
-              /* Fondo tipo "pastilla" que crece desde el centro */
-              .acceso-directo::before {
-                content: "";
-                position: absolute;
-                inset: 0;
-                z-index: -1;
-                border-radius: inherit;
-                background: linear-gradient(135deg, rgba(var(--ad-rgb), .2), rgba(var(--ad-rgb), .07));
-                box-shadow: 0 6px 16px -6px rgba(var(--ad-rgb), .6);
-                transform: scale(.4);
-                opacity: 0;
-                transition: transform .35s cubic-bezier(.34, 1.56, .64, 1), opacity .25s ease;
-              }
-
-              /* Etiqueta con el nombre de la página, se desliza desde abajo */
+              .acceso-directo i { font-size: 1.15rem; line-height: 1; }
+              .acceso-directo:hover,
+              .acceso-directo:focus-visible { color: #fff !important; background: rgba(255, 255, 255, .14); }
+              .acceso-directo.active { color: #fff !important; background: rgba(255, 255, 255, .22); box-shadow: inset 0 -2px 0 #fff; }
+              /* Nombre de la página debajo del ícono */
               .acceso-directo::after {
                 content: attr(data-label);
                 position: absolute;
-                top: calc(100% + 8px);
+                top: calc(100% + 6px);
                 left: 50%;
                 z-index: 1080;
-                padding: 4px 10px;
-                border-radius: 6px;
-                background: var(--bs-emphasis-color);
-                color: var(--bs-body-bg);
+                padding: 3px 8px;
+                border-radius: 4px;
+                background: #fff;
+                color: var(--ui-logo-marino, #03112f);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
                 font-size: .75rem;
-                font-weight: 500;
                 white-space: nowrap;
                 pointer-events: none;
                 opacity: 0;
-                transform: translate(-50%, -6px) scale(.9);
-                transition: opacity .2s ease, transform .3s cubic-bezier(.34, 1.56, .64, 1);
+                transform: translateX(-50%);
+                transition: opacity .15s ease;
               }
-
-              .acceso-directo i {
-                font-size: 1.35rem;
-                line-height: 1;
-                transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
-              }
-
-              .acceso-directo:hover,
-              .acceso-directo:focus-visible {
-                color: rgb(var(--ad-rgb));
-                transform: translateY(-2px);
-              }
-
-              .acceso-directo:hover::before,
-              .acceso-directo:focus-visible::before {
-                transform: scale(1);
-                opacity: 1;
-              }
-
               .acceso-directo:hover::after,
-              .acceso-directo:focus-visible::after {
-                opacity: 1;
-                transform: translate(-50%, 0) scale(1);
-                transition-delay: .15s;
-              }
-
-              .acceso-directo:hover i,
-              .acceso-directo:focus-visible i {
-                animation: ad-rebote .6s cubic-bezier(.34, 1.56, .64, 1);
-                transform: scale(1.15);
-              }
-
-              .acceso-directo:active {
-                transform: translateY(0) scale(.92);
-                transition-duration: .1s;
-              }
-
-              /* Página actual: pastilla visible y punto indicador */
-              .acceso-directo.active {
-                color: rgb(var(--ad-rgb)) !important;
-              }
-
-              .acceso-directo.active::before {
-                transform: scale(1);
-                opacity: 1;
-                box-shadow: none;
-              }
-
-              .acceso-directo.active i::after {
-                content: "";
-                position: absolute;
-                bottom: 3px;
-                left: 50%;
-                width: 4px;
-                height: 4px;
-                margin-left: -2px;
-                border-radius: 50%;
-                background: rgb(var(--ad-rgb));
-              }
-
-              @keyframes ad-rebote {
-                0% { transform: scale(1) rotate(0); }
-                30% { transform: scale(1.25) rotate(-10deg); }
-                60% { transform: scale(1.1) rotate(6deg); }
-                100% { transform: scale(1.15) rotate(0); }
-              }
-
-              @keyframes ad-entrada {
-                from { opacity: 0; transform: translateY(-8px) scale(.8); }
-                to { opacity: 1; transform: none; }
-              }
-
-              @media (prefers-reduced-motion: reduce) {
-                .acceso-directo,
-                .acceso-directo::before,
-                .acceso-directo::after,
-                .acceso-directo i {
-                  animation: none !important;
-                  transition: opacity .15s ease !important;
-                }
-
-                .acceso-directo:hover,
-                .acceso-directo:hover i {
-                  transform: none;
-                }
-              }
+              .acceso-directo:focus-visible::after { opacity: 1; transition-delay: .2s; }
             </style>
           <?php endif; ?>
         </ul>
@@ -534,8 +551,8 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
               </div>
             </li>
             <?php endif; ?>
-            <li class="nav-item">
-              <a class="nav-link" href="#" data-lte-toggle="fullscreen">
+            <li class="nav-item d-none d-md-block">
+              <a class="nav-link" href="#" data-lte-toggle="fullscreen" title="Pantalla completa">
                 <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
                 <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display: none"></i>
               </a>
@@ -552,29 +569,18 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 <span class="d-none d-md-inline">
                   <?= htmlspecialchars($nombre_usuario_avatar) ?>
                   <?php if ($es_superusuario): ?>
-                    <span class="badge bg-danger ms-1" style="font-size: 0.7rem;"><i class="fas fa-shield-alt me-1"></i>Superadmin</span>
+                    <span class="ui-rol ms-1">Superadmin</span>
                   <?php endif; ?>
                 </span>
               </a>
 
-              <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-                <li class="user-header text-bg-primary" style="height: auto; padding-bottom: 20px;">
-                  <div
-                    class="rounded-circle shadow d-flex justify-content-center align-items-center text-white mx-auto mb-2"
-                    style="width: 90px; height: 90px; background-color: <?= $color_fondo_avatar ?>; font-size: 2.5rem; font-weight: bold; border: 3px solid rgba(255,255,255,0.2);">
-                    <?= $iniciales ?>
-                  </div>
-
-                  <p>
-                    <?= htmlspecialchars($nombre_usuario_avatar) ?>
-                    <small>Usuario del Sistema</small>
-                  </p>
+              <ul class="dropdown-menu dropdown-menu-end ui-usuario-menu">
+                <li class="px-3 py-2">
+                  <div class="fw-semibold"><?= htmlspecialchars($nombre_usuario_avatar) ?></div>
+                  <div class="small text-body-secondary"><?= $es_superusuario ? 'Superadmin' : 'Usuario' ?></div>
                 </li>
-
-                <li class="user-footer">
-                  <a href="#" class="btn btn-default btn-flat">Perfil</a>
-                  <a href="<?= url('logout.php') ?>" class="btn btn-default btn-flat float-end">Salir</a>
-                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="<?= url('logout.php') ?>"><i class="bi bi-box-arrow-right me-2"></i>Salir</a></li>
               </ul>
             </li>
           </ul>
@@ -585,7 +591,11 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
     <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div class="sidebar-brand">
         <a href="#" class="brand-link">
-          <img src="<?= asset('img/logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow" />
+          <?php if ($logo_barra): ?>
+            <img src="<?= htmlspecialchars(url($logo_barra)) ?>" alt="Logo" class="brand-image brand-image-empresa shadow" />
+          <?php else: ?>
+            <img src="<?= htmlspecialchars(emp_logo_inicial($conexion)) ?>" alt="Logo" class="brand-image brand-image-empresa shadow" />
+          <?php endif; ?>
           <span class="brand-text fw-light"><?= htmlspecialchars($nombre_empresa_actual ?: 'Multigestion') ?></span>
         </a>
       </div>
@@ -612,9 +622,32 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
 
             <?php
             $current_url_full = $_SERVER['REQUEST_URI'];
-            $qs_sidebar = "&empresa_id=" . $current_empresa_id . "&modulo_id=" . $current_modulo_id;
+            $qs_sidebar = "";
 
             $modudo_idx = $current_modulo_id;
+
+            // Páginas destacadas en el menú (conf/paginas.php: menu_estilo, menu_color_id, menu_etiqueta; script
+            // 20261106_paginas_menu_destacado_01.sql). El color sale de conf__colores: su color_clase (btn-success,
+            // btn-outline-danger...) da el color de Bootstrap. Si las columnas no existen todavía, el menú queda igual.
+            $menu_colores = [];
+            $res_mc = mysqli_query($conexion, "SELECT color_id, color_clase FROM conf__colores");
+            if ($res_mc) {
+              while ($mc = mysqli_fetch_assoc($res_mc)) {
+                if (preg_match('/^btn-(?:outline-)?(primary|secondary|success|danger|warning|info|light|dark)$/', (string) $mc['color_clase'], $mm)) {
+                  $menu_colores[(int) $mc['color_id']] = $mm[1];
+                }
+              }
+            }
+            /** @return array{0:string,1:string,2:string} [clases del link, atributo style, HTML de la etiqueta] */
+            $menu_destacado = function (array $fila) use ($menu_colores): array {
+              $estilo = strtoupper(trim((string) ($fila['menu_estilo'] ?? '')));
+              $etiqueta = trim((string) ($fila['menu_etiqueta'] ?? ''));
+              $color = $menu_colores[(int) ($fila['menu_color_id'] ?? 0)] ?? 'primary';
+              $clases = in_array($estilo, ['RESALTADO', 'BORDE'], true) ? ' menu-destacado menu-destacado-' . strtolower($estilo) : '';
+              $style = ($clases !== '' || $etiqueta !== '') ? ' style="--menu-dest-rgb: var(--bs-' . $color . '-rgb);"' : '';
+              $badge = $etiqueta !== '' ? '<span class="nav-badge badge text-bg-' . $color . ' menu-etiqueta">' . htmlspecialchars($etiqueta) . '</span>' : '';
+              return [$clases, $style, $badge];
+            };
 
             if ($modudo_idx) {
               $sql = "SELECT conf__paginas.*, conf__iconos.icono_clase 
@@ -622,25 +655,29 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                       LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
                       WHERE conf__paginas.modulo_id = $modudo_idx 
                       AND conf__paginas.tabla_estado_registro_id = 1 
-                      AND conf__paginas.padre_id = 0 
                       ORDER BY conf__paginas.orden";
               $res = mysqli_query($conexion, $sql);
 
-              while ($row = mysqli_fetch_array($res)) {
+              $padres = [];
+              $hijos_por_padre = [];
+              if ($res) {
+                while ($prow = mysqli_fetch_array($res)) {
+                  $pid = (int) $prow['padre_id'];
+                  if ($pid === 0) {
+                    $padres[] = $prow;
+                  } else {
+                    $hijos_por_padre[$pid][] = $prow;
+                  }
+                }
+              }
+
+              foreach ($padres as $row) {
                 $pagina_id_actual = (int) $row['pagina_id'];
-
-                $submenu_sql = "SELECT conf__paginas.*, conf__iconos.icono_clase
-                                FROM conf__paginas
-                                LEFT JOIN conf__iconos ON conf__paginas.icono_id = conf__iconos.icono_id
-                                WHERE conf__paginas.padre_id = " . $pagina_id_actual . "
-                                AND conf__paginas.tabla_estado_registro_id = 1
-                                ORDER BY conf__paginas.orden";
-                $submenu_res = mysqli_query($conexion, $submenu_sql);
-
-                $tiene_hijos_definidos = mysqli_num_rows($submenu_res) > 0;
+                $hijos_definidos = $hijos_por_padre[$pagina_id_actual] ?? [];
+                $tiene_hijos_definidos = !empty($hijos_definidos);
 
                 $submenu_items = [];
-                while ($submenu_row = mysqli_fetch_array($submenu_res)) {
+                foreach ($hijos_definidos as $submenu_row) {
                   if ($es_superusuario || isset($paginas_permitidas[(int) $submenu_row['pagina_id']])) {
                     $submenu_items[] = $submenu_row;
                   }
@@ -662,28 +699,46 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                 }
 
                 $is_active = false;
-                $current_url_full = (string) ($_SERVER['REQUEST_URI'] ?? '');
+                $current_url_full = preg_replace('/\.php(\?.*)?$/i', '$1', (string)($_SERVER['REQUEST_URI'] ?? ''));
                 if ($has_submenu) {
                   foreach ($submenu_items as $submenu_row) {
-                    $submenu_url_clean = trim((string) ($submenu_row['url'] ?? ''), './');
+                    $submenu_url_clean = preg_replace('/\.php$/i', '', trim((string) ($submenu_row['url'] ?? ''), './'));
                     if ($submenu_url_clean !== '' && strpos($current_url_full, $submenu_url_clean) !== false) {
                       $is_active = true;
                       break;
                     }
                   }
                 } else {
-                  $menu_url_clean = trim((string) ($row['url'] ?? ''), './');
+                  $menu_url_clean = preg_replace('/\.php$/i', '', trim((string) ($row['url'] ?? ''), './'));
                   $is_active = ($menu_url_clean !== '' && strpos($current_url_full, $menu_url_clean) !== false);
                 }
 
-                $link_padre = $has_submenu ? '#' : $row['url'] . '?pagina_id=' . $pagina_id_actual . $qs_sidebar;
+                $link_padre = $has_submenu ? '#' : $fn_normalizar_link_pagina((string)$row['url']);
+
+                // Secciones del menú para el desplegable de las migas (ui_encabezado de core/ui.php)
+                if ($has_submenu) {
+                  $ui_sec = ['nombre' => preg_replace('/^Gesti[oó]n\s*-\s*/u', '', $row['pagina']), 'paginas' => []];
+                  foreach ($submenu_items as $submenu_row) {
+                    $submenu_url_clean = preg_replace('/\.php$/i', '', trim((string) ($submenu_row['url'] ?? ''), './'));
+                    $ui_sec['paginas'][] = [
+                      'nombre' => preg_replace('/^Gesti[oó]n\s*-\s*/u', '', $submenu_row['pagina']),
+                      'url' => $fn_normalizar_link_pagina((string)$submenu_row['url']),
+                      'icono' => (string) $submenu_row['icono_clase'],
+                      'activa' => ($submenu_url_clean !== '' && strpos($current_url_full, $submenu_url_clean) !== false),
+                    ];
+                    $GLOBALS['ui_menu_seccion_de_pagina'][(int) $submenu_row['pagina_id']] = count($GLOBALS['ui_menu_secciones'] ?? []);
+                  }
+                  $GLOBALS['ui_menu_secciones'][] = $ui_sec;
+                }
                 ?>
 
+                <?php [$md_clases, $md_style, $md_badge] = $menu_destacado($row); ?>
                 <li class="nav-item <?= $is_active ? 'menu-open' : '' ?>">
-                  <a href="<?= $link_padre ?>" class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?>">
+                  <a href="<?= $link_padre ?>" class="nav-link <?= $is_active && !$has_submenu ? 'active' : '' ?><?= $md_clases ?>"<?= $md_style ?>>
                     <i class="nav-icon <?= $row['icono_clase'] ?>"></i>
                     <p>
-                      <?= $row['pagina'] ?>
+                      <?= htmlspecialchars(preg_replace('/^Gesti[oó]n\s*-\s*/u', '', $row['pagina'])) ?>
+                      <?= $has_submenu ? '' : $md_badge ?>
                       <?php if ($has_submenu): ?>
                         <i class="nav-arrow bi bi-chevron-right"></i>
                       <?php endif; ?>
@@ -691,18 +746,18 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
                   </a>
 
                   <?php if ($has_submenu): ?>
-                    <ul class="nav nav-treeview"
-                      style="padding-left: 25px; margin-left: 10px; border-left: 2px solid #dee2e6;">
+                    <ul class="nav nav-treeview">
                       <?php foreach ($submenu_items as $submenu_row): ?>
                         <?php
-                        $submenu_url_clean = trim((string) ($submenu_row['url'] ?? ''), './');
+                        $submenu_url_clean = preg_replace('/\.php$/i', '', trim((string) ($submenu_row['url'] ?? ''), './'));
                         $is_submenu_active = ($submenu_url_clean !== '' && strpos($current_url_full, $submenu_url_clean) !== false);
+                        [$md_clases, $md_style, $md_badge] = $menu_destacado($submenu_row);
                         ?>
                         <li class="nav-item">
-                          <a href="<?= $submenu_row['url'] ?>?pagina_id=<?= $submenu_row['pagina_id'] ?><?= $qs_sidebar ?>"
-                            class="nav-link <?= $is_submenu_active ? 'active' : '' ?>" style="padding-left: 15px;">
+                          <a href="<?= htmlspecialchars($fn_normalizar_link_pagina((string)$submenu_row['url'])) ?>"
+                            class="nav-link <?= $is_submenu_active ? 'active' : '' ?><?= $md_clases ?>"<?= $md_style ?>>
                             <i class="nav-icon <?= $submenu_row['icono_clase'] ?>"></i>
-                            <p><?= $submenu_row['pagina'] ?></p>
+                            <p><?= htmlspecialchars(preg_replace('/^Gesti[oó]n\s*-\s*/u', '', $submenu_row['pagina'])) ?><?= $md_badge ?></p>
                             <?php if ($is_submenu_active): ?>
                               <span class="sr-only">(current)</span>
                             <?php endif; ?>

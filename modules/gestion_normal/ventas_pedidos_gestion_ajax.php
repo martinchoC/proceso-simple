@@ -37,6 +37,8 @@ $empresa_idx = intval($ctx['empresa_id']);
 // front leyéndola de la URL con la que se abrió ventas_pedidos_gestion.php —
 // no hay default hardcodeado porque es una página nueva sin convención previa.
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0);
+// Solo una página de este módulo (si no, la de ventas_pedidos_gestion.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conexion, 5, (int)$pagina_idx, 'ventas_pedidos_gestion.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);

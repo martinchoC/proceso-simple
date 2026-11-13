@@ -108,6 +108,9 @@ const EMP_CONCEPTOS_CUENTAS = [
     'EMPLEADOS'        => 'Empleados - Anticipos y Rendiciones',
     'VALORES_A_PAGAR'  => 'Valores a Pagar',
     'IVA_SALDO_FAVOR'  => 'IVA Saldo a Favor',
+    'IIBB_GASTO'       => 'Impuesto sobre los Ingresos Brutos',
+    'IIBB_A_PAGAR'     => 'Ingresos Brutos a Pagar',
+    'IIBB_SALDO_FAVOR' => 'Ingresos Brutos Saldo a Favor',
 ];
 
 /** Cuenta del concepto de la empresa; 0 si no está configurada. */

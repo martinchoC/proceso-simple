@@ -177,7 +177,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="card card-outline card-secondary shadow-sm">
                 <div class="card-header py-2 d-flex justify-content-between align-items-center">
                     <h6 class="card-title mb-0"><i class="fas fa-list-alt me-2"></i>Últimos Ciclos Generados por el Motor</h6>
-                    <a href="modules/ml/ciclos.php?empresa_id=<?= (int)($_SESSION['empresa_id'] ?? 2) ?>" class="btn btn-sm btn-outline-primary">
+                    <a href="ciclos.php" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-external-link-alt me-1"></i>Ver en Calendario y Ciclos
                     </a>
                 </div>

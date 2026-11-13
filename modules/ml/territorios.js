@@ -5,7 +5,7 @@
 
 $(document).ready(function () {
     const urlParams = new URLSearchParams(window.location.search);
-    const empresa_idx = parseInt(urlParams.get('empresa_id') || '2', 10);
+    const empresa_idx = parseInt(urlParams.get('empresa_id') || urlParams.get('empresa_idx') || window.EMPRESA_ID || '2', 10);
     const pagina_idx = 305;
 
     let tablaTerritorios;
@@ -26,7 +26,7 @@ $(document).ready(function () {
 
                     res.data.forEach(function (tipo) {
                         opcionesFiltro += `<option value="${tipo.territorio_tipo_id}">${tipo.nombre}</option>`;
-                        opcionesModal += `<option value="${tipo.territorio_tipo_id}">${tipo.nombre} (Nivel ${tipo.nivel_sugerido})</option>`;
+                        opcionesModal += `<option value="${tipo.territorio_tipo_id}">${tipo.nombre}</option>`;
                     });
 
                     $('#filtroTipo').html(opcionesFiltro);
@@ -63,7 +63,12 @@ $(document).ready(function () {
             success: function (res) {
                 if (res.success && res.data) {
                     $('#contenedor-boton-agregar').html(res.data);
+                } else {
+                    $('#contenedor-boton-agregar').html('<button type="button" class="btn btn-primary btn-sm" id="btnNuevoTerritorio"><i class="fas fa-plus-circle me-1"></i> Agregar Territorio</button>');
                 }
+            },
+            error: function () {
+                $('#contenedor-boton-agregar').html('<button type="button" class="btn btn-primary btn-sm" id="btnNuevoTerritorio"><i class="fas fa-plus-circle me-1"></i> Agregar Territorio</button>');
             }
         });
     }
@@ -88,7 +93,18 @@ $(document).ready(function () {
                     d.filtro_tipo = $('#filtroTipo').val();
                     d.filtro_estado = $('#filtroEstado').val();
                 },
-                dataSrc: 'data'
+                dataSrc: function (json) {
+                    if (json && json.success && Array.isArray(json.data)) {
+                        return json.data;
+                    }
+                    if (json && !json.success && json.message) {
+                        console.error('Error cargando territorios:', json.message);
+                    }
+                    return [];
+                },
+                error: function (xhr, error, thrown) {
+                    console.error('Error AJAX territorios:', xhr.status, thrown);
+                }
             },
             columns: [
                 { data: 'territorio_id', className: 'text-center fw-bold' },
@@ -141,7 +157,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json'
             },
             dom: '<"row mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>' +
                  'rt' +

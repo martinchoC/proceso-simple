@@ -2,6 +2,7 @@
 // Configuración de la página
 $pageTitle = "Gestión de Categorías de Productos";
 $currentPage = 'productos_categorias';
+$ui_simple = true;
 $modudo_idx = 5;
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -11,19 +12,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Categorías de Productos</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Categorías</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Categorías de productos','', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -34,7 +23,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <div class="col-12">
                                 <div class="card">                                
                                     <div class="card-body">
-                                        <button class="btn btn-primary mb-3" id="btnNuevo">Nueva Categoría</button>
+                                        <button class="btn btn-primary mb-3" id="btnNuevo" data-funcion="agregar">Nueva Categoría</button>
                                         
                                         <div class="row mb-3">
                                             <div class="col-md-6">
@@ -276,10 +265,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <span class="categoria-nombre">${nodo.producto_categoria_nombre}</span>
                         </div>
                         <div class="acciones-nodo">
-                            <button class="btn btn-sm btn-primary btnEditar" data-id="${nodo.producto_categoria_id}" title="Editar">
+                            <button class="btn btn-sm btn-primary btnEditar" data-funcion="editar" data-id="${nodo.producto_categoria_id}" title="Editar">
                                 <i class="fa fa-edit"></i>
                             </button>
-                            <button class="btn btn-sm btn-danger btnEliminar" data-id="${nodo.producto_categoria_id}" title="Eliminar">
+                            <button class="btn btn-sm btn-danger btnEliminar" data-funcion="inactivar" data-id="${nodo.producto_categoria_id}" title="Eliminar">
                                 <i class="fa fa-trash"></i>
                             </button>
                         </div>
@@ -546,7 +535,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 border-radius: 8px;
             }
             </style>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
             <?php
             require_once ROOT_PATH . '/templates/adminlte/footer1.php';

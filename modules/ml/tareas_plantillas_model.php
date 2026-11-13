@@ -28,7 +28,23 @@ function tareas_plantillas_listar(mysqli $conexion, array $filtros = []): array
                    (SELECT GROUP_CONCAT(CONCAT('#', tp_pred.orden, ' ', tp_pred.titulo) ORDER BY tp_pred.orden SEPARATOR ', ')
                     FROM ml__tareas_plantillas_dependencias tpd3
                     INNER JOIN ml__tareas_plantillas tp_pred ON tp_pred.tarea_plantilla_id = tpd3.tarea_plantilla_predecesora_id
-                    WHERE tpd3.tarea_plantilla_id = tp.tarea_plantilla_id) AS predecesoras_nombres
+                    WHERE tpd3.tarea_plantilla_id = tp.tarea_plantilla_id) AS predecesoras_nombres,
+                   (SELECT GROUP_CONCAT(
+                       CONCAT(
+                           CASE tpr.raci_rol_id
+                               WHEN 1 THEN 'R: '
+                               WHEN 2 THEN 'A: '
+                               WHEN 3 THEN 'C: '
+                               WHEN 4 THEN 'I: '
+                           END,
+                           pos.codigo,
+                           IF(tpr.usar_supervisor_como_aprobador = 1, ' (Sup)', '')
+                       )
+                       ORDER BY tpr.raci_rol_id ASC SEPARATOR ' | '
+                   )
+                    FROM ml__tareas_plantillas_raci tpr
+                    INNER JOIN ml__posiciones pos ON pos.posicion_id = tpr.posicion_id
+                    WHERE tpr.tarea_plantilla_id = tp.tarea_plantilla_id AND tpr.tabla_estado_registro_id = 1) AS roles_raci_resumen
             FROM ml__tareas_plantillas tp
             INNER JOIN ml__obligaciones o ON o.obligacion_id = tp.obligacion_id
             INNER JOIN ml__normas n ON n.norma_id = o.norma_id
@@ -399,9 +415,143 @@ function tareas_plantillas_combos(mysqli $conexion, ?int $empresa_id = null): ar
     $res_est = mysqli_query($conexion, $sql_est);
     $estados_activadores = $res_est ? mysqli_fetch_all($res_est, MYSQLI_ASSOC) : [];
 
+    // Posiciones / Cargos de la empresa para roles RACI
+    $where_emp = ($empresa_id && $empresa_id > 0) ? "WHERE p.empresa_id = {$empresa_id} AND p.tabla_estado_registro_id = 1" : "WHERE p.tabla_estado_registro_id = 1";
+    $sql_pos = "SELECT p.posicion_id, p.codigo, p.nombre, p.area_departamento, sup.nombre AS superior_nombre
+                FROM ml__posiciones p
+                LEFT JOIN ml__posiciones sup ON sup.posicion_id = p.posicion_superior_id
+                {$where_emp}
+                ORDER BY p.area_departamento ASC, p.nombre ASC";
+    $res_pos = mysqli_query($conexion, $sql_pos);
+    $posiciones = $res_pos ? mysqli_fetch_all($res_pos, MYSQLI_ASSOC) : [];
+
     return [
         'obligaciones' => $obligaciones,
         'procedimientos' => $procedimientos,
-        'estados_activadores' => $estados_activadores
+        'estados_activadores' => $estados_activadores,
+        'posiciones' => $posiciones
     ];
+}
+
+/**
+ * Listar roles RACI configurados para una plantilla de tarea.
+ */
+function tarea_plantilla_raci_listar(mysqli $conexion, int $tarea_plantilla_id): array
+{
+    $sql = "SELECT 
+                tpr.tarea_plantilla_raci_id,
+                tpr.tarea_plantilla_id,
+                tpr.posicion_id,
+                tpr.raci_rol_id,
+                tpr.usar_supervisor_como_aprobador,
+                tpr.tabla_estado_registro_id,
+                p.codigo AS posicion_codigo,
+                p.nombre AS posicion_nombre,
+                p.area_departamento AS posicion_area,
+                p.posicion_superior_id,
+                sup_p.codigo AS superior_codigo,
+                sup_p.nombre AS superior_nombre,
+                u.usuario_nombre AS ocupante_titular_nombre,
+                CASE tpr.raci_rol_id
+                    WHEN 1 THEN 'R - Responsable'
+                    WHEN 2 THEN 'A - Aprobador'
+                    WHEN 3 THEN 'C - Consultado'
+                    WHEN 4 THEN 'I - Informado'
+                END AS rol_nombre
+            FROM ml__tareas_plantillas_raci tpr
+            INNER JOIN ml__posiciones p ON p.posicion_id = tpr.posicion_id
+            LEFT JOIN ml__posiciones sup_p ON sup_p.posicion_id = p.posicion_superior_id
+            LEFT JOIN ml__usuarios_posiciones up ON up.posicion_id = p.posicion_id 
+                 AND up.es_titular = 1 
+                 AND (up.vigente_hasta IS NULL OR up.vigente_hasta >= CURDATE())
+            LEFT JOIN conf__usuarios u ON u.usuario_id = up.usuario_id
+            WHERE tpr.tarea_plantilla_id = ?
+              AND tpr.tabla_estado_registro_id = 1
+            ORDER BY tpr.raci_rol_id ASC, p.nombre ASC";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $tarea_plantilla_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lista = mysqli_fetch_all($res, MYSQLI_ASSOC);
+    mysqli_stmt_close($stmt);
+
+    return $lista;
+}
+
+/**
+ * Guardar o actualizar rol RACI en una plantilla de tarea.
+ */
+function tarea_plantilla_raci_guardar(mysqli $conexion, array $datos, int $usuario_id): array
+{
+    $tarea_plantilla_id = intval($datos['tarea_plantilla_id'] ?? 0);
+    $posicion_id = intval($datos['posicion_id'] ?? 0);
+    $raci_rol_id = intval($datos['raci_rol_id'] ?? 0);
+    $usar_supervisor = !empty($datos['usar_supervisor_como_aprobador']) ? 1 : 0;
+
+    if ($tarea_plantilla_id <= 0 || $posicion_id <= 0 || $raci_rol_id <= 0) {
+        return ['success' => false, 'message' => 'Plantilla de tarea, posición y rol RACI son obligatorios.'];
+    }
+
+    // Si es Responsable (R = 1), debe haber un único cargo asignado como R
+    if ($raci_rol_id === 1) {
+        $sql_chk = "SELECT tarea_plantilla_raci_id FROM ml__tareas_plantillas_raci 
+                    WHERE tarea_plantilla_id = ? AND raci_rol_id = 1 LIMIT 1";
+        $stmt_c = mysqli_prepare($conexion, $sql_chk);
+        mysqli_stmt_bind_param($stmt_c, "i", $tarea_plantilla_id);
+        mysqli_stmt_execute($stmt_c);
+        $res_c = mysqli_stmt_get_result($stmt_c);
+        if ($rc = mysqli_fetch_assoc($res_c)) {
+            $sql_up = "UPDATE ml__tareas_plantillas_raci 
+                       SET posicion_id = ?, usar_supervisor_como_aprobador = ?, actualizado_por = ?, actualizado_en = NOW()
+                       WHERE tarea_plantilla_raci_id = ?";
+            $stmt_u = mysqli_prepare($conexion, $sql_up);
+            mysqli_stmt_bind_param($stmt_u, "iiii", $posicion_id, $usar_supervisor, $usuario_id, $rc['tarea_plantilla_raci_id']);
+            $ok = mysqli_stmt_execute($stmt_u);
+            mysqli_stmt_close($stmt_u);
+            mysqli_stmt_close($stmt_c);
+            return ['success' => $ok, 'message' => 'Cargo Responsable (R) actualizado con éxito en la plantilla.'];
+        }
+        mysqli_stmt_close($stmt_c);
+    }
+
+    // Insertar o actualizar
+    $sql = "INSERT INTO ml__tareas_plantillas_raci 
+            (tarea_plantilla_id, posicion_id, raci_rol_id, usar_supervisor_como_aprobador, tabla_estado_registro_id, creado_en, creado_por)
+            VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?)
+            ON DUPLICATE KEY UPDATE 
+                usar_supervisor_como_aprobador = VALUES(usar_supervisor_como_aprobador),
+                tabla_estado_registro_id = 1,
+                actualizado_en = CURRENT_TIMESTAMP,
+                actualizado_por = VALUES(creado_por)";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "iiiii", $tarea_plantilla_id, $posicion_id, $raci_rol_id, $usar_supervisor, $usuario_id);
+    $ok = mysqli_stmt_execute($stmt);
+    $err = mysqli_stmt_error($stmt);
+    mysqli_stmt_close($stmt);
+
+    if (!$ok) {
+        return ['success' => false, 'message' => "Error al asignar rol RACI a la plantilla: {$err}"];
+    }
+
+    return ['success' => true, 'message' => 'Rol RACI por cargo asignado exitosamente a la plantilla.'];
+}
+
+/**
+ * Eliminar rol RACI de una plantilla de tarea.
+ */
+function tarea_plantilla_raci_eliminar(mysqli $conexion, int $tarea_plantilla_raci_id): array
+{
+    $sql = "DELETE FROM ml__tareas_plantillas_raci WHERE tarea_plantilla_raci_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $tarea_plantilla_raci_id);
+    $ok = mysqli_stmt_execute($stmt);
+    $err = mysqli_stmt_error($stmt);
+    mysqli_stmt_close($stmt);
+
+    if (!$ok) {
+        return ['success' => false, 'message' => "Error al eliminar rol RACI: {$err}"];
+    }
+
+    return ['success' => true, 'message' => 'Rol RACI eliminado exitosamente de la plantilla.'];
 }

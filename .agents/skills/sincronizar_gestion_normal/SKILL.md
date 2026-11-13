@@ -51,6 +51,9 @@ python .agents/skills/sincronizar_gestion_normal/scripts/sync_gestion_to_normal.
 ```powershell
 python .agents/skills/sincronizar_gestion_normal/scripts/sync_gestion_to_normal.py --apply
 ```
+⚠️ No usar `--apply` masivo mientras haya archivos donde el 5 está adelante (lista en `.agents/rules/gestion_normal_sync.md`): los pisa y se pierde lo que solo tiene el 5. Sincronizar de a un archivo con `--file`, después de leer su diff.
+
+Transformaciones que aplica el script (2026-11-11): `$modudo_idx`, `'modulo_id' => 2`, `modulo_id = 2` en SQL / links, `pagina_id_por_url($c, 2, …)`, `permisos_pagina_modulo($c, 2, …)`, `const *MODULO_ID = 2;`, rutas `modules/gestion/` y `pagina_idx` fijos 1–499 → + 500 (el 0 queda en 0). No traduce comentarios con el número de página: esos diffs de 10–13 líneas son esperables.
 
 ### 4. Validación Sintáctica Posterior
 Verificar la sintaxis de los archivos PHP modificados:

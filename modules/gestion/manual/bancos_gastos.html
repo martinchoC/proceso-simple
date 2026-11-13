@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Gastos Bancarios</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .alert-danger { background: #f8d7da; color: #842029; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-danger { background: var(--rojo); }
+    .badge-light { background: #fff; color: #212529; border: 1px solid var(--gris-borde); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-exito { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .boton-gris { background: #fff; border-color: #6c757d; color: #6c757d; }
+    .boton-peligro { background: #fff; border-color: var(--rojo); color: var(--rojo); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.inactivo { border-color: #6c757d; background: #f1f1f1; color: #555; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-receipt"></i> Manual de usuario: Gastos Bancarios</h1>
+<p class="subtitulo">Cómo registrar en un solo paso, una vez por mes, las comisiones e impuestos que el banco debitó de la cuenta.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#que-hace">Qué hace el botón Generar comprobante</a></li>
+        <li><a href="#antes">Antes de empezar</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#proveedor">Proveedor del banco (botón Cambiar)</a></li>
+        <li><a href="#revisar">Revisar el comprobante y las líneas</a></li>
+        <li><a href="#generar">Generar el comprobante</a></li>
+        <li><a href="#no-entran">Líneas que todavía no entran</a></li>
+        <li><a href="#historial">Comprobantes generados</a></li>
+        <li><a href="#deshacer">Deshacer los gastos de un mes</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>El banco cobra comisiones, el impuesto a los débitos y créditos (ley 25.413), IVA y percepciones, y los debita directamente de la cuenta. Nadie los carga antes en el sistema, así que no hay contra qué conciliarlos. Por eso <strong>los gastos del banco no se concilian a mano</strong>: se registran acá.</p>
+<p>Con un botón, el sistema arma un <strong>Resumen bancario</strong> a nombre del banco con todos los gastos del mes de esa cuenta, lo paga con un débito en la misma cuenta y lo concilia con las líneas del extracto.</p>
+<div class="alert alert-info"><strong>La fecha del comprobante es la del último movimiento que incluye.</strong> Podés generarlo en cualquier momento con lo que ya está importado; si después aparecen más gastos del mismo mes, se generan en otro comprobante del mes. Un comprobante nunca mezcla meses.</div>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<p>Esta pantalla es el último paso del mes.</p>
+<div class="flujo">
+    <div class="flujo-caja"><a href="bancos_formatos.html">1. Formatos<small>cómo viene el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conceptos.html">2. Conceptos<small>qué es cada línea</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_reglas.html">3. Reglas<small>cómo reconocerla</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_importar.html">4. Extractos<small>importar el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conciliacion.html">5. Conciliación<small>banco contra tesorería</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja actual">6. Gastos Bancarios<small>comisiones e impuestos</small></div>
+</div>
+
+<h2 id="que-hace">Qué hace el botón Generar comprobante</h2>
+<div class="flujo">
+    <div class="flujo-caja">Gastos del mes ya clasificados</div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Resumen bancario confirmado<small>entra al Libro IVA Compras y a la contabilidad</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Orden de pago automática<small>débito en la cuenta</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Líneas conciliadas</div>
+</div>
+<p>Todo pasa junto: si algo falla en el medio, no queda nada a medias. El resumen bancario y su orden de pago se pueden ver después en <a href="facturas_proveedores.html">Facturas de Proveedores</a> y <a href="pagos.html">Órdenes de Pago</a>, como cualquier otro comprobante.</p>
+
+<h2 id="antes">Antes de empezar</h2>
+<ul>
+    <li>Importá el extracto del <strong>mes completo</strong> en <a href="bancos_importar.html">Extractos Bancarios</a>.</li>
+    <li>Asegurate de que los gastos tengan concepto: las líneas "Sin concepto" no aparecen acá. Se clasifican en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a>.</li>
+    <li>Cada concepto de gasto tiene que tener su producto (o su impuesto) en <a href="bancos_conceptos.html">Conceptos Bancarios</a>.</li>
+    <li>La cuenta tiene que tener definido el <a href="#proveedor">proveedor del banco</a>.</li>
+</ul>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Se abre desde <strong>Tesorería &gt; Gastos Bancarios</strong>. Arriba a la derecha se elige la <strong>cuenta bancaria</strong> y el <strong>mes</strong> (por defecto, el mes anterior). La pantalla tiene, de arriba hacia abajo:</p>
+<table class="tabla-referencia">
+    <tr><th>Parte</th><th>Qué muestra</th></tr>
+    <tr><td>Barra superior</td><td>"Proveedor del banco:" con su nombre (o "sin definir"), el botón <span class="boton-ejemplo boton-gris">Cambiar</span> y, a la derecha, <span class="boton-ejemplo boton-exito">Generar comprobante</span>.</td></tr>
+    <tr><td>Avisos</td><td>En <strong style="color:#842029">rojo</strong> lo que impide generar; en <strong style="color:#664d03">amarillo</strong> advertencias que conviene leer.</td></tr>
+    <tr><td>Indicadores</td><td><strong>Total del comprobante</strong> (con la fecha que va a tener), <strong>IVA</strong> (el del extracto y, debajo, el que corresponde según las alícuotas) y <strong>Líneas</strong> (cuántas entran de los gastos del mes).</td></tr>
+    <tr><td>Comprobante a generar</td><td>Cómo va a quedar el resumen bancario: una fila por producto con neto, IVA y total (con la etiqueta <span class="badge badge-light">No gravado</span> cuando el extracto no trae IVA), las percepciones y el total. Debajo: "Se cancela con una orden de pago automática por débito en [cuenta]".</td></tr>
+    <tr><td>Líneas del extracto</td><td>Los gastos del banco del mes, cada uno con su casilla.</td></tr>
+    <tr><td>Comprobantes generados</td><td>El <a href="#historial">historial</a> de la cuenta.</td></tr>
+</table>
+<p>Los botones Cambiar y Generar comprobante solo aparecen si tu perfil tiene permiso.</p>
+
+<h2 id="proveedor">Proveedor del banco (botón Cambiar)</h2>
+<p>El resumen bancario se emite a nombre del banco como proveedor. Se define una vez por cuenta:</p>
+<ol>
+    <li>Apretá <span class="boton-ejemplo boton-gris">Cambiar</span>. Se abre <strong>Proveedor del banco</strong> con la búsqueda "banco" ya escrita.</li>
+    <li>Buscá por nombre o CUIT y tocá el que corresponde.</li>
+    <li>Vas a ver "Proveedor del banco guardado."</li>
+</ol>
+<p>Si el banco no aparece, dalo de alta en <a href="proveedores.html">Proveedores</a>. Tiene que tener el rol <strong>Proveedor</strong>.</p>
+
+<h2 id="revisar">Revisar el comprobante y las líneas</h2>
+<p>En <strong>Líneas del extracto</strong>, todas las líneas que pueden entrar vienen marcadas. Si alguna no corresponde a este comprobante, <strong>desmarcala</strong>: el comprobante, el total y el IVA se recalculan al momento.</p>
+<p>Controlá que el <strong>Total del comprobante</strong> coincida con la suma de gastos del extracto y que el <strong>IVA</strong> sea razonable.</p>
+<h3 id="iva">Sobre el IVA</h3>
+<ul>
+    <li>El IVA del comprobante es <strong>solo el que el banco declara</strong> en líneas de IVA del extracto. Se reparte entre los gastos con producto gravado: la base gravada es ese IVA dividido por la alícuota y el resto del gasto va como no gravado.</li>
+    <li>Si el extracto no trae líneas de IVA, el banco no liquidó IVA: todo el gasto va como <strong>no gravado</strong> (etiqueta <span class="badge badge-light">No gravado</span> en el comprobante a generar).</li>
+    <li>El impuesto ley 25.413 no lleva IVA.</li>
+</ul>
+
+<h2 id="generar">Generar el comprobante</h2>
+<p>Cuando no hay avisos en rojo y hay al menos una línea marcada, se habilita <span class="boton-ejemplo boton-exito">Generar comprobante</span>.</p>
+<ol>
+    <li>Apretalo. El sistema pregunta "¿Generar el resumen bancario?" y resume: el total, que se confirma el comprobante, que se emite la orden de pago por débito en cuenta y cuántas líneas se concilian.</li>
+    <li>Aceptá con <strong>Sí</strong>.</li>
+    <li>Vas a ver <strong>Comprobante generado</strong>: "Se generó el Resumen bancario 00005-20261001 por $ ... y se concilió con el débito del banco."</li>
+</ol>
+<p>El comprobante lleva como fecha la del último gasto incluido del mes. Su número se arma solo, con el año y el mes.</p>
+<div class="alert alert-warning">Si el extracto importado no llega a fin de mes, aparece en amarillo "El extracto importado llega hasta el ...". Podés generar igual, pero los gastos que lleguen después de ese mes no van a poder entrar sin <a href="#deshacer">deshacer</a> y volver a generar.</div>
+
+<h2 id="no-entran">Líneas que todavía no entran</h2>
+<p>Algunas líneas aparecen desmarcadas, en gris, sin poder marcarlas, con una explicación en amarillo:</p>
+<table class="tabla-referencia">
+    <tr><th>Explicación</th><th>Qué significa</th></tr>
+    <tr><td>Elegí la provincia del concepto ... (Conceptos Bancarios).</td><td>La percepción de IIBB o el SIRCREB necesitan la provincia: elegila en el concepto (Conceptos Bancarios).</td></tr>
+    <tr><td>Percepción IIBB Recibidas ...: la empresa no lo tiene configurado como impuesto de compras vigente</td><td>Falta configurar esa percepción (y provincia) en los impuestos de la empresa.</td></tr>
+    <tr><td>Crédito del banco (intereses, reintegros): el tratamiento lo define el contador</td><td>Los créditos que da el banco (intereses a favor, reintegros) tampoco se registran todavía desde acá.</td></tr>
+    <tr><td>El concepto no tiene un producto activo · El producto no tiene cuenta contable de compra · El concepto no tiene el impuesto</td><td>Falta configuración. Además aparece un aviso en rojo; hay que completarlo en <a href="bancos_conceptos.html">Conceptos Bancarios</a> o en el producto.</td></tr>
+</table>
+
+<h2 id="historial">Comprobantes generados</h2>
+<p>Abajo de todo, la lista de resúmenes bancarios de la cuenta:</p>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>N° / Fecha</td><td>Número interno y fecha del comprobante.</td></tr>
+    <tr><td>Comprobante</td><td>"Resumen bancario" con su número.</td></tr>
+    <tr><td>Líneas / Total</td><td>Cuántas líneas del extracto incluye y el total.</td></tr>
+    <tr><td>Estado</td><td><span class="badge badge-success">Confirmado</span> = vigente; <span class="badge badge-danger">Anulado</span> = se deshizo.</td></tr>
+</table>
+<p>En el detalle (▸), las observaciones y, si se deshizo, el motivo. El botón <strong>Visualizar</strong> (ojo) muestra las líneas del extracto incluidas y el débito en tesorería.</p>
+
+<h2 id="deshacer">Deshacer los gastos de un mes</h2>
+<p>En los comprobantes vigentes aparece el botón rojo <strong>Deshacer</strong>. Pregunta "¿Deshacer los gastos?", avisa que se anula el resumen bancario (y su débito en tesorería) y pide <strong>el motivo</strong> (obligatorio). Al aceptar: "Se anuló el resumen bancario y las líneas quedaron disponibles."</p>
+<p>Después podés corregir lo que haga falta y volver a generar el comprobante del mes.</p>
+<div class="alert alert-warning">No se puede deshacer si el período de IVA de ese mes ya está liquidado o cerrado. Consultá con el contador.</div>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Elegí el proveedor del banco de la cuenta ...</td><td>Definilo con <a href="#proveedor">Cambiar</a>.</td></tr>
+    <tr><td>El extracto tiene IVA (...) y ningún gasto con producto gravado al que asignarlo.</td><td>Hay una línea de IVA pero ningún gasto incluido tiene un producto con alícuota de IVA. Revisá los productos de los conceptos.</td></tr>
+    <tr><td>El IVA del extracto (...) es mayor que el que admiten los gastos incluidos (...)</td><td>Falta incluir la comisión a la que corresponde ese IVA (está desmarcada o tiene otro concepto).</td></tr>
+    <tr><td>Ya hay resumen(es) bancario(s) del mes para la cuenta: este será otro comprobante, con las líneas que quedaron pendientes.</td><td>Es un aviso: se puede generar igual.</td></tr>
+    <tr><td>No hay gastos del banco para generar en ese mes.</td><td>No hay gastos clasificados y sin registrar. Revisá que el extracto esté importado y las líneas clasificadas.</td></tr>
+    <tr><td>[Percepción]: la empresa no lo tiene configurado como impuesto de compras. · ...tiene más de una configuración vigente; cargalo a mano en Facturas de Proveedores.</td><td>Falta configuración del impuesto. Consultá con el administrador o desmarcá esa línea y cargala a mano.</td></tr>
+    <tr><td>La empresa no tiene el tipo de comprobante "Resumen bancario".</td><td>Falta configuración. Consultá con el administrador.</td></tr>
+    <tr><td>Un aviso de período cerrado</td><td>El mes ya está cerrado en Control Fiscal: no se pueden agregar comprobantes en él.</td></tr>
+    <tr><td>Otro usuario está generando los gastos de esta cuenta: probá en unos segundos.</td><td>Esperá y recargá.</td></tr>
+    <tr><td>La orden de pago automática no debitó el total en la cuenta...</td><td>Problema de configuración del medio "Débito en cuenta". No se generó nada; avisá al administrador.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>¿Por qué no concilio las comisiones en Conciliación Bancaria?</td><td>Porque no hay nada registrado contra qué conciliarlas. Este botón las registra y las concilia en un solo paso.</td></tr>
+    <tr><td>¿Cuándo lo uso?</td><td>Una vez por mes y por cuenta, con el extracto del mes completo importado.</td></tr>
+    <tr><td>Apareció una comisión del mes después de generar el comprobante.</td><td>Deshacé el comprobante de ese mes y volvé a generarlo: el nuevo incluye todas las líneas.</td></tr>
+    <tr><td>¿Y el SIRCREB?</td><td>Entra al resumen bancario como percepción de IIBB de la provincia elegida en su concepto, igual que las percepciones de IIBB. Las de IVA y Ganancias van como percepciones nacionales.</td></tr>
+    <tr><td>¿Y los intereses a favor?</td><td>Todavía no se registran desde acá; lo define el contador. Mientras tanto quedan pendientes en la conciliación.</td></tr>
+    <tr><td>Una comisión no aparece en la lista.</td><td>Probablemente está "Sin concepto" o tiene un concepto de movimiento propio. Corregila en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a>.</td></tr>
+    <tr><td>¿Dónde veo el comprobante generado?</td><td>En <a href="facturas_proveedores.html">Facturas de Proveedores</a> (proveedor: el banco) y su pago en <a href="pagos.html">Órdenes de Pago</a>.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_conceptos.html">Conceptos Bancarios</a></li>
+        <li><a href="bancos_conciliacion.html">Conciliación Bancaria</a> (paso 5)</li>
+        <li><a href="facturas_proveedores.html">Facturas de Proveedores</a> · <a href="pagos.html">Órdenes de Pago</a></li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Gastos Bancarios. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

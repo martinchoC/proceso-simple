@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Paginas";
 $currentPage = 'paginas';
 $modudo_idx = 1;
+$pagina_idx = 2; // conf__paginas
+$ui_simple = true;
 
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -12,22 +14,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
     <!--begin::App Content Header-->
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Gestión de Páginas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Páginas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!--end::App Content Header-->
-    
-    <!--begin::App Content-->
+    <?php ui_encabezado('Páginas', 'bi bi-window', 'Árbol del menú de cada módulo: carpetas, páginas, orden e íconos.', ['Estructura del sistema']); ?>
+
     <div class="app-content">
         <div class="container-fluid">
             <!-- Content Wrapper -->
@@ -111,6 +99,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <th>Orden</th>
                                                         <th>Estado</th>
                                                         <th>Acceso Directo</th>
+                                                        <th>Menú</th>
                                                         <th>Funciones</th>
                                                         <th>Acciones</th>
                                                     </tr>
@@ -201,6 +190,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="col-md-6">
                             <label>Orden Acceso Directo</label>
                             <input type="number" class="form-control" id="orden_acceso_directo" name="orden_acceso_directo" min="0" disabled/>
+                        </div>
+                        <!-- Cómo se ve la página en el menú lateral (header1.php) -->
+                        <div class="col-12"><hr class="my-1"><strong class="small text-muted">Destacar en el menú</strong></div>
+                        <div class="col-md-4">
+                            <label for="menu_estilo">Estilo</label>
+                            <select class="form-control" id="menu_estilo" name="menu_estilo">
+                                <option value="">Normal</option>
+                                <option value="RESALTADO">Resaltado (fondo, borde y negrita)</option>
+                                <option value="BORDE">Solo borde</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="menu_color_id">Color</label>
+                            <select class="form-control" id="menu_color_id" name="menu_color_id">
+                                <option value="">Primario</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="menu_etiqueta">Etiqueta</label>
+                            <input type="text" class="form-control" id="menu_etiqueta" name="menu_etiqueta" maxlength="15" placeholder="Ej.: Diario"/>
+                        </div>
+                        <div class="col-12">
+                            <div class="small text-muted mb-1">Vista previa</div>
+                            <div id="menuVistaPrevia" class="rounded px-3 py-2 d-flex align-items-center gap-2" style="background:#1f3352;color:rgba(255,255,255,.82);"></div>
                         </div>
                     </div>
                 </form>
@@ -309,8 +322,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+<script src="<?= asset_local('js/jstree-3.3.12/jstree.min.js') ?>"></script>
+<link rel="stylesheet" href="<?= asset_local('css/jstree-3.3.12/themes/default/style.min.css') ?>" />
 <style>
     /* Indicador de acceso directo en el árbol (mismo ícono fa-bolt que la columna de la tabla) */
     #arbolPaginas .jstree-anchor.acceso-directo::after {
@@ -326,7 +339,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         vertical-align: middle;
     }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
 <script>
 // Variables globales
@@ -972,6 +985,47 @@ function actualizarOrdenArbol(nodeId, parentId, position) {
     });
 }
 
+// ===== Destacar en el menú: colores de conf__colores (el de Bootstrap sale de su color_clase) =====
+var menuColorPendiente = null;
+function menuColorBootstrap(clase) {
+    var m = /^btn-(?:outline-)?(primary|secondary|success|danger|warning|info|light|dark)$/.exec(clase || '');
+    return m ? m[1] : null;
+}
+function cargarColoresMenu(selectedId) {
+    if (selectedId !== undefined) menuColorPendiente = selectedId;
+    if ($('#menu_color_id option').length > 1) {
+        $('#menu_color_id').val(menuColorPendiente || '');
+        actualizarVistaPreviaMenu();
+        return;
+    }
+    $.getJSON('paginas_ajax.php', {accion: 'obtenerColoresMenu'}, function(res) {
+        var options = '<option value="">Primario</option>';
+        $.each(res || [], function(i, c) {
+            var bs = menuColorBootstrap(c.color_clase);
+            if (bs) options += '<option value="' + c.color_id + '" data-bs="' + bs + '">' + $('<div>').text(c.nombre_color).html() + '</option>';
+        });
+        $('#menu_color_id').html(options).val(menuColorPendiente || '');
+        actualizarVistaPreviaMenu();
+    });
+}
+function actualizarVistaPreviaMenu() {
+    var estilo = $('#menu_estilo').val();
+    var bs = $('#menu_color_id option:selected').data('bs') || 'primary';
+    var etiqueta = $.trim($('#menu_etiqueta').val());
+    var nombre = $.trim($('#pagina').val()) || 'Nombre de la página';
+    var prev = $('#menuVistaPrevia').css({ background: '#1f3352', boxShadow: 'none', fontWeight: 'normal' });
+    var rgb = 'var(--bs-' + bs + '-rgb)';
+    if (estilo === 'RESALTADO') prev.css({ background: 'rgba(' + rgb + ', .18)', boxShadow: 'inset 3px 0 0 rgb(' + rgb + ')', fontWeight: 600 });
+    else if (estilo === 'BORDE') prev.css({ boxShadow: 'inset 3px 0 0 rgb(' + rgb + ')' });
+    prev.html('<i class="bi bi-circle"' + (estilo === 'RESALTADO' ? ' style="color: rgb(' + rgb + ')"' : '') + '></i><span>' + $('<div>').text(nombre).html() + '</span>'
+        + (etiqueta ? '<span class="badge text-bg-' + bs + ' ms-auto">' + $('<div>').text(etiqueta).html() + '</span>' : ''));
+}
+function cargarDestacadoMenu(res) {
+    $('#menu_estilo').val(res ? (res.menu_estilo || '') : '');
+    $('#menu_etiqueta').val(res ? (res.menu_etiqueta || '') : '');
+    cargarColoresMenu(res ? (res.menu_color_id || '') : '');
+}
+
 // El orden de acceso directo solo aplica si la página es acceso directo
 function toggleOrdenAccesoDirecto() {
     var esAcceso = $('#es_acceso_directo').is(':checked');
@@ -995,13 +1049,14 @@ function editarPagina(paginaId) {
             $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
             $('#orden_acceso_directo').val(res.orden_acceso_directo ?? '');
             toggleOrdenAccesoDirecto();
+            cargarDestacadoMenu(res);
 
             cargarModulos(res.modulo_id, function() {
                 cargarTablas(res.tabla_id);
                 cargarIconos(res.icono_id);
                 cargarPaginasPadre(res.padre_id, res.modulo_id);
             });
-            
+
             $('#modalLabel').text('Editar Página');
             var modal = new bootstrap.Modal(document.getElementById('modalpagina'));
             modal.show();
@@ -1031,6 +1086,7 @@ function duplicarPagina(paginaId) {
             $('#es_acceso_directo').prop('checked', parseInt(res.es_acceso_directo) === 1);
             $('#orden_acceso_directo').val(res.orden_acceso_directo ?? '');
             toggleOrdenAccesoDirecto();
+            cargarDestacadoMenu(res);
 
             cargarModulos(res.modulo_id, function() {
                 cargarTablas(res.tabla_id);
@@ -1179,7 +1235,30 @@ $(document).ready(function(){
                     return data == 1 ? '<span class="badge bg-primary"><i class="fas fa-bolt"></i> Sí</span>' : '<span class="text-muted">-</span>';
                 }
             },
-            { 
+            {
+                // Cómo se ve la página en el menú lateral: estilo + color + etiqueta (header1.php)
+                data: 'menu_estilo',
+                orderable: false,
+                render: function(data, type, row) {
+                    var estilo = (row.menu_estilo || '').toUpperCase();
+                    var etiqueta = $.trim(row.menu_etiqueta || '');
+                    if (type !== 'display') return [estilo, etiqueta].join(' ');
+                    if (!estilo && !etiqueta) return '<span class="text-muted">-</span>';
+                    var bs = menuColorBootstrap(row.menu_color_clase) || 'primary';
+                    var rgb = 'var(--bs-' + bs + '-rgb)';
+                    var css = 'background:#1f3352;color:rgba(255,255,255,.82);white-space:nowrap;';
+                    if (estilo === 'RESALTADO') css = 'background:linear-gradient(rgba(' + rgb + ',.18),rgba(' + rgb + ',.18)),#1f3352;color:#fff;font-weight:600;box-shadow:inset 3px 0 0 rgb(' + rgb + ');white-space:nowrap;';
+                    else if (estilo === 'BORDE') css += 'box-shadow:inset 3px 0 0 rgb(' + rgb + ');';
+                    var nombre = $('<div>').text(row.pagina || '').html();
+                    var texto = estilo === 'RESALTADO' ? 'Resaltado' : (estilo === 'BORDE' ? 'Borde' : 'Normal');
+                    return '<span class="d-inline-flex align-items-center gap-2 rounded px-2 py-1 small" style="' + css + '" title="' + texto + '">'
+                        + '<i class="' + (row.icono_clase || 'bi bi-circle') + '"' + (estilo === 'RESALTADO' ? ' style="color:rgb(' + rgb + ')"' : '') + '></i>'
+                        + '<span>' + nombre + '</span>'
+                        + (etiqueta ? '<span class="badge text-bg-' + bs + '">' + $('<div>').text(etiqueta).html() + '</span>' : '')
+                        + '</span>';
+                }
+            },
+            {
                 data: 'tiene_funciones',
                 className: "text-center",
                 render: function(data, type, row) {
@@ -1285,12 +1364,16 @@ $(document).ready(function(){
     });
     
     $('#es_acceso_directo').on('change', toggleOrdenAccesoDirecto);
+    $('#menu_estilo, #menu_color_id').on('change', actualizarVistaPreviaMenu);
+    $('#menu_etiqueta, #pagina').on('input', actualizarVistaPreviaMenu);
+    cargarColoresMenu('');
 
     // Botón nueva página
     $('#btnNuevo').click(function(){
         $('#formpagina')[0].reset();
         $('#pagina_id').val('');
         toggleOrdenAccesoDirecto();
+        cargarDestacadoMenu(null);
         $('#modalLabel').text('Nueva Página');
         
         cargarModulos();
@@ -1445,7 +1528,10 @@ $(document).ready(function(){
             tabla_estado_registro_id: $('#tabla_estado_registro_id').val() || 1,
             pagina_patron_id: $('#pagina_patron_id').val() || 1,
             es_acceso_directo: $('#es_acceso_directo').is(':checked') ? 1 : 0,
-            orden_acceso_directo: $('#orden_acceso_directo').val()
+            orden_acceso_directo: $('#orden_acceso_directo').val(),
+            menu_estilo: $('#menu_estilo').val(),
+            menu_color_id: $('#menu_color_id').val(),
+            menu_etiqueta: $.trim($('#menu_etiqueta').val())
         };
         
         $.ajax({

@@ -1,12 +1,14 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../../core/cont_periodos.php';
 /**
  * tesoreria_core_model.php
  *
  * Módulo de Tesorería - Servicios y Helpers Centrales (Fase 0)
  * Sistema gestion_multipyme
  *
- * Implementa las decisiones de diseño D1-D36 de docs/gestion/08_proc_tesoreria_v3_11.docx:
+ * Implementa las decisiones de diseño D1-D36 de _local/docs/gestion/08_proc_tesoreria_v3_11.docx:
  * - D2:  importe_pendiente como caché sincronizada bajo lock.
  * - D4:  Cuentas unificadas de tesorería y libro de movimientos.
  * - D5:  Imputaciones con estado propio, fecha, moneda y tipo de cambio.
@@ -191,7 +193,7 @@ function tesoreriaRegistrarMovimiento($conexion, $data)
     if ($tipo_movimiento === 'EGRESO') {
         $nuevo_saldo = round($saldo_actual - $importe, 2);
         if (!$permite_neg && $nuevo_saldo < -0.001) {
-            throw new Exception("Saldo insuficiente en '{$cuenta['tesoreria_cuenta']}'. Saldo actual: " . number_format($saldo_actual, 2, ',', '.') . ", egreso requerido: " . number_format($importe, 2, ',', '.'));
+            throw new Exception("Saldo insuficiente en '{$cuenta['tesoreria_cuenta']}'. Saldo actual: " . fmt_numero($saldo_actual, 2) . ", egreso requerido: " . fmt_numero($importe, 2));
         }
     } else {
         $nuevo_saldo = round($saldo_actual + $importe, 2);
@@ -301,6 +303,14 @@ function tesoreriaAnularMovimiento($conexion, $movimiento_id_original, $usuario_
         throw new Exception("El movimiento de tesorería ID $mov_id ya fue revertido por el movimiento ID {$ya_revertido['tesoreria_movimiento_id']}.");
     }
 
+    // Conciliado con el banco (conciliación bancaria, core/bancos): la conciliación se deshace en la misma transacción,
+    // para que la línea del extracto no quede conciliada contra un movimiento revertido
+    if (intval($orig['conciliacion_id'] ?? 0) > 0) {
+        require_once __DIR__ . '/../../core/bancos/bancos_conciliacion_service.php';
+        bco_conciliacion_deshacer($conexion, intval($orig['empresa_id']), intval($usuario_id), intval($orig['conciliacion_id']),
+                                  'Se anuló el movimiento de tesorería #' . $mov_id . ($motivo ? ": $motivo" : ''), null, true);
+    }
+
     // Crear contramovimiento inverso
     $tipo_inverso = ($orig['tipo_movimiento'] === 'INGRESO') ? 'EGRESO' : 'INGRESO';
     $concepto_reversa = "Reversa de mov #" . $mov_id . ($motivo ? ": $motivo" : "");
@@ -352,7 +362,10 @@ function tesoreriaRegistrarImputacion($conexion, $data)
     if ($empresa_id <= 0 || $comp_origen_id <= 0 || $comp_destino_id <= 0) {
         throw new Exception("Parámetros obligatorios faltantes para registrar imputación.");
     }
-    if ($importe_imputado <= 0 || $importe_origen <= 0) {
+    // origen_sin_consumo: la OP cancela una solicitud de anticipo sin consumir su propio saldo (importe_origen = 0):
+    // el importe queda como saldo a favor de la OP, que se aplica después (obligaciones de pago, clase ANTICIPO).
+    if (!empty($data['origen_sin_consumo'])) $importe_origen = 0.0;
+    if ($importe_imputado <= 0 || ($importe_origen <= 0 && empty($data['origen_sin_consumo']))) {
         throw new Exception("El importe a imputar debe ser estrictamente positivo.");
     }
 
@@ -391,7 +404,7 @@ function tesoreriaRegistrarImputacion($conexion, $data)
 
     // Validar sobre-imputación concurrente (C4 / RT16)
     if ($importe_imputado > round($saldo_destino_actual + 0.001, 2)) {
-        throw new Exception("Sobre-imputación rechazada: el importe a imputar (" . number_format($importe_imputado, 2) . ") supera el saldo pendiente del comprobante destino (" . number_format($saldo_destino_actual, 2) . ").");
+        throw new Exception("Sobre-imputación rechazada: el importe a imputar (" . fmt_numero($importe_imputado, 2) . ") supera el saldo pendiente del comprobante destino (" . fmt_numero($saldo_destino_actual, 2) . ").");
     }
 
     // 1) Insertar en gestion__comprobantes_imputaciones con estado CONFIRMADO (5)
@@ -407,7 +420,7 @@ function tesoreriaRegistrarImputacion($conexion, $data)
     }
     mysqli_stmt_bind_param(
         $stmt_i,
-        "iiisdidisi",
+        "iiisdiddii",   // importe_origen es decimal (antes "i": perdía los centavos)
         $empresa_id,
         $comp_origen_id,
         $comp_destino_id,
@@ -560,7 +573,7 @@ function tesoreriaAnularImputacion($conexion, $imputacion_id, $usuario_id, $moti
  *
  * Es la ÚNICA función que asigna estados derivados de documentos destino al confirmarse
  * o anularse imputaciones:
- * - Liquidación Impositiva (I_LIQ): PENDIENTE (5) o PAGADA (35).
+ * - Obligaciones de pago (I_LIQ / OBL / SOL_ANT): estado genérico 5 / 39 / 40.
  * - Rendición de Gastos (RG_REND): APROBADA (5) o REEMBOLSADA (36).
  *
  * @param mysqli $conexion
@@ -682,20 +695,8 @@ function recalcularEstadoDestino($conexion, $comprobante_id, $usuario_id = null)
     $registro_origen_id = intval($c['registro_origen_id']);
     $actualizado = false;
 
-    // Caso 1: Liquidaciones Impositivas (gestion__obligaciones_impositivas)
-    if ($tabla_nombre === 'gestion__obligaciones_impositivas' && $registro_origen_id > 0) {
-        $nuevo_estado = ($saldo <= 0.001) ? ESTADO_ILIQ_PAGADO : ESTADO_ILIQ_PENDIENTE;
-        $sql_upd = "UPDATE gestion__obligaciones_impositivas 
-                    SET tabla_estado_registro_id = ?, fecha_modificacion = NOW(), usuario_modificacion_id = ?
-                    WHERE obligacion_impositiva_id = ? AND tabla_estado_registro_id != ?";
-        $stmt_u = mysqli_prepare($conexion, $sql_upd);
-        if ($stmt_u) {
-            mysqli_stmt_bind_param($stmt_u, "iiii", $nuevo_estado, $usuario_id, $registro_origen_id, $nuevo_estado);
-            mysqli_stmt_execute($stmt_u);
-            $actualizado = (mysqli_stmt_affected_rows($stmt_u) > 0);
-            mysqli_stmt_close($stmt_u);
-        }
-    }
+    // Las obligaciones de pago (gestion__obligaciones_pago, antes obligaciones_impositivas) siguen el estado genérico
+    // del comprobante (5 / 39 / 40): su catálogo de la tabla 286 tiene esos estados (ver tesoreriaSincronizarEstadoOrigen).
 
     // Caso 2: Rendiciones de Gastos (gestion__rendiciones)
     if ($tabla_nombre === 'gestion__rendiciones' && $registro_origen_id > 0) {
@@ -728,11 +729,9 @@ function recalcularEstadoDestino($conexion, $comprobante_id, $usuario_id = null)
     $comp_cambio = (mysqli_stmt_affected_rows($stmt_est) > 0);
     mysqli_stmt_close($stmt_est);
 
-    // El registro de la tabla de origen acompaña al comprobante (salvo los casos 1 y 2, que
-    // tienen estados propios de su tabla).
-    if ($comp_cambio
-        && $tabla_nombre !== 'gestion__obligaciones_impositivas'
-        && $tabla_nombre !== 'gestion__rendiciones') {
+    // El registro de la tabla de origen acompaña al comprobante (salvo las rendiciones, que tienen
+    // estados propios de su tabla).
+    if ($comp_cambio && $tabla_nombre !== 'gestion__rendiciones') {
         if (tesoreriaSincronizarEstadoOrigen($conexion, $c, $estado_comp, $usuario_id)) {
             $actualizado = true;
         }
@@ -810,9 +809,15 @@ function tesoreriaGenerarAsiento($conexion, $cabecera, $detalles)
     // Todas las cuentas tienen que ser del plan de cuentas de la empresa
     emp_validar_cuentas_asiento($conexion, $empresa_id, array_column($movimientos, 'cuenta_id'));
 
+    // Período contable abierto, para la fecha del asiento y para el asiento anterior del comprobante
+    cont_periodo_exigir_abierto($conexion, $empresa_id, $f_asiento, 'generar el asiento');
+    if ($comprobante_id > 0) {
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, $comprobante_id, 'modificar el asiento del comprobante');
+    }
+
     // Control de balance (diferencia no mayor a 1 centavo)
     if (abs($total_debe - $total_haber) > 0.01) {
-        throw new Exception("Asiento no balanceado: Debe=" . number_format($total_debe, 2) . ", Haber=" . number_format($total_haber, 2) . ", diferencia=" . number_format($total_debe - $total_haber, 2));
+        throw new Exception("Asiento no balanceado: Debe=" . fmt_numero($total_debe, 2) . ", Haber=" . fmt_numero($total_haber, 2) . ", diferencia=" . fmt_numero($total_debe - $total_haber, 2));
     }
 
     $timestamp = strtotime($f_asiento);
@@ -997,17 +1002,21 @@ function tesoreriaObtenerComprobantesCancelables($conexion, $empresa_id, $tipo_o
                    c.moneda_id, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
                    c.importe_total, c.importe_pendiente,
                    c.signo,
-                   e.entidad_id, e.entidad_nombre
+                   e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia,
+                   ct.codigo AS comprobante_codigo, ob.obligacion_id, ot.nombre AS obligacion_tipo, ot.clase AS obligacion_clase
             FROM gestion__comprobantes c
             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
             JOIN gestion__monedas m ON m.moneda_id = c.moneda_id
             JOIN gestion__entidades e ON e.entidad_id = c.entidad_id
             JOIN gestion__comprobantes_tipos_cancelaciones tc 
                  ON tc.comprobante_tipo_destino_id = c.comprobante_tipo_id 
-                AND tc.empresa_id = c.empresa_id
+                AND tc.empresa_id = c.empresa_id AND tc.tabla_estado_registro_id = 1
             JOIN gestion__comprobantes_tipos cto 
                  ON cto.comprobante_tipo_id = tc.comprobante_tipo_origen_id
             JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
+            -- Obligaciones de pago (sueldos, impuestos, anticipos): tipo y clase para mostrar y para el asiento de la OP
+            LEFT JOIN gestion__obligaciones_pago ob ON ob.obligacion_id = c.registro_origen_id AND ob.comprobante_id = c.comprobante_id AND c.tabla_origen_id = 286
+            LEFT JOIN gestion__obligaciones_tipos ot ON ot.obligacion_tipo_id = ob.obligacion_tipo_id
             WHERE c.empresa_id = ?
               AND cto.codigo = ?
               AND c.importe_pendiente > 0.001
@@ -1104,7 +1113,8 @@ function tesoreriaNotasCreditoDisponibles($conexion, $empresa_id, $destino_compr
  * Aplica (imputa) una NC contra un comprobante de la misma entidad. Corre dentro de la transacción del
  * llamador. $importe <= 0 aplica todo lo posible (mínimo entre los dos saldos). Devuelve el importe aplicado.
  */
-function tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_comprobante_id, $destino_comprobante_id, $importe, $usuario_id = null)
+// $imputacion_id (salida): la imputación creada, para ligarla al recibo en $0 que la documenta.
+function tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_comprobante_id, $destino_comprobante_id, $importe, $usuario_id = null, &$imputacion_id = null)
 {
     $empresa_id = intval($empresa_id);
     $nc_comprobante_id = intval($nc_comprobante_id);
@@ -1140,10 +1150,10 @@ function tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_comprobante_id,
         return 0.0;
     }
     if ($importe > $maximo + 0.001) {
-        throw new Exception("El importe a aplicar (" . number_format($importe, 2) . ") supera el saldo disponible (" . number_format($maximo, 2) . ").");
+        throw new Exception("El importe a aplicar (" . fmt_numero($importe, 2) . ") supera el saldo disponible (" . fmt_numero($maximo, 2) . ").");
     }
 
-    tesoreriaRegistrarImputacion($conexion, [
+    $imputacion_id = tesoreriaRegistrarImputacion($conexion, [
         'empresa_id'       => $empresa_id,
         'comp_origen_id'   => $nc_comprobante_id,
         'comp_destino_id'  => $destino_comprobante_id,

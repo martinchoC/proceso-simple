@@ -1,8 +1,9 @@
 <?php
+require_once __DIR__ . '/assets.php';
 /**
  * core/impresion.php — configuración de impresión de comprobantes por empresa.
  *
- * Tabla gestion__empresas_impresion (sql/mantenimiento/20261010_empresas_impresion_01_tabla.sql),
+ * Tabla gestion__empresas_impresion (_local/sql/mantenimiento/20261010_empresas_impresion_01_tabla.sql),
  * administrada en la tarjeta "Impresión de Comprobantes" de Parámetros de Empresa (página 111).
  * Resolución: fila activa del subgrupo del comprobante -> fila general (subgrupo 0) -> defaults.
  * Las plantillas viven en templates/impresion/<documento>_<formato>.php (factura_a4, factura_ticket80).
@@ -10,16 +11,16 @@
 
 const IMPRESION_FORMATOS = ['A4' => 'A4 (hoja completa)', 'TICKET80' => 'Ticket 80 mm'];
 
-// Tipografías (gestion__empresas_impresion.fuente): clave => [nombre, font-family, familia de Google Fonts | null]
+// Tipografías (gestion__empresas_impresion.fuente): clave => [nombre, font-family, CSS local en assets/ | null]
 const IMPRESION_FUENTE_DEFECTO = 'roboto';
 const IMPRESION_FUENTES = [
-    'roboto'           => ['Roboto', "'Roboto', Arial, sans-serif", 'Roboto:wght@300;400;500;600;700'],
-    'open_sans'        => ['Open Sans', "'Open Sans', Arial, sans-serif", 'Open+Sans:wght@300;400;600;700'],
-    'lato'             => ['Lato', "'Lato', Arial, sans-serif", 'Lato:wght@300;400;700'],
-    'source_sans'      => ['Source Sans 3', "'Source Sans 3', Arial, sans-serif", 'Source+Sans+3:wght@300;400;600;700'],
-    'inter'            => ['Inter', "'Inter', Arial, sans-serif", 'Inter:wght@300;400;600;700'],
-    'nunito_sans'      => ['Nunito Sans', "'Nunito Sans', Arial, sans-serif", 'Nunito+Sans:wght@300;400;600;700'],
-    'roboto_condensed' => ['Roboto Condensed (angosta)', "'Roboto Condensed', Arial, sans-serif", 'Roboto+Condensed:wght@300;400;600;700'],
+    'roboto'           => ['Roboto', "'Roboto', Arial, sans-serif", 'fonts/roboto/roboto.css'],
+    'open_sans'        => ['Open Sans', "'Open Sans', Arial, sans-serif", 'fonts/open-sans/open-sans.css'],
+    'lato'             => ['Lato', "'Lato', Arial, sans-serif", 'fonts/lato/lato.css'],
+    'source_sans'      => ['Source Sans 3', "'Source Sans 3', Arial, sans-serif", 'fonts/source-sans-3/source-sans-3.css'],
+    'inter'            => ['Inter', "'Inter', Arial, sans-serif", 'fonts/inter/inter.css'],
+    'nunito_sans'      => ['Nunito Sans', "'Nunito Sans', Arial, sans-serif", 'fonts/nunito-sans/nunito-sans.css'],
+    'roboto_condensed' => ['Roboto Condensed (angosta)', "'Roboto Condensed', Arial, sans-serif", 'fonts/roboto-condensed/roboto-condensed.css'],
     'arial'            => ['Arial (del sistema)', 'Arial, Helvetica, sans-serif', null],
 ];
 
@@ -67,12 +68,11 @@ function impresion_normalizar(array $fila): array
     return $cfg;
 }
 
-/** <link> de Google Fonts (vacío para fuentes del sistema) y font-family CSS de la tipografía configurada. */
+/** <link> al CSS local de la tipografía (vacío para fuentes del sistema) y su font-family. */
 function impresion_fuente(array $cfg): array
 {
     $f = IMPRESION_FUENTES[$cfg['fuente'] ?? ''] ?? IMPRESION_FUENTES[IMPRESION_FUENTE_DEFECTO];
-    $link = $f[2] ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=' . $f[2] . '&display=swap">' : '';
+    $link = $f[2] ? '<link rel="stylesheet" href="' . asset_local($f[2]) . '">' : '';
     return ['link' => $link, 'family' => $f[1], 'nombre' => $f[0]];
 }
 
@@ -98,4 +98,36 @@ function impresion_plantilla(string $documento, string $formato): string
     $base = __DIR__ . '/../templates/impresion/' . $documento . '_';
     $archivo = $base . strtolower($formato) . '.php';
     return is_file($archivo) ? $archivo : $base . 'a4.php';
+}
+
+/**
+ * Logo de la empresa (Parámetros de Empresa, vigencia abierta o el último cargado) como data URI, para incrustarlo
+ * en una impresión. Vacío si no hay logo o el archivo no es una imagen de uploads/empresas.
+ */
+function impresion_logo_empresa(mysqli $conexion, int $empresa_id): string
+{
+    $col = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'logo_archivo'");
+    if (!$col || mysqli_num_rows($col) === 0) {
+        return '';
+    }
+    $stmt = mysqli_prepare($conexion, "SELECT logo_archivo FROM gestion__empresas_parametros
+                                       WHERE empresa_id = ? AND tabla_estado_registro_id = 1 AND logo_archivo IS NOT NULL AND logo_archivo <> ''
+                                       ORDER BY (f_hasta IS NULL) DESC, f_desde DESC, empresa_parametro_id DESC LIMIT 1");
+    mysqli_stmt_bind_param($stmt, 'i', $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $ruta = (string)(mysqli_fetch_row(mysqli_stmt_get_result($stmt))[0] ?? '');
+    mysqli_stmt_close($stmt);
+    if ($ruta === '') {
+        return '';
+    }
+    $base = realpath(__DIR__ . '/../uploads/empresas');
+    $archivo = realpath(__DIR__ . '/../' . $ruta);
+    if (!$base || !$archivo || strpos($archivo, $base . DIRECTORY_SEPARATOR) !== 0 || !is_file($archivo)) {
+        return '';
+    }
+    $info = @getimagesize($archivo);
+    if (!$info || !in_array($info['mime'], ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true)) {
+        return '';
+    }
+    return 'data:' . $info['mime'] . ';base64,' . base64_encode((string)file_get_contents($archivo));
 }

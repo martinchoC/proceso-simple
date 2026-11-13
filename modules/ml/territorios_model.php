@@ -2,10 +2,11 @@
 /**
  * Modelo de datos para Territorios y Husos Horarios (Módulo 3 - Matriz Legal)
  * Archivo: modules/ml/territorios_model.php
- * Conforme a CLAUDE.md y docs/matriz-legal/09-diseno-m1-territorio-y-grupo.md
+ * Conforme a CLAUDE.md y _local/docs/matriz-legal/09-diseno-m1-territorio-y-grupo.md
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 /**
@@ -65,8 +66,8 @@ function obtenerFuncionesPagina($conexion, $pagina_id) {
 /**
  * Genera el HTML de los botones de acción para cada fila según su estado
  */
-function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $registro_id) {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $registro_id, $funciones_precargadas = null) {
+    $funciones = is_array($funciones_precargadas) ? $funciones_precargadas : permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
     $registro_id = intval($registro_id);
 
@@ -98,6 +99,17 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id, $regi
                          "title=\"{$nombre}\"><i class=\"{$icono}\"></i></button>";
         }
     }
+
+    if (empty($botones)) {
+        if (intval($estado_actual_id) === 1) {
+            $botones[] = "<button type=\"button\" class=\"btn btn-sm btn-outline-primary me-1 btn-accion\" data-accion=\"editar\" data-id=\"{$registro_id}\" data-destino=\"1\" title=\"Editar Territorio\"><i class=\"fas fa-edit\"></i></button>";
+            $botones[] = "<button type=\"button\" class=\"btn btn-sm btn-outline-warning me-1 btn-accion\" data-accion=\"cambiar_pertenencia\" data-id=\"{$registro_id}\" data-destino=\"1\" title=\"Cambiar Pertenencia\"><i class=\"fas fa-sitemap\"></i></button>";
+            $botones[] = "<button type=\"button\" class=\"btn btn-sm btn-outline-danger me-1 btn-accion\" data-accion=\"inactivar\" data-id=\"{$registro_id}\" data-destino=\"2\" title=\"Inactivar\"><i class=\"fas fa-ban\"></i></button>";
+        } else {
+            $botones[] = "<button type=\"button\" class=\"btn btn-sm btn-outline-success me-1 btn-accion\" data-accion=\"activar\" data-id=\"{$registro_id}\" data-destino=\"1\" title=\"Activar\"><i class=\"fas fa-check\"></i></button>";
+        }
+    }
+
     return '<div class="btn-group btn-group-sm" role="group">' . implode('', $botones) . '</div>';
 }
 
@@ -153,7 +165,7 @@ function listarTerritorios($conexion, $pagina_idx, $filtro_tipo = '', $filtro_es
                    tp.vigente_desde AS pertenencia_desde,
                    er.estado_registro, er.color_id
               FROM ml__territorios t
-              JOIN ml__territorios_tipos tt ON tt.territorio_tipo_id = t.territorio_tipo_id
+              LEFT JOIN ml__territorios_tipos tt ON tt.territorio_tipo_id = t.territorio_tipo_id
               LEFT JOIN ml__territorios_pertenencias tp 
                 ON tp.territorio_id = t.territorio_id 
                AND tp.es_principal = 1 
@@ -190,8 +202,10 @@ function listarTerritorios($conexion, $pagina_idx, $filtro_tipo = '', $filtro_es
     $result = mysqli_stmt_get_result($stmt);
     $datos = [];
 
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_idx));
+
     while ($row = mysqli_fetch_assoc($result)) {
-        $row['acciones'] = obtenerBotonesPorEstado($conexion, $pagina_idx, $row['tabla_estado_registro_id'], $row['territorio_id']);
+        $row['acciones'] = obtenerBotonesPorEstado($conexion, $pagina_idx, $row['tabla_estado_registro_id'], $row['territorio_id'], $funciones);
         $datos[] = $row;
     }
     mysqli_stmt_close($stmt);
@@ -372,19 +386,19 @@ function cambiarPertenenciaTerritorio($conexion, $territorio_id, $nuevo_superior
     $es_principal = $es_principal ? 1 : 0;
     $usuario_id = intval($usuario_id);
 
-    if ($territorio_id <= 0 || $nuevo_superior_id <= 0 || empty($fecha_cambio)) {
+    if ($territorio_id <= 0 || empty($fecha_cambio)) {
         return ['success' => false, 'message' => 'Parámetros inválidos para cambiar la pertenencia.'];
     }
 
-    if ($territorio_id === $nuevo_superior_id) {
+    if ($nuevo_superior_id > 0 && $territorio_id === $nuevo_superior_id) {
         return ['success' => false, 'message' => 'Un territorio no puede pertenecer a sí mismo.'];
     }
 
     mysqli_begin_transaction($conexion);
 
     try {
-        // Si la nueva pertenencia es principal, cerrar la pertenencia principal abierta actual
-        if ($es_principal === 1) {
+        // Cerrar la pertenencia principal abierta actual si existe
+        if ($es_principal === 1 || $nuevo_superior_id === 0) {
             $sql_close = "UPDATE ml__territorios_pertenencias 
                              SET vigente_hasta = ?, actualizado_por = ?
                            WHERE territorio_id = ? 
@@ -396,19 +410,21 @@ function cambiarPertenenciaTerritorio($conexion, $territorio_id, $nuevo_superior
             mysqli_stmt_close($stmt_close);
         }
 
-        // Insertar la nueva pertenencia a partir de fecha_cambio
-        $sql_new = "INSERT INTO ml__territorios_pertenencias 
-                    (territorio_id, territorio_superior_id, es_principal, vigente_desde, creado_por)
-                    VALUES (?, ?, ?, ?, ?)";
-        $stmt_new = mysqli_prepare($conexion, $sql_new);
-        mysqli_stmt_bind_param($stmt_new, "iiisi", $territorio_id, $nuevo_superior_id, $es_principal, $fecha_cambio, $usuario_id);
-        if (!mysqli_stmt_execute($stmt_new)) {
-            $err = mysqli_stmt_error($stmt_new);
+        // Si se indicó un nuevo superior (> 0), insertar la nueva pertenencia
+        if ($nuevo_superior_id > 0) {
+            $sql_new = "INSERT INTO ml__territorios_pertenencias 
+                        (territorio_id, territorio_superior_id, es_principal, vigente_desde, creado_por)
+                        VALUES (?, ?, ?, ?, ?)";
+            $stmt_new = mysqli_prepare($conexion, $sql_new);
+            mysqli_stmt_bind_param($stmt_new, "iiisi", $territorio_id, $nuevo_superior_id, $es_principal, $fecha_cambio, $usuario_id);
+            if (!mysqli_stmt_execute($stmt_new)) {
+                $err = mysqli_stmt_error($stmt_new);
+                mysqli_stmt_close($stmt_new);
+                mysqli_rollback($conexion);
+                return ['success' => false, 'message' => "Error al registrar la nueva pertenencia: {$err}"];
+            }
             mysqli_stmt_close($stmt_new);
-            mysqli_rollback($conexion);
-            return ['success' => false, 'message' => "Error al registrar la nueva pertenencia: {$err}"];
         }
-        mysqli_stmt_close($stmt_new);
 
         mysqli_commit($conexion);
         return ['success' => true, 'message' => 'Pertenencia actualizada con vigencia histórica.'];

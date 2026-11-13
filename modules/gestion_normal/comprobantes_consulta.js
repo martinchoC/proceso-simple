@@ -78,7 +78,8 @@ $(function () {
                     } },
                     { data: 'comprobante_grupo', defaultContent: '' },
                     { data: 'entidad_nombre', defaultContent: '', render: function (v, t, r) {
-                        return t === 'display' ? UI.esc(v || '') + (r.cuit ? '<div class="text-muted">' + UI.esc(r.cuit) + '</div>' : '') : (v || '') + ' ' + (r.cuit || '');
+                        const nom = (r && r.entidad_fantasia) || v || '';
+                        return t === 'display' ? UI.esc(nom) + (r.cuit ? '<div class="text-muted">' + UI.esc(r.cuit) + '</div>' : '') : nom + ' ' + (r.cuit || '');
                     } },
                     { data: 'sucursal_nombre', defaultContent: '' },
                     { data: 'importe_total', className: 'text-end', render: function (v, t, r) { return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v; } },

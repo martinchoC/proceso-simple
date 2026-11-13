@@ -1,34 +1,20 @@
 <?php
 /**
  * Vista: Padrones IIBB — importación y consulta del padrón de alícuotas de percepción (SIRCIP).
- * Módulo 5: Gestión Normal — Página ID 615 (tabla 432). Diseño: docs/gestion/09_percepciones_iibb.md §7
+ * Módulo 5: Gestión Normal — Página ID 115 (tabla 432). Diseño: _local/docs/gestion/09_percepciones_iibb.md §7
  */
 $pageTitle = "Padrones IIBB";
 $currentPage = 'padrones_iibb';
 $modudo_idx = 5;
 $pagina_idx = 615;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold"><i class="fas fa-address-book me-2 text-primary"></i>Padrones IIBB</h3>
-                    <small class="text-muted">Padrón mensual de alícuotas de percepción por CUIT (SIRCIP: se descarga del Portal Federal Tributario días antes de cada mes).</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Padrones IIBB</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Padrones de IIBB','fas fa-address-book', 'Padrón mensual de alícuotas de percepción por CUIT (SIRCIP: se descarga del Portal Federal Tributario días antes de cada mes).', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -102,7 +88,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="padrones_iibb.js?v=<?= filemtime(__DIR__ . '/padrones_iibb.js') ?>"></script>
 
 <?php

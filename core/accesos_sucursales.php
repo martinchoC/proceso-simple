@@ -39,6 +39,22 @@ class AccesosSucursalesHelper
      *   ]
      * ]
      */
+    /**
+     * Acceso total a las sucursales de $empresa_id para $usuario_id, SOLO en memoria y durante este request.
+     * Es para el estudio contable cuando opera sobre la empresa de un cliente que no tiene perfiles (nivel FISCAL):
+     * quien llama tiene que haber verificado antes la vinculación vigente con escritura del área
+     * (vinculacionesVerificarPermiso(..., true)) y la función de su propia página. No toca la base ni la sesión.
+     * Hoy lo usa solo modules/estudio_contable/importar_arca_ajax.php.
+     */
+    public static function accesoDelegadoPorVinculacion(int $usuario_id, int $empresa_id): void
+    {
+        self::$cache["{$usuario_id}_{$empresa_id}"] = [
+            'tiene_acceso_total' => true, 'sucursales' => [], 'bocas' => [], 'bocas_por_sucursal' => [],
+            'puntos_venta' => [], 'puntos_venta_por_sucursal' => [], 'comprobantes_tipos' => [],
+            'predeterminados' => ['sucursal_id' => null, 'boca_id' => null, 'punto_venta_id' => null],
+        ];
+    }
+
     public static function obtenerAccesos(mysqli $conexion, int $usuario_id, int $empresa_id): array
     {
         $cacheKey = "{$usuario_id}_{$empresa_id}";

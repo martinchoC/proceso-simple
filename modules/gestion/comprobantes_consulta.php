@@ -4,7 +4,7 @@
  *
  * Consulta universal de comprobantes (gestion__comprobantes) con filtros. Solo lectura: los
  * comprobantes se crean, editan y cambian de estado en su pantalla de origen (el detalle
- * tiene el link). Página 102 (sql/mantenimiento/20261007_comprobantes_ctacte_01_paginas.sql).
+ * tiene el link). Página 102 (_local/sql/mantenimiento/20261007_comprobantes_ctacte_01_paginas.sql).
  */
 
 require_once __DIR__ . '/../../db.php';
@@ -13,28 +13,14 @@ $pageTitle = "Consulta de Comprobantes";
 $currentPage = 'comprobantes_consulta';
 $modudo_idx = 2; // Typo intencional y consistente con todo el ERP (ver CLAUDE.md)
 $pagina_idx = 102;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0"><i class="fas fa-folder-open text-primary me-2"></i>Consulta de Comprobantes</h3>
-                    <small class="text-muted">Todos los comprobantes de la empresa: ventas, compras, stock y tesorería</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Comprobantes</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Comprobantes','fas fa-folder-open', 'Todos los comprobantes de la empresa: ventas, compras, stock y tesorería', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">

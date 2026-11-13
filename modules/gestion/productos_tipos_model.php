@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 // ABM de Tipos de Producto (gestion__productos_tipos) — tabla tipo Diccionario
@@ -156,7 +157,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     static $cache = [];
     if (!isset($cache[$pagina_id])) {
-        $cache[$pagina_id] = obtenerFuncionesPagina($conexion, $pagina_id);
+        $cache[$pagina_id] = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     }
 
     $botones = [];
@@ -187,7 +188,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // ✅ Obtener botón "Agregar" específico para la página (función con origen 0)
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -321,13 +325,14 @@ function normalizarDatosProductoTipo($conexion, $data, $empresa_idx)
 // así que el código se valida contra todas las empresas; el nombre, dentro de la empresa.
 function validarDuplicadoProductoTipo($conexion, $datos, $empresa_idx, $excluir_id = 0)
 {
+    // Código único por empresa (uk_productos_tipos_empresa_codigo)
     $sql = "SELECT COUNT(*) AS total FROM gestion__productos_tipos
-            WHERE producto_tipo_codigo = ? AND producto_tipo_id <> ?";
+            WHERE producto_tipo_codigo = ? AND empresa_id = ? AND producto_tipo_id <> ?";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return 'Error en la consulta';
     }
-    mysqli_stmt_bind_param($stmt, "si", $datos['producto_tipo_codigo'], $excluir_id);
+    mysqli_stmt_bind_param($stmt, "sii", $datos['producto_tipo_codigo'], $empresa_idx, $excluir_id);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);

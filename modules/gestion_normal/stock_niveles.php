@@ -1,12 +1,13 @@
 <?php
 /**
  * Vista: Stock mínimo y máximo por boca
- * Módulo 2: Gestión de Empresas — Página ID 112 (tabla 429 gestion__stock_niveles)
+ * Módulo 5: Gestión Normal — Página ID 112 (tabla 429 gestion__stock_niveles)
  */
 $pageTitle = "Stock - Mínimos y Máximos";
 $currentPage = 'stock_niveles';
 $modudo_idx = 5;
 $pagina_idx = 612;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -15,22 +16,7 @@ $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold"><i class="bi bi-layers-fill me-2 text-primary"></i>Stock mínimo y máximo</h3>
-                    <small class="text-muted">Por producto y boca de expendio. Si el stock de la boca cae por debajo del mínimo se genera una alerta de reposición.</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Stock</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Mínimos y Máximos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Stock mínimo y máximo','bi bi-layers-fill', 'Por producto y boca de expendio. Si el stock de la boca cae por debajo del mínimo se genera una alerta de reposición.', ['Stock']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -153,7 +139,7 @@ $empresa_id = intval($_SESSION['empresa_id'] ?? 0);
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script>
     const SNV_EMPRESA_ID = <?= $empresa_id ?>;
 </script>

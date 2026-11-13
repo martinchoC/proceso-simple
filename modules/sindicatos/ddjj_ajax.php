@@ -35,6 +35,12 @@ try {
 
         case 'obtener_boton_agregar':
             $btn = sindi_obtener_boton_agregar($conexion, $pagina_idx);
+            if ($btn) {
+                $btn['tiene_permiso'] = true;
+                $btn['texto'] = $btn['nombre_funcion'] ?? 'Nueva DDJJ';
+            } else {
+                $btn = ['tiene_permiso' => false];
+            }
             echo json_encode($btn, JSON_UNESCAPED_UNICODE);
             break;
 

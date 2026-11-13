@@ -6,31 +6,14 @@ $pageTitle = "Comprobantes Fiscales";
 $currentPage = 'comprobantes_fiscales';
 $modudo_idx = 5;
 $pagina_idx = 549; // ID de página para comprobantes fiscales
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-file-invoice me-2"></i>Comprobantes Fiscales
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Comprobantes Fiscales</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Comprobantes fiscales','fas fa-file-invoice', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -118,11 +101,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <div class="invalid-feedback">El código es obligatorio (0-255)</div>
                                     </div>
                                     <div class="col-md-8 mb-3">
-                                        <label for="comprobante_fiscal" class="form-label">Comprobante Fiscal *</label>
+                                        <label for="comprobante_fiscal" class="form-label">Comprobante Fiscal * <?= ui_ayuda('Máximo 50 caracteres') ?></label>
                                         <input type="text" class="form-control" id="comprobante_fiscal"
                                             name="comprobante_fiscal" maxlength="50" required>
                                         <div class="invalid-feedback">El nombre del comprobante es obligatorio</div>
-                                        <div class="form-text">Máximo 50 caracteres</div>
+                                        
                                     </div>
                                 </div>
                             </form>
@@ -306,7 +289,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'comprobante_fiscal_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'codigo',
@@ -405,7 +388,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                        url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>',
                         buttons: {
                             excel: 'Excel',
                             pdf: 'PDF',
@@ -829,15 +812,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Librerías necesarias para DataTables Buttons -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

@@ -6,49 +6,17 @@ $pageTitle = "Conceptos Contables de Empresa";
 $currentPage = 'empresas_cuentas_conceptos';
 $modudo_idx = 2; // Typo intencional y consistente con todo el ERP (ver CLAUDE.md)
 $pagina_idx = 101;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-tags text-primary me-2"></i>Conceptos Contables por Empresa
-                    </h3>
-                    <small class="text-muted">Resolución de Cuentas Contables por Defecto para Tesorería (D35 / D36)</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="#">Contabilidad</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Conceptos Contables</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Conceptos contables','fas fa-tags', 'Cuenta contable que usa Tesorería (cheques propios diferidos, anticipos, gastos) cuando la ficha no tiene una propia. Si el concepto no tiene cuenta, la confirmación se bloquea.', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
-            <!-- Nota informativa de arquitectura D35/D36 -->
-            <div class="alert alert-info border-start border-4 border-info shadow-sm mb-4">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-info-circle fa-2x me-3 text-info"></i>
-                    <div>
-                        <h6 class="fw-bold mb-1">Mapeo de Contrapartidas Automáticas de Tesorería</h6>
-                        <p class="mb-0 small text-dark">
-                            Los procesos de Tesorería (emisión de cheques propios diferidos, anticipos al personal, liquidación de gastos)
-                            resuelven sus cuentas contables en cascada: primero buscan la cuenta específica en la ficha operativa;
-                            si no existe, toman el concepto asignado aquí para la empresa activa. Si ningún concepto tiene cuenta asignada,
-                            la confirmación se bloquea de forma preventiva.
-                        </p>
-                    </div>
-                </div>
-            </div>
 
             <div class="card card-outline card-primary shadow-sm">
                 <div class="card-header bg-light py-3">
@@ -137,6 +105,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </div>
 
 <!-- Scripts específicos del módulo -->
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="empresas_cuentas_conceptos.js"></script>
 
 <?php

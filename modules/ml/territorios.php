@@ -11,12 +11,13 @@ $currentPage = 'territorios';
 $modudo_idx = 3;
 $pagina_idx = 305; // ID registrado en conf__paginas
 
-define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
+if (!defined('ROOT_PATH')) {
+    define('ROOT_PATH', dirname(dirname(__DIR__)));
+}
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
-    <div class="app-content-header">
+<div class="app-content-header">
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-sm-6">
@@ -89,7 +90,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </div>
         </div>
     </div>
-</main>
+
 
 <!-- Modal: Agregar / Editar Territorio -->
 <div class="modal fade" id="modalTerritorio" tabindex="-1" aria-labelledby="modalTerritorioLabel" aria-hidden="true">
@@ -243,5 +244,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
+<script>
+    window.EMPRESA_ID = <?= (int)($current_empresa_id ?? $_SESSION['empresa_id'] ?? 2) ?>;
+</script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="territorios.js?v=<?= time() ?>"></script>
+
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>
-<script src="territorios.js"></script>

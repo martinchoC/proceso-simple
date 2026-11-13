@@ -18,7 +18,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 // Métricas de Estudio Contable
 // 1. Clientes
@@ -27,11 +27,11 @@ $cant_clientes = mysqli_fetch_assoc($res_c)['cant'] ?? 0;
 
 // 2. Vencimientos del mes pendientes
 $periodo_actual = intval(date('Ym'));
-$res_v = mysqli_query($conn, "SELECT COUNT(*) as cant FROM estudio__vencimientos_generados WHERE empresa_id = {$empresa_id} AND periodo_fiscal = {$periodo_actual} AND tabla_estado_registro_id IN (1, 2)");
+$res_v = mysqli_query($conn, "SELECT COUNT(*) as cant FROM estudio__vencimientos_generados WHERE empresa_id = {$empresa_id} AND periodo_fiscal = {$periodo_actual} AND tabla_estado_registro_id IN (17, 18, 5)");
 $cant_vencimientos = mysqli_fetch_assoc($res_v)['cant'] ?? 0;
 
 // 3. Tareas RACI pendientes/en proceso
-$res_t = mysqli_query($conn, "SELECT COUNT(*) as cant FROM estudio__tareas WHERE empresa_id = {$empresa_id} AND tabla_estado_registro_id IN (4, 5)");
+$res_t = mysqli_query($conn, "SELECT COUNT(*) as cant FROM estudio__tareas WHERE empresa_id = {$empresa_id} AND tabla_estado_registro_id IN (17, 18)");
 $cant_tareas = mysqli_fetch_assoc($res_t)['cant'] ?? 0;
 
 // 4. Abonos del mes
@@ -74,7 +74,7 @@ $valor_activos = $row_act['total_val'] ?? 0;
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-white-50 text-uppercase fw-bold mb-1">Clientes Activos</h6>
-                                <h2 class="mb-0 fw-bold"><?php echo number_format($cant_clientes); ?></h2>
+                                <h2 class="mb-0 fw-bold"><?php echo fmt_numero($cant_clientes, 0); ?></h2>
                                 <small class="text-white-50"><a href="estudio_clientes.php" class="text-white text-decoration-underline">Ver padrón completo &raquo;</a></small>
                             </div>
                             <div class="fs-1 opacity-50">
@@ -89,7 +89,7 @@ $valor_activos = $row_act['total_val'] ?? 0;
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-white-50 text-uppercase fw-bold mb-1">Vencimientos Mes</h6>
-                                <h2 class="mb-0 fw-bold"><?php echo number_format($cant_vencimientos); ?></h2>
+                                <h2 class="mb-0 fw-bold"><?php echo fmt_numero($cant_vencimientos, 0); ?></h2>
                                 <small class="text-white-50"><a href="vencimientos_tablero.php" class="text-white text-decoration-underline">Tablero operativo &raquo;</a></small>
                             </div>
                             <div class="fs-1 opacity-50">
@@ -104,7 +104,7 @@ $valor_activos = $row_act['total_val'] ?? 0;
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-dark-50 text-uppercase fw-bold mb-1">Tareas RACI Activas</h6>
-                                <h2 class="mb-0 fw-bold"><?php echo number_format($cant_tareas); ?></h2>
+                                <h2 class="mb-0 fw-bold"><?php echo fmt_numero($cant_tareas, 0); ?></h2>
                                 <small><a href="tareas_raci.php" class="text-dark fw-bold text-decoration-underline">Bandeja de tareas &raquo;</a></small>
                             </div>
                             <div class="fs-1 opacity-50">
@@ -119,7 +119,7 @@ $valor_activos = $row_act['total_val'] ?? 0;
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-white-50 text-uppercase fw-bold mb-1">Abonos Mensuales</h6>
-                                <h2 class="mb-0 fw-bold">$ <?php echo number_format($total_abonos, 0, ',', '.'); ?></h2>
+                                <h2 class="mb-0 fw-bold"><?php echo fmt_moneda($total_abonos, 0); ?></h2>
                                 <small class="text-white-50"><a href="honorarios_facturacion.php" class="text-white text-decoration-underline">Facturación masiva &raquo;</a></small>
                             </div>
                             <div class="fs-1 opacity-50">
@@ -259,6 +259,63 @@ $valor_activos = $row_act['total_val'] ?? 0;
                     </div>
                 </div>
             </div>
+
+            <!-- Tablero entre clientes -->
+            <div class="card shadow-sm border-0 mt-3" id="cardTableroClientes">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="card-title fw-bold mb-0 text-primary"><i class="fas fa-traffic-light me-2"></i>Situación por cliente</h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnTableroRecargar"><i class="fas fa-sync-alt"></i></button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0" id="tablaTableroClientes">
+                            <thead class="table-light">
+                                <tr>
+                                    <th></th><th>Cliente</th><th>Modo</th><th>Próx. vencimiento</th>
+                                    <th class="text-center">Vencidos</th><th class="text-center">Tareas atrasadas</th>
+                                    <th>IVA mes anterior</th><th></th>
+                                </tr>
+                            </thead>
+                            <tbody><tr><td colspan="8" class="text-center text-muted py-3">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <script>
+            (function () {
+                var colores = { rojo: 'danger', amarillo: 'warning', verde: 'success' };
+                var ivaTxt = { LIQUIDADO: 'Liquidado', PENDIENTE: 'Pendiente', SIN_PERMISO: 'Sin permiso', REMOTO: 'Servidor propio', EXTERNO: 'Software externo', NO_APLICA: '—' };
+                function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
+                function cargar() {
+                    $.getJSON('estudio_tablero_clientes_ajax.php', function (r) {
+                        var $tb = $('#tablaTableroClientes tbody').empty();
+                        if (!r.success || !r.data.length) {
+                            $tb.append('<tr><td colspan="8" class="text-center text-muted py-3">' + esc(r.success ? 'Sin clientes activos.' : r.message) + '</td></tr>');
+                            return;
+                        }
+                        // Los que requieren atención primero
+                        var orden = { rojo: 0, amarillo: 1, verde: 2 };
+                        r.data.sort(function (a, b) { return orden[a.semaforo] - orden[b.semaforo]; });
+                        r.data.forEach(function (c) {
+                            var iva = ivaTxt[c.iva_estado] || c.iva_estado;
+                            if (c.iva_saldo !== null) { iva += ' (' + (c.iva_saldo > 0 ? 'a pagar ' : 'a favor ') + Fmt.moneda(Math.abs(c.iva_saldo)) + ')'; }
+                            var prox = c.proximo_venc ? esc(Fmt.fecha(c.proximo_venc)) + (c.proximo_impuesto ? ' · ' + esc(c.proximo_impuesto) : '') : '—';
+                            var accion = (c.modo === 'REMOTO' || c.modo === 'PADRON' || c.modo === 'EXTERNO') ? '' : '<a class="btn btn-sm btn-outline-primary" href="minigestion.php?cliente_id=' + parseInt(c.cliente_id, 10) + '">Gestionar</a>';
+                            $tb.append(
+                                '<tr><td><span class="badge text-bg-' + colores[c.semaforo] + '">&nbsp;</span></td>' +
+                                '<td>' + esc(c.razon_social) + '<br><small class="text-muted">' + esc(c.cuit) + '</small></td>' +
+                                '<td>' + esc(c.nivel_servicio || c.modo) + '<br><small class="text-muted">' + esc(c.modo) + '</small></td><td>' + prox + '</td>' +
+                                '<td class="text-center">' + (c.venc_vencidos > 0 ? '<span class="badge text-bg-danger">' + c.venc_vencidos + '</span>' : '0') + '</td>' +
+                                '<td class="text-center">' + (c.tareas_atrasadas > 0 ? '<span class="badge text-bg-danger">' + c.tareas_atrasadas + '</span>' : '0') + '</td>' +
+                                '<td>' + esc(iva) + '</td><td class="text-end">' + accion + '</td></tr>');
+                        });
+                    }).fail(function () {
+                        $('#tablaTableroClientes tbody').html('<tr><td colspan="8" class="text-center text-danger py-3">Fallo de comunicación.</td></tr>');
+                    });
+                }
+                $(function () { cargar(); $('#btnTableroRecargar').on('click', cargar); });
+            })();
+            </script>
         </div>
     </div>
 </main>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Módulo 1: Configuración y Administración</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --morado: #6f42c1;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.6;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.85rem; margin-bottom: 6px; color: #111827; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 8px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.92rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.6rem; }
+    
+    .badge-modulo {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #e0e7ff;
+        color: #3730a3;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 22px;
+        margin: 20px 0 30px;
+    }
+    .toc strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 5px solid var(--azul); }
+    .card-outline-purple { border-left: 5px solid var(--morado); }
+
+    .alert {
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th {
+        background: var(--gris-fondo);
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--azul);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #eff6ff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+        color: #1e3a8a;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.8rem; margin-top: 2px; }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.4rem; color: var(--texto-muted); font-weight: bold; }
+
+    .btn-enlace {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--morado);
+        color: #fff;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 6px;
+    }
+    .btn-enlace:hover { background: #5a32a3; color: #fff; text-decoration: none; }
+
+    .nota-lateral {
+        border-left: 3px solid var(--azul);
+        padding-left: 14px;
+        color: #475569;
+        font-size: 0.92rem;
+        margin: 12px 0;
+        font-style: italic;
+    }
+
+    footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+    @media print {
+        .volver, .toc { display: none; }
+        body { max-width: none; padding: 0; }
+        h2 { page-break-after: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al portal de manuales</a>
+
+<span class="badge-modulo">Módulo 1</span>
+<h1>Manual de usuario: Configuración y Administración</h1>
+<p class="subtitulo">Guía integral para administradores sobre la gestión de empresas (multi-tenant), usuarios, perfiles, permisos por función, menús y el motor de transiciones de estados del sistema.</p>
+
+<div class="toc">
+    <strong>Contenido del manual</strong>
+    <ul>
+        <li><a href="#proposito">1. Propósito y alcance del módulo</a></li>
+        <li><a href="#arquitectura">2. Arquitectura de accesos y tenencia (Multi-tenant)</a></li>
+        <li><a href="#empresas">3. Administración de Empresas</a></li>
+        <li><a href="#usuarios-perfiles">4. Usuarios, Perfiles y Roles</a></li>
+        <li><a href="#motor-estados">5. El Motor de Estados y Funciones de Pantalla</a></li>
+        <li><a href="#paginas-menus">6. Estructura de Páginas, Menús y Accesos Directos</a></li>
+        <li><a href="#dashboard-conf">7. Inicio de Configuración y Diagnóstico</a></li>
+        <li><a href="#auditoria">8. Auditoría y Seguimiento de Operaciones</a></li>
+        <li><a href="#preguntas-frecuentes">9. Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">1. Propósito y alcance del módulo</h2>
+<p>El módulo de <strong>Configuración</strong> (ubicado técnicamente en <code>modules/conf/</code>) es el núcleo rector de la plataforma. Controla quién puede ingresar, qué empresa puede operar, a qué módulos y pantallas tiene acceso, y qué acciones específicas (botones como Agregar, Modificar, Confirmar, Anular) puede ejecutar cada usuario según su rol.</p>
+
+<div class="card card-outline-primary">
+    <strong>Principio de seguridad y aislamiento:</strong> Ninguna pantalla ni botón funciona por coincidencia o "hardcodeo". Todo permiso debe estar declarado explícitamente en la base de datos para la empresa y el perfil activo. Si un usuario no ve un botón o un menú, se debe a una configuración de seguridad en este módulo.
+</div>
+
+<h2 id="arquitectura">2. Arquitectura de accesos y tenencia (Multi-tenant)</h2>
+<p>El sistema soporta múltiples empresas en una única instalación compartida con total aislamiento de datos:</p>
+
+<div class="flujo">
+    <div class="flujo-caja">Empresa<small>Tenant aislado</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Módulos Habilitados<small>Gestión, ML, etc.</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja">Perfil de Usuario<small>Rol en esa empresa</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final">Funciones Permitidas<small>Acciones y transiciones</small></div>
+</div>
+
+<ul>
+    <li><strong>Aislamiento por Empresa:</strong> Toda operación comercial, contable o fiscal pertenece a un <code>empresa_id</code>. Un usuario puede pertenecer a más de una empresa, incluso con perfiles y permisos distintos en cada una.</li>
+    <li><strong>Superusuarios:</strong> Usuarios técnicos con acceso total garantizado para mantenimiento general del sistema.</li>
+</ul>
+
+<h2 id="empresas">3. Administración de Empresas</h2>
+<p>Desde la pantalla <strong>Empresas</strong> (<code>empresas.php</code> y <code>empresas_modulos.php</code>) se configuran los datos fundamentales de cada cliente u organización del sistema: <a class="btn-enlace" href="conf_empresas.html">Manual de pantalla</a></p>
+
+<table class="tabla-referencia">
+    <tr>
+        <th>Campo</th>
+        <th>Descripción y Comportamiento</th>
+    </tr>
+    <tr>
+        <td><strong>Razón Social y Nombre</strong></td>
+        <td>Denominación legal y nombre de fantasía para encabezados y comprobantes.</td>
+    </tr>
+    <tr>
+        <td><strong>CUIT y Condición Fiscal</strong></td>
+        <td>Clave fiscal y situación frente al IVA (Responsable Inscripto, Monotributo, Exento). Define la facturación electrónica.</td>
+    </tr>
+    <tr>
+        <td><strong>Tipo de Operación</strong></td>
+        <td>
+            <strong>BIENES:</strong> Empresas con mercadería física (depósitos, stock, remitos, listas de precios con costos).<br>
+            <strong>SERVICIOS:</strong> Empresas que no manejan inventario ni entrega física; el sistema oculta automáticamente las pantallas que requieren bienes.<br>
+            <strong>MIXTA:</strong> Permite operar bienes tangibles y prestaciones de servicios combinados.
+        </td>
+    </tr>
+    <tr>
+        <td><strong>Módulos Asociados</strong></td>
+        <td>Define qué módulos (Gestión, Matriz Legal, Estudio Contable, Sindicatos) tiene contratados y habilitados la empresa.</td>
+    </tr>
+</table>
+
+<h2 id="usuarios-perfiles">4. Usuarios, Perfiles y Roles</h2>
+<p>El control de acceso consta de tres elementos vinculados: <a class="btn-enlace" href="conf_usuarios_perfiles.html">Manual de pantalla</a></p>
+<ol>
+    <li><strong>Usuarios:</strong> Cuenta de acceso individual con correo electrónico/nombre de usuario y contraseña cifrada.</li>
+    <li><strong>Perfiles Base:</strong> Plantillas maestras de funciones (por ejemplo: <em>Administrador</em>, <em>Ventas</em>, <em>Compras y Pagos</em>, <em>Tesorería</em>, <em>Contable</em>, <em>Depósito y Stock</em>, <em>Consulta</em>).</li>
+    <li><strong>Empresas - Perfiles:</strong> Asignación del perfil a una empresa específica. Permite personalizar o anular funciones para una empresa sin alterar la plantilla global. <a class="btn-enlace" href="conf_permisos_funciones.html">Manual de permisos</a></li>
+</ol>
+
+<div class="alert alert-warning">
+    <strong>¡Atención!</strong> Para que un usuario nuevo pueda trabajar en una empresa, no alcanza con crearlo: debe asignársele un <strong>Perfil</strong> activo en esa empresa desde <em>Perfiles - Usuarios</em> o <em>Empresas - Perfiles</em>.
+</div>
+
+<h2 id="motor-estados">5. El Motor de Estados y Funciones de Pantalla</h2>
+<p>La característica más avanzada del sistema es su motor dinámico de transiciones de estado: <a class="btn-enlace" href="conf_tablas_estados.html">Manual del motor</a></p>
+<ul>
+    <li>Cada registro de negocio (factura, remito, orden de pago, etc.) tiene un estado genérico (por ejemplo: <em>Borrador</em>, <em>Pendiente de Aprobación</em>, <em>Confirmado</em>, <em>Anulado</em>).</li>
+    <li>Cada pantalla tiene un catálogo de <strong>Funciones de Pantalla</strong>. Una función define:
+        <ul>
+            <li>Estado Origen → Estado Destino.</li>
+            <li>Acción JavaScript que dispara la operación (<code>agregar</code>, <code>editar</code>, <code>confirmar</code>, <code>anular</code>).</li>
+            <li>Si requiere permisos especiales o aprobaciones.</li>
+        </ul>
+    </li>
+    <li><strong>Cálculo en vivo de botones:</strong> Al abrir una factura en <em>Borrador</em>, el sistema verifica qué funciones permiten salir de Borrador y cuáles de ellas tiene permitidas el perfil del usuario. Solo esos botones se dibujan en pantalla.</li>
+</ul>
+
+<h2 id="paginas-menus">6. Estructura de Páginas, Menús y Accesos Directos</h2>
+<p>El árbol del menú lateral que los usuarios ven se administra desde <strong>Páginas</strong>: <a class="btn-enlace" href="conf_paginas_menus.html">Manual de pantalla</a></p>
+<ul>
+    <li><strong>Jerarquía:</strong> Cada página puede ser un contenedor de menú (con hijos) o una pantalla operativa final (hoja).</li>
+    <li><strong>Orden y Visibilidad:</strong> El campo orden determina la posición visual de arriba hacia abajo.</li>
+    <li><strong>Accesos Directos Superiores:</strong> Marcando una página como <em>Acceso Directo</em> con su respectivo ícono, aparecerá en la barra superior del sistema para un acceso rápido con un solo clic.</li>
+</ul>
+
+<h2 id="dashboard-conf">7. Inicio de Configuración y Diagnóstico</h2>
+<p>Al ingresar al módulo de Configuración, la pantalla de <strong>Inicio</strong> ofrece un tablero de diagnóstico automático con la sección <em>"Para revisar"</em>: <a class="btn-enlace" href="conf_auditoria_diagnostico.html">Manual de diagnóstico</a></p>
+<ul>
+    <li>Perfiles sin funciones asignadas.</li>
+    <li>Usuarios dados de alta sin perfil ni empresa.</li>
+    <li>Empresas sin ningún módulo activo.</li>
+    <li>Páginas del menú sin archivo físico asociado o sin funciones configuradas.</li>
+</ul>
+
+<h2 id="auditoria">8. Auditoría y Seguimiento de Operaciones</h2>
+<p>La pantalla de <strong>Auditoría</strong> registra de forma inmutable los eventos clave de seguridad: inicios de sesión, cambios de permisos, creación o eliminación de perfiles, modificaciones de parámetros críticos de empresa y ejecuciones de transiciones sensibles. <a class="btn-enlace" href="conf_auditoria_diagnostico.html#auditoria">Manual de auditoría</a></p>
+
+<h2 id="preguntas-frecuentes">9. Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Solución</th>
+    </tr>
+    <tr>
+        <td>Un usuario no ve una opción en el menú lateral.</td>
+        <td>Verificar en <em>Empresas - Perfiles - Funciones</em> que el perfil del usuario tenga al menos una función activa en esa página, y que la página no tenga la marca de <em>Requiere Bienes</em> si la empresa es de tipo <em>Servicios</em>.</td>
+    </tr>
+    <tr>
+        <td>El botón "Confirmar" no le aparece a un operador.</td>
+        <td>El operador no tiene asignada la función de transición a Confirmado para esa pantalla en su perfil. Debe agregarse desde la matriz de permisos.</td>
+    </tr>
+    <tr>
+        <td>¿Cómo habilitar un nuevo módulo para una empresa?</td>
+        <td>Ir a <em>Empresas - Módulos</em>, seleccionar la empresa, agregar el módulo deseado y asignarle al menos un perfil con funciones.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de referencia técnica y funcional — Sistema Integral Casalucho / ProcesoSimple — Versión 2026.
+</footer>
+
+</body>
+</html>
+

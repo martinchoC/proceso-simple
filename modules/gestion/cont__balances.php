@@ -13,6 +13,7 @@ $pageTitle = "Dashboard de Balance Contable y Sumas y Saldos";
 $currentPage = 'cont__balances';
 $modudo_idx = 2; // Typo intencional y consistente con la arquitectura del sistema (ver CLAUDE.md)
 $pagina_idx = 86;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -142,25 +143,7 @@ $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 <main class="app-main">
     <!-- Header Principal -->
-    <div class="app-content-header py-3 border-bottom bg-white">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold text-dark">
-                        <i class="fas fa-balance-scale text-primary me-2"></i>Dashboard de Balance Contable
-                    </h3>
-                    <small class="text-muted">Estado Patrimonial consolidado, Resultado del Ejercicio y Listados de Sumas y Saldos</small>
-                </div>
-                <div class="col-sm-5 text-end">
-                    <ol class="breadcrumb float-sm-end mb-0">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Contabilidad</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Balance</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Balance','fas fa-balance-scale', 'Estado Patrimonial consolidado, Resultado del Ejercicio y Listados de Sumas y Saldos', ['Contabilidad']); ?>
 
     <div class="app-content py-3">
         <div class="container-fluid">
@@ -763,10 +746,10 @@ $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 </div>
 
 <!-- Chart.js 4.4 CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="<?= asset_local('js/chart.js-4.4.1/chart.umd.min.js') ?>"></script>
 
 <!-- SweetAlert2 (por consistencia con el ERP) -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
 <!-- Script de la página -->
 <script src="cont__balances.js"></script>

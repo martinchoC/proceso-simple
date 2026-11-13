@@ -1,6 +1,10 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/productos_proveedores.php';
+require_once __DIR__ . '/../../core/contratos/contratos_service.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -75,7 +79,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -105,7 +109,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -587,13 +594,30 @@ function agregarOrdenCompra($conexion, $data)
         $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
+        // Atributos de Contratos y Servicios
+        $tipo_circuito = in_array($data['tipo_circuito'] ?? '', ['BIENES', 'CONTRATO_RECURRENTE', 'CONTRATO_AVANCE']) ? $data['tipo_circuito'] : 'BIENES';
+        $es_contrato = !empty($data['es_contrato']) ? 1 : ($tipo_circuito !== 'BIENES' ? 1 : 0);
+        $contrato_nro_legal = !empty($data['contrato_nro_legal']) ? trim($data['contrato_nro_legal']) : null;
+        $fecha_inicio = !empty($data['fecha_inicio']) ? $data['fecha_inicio'] : null;
+        $fecha_fin = !empty($data['fecha_fin']) ? $data['fecha_fin'] : null;
+        $dias_preaviso_rescision = isset($data['dias_preaviso_rescision']) ? intval($data['dias_preaviso_rescision']) : 30;
+        $tiene_renovacion_automatica = !empty($data['tiene_renovacion_automatica']) ? 1 : 0;
+        $requiere_certificacion_avance = (!empty($data['requiere_certificacion_avance']) || $tipo_circuito === 'CONTRATO_AVANCE') ? 1 : 0;
+        $pct_anticipo_financiero = floatval($data['pct_anticipo_financiero'] ?? 0);
+        $pct_fondo_reparo = floatval($data['pct_fondo_reparo'] ?? 0);
+        $responsable_tecnico_id = (!empty($data['responsable_tecnico_id']) && intval($data['responsable_tecnico_id']) > 0) ? intval($data['responsable_tecnico_id']) : null;
+        $archivo_contrato_adjunto = !empty($data['archivo_contrato_adjunto']) ? trim($data['archivo_contrato_adjunto']) : null;
+
         // Insertar orden
         $sql = "INSERT INTO gestion__ordenes_compra 
                 (empresa_id, sucursal_id, punto_venta_id, comprobante_tipo_id, comprobante_nro, 
                  entidad_id, entidad_sucursal_id, f_emision, f_entrega_estimada, condicion_pago_id, 
                  moneda_id, tipo_cambio, direccion_entrega, subtotal, descuentos, impuestos, total, 
-                 observaciones, tabla_estado_registro_id) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                 observaciones, tabla_estado_registro_id,
+                 tipo_circuito, es_contrato, contrato_nro_legal, fecha_inicio, fecha_fin,
+                 dias_preaviso_rescision, tiene_renovacion_automatica, requiere_certificacion_avance,
+                 pct_anticipo_financiero, pct_fondo_reparo, responsable_tecnico_id, archivo_contrato_adjunto) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = mysqli_prepare($conexion, $sql);
         if (!$stmt) {
@@ -620,7 +644,7 @@ function agregarOrdenCompra($conexion, $data)
         $observaciones_val = $observaciones;
         $estado_inicial_val = intval($estado_inicial);
 
-        mysqli_stmt_bind_param($stmt, "iiiiiiissiiddddddsi",
+        mysqli_stmt_bind_param($stmt, "iiiiiiissiidsddddsisisssiiiddis",
             $empresa_id_val,
             $sucursal_id_val,
             $punto_venta_id_val,
@@ -639,7 +663,19 @@ function agregarOrdenCompra($conexion, $data)
             $impuestos_val,
             $total_val,
             $observaciones_val,
-            $estado_inicial_val
+            $estado_inicial_val,
+            $tipo_circuito,
+            $es_contrato,
+            $contrato_nro_legal,
+            $fecha_inicio,
+            $fecha_fin,
+            $dias_preaviso_rescision,
+            $tiene_renovacion_automatica,
+            $requiere_certificacion_avance,
+            $pct_anticipo_financiero,
+            $pct_fondo_reparo,
+            $responsable_tecnico_id,
+            $archivo_contrato_adjunto
         );
 
         if (!mysqli_stmt_execute($stmt)) {
@@ -705,6 +741,20 @@ function editarOrdenCompra($conexion, $id, $data)
         
         $comprobante_nro = intval($actual['comprobante_nro'] ?? 0);
 
+        // Atributos de Contratos y Servicios
+        $tipo_circuito = in_array($data['tipo_circuito'] ?? '', ['BIENES', 'CONTRATO_RECURRENTE', 'CONTRATO_AVANCE']) ? $data['tipo_circuito'] : 'BIENES';
+        $es_contrato = !empty($data['es_contrato']) ? 1 : ($tipo_circuito !== 'BIENES' ? 1 : 0);
+        $contrato_nro_legal = !empty($data['contrato_nro_legal']) ? trim($data['contrato_nro_legal']) : null;
+        $fecha_inicio = !empty($data['fecha_inicio']) ? $data['fecha_inicio'] : null;
+        $fecha_fin = !empty($data['fecha_fin']) ? $data['fecha_fin'] : null;
+        $dias_preaviso_rescision = isset($data['dias_preaviso_rescision']) ? intval($data['dias_preaviso_rescision']) : 30;
+        $tiene_renovacion_automatica = !empty($data['tiene_renovacion_automatica']) ? 1 : 0;
+        $requiere_certificacion_avance = (!empty($data['requiere_certificacion_avance']) || $tipo_circuito === 'CONTRATO_AVANCE') ? 1 : 0;
+        $pct_anticipo_financiero = floatval($data['pct_anticipo_financiero'] ?? 0);
+        $pct_fondo_reparo = floatval($data['pct_fondo_reparo'] ?? 0);
+        $responsable_tecnico_id = (!empty($data['responsable_tecnico_id']) && intval($data['responsable_tecnico_id']) > 0) ? intval($data['responsable_tecnico_id']) : null;
+        $archivo_contrato_adjunto = !empty($data['archivo_contrato_adjunto']) ? trim($data['archivo_contrato_adjunto']) : null;
+
         $sql = "UPDATE gestion__ordenes_compra 
                 SET sucursal_id = ?,
                     punto_venta_id = ?,
@@ -722,7 +772,19 @@ function editarOrdenCompra($conexion, $id, $data)
                     descuentos = ?, 
                     impuestos = ?, 
                     total = ?, 
-                    observaciones = ?
+                    observaciones = ?,
+                    tipo_circuito = ?,
+                    es_contrato = ?,
+                    contrato_nro_legal = ?,
+                    fecha_inicio = ?,
+                    fecha_fin = ?,
+                    dias_preaviso_rescision = ?,
+                    tiene_renovacion_automatica = ?,
+                    requiere_certificacion_avance = ?,
+                    pct_anticipo_financiero = ?,
+                    pct_fondo_reparo = ?,
+                    responsable_tecnico_id = ?,
+                    archivo_contrato_adjunto = ?
                 WHERE orden_compra_id = ? AND empresa_id = ?";
 
         $stmt = mysqli_prepare($conexion, $sql);
@@ -751,7 +813,7 @@ function editarOrdenCompra($conexion, $id, $data)
         $empresa_idx_val = intval($data['empresa_idx']);
 
         mysqli_stmt_bind_param($stmt, 
-            "iiiiiissiiddddddsii",
+            "iiiiiissiidsddddssisssiiiddisii",
             $sucursal_id_val,
             $punto_venta_id_val,
             $comprobante_tipo_id_val,
@@ -769,6 +831,18 @@ function editarOrdenCompra($conexion, $id, $data)
             $impuestos_val,
             $total_val,
             $observaciones_val,
+            $tipo_circuito,
+            $es_contrato,
+            $contrato_nro_legal,
+            $fecha_inicio,
+            $fecha_fin,
+            $dias_preaviso_rescision,
+            $tiene_renovacion_automatica,
+            $requiere_certificacion_avance,
+            $pct_anticipo_financiero,
+            $pct_fondo_reparo,
+            $responsable_tecnico_id,
+            $archivo_contrato_adjunto,
             $id_val,
             $empresa_idx_val
         );
@@ -941,7 +1015,7 @@ function obtenerProveedores($conexion, $empresa_idx)
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia 
             FROM gestion__entidades 
             WHERE empresa_id = ? 
-            AND es_proveedor = 1
+            AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . "
             AND tabla_estado_registro_id = 1 
             ORDER BY entidad_nombre";
     
@@ -1232,6 +1306,8 @@ function agregarProductoRapido($conexion, $data)
         mysqli_stmt_close($stmt);
 
         recalcularProveedoresBusqueda($conexion, $producto_id);
+        // Primer proveedor del producto = principal (core/productos_proveedores.php)
+        pp_asegurar_principal($conexion, $empresa_id, $producto_id);
         mysqli_commit($conexion);
 
         return ['success' => true, 'producto_id' => $producto_id];
@@ -1398,6 +1474,8 @@ function vincularProductoProveedor($conexion, $data)
         }
 
         recalcularProveedoresBusqueda($conexion, $producto_id);
+        // Primer proveedor del producto = principal (core/productos_proveedores.php)
+        pp_asegurar_principal($conexion, $empresa_id, $producto_id);
         mysqli_commit($conexion);
 
         return [

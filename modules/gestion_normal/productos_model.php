@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
+require_once __DIR__ . '/../../core/productos_presentaciones.php';
 $conexion = $conn;
 
 // ABM "Productos y Servicios" para Módulo Gestión Normal:
@@ -83,15 +85,22 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     }
 
     if ($search !== '' && preg_match_all('/"([^"]*)"|(\S+)/', $search, $matches, PREG_SET_ORDER)) {
+        // También por el código de barras de sus presentaciones (core/productos_presentaciones.php)
+        $sql_pres = prpr_sql_busqueda_barras($conexion, 'p');
         foreach ($matches as $match) {
             $termino = trim(isset($match[2]) ? $match[2] : $match[1]);
             if ($termino === '') {
                 continue;
             }
             $like = '%' . $termino . '%';
-            $where[] = "(p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.codigo_barras LIKE ? OR p.producto_descripcion LIKE ? OR p.proveedores_busqueda LIKE ?)";
+            $where[] = "(p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.codigo_barras LIKE ? OR p.producto_descripcion LIKE ? OR p.proveedores_busqueda LIKE ?"
+                . ($sql_pres !== '' ? " OR $sql_pres" : '') . ")";
             $types .= "sssss";
             array_push($values, $like, $like, $like, $like, $like);
+            if ($sql_pres !== '') {
+                $types .= "s";
+                $values[] = $like;
+            }
         }
     }
     $where_filtrado = implode(" AND ", $where);
@@ -219,7 +228,7 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
     static $cache = [];
     if (!isset($cache[$pagina_id])) {
-        $cache[$pagina_id] = obtenerFuncionesPagina($conexion, $pagina_id);
+        $cache[$pagina_id] = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     }
 
     $botones = [];
@@ -248,7 +257,11 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    foreach (obtenerFuncionesPagina($conexion, $pagina_id) as $funcion) {
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
+    foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
             return [
                 'nombre_funcion' => $funcion['nombre_funcion'],
@@ -597,7 +610,7 @@ function ejecutarAccionProducto($conexion, $producto_id, $accion_js, $empresa_id
 
     $estado_actual = intval($prod['tabla_estado_registro_id']);
 
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $funcion_encontrada = null;
     foreach ($funciones as $fn) {
         $accion_fn = $fn['accion_js'] ?? strtolower($fn['nombre_funcion']);

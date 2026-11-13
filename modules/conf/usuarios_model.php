@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/auditoria.php';
 $conexion = $conn;
 
 function obtenerUsuarios($conexion)
@@ -31,7 +32,19 @@ function agregarUsuario($conexion, $data)
             VALUES 
             ('$usuario_nombre', '$usuario', '$email', '$password', $duracion_sid_minutos)";
 
-    return mysqli_query($conexion, $sql);
+    $res = mysqli_query($conexion, $sql);
+    if ($res) {
+        $nuevoId = mysqli_insert_id($conexion);
+        $payloadAlta = [
+            'usuario_id' => $nuevoId,
+            'usuario_nombre' => $data['usuario_nombre'],
+            'usuario' => $data['usuario'],
+            'email' => $data['email'],
+            'duracion_sid_minutos' => $duracion_sid_minutos,
+        ];
+        auditoria_registrar_alta($conexion, 'conf__usuarios', $nuevoId, $payloadAlta, "Alta de usuario '{$usuario_nombre}' ({$usuario})");
+    }
+    return $res;
 }
 
 function editarUsuario($conexion, $id, $data)
@@ -41,6 +54,8 @@ function editarUsuario($conexion, $id, $data)
     }
 
     $id = intval($id);
+    $datosAntes = obtenerUsuarioPorId($conexion, $id);
+
     $usuario_nombre = mysqli_real_escape_string($conexion, $data['usuario_nombre']);
     $usuario = mysqli_real_escape_string($conexion, $data['usuario']);
     $email = mysqli_real_escape_string($conexion, $data['email']);
@@ -61,16 +76,31 @@ function editarUsuario($conexion, $id, $data)
 
     $sql .= " WHERE usuario_id = $id";
 
-    return mysqli_query($conexion, $sql);
+    $res = mysqli_query($conexion, $sql);
+    if ($res) {
+        $datosDespues = obtenerUsuarioPorId($conexion, $id);
+        auditoria_registrar_modificacion($conexion, 'conf__usuarios', $id, $datosAntes ?: [], $datosDespues ?: [], "Modificación de datos del usuario '{$usuario_nombre}' ({$usuario})");
+    }
+    return $res;
 }
 
 function cambiarEstadoUsuario($conexion, $id, $nuevo_estado)
 {
     $id = intval($id);
     $nuevo_estado = intval($nuevo_estado);
+    $datosAntes = obtenerUsuarioPorId($conexion, $id);
 
     $sql = "UPDATE conf__usuarios SET tabla_estado_registro_id = $nuevo_estado WHERE usuario_id = $id";
-    return mysqli_query($conexion, $sql);
+    $res = mysqli_query($conexion, $sql);
+    if ($res) {
+        $datosDespues = obtenerUsuarioPorId($conexion, $id);
+        $accion = ($nuevo_estado == 1) ? 'ALTA' : 'BAJA';
+        $desc = ($nuevo_estado == 1)
+            ? "Habilitación / Reactivación del usuario #{$id}"
+            : "Inhabilitación / Baja lógica del usuario #{$id}";
+        auditoria_registrar_operacion($conexion, $accion, 'conf__usuarios', $id, $datosAntes ?: [], $datosDespues ?: [], $desc);
+    }
+    return $res;
 }
 
 function obtenerUsuarioPorId($conexion, $id)

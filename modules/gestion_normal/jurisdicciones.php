@@ -6,32 +6,14 @@ $pageTitle = "Jurisdicciones";
 $currentPage = 'jurisdicciones';
 $modudo_idx = 5;
 $pagina_idx = 574; // ID de página para Jurisdicciones
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-map-marker-alt me-2"></i>Jurisdicciones
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Jurisdicciones</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Jurisdicciones','fas fa-map-marker-alt', '', ['Impuestos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -144,45 +126,40 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="pais_id" class="form-label">País</label>
+                                        <label for="pais_id" class="form-label">País <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="pais_id" name="pais_id">
                                             <option value="">Seleccione un país...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="provincia_id" class="form-label">Provincia</label>
+                                        <label for="provincia_id" class="form-label">Provincia <?= ui_ayuda('Opcional') ?></label>
                                         <select class="form-select" id="provincia_id" name="provincia_id">
                                             <option value="">Seleccione una provincia...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="localidad_id" class="form-label">Localidad</label>
-                                        <select class="form-select" id="localidad_id" name="localidad_id">
-                                            <option value="">Seleccione una localidad...</option>
+                                        <label for="localidad_id" class="form-label">Localidad <?= ui_ayuda('Opcional') ?></label>
+                                        <select class="form-select" id="localidad_id" name="localidad_id" disabled>
+                                            <option value="">Seleccione una provincia primero...</option>
                                         </select>
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-8 mb-3">
-                                        <label for="organismo_recaudador" class="form-label">Organismo Recaudador</label>
+                                        <label for="organismo_recaudador" class="form-label">Organismo Recaudador <?= ui_ayuda('Opcional') ?></label>
                                         <input type="text" class="form-control" id="organismo_recaudador" 
                                             name="organismo_recaudador" maxlength="100">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-4 mb-3">
-                                        <label for="codigo_externo" class="form-label">Código Externo</label>
+                                        <label for="codigo_externo" class="form-label">Código Externo <?= ui_ayuda('Opcional') ?></label>
                                         <input type="text" class="form-control" id="codigo_externo" 
                                             name="codigo_externo" maxlength="20">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
@@ -198,10 +175,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </label>
                                             </div>
                                             <div class="form-group mt-2">
-                                                <label for="orden" class="form-label">Orden</label>
+                                                <label for="orden" class="form-label">Orden <?= ui_ayuda('Orden de visualización') ?></label>
                                                 <input type="number" class="form-control" id="orden" 
                                                     name="orden" value="1" min="1">
-                                                <div class="form-text">Orden de visualización</div>
                                             </div>
                                         </div>
                                     </div>
@@ -317,13 +293,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
             }
 
-            function cargarProvincias(pais_id) {
+            function cargarProvincias(pais_id, provinciaSeleccionada = null, localidadSeleccionada = null) {
                 $.ajax({
                     url: 'jurisdicciones_ajax.php',
                     type: 'GET',
                     data: {
                         accion: 'listar_provincias',
-                        pais_id: pais_id
+                        pais_id: pais_id || 0
                     },
                     dataType: 'json',
                     success: function(response) {
@@ -333,13 +309,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         
                         if (response && response.length > 0) {
                             $.each(response, function(index, provincia) {
-                                select.append('<option value="' + provincia.provincia_id + '">' + 
+                                var selected = (provinciaSeleccionada && provincia.provincia_id == provinciaSeleccionada) ? ' selected' : '';
+                                select.append('<option value="' + provincia.provincia_id + '"' + selected + '>' + 
                                     escapeHtml(provincia.provincia) + '</option>');
                             });
                         }
                         
-                        // Resetear localidades cuando cambia provincia
-                        cargarLocalidades(null);
+                        if (provinciaSeleccionada) {
+                            cargarLocalidades(provinciaSeleccionada, localidadSeleccionada);
+                        } else {
+                            cargarLocalidades(null);
+                        }
                     },
                     error: function(xhr, status, error) {
                         console.error('Error al cargar provincias:', error);
@@ -347,7 +327,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 });
             }
 
-            function cargarLocalidades(provincia_id) {
+            function cargarLocalidades(provincia_id, localidadSeleccionada = null) {
+                var select = $('#localidad_id');
+                if (!provincia_id) {
+                    select.empty().append('<option value="">Seleccione una provincia primero...</option>').prop('disabled', true);
+                    return;
+                }
+
+                select.empty().append('<option value="">Cargando localidades...</option>').prop('disabled', true);
+
                 $.ajax({
                     url: 'jurisdicciones_ajax.php',
                     type: 'GET',
@@ -357,19 +345,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     },
                     dataType: 'json',
                     success: function(response) {
-                        var select = $('#localidad_id');
                         select.empty();
                         select.append('<option value="">Seleccione una localidad...</option>');
                         
                         if (response && response.length > 0) {
                             $.each(response, function(index, localidad) {
-                                select.append('<option value="' + localidad.localidad_id + '">' + 
+                                var selected = (localidadSeleccionada && localidad.localidad_id == localidadSeleccionada) ? ' selected' : '';
+                                select.append('<option value="' + localidad.localidad_id + '"' + selected + '>' + 
                                     escapeHtml(localidad.localidad) + '</option>');
                             });
                         }
+                        select.prop('disabled', false);
                     },
                     error: function(xhr, status, error) {
                         console.error('Error al cargar localidades:', error);
+                        select.empty().append('<option value="">Error al cargar localidades</option>');
                     }
                 });
             }
@@ -377,12 +367,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Evento para cargar provincias cuando cambia el país
             $('#pais_id').change(function() {
                 var pais_id = $(this).val();
-                if (pais_id) {
-                    cargarProvincias(pais_id);
-                } else {
-                    $('#provincia_id').empty().append('<option value="">Seleccione una provincia...</option>');
-                    $('#localidad_id').empty().append('<option value="">Seleccione una localidad...</option>');
-                }
+                cargarProvincias(pais_id || 0);
             });
 
             // Evento para cargar localidades cuando cambia la provincia
@@ -449,7 +434,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'jurisdiccion_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'jurisdiccion_codigo',
@@ -603,7 +588,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                        url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                     },
                     order: currentOrder,
                     responsive: true,
@@ -803,24 +788,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#jurisdiccion_nombre').val(res.jurisdiccion_nombre);
                         $('#jurisdiccion_tipo_id').val(res.jurisdiccion_tipo_id);
                         
-                        if (res.pais_id) {
-                            $('#pais_id').val(res.pais_id);
-                            // Cargar provincias primero
-                            cargarProvincias(res.pais_id);
-                            // Esperar a que se carguen las provincias antes de seleccionar
-                            setTimeout(function() {
-                                if (res.provincia_id) {
-                                    $('#provincia_id').val(res.provincia_id);
-                                    // Cargar localidades después de seleccionar provincia
-                                    cargarLocalidades(res.provincia_id);
-                                    setTimeout(function() {
-                                        if (res.localidad_id) {
-                                            $('#localidad_id').val(res.localidad_id);
-                                        }
-                                    }, 300);
-                                }
-                            }, 300);
-                        }
+                        $('#pais_id').val(res.pais_id || '');
+                        cargarProvincias(res.pais_id || 0, res.provincia_id, res.localidad_id);
                         
                         $('#organismo_recaudador').val(res.organismo_recaudador || '');
                         $('#codigo_externo').val(res.codigo_externo || '');
@@ -847,8 +816,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#jurisdiccion_id').val('');
                 $('#formJurisdiccion').removeClass('was-validated');
                 $('#pais_id').val('');
-                $('#provincia_id').empty().append('<option value="">Seleccione una provincia...</option>');
-                $('#localidad_id').empty().append('<option value="">Seleccione una localidad...</option>');
+                cargarProvincias(0);
+                $('#localidad_id').empty().append('<option value="">Seleccione una provincia primero...</option>').prop('disabled', true);
                 $('#requiere_padron').prop('checked', false);
                 $('#orden').val(1);
             }
@@ -1108,6 +1077,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
             cargarTiposJurisdiccion();
             cargarPaises();
+            cargarProvincias(0);
             
             $('[title]').tooltip({
                 trigger: 'hover',
@@ -1118,13 +1088,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Librerías necesarias -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

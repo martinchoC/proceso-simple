@@ -28,7 +28,7 @@ $(document).ready(function () {
     // =========================================================================
     function formatearMoneda(valor) {
         const num = parseFloat(valor) || 0;
-        return '$ ' + num.toLocaleString('es-AR', {
+        return '$ ' + Fmt.numero(num, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
@@ -303,7 +303,7 @@ $(document).ready(function () {
                             beginAtZero: true,
                             ticks: {
                                 callback: function (value) {
-                                    return '$ ' + value.toLocaleString('es-AR');
+                                    return '$ ' + Fmt.numero(value);
                                 },
                                 font: { size: 10 }
                             }
@@ -818,7 +818,7 @@ $(document).ready(function () {
         let csv = '\uFEFF'; // BOM UTF-8
         csv += 'BALANCE DE COMPROBACIÓN DE SUMAS Y SALDOS\n';
         csv += `Período: ${fDesde} al ${fHasta}\n`;
-        csv += `Fecha de Emisión: ${new Date().toLocaleDateString('es-AR')}\n\n`;
+        csv += `Fecha de Emisión: ${Fmt.fecha(new Date())}\n\n`;
         csv += 'Código;Cuenta Contable;Nivel;Naturaleza;Saldo Anterior;Suma Debe;Suma Haber;Saldo Deudor;Saldo Acreedor\n';
 
         datosBalance.cuentas.forEach(function (c) {

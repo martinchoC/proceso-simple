@@ -10,6 +10,8 @@ require_once "comprobantes_relacion_fiscal_model.php";
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 110);
+// Solo una página de este módulo (si no, la de comprobantes_relacion_fiscal.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'comprobantes_relacion_fiscal.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -54,6 +56,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'condicion_fiscal_emisor_id' => intval($_POST['condicion_fiscal_emisor_id'] ?? 0),
                 'condicion_fiscal_receptor_id' => intval($_POST['condicion_fiscal_receptor_id'] ?? 0),
@@ -65,6 +69,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['relacion_fiscal_id'] ?? 0);
             $data = [
                 'condicion_fiscal_emisor_id' => intval($_POST['condicion_fiscal_emisor_id'] ?? 0),
@@ -83,6 +89,8 @@ try {
                 echo json_encode(['success' => false, 'error' => 'Datos incompletos'], JSON_UNESCAPED_UNICODE);
                 break;
             }
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $id, $accion_js, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

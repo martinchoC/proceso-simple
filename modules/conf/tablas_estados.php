@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Estados de Registros por Tabla";
 $currentPage = 'tablas_estados';
 $modudo_idx = 1;
+$pagina_idx = 14; // conf__paginas
+$ui_simple = true;
 
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -72,29 +74,12 @@ tr.grupo-header:hover td, tr.dtrg-group:hover td {
     transition: transform 0.15s ease-in-out;
 }
 </style>
-<link rel="stylesheet" href="https://cdn.datatables.net/rowgroup/1.4.1/css/rowGroup.dataTables.min.css">
+<link rel="stylesheet" href="<?= asset_local('css/datatables-rowgroup-1.4.1/rowGroup.dataTables.min.css') ?>">
 
 <main class="app-main">
     <!--begin::App Content Header-->
-    <div class="app-content-header">
-        <!--begin::Container-->
-        <div class="container-fluid">
-        <!--begin::Row-->
-        <div class="row">
-            <div class="col-sm-6"><h3 class="mb-0">Estados de Registros por Tabla</h3></div>
-            <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Estados Tablas</li>
-            </ol>
-            </div>
-        </div>
-        <!--end::Row-->
-        </div>
-        <!--end::Container-->
-    </div>
-    <!--end::App Content Header-->
-    <!--begin::App Content-->
+    <?php ui_encabezado('Estados por tabla', 'bi bi-signpost-split', 'Estados que usa cada tabla, en el orden del circuito, con su etiqueta, color y si es inicial o final.', ['Estructura del sistema']); ?>
+
     <div class="app-content">
         <!--begin::Container-->
         <div class="container-fluid">
@@ -215,7 +200,7 @@ tr.grupo-header:hover td, tr.dtrg-group:hover td {
   </div>
 </div>
 
-<script src="https://cdn.datatables.net/rowgroup/1.4.1/js/dataTables.rowGroup.min.js"></script>
+<script src="<?= asset_local('js/datatables-rowgroup-1.4.1/dataTables.rowGroup.min.js') ?>"></script>
 <script>
 // Mapa de colores Bootstrap
 const bootstrapColors = {
@@ -804,7 +789,7 @@ $(document).ready(function(){
 });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

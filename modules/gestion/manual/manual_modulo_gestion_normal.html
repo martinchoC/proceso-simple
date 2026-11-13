@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Módulo 5: Gestión Normal (ERP Estándar)</title>
+<style>
+    :root {
+        --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
+        --gris-borde: #dee2e6;
+        --gris-fondo: #f8f9fa;
+        --texto: #212529;
+        --texto-muted: #6c757d;
+        --verde: #198754;
+        --amarillo: #ffc107;
+        --rojo: #dc3545;
+        --naranja: #fd7e14;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--texto);
+        background: #fff;
+        padding: 24px;
+        line-height: 1.6;
+        max-width: 960px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 1.85rem; margin-bottom: 6px; color: #111827; }
+    h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 8px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.1rem; margin-top: 1.6rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 14px; font-size: 0.92rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.6rem; }
+    
+    .badge-modulo {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #ffedd5;
+        color: #9a3412;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .toc {
+        background: var(--gris-fondo);
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 22px;
+        margin: 20px 0 30px;
+    }
+    .toc strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+    .toc ul { margin: 0; padding-left: 20px; }
+    .toc li { margin-bottom: 4px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    .card {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+        background: #fff;
+    }
+    .card-outline-primary { border-left: 5px solid var(--azul); }
+    .card-outline-orange { border-left: 5px solid var(--naranja); }
+
+    .alert {
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 16px 0;
+        font-size: 0.95rem;
+    }
+    .alert-info { background: #e7f1ff; border-left: 4px solid var(--azul); color: #084298; }
+    .alert-warning { background: #fff8e6; border-left: 4px solid var(--amarillo); color: #664d03; }
+
+    table.tabla-referencia {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0;
+        font-size: 0.92rem;
+    }
+    table.tabla-referencia th, table.tabla-referencia td {
+        border: 1px solid var(--gris-borde);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    table.tabla-referencia th {
+        background: var(--gris-fondo);
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .flujo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 18px 0;
+    }
+    .flujo-caja {
+        border: 2px solid var(--naranja);
+        border-radius: 8px;
+        padding: 10px 16px;
+        background: #fff7ed;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-align: center;
+        color: #9a3412;
+    }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); font-size: 0.8rem; margin-top: 2px; }
+    .flujo-caja.final { border-color: var(--verde); background: #f0fdf4; color: #166534; }
+    .flujo-flecha { font-size: 1.4rem; color: var(--texto-muted); font-weight: bold; }
+
+    .btn-enlace {
+        display: inline-block;
+        padding: 3px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: var(--naranja);
+        color: #fff;
+        border-radius: 4px;
+        text-decoration: none;
+        margin-left: 6px;
+    }
+    .btn-enlace:hover { background: #d96204; color: #fff; text-decoration: none; }
+
+    footer {
+        margin-top: 3.5rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--gris-borde);
+        color: var(--texto-muted);
+        font-size: 0.85rem;
+    }
+    @media print {
+        .volver, .toc { display: none; }
+        body { max-width: none; padding: 0; }
+        h2 { page-break-after: avoid; }
+    }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html">← Volver al portal de manuales</a>
+
+<span class="badge-modulo">Módulo 5</span>
+<h1>Manual de usuario: Gestión Normal (ERP Estándar)</h1>
+<p class="subtitulo">Versión optimizada y ágil del ERP para empresas comerciales y prestadoras de servicios generales sin requerimientos de compatibilidad por marca o modelo.</p>
+
+<div class="toc">
+    <strong>Contenido del manual</strong>
+    <ul>
+        <li><a href="#diferencias">1. ¿Qué es Gestión Normal y en qué se diferencia del Módulo 2?</a></li>
+        <li><a href="#catalogo">2. Catálogo Simplificado de Productos y Servicios</a></li>
+        <li><a href="#arca-importacion">3. Importación Directa de Comprobantes ARCA</a></li>
+        <li><a href="#ventas-compras">4. Circuitos Ágiles de Ventas y Compras</a></li>
+        <li><a href="#tesoreria-bancos">5. Tesorería, Cuentas Bancarias y Conciliación</a></li>
+        <li><a href="#control-fiscal">6. Control Fiscal y Cierres</a></li>
+        <li><a href="#preguntas-frecuentes">7. Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="diferencias">1. ¿Qué es Gestión Normal y en qué se diferencia del Módulo 2?</h2>
+<p>El Módulo 5 <strong>Gestión Normal</strong> (<code>modules/gestion_normal/</code>) comparte la misma solidez arquitectónica, motor de transiciones y tablas que el Módulo Gestión (Módulo 2), pero elimina la sobrecarga de compatibilidades vehiculares o de maquinarias:</p>
+
+<table class="tabla-referencia">
+    <tr>
+        <th>Aspecto</th>
+        <th>Módulo 2 (Gestión Casalucho)</th>
+        <th>Módulo 5 (Gestión Normal)</th>
+    </tr>
+    <tr>
+        <td><strong>Compatibilidad</strong></td>
+        <td>Maneja árboles de Marcas, Modelos y Submodelos de repuestos.</td>
+        <td><strong>Desactivado.</strong> Cada producto es autónomo y directo.</td>
+    </tr>
+    <tr>
+        <td><strong>Pantalla de Productos</strong></td>
+        <td>Incluye solapas de compatibilidades y relaciones técnicas.</td>
+        <td><strong>Directa y ágil:</strong> código, descripción, tipo (Bien o Servicio), alícuota de IVA y precio.</td>
+    </tr>
+    <tr>
+        <td><strong>Listas de Precios</strong></td>
+        <td>Filtros por marca/modelo.</td>
+        <td>Filtro simple por categoría, tipo (Producto / Servicio) y búsqueda global.</td>
+    </tr>
+    <tr>
+        <td><strong>Importación ARCA</strong></td>
+        <td>Enfoque en factura individual o sincronización.</td>
+        <td><strong>Importador nativo</strong> de "Mis Comprobantes Emitidos" y "Mis Comprobantes Recibidos" directo desde la pantalla de facturación.</td>
+    </tr>
+</table>
+
+<h2 id="catalogo">2. Catálogo Simplificado de Productos y Servicios</h2>
+<p>La pantalla <code>productos.php</code> de Gestión Normal permite dar de alta artículos comerciales y prestaciones de servicios en un solo formulario: <a class="btn-enlace" href="gn_productos.html">Manual de productos</a></p>
+<ul>
+    <li><strong>Distinción Bien / Servicio:</strong> Al marcar un ítem como <em>Servicio</em>, el sistema sabe que no debe controlar ni exigir stock en remitos ni en ajustes.</li>
+    <li><strong>Categorías Comerciales:</strong> Clasificación libre para agrupar productos en listas de precios y estadísticas.</li>
+    <li><strong>Listas de Precios Directas:</strong> Gestión y actualización masiva por porcentaje. <a class="btn-enlace" href="gn_listas_precios.html">Manual de precios</a></li>
+</ul>
+
+<h2 id="arca-importacion">3. Importación Directa de Comprobantes ARCA</h2>
+<div class="card card-outline-orange">
+    <strong>Carga masiva sin digitación manual:</strong> <a class="btn-enlace" href="gn_ventas_facturas_arca.html">Manual facturación e importador</a>
+    <p>Desde la pantalla de <strong>Facturación de Ventas</strong> (<code>ventas_facturas.php</code>), el botón <em>"Importar Comprobantes ARCA"</em> permite subir el archivo Excel descargado del portal de ARCA. El sistema procesa cada línea, verifica que no esté duplicado, crea el comprobante confirmado con su número oficial y CAE, y genera el asiento contable correspondiente.</p>
+</div>
+<p>Del mismo modo, en <strong>Facturas de Proveedores</strong> (<code>facturas_proveedores.php</code>) se incorpora la lectura masiva de comprobantes recibidos para acelerar la registración de gastos y compras: <a class="btn-enlace" href="gn_facturas_proveedores_lectura.html">Manual compras y lectura</a></p>
+
+<h2 id="ventas-compras">4. Circuitos Ágiles de Ventas y Compras</h2>
+<p>Ofrece la misma versatilidad que el Módulo 2:</p>
+<div class="flujo">
+    <div class="flujo-caja">Venta Directa<small>Factura ARCA inmediata</small></div>
+    <div class="flujo-flecha">O BIEN</div>
+    <div class="flujo-caja">Circuito Completo<small>Pedido → Remito → Factura</small></div>
+</div>
+<ul>
+    <li>Para empresas de servicios o comercios minoristas: emisión directa de la factura sin pasar por pedidos ni remitos.</li>
+    <li>Para distribuidores mayoristas: circuito completo con preparación de pedidos, remitos de entrega y facturación agrupada.</li>
+</ul>
+
+<h2 id="tesoreria-bancos">5. Tesorería, Cuentas Bancarias y Conciliación</h2>
+<p>Cuenta con todas las herramientas de tesorería avanzada:</p>
+<ul>
+    <li>Cobranzas con múltiples medios de pago y recibos oficiales.</li>
+    <li>Órdenes de pago a proveedores con emisión de certificados de retención.</li>
+    <li>Conciliación bancaria automática con lectura de extractos Excel/CSV y reglas aprendidas.</li>
+    <li>Gestión de cheques en cartera y movimientos entre cuentas.</li>
+</ul>
+
+<h2 id="control-fiscal">6. Control Fiscal y Cierres</h2>
+<ul>
+    <li>Generación automática del Libro IVA Digital (Ventas y Compras).</li>
+    <li>Posición mensual de IVA con arrastre de saldos a favor.</li>
+    <li>Control Fiscal de períodos para evitar modificaciones extemporáneas.</li>
+</ul>
+
+<h2 id="preguntas-frecuentes">7. Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Puedo migrar una empresa de Gestión Normal a Gestión Integral?</td>
+        <td>Sí, dado que comparten el mismo modelo de base de datos, habilitar el Módulo 2 solo requiere activar las pantallas de marcas y modelos en los permisos del perfil.</td>
+    </tr>
+    <tr>
+        <td>¿Los manuales de pantalla del Módulo 2 sirven para el Módulo 5?</td>
+        <td>Totalmente. Todas las pantallas de tesorería, cobranzas, pagos, bancos, compras y fiscalidad operan exactamente igual.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de referencia funcional — Sistema Integral Casalucho / ProcesoSimple — Módulo Gestión Normal.
+</footer>
+
+</body>
+</html>
+

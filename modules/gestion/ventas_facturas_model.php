@@ -1,8 +1,13 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
+require_once __DIR__ . '/periodos_fiscales_core_model.php';
+require_once __DIR__ . '/../../core/cont_periodos.php';
 $conexion = $conn;
 
 function vfEstadoColumna($conexion) {
@@ -72,7 +77,10 @@ function vfObtenerFuncionesPagina($conexion, $pagina_id) {
 }
 
 function vfBotonesPorEstado($conexion, $pagina_id, $estado_id) {
-        $sql = "SELECT pf.nombre_funcion, pf.accion_js, pf.descripcion,
+        static $cache = [];
+        $clave = $pagina_id . '|' . $estado_id;
+        if (isset($cache[$clave])) return $cache[$clave];
+        $sql = "SELECT pf.pagina_funcion_id, pf.pagina_id, pf.nombre_funcion, pf.accion_js, pf.descripcion,
                        pf.tabla_estado_registro_origen_id,
                        pf.tabla_estado_registro_destino_id,
                        i.icono_clase, c.color_clase, c.bg_clase, c.text_clase
@@ -93,12 +101,17 @@ function vfBotonesPorEstado($conexion, $pagina_id, $estado_id) {
             $rows[] = $row;
         }
         mysqli_stmt_close($stmt);
-        return $rows;
+        // Además del estado, solo las funciones asignadas al perfil del usuario
+        return $cache[$clave] = permisos_filtrar_funciones($conexion, $rows);
 }
 
 // Función con origen_id = 0 (creación) — mismo patrón que obtenerBotonAgregar() de ventas_pedidos_model.php.
 function vfObtenerBotonAgregar($conexion, $pagina_id) {
-    foreach (vfObtenerFuncionesPagina($conexion, $pagina_id) as $funcion) {
+    $funciones = permisos_filtrar_funciones($conexion, vfObtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
+    foreach ($funciones as $funcion) {
         if (intval($funcion['tabla_estado_registro_origen_id']) === 0) {
             return [
                 'nombre_funcion' => $funcion['nombre_funcion'],
@@ -239,7 +252,7 @@ function vfClientes($conexion, $empresa_id) {
                                 ON es.entidad_id = e.entidad_id
                              AND es.empresa_id = e.empresa_id
                              AND es.tabla_estado_registro_id = 1
-                        WHERE e.empresa_id = ? AND e.es_cliente = 1
+                        WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "
                             AND e.tabla_estado_registro_id = 1
                         ORDER BY e.entidad_nombre, es.sucursal_nombre";
     $stmt = mysqli_prepare($conexion, $sql);
@@ -280,15 +293,32 @@ function vfPuntosVenta($conexion, $empresa_id) {
  * Obtiene la relación fiscal (cruce emisor vs receptor) desde gestion__comprobantes_relacion_fiscal.
  * Emisor: conf__empresas.condicion_fiscal_id
  * Receptor: gestion__entidades_condiciones_fiscales o 2 (Consumidor Final)
+ * $fecha (Y-m-d): condiciones vigentes a esa fecha en vez de hoy; el emisor sale entonces de la vigencia de
+ * gestion__empresas_parametros a esa fecha (y si no tiene condición, de conf__empresas). La usa la impresión.
  */
-function vfObtenerRelacionFiscal($conexion, $empresa_id, $entidad_id = null) {
+function vfObtenerRelacionFiscal($conexion, $empresa_id, $entidad_id = null, $fecha = null) {
+    $fecha = !empty($fecha) ? substr((string) $fecha, 0, 10) : null;
     // 1. Condición fiscal emisor (empresa)
-    $stmt = mysqli_prepare($conexion, "SELECT condicion_fiscal_id FROM conf__empresas WHERE empresa_id = ?");
-    mysqli_stmt_bind_param($stmt, 'i', $empresa_id);
-    mysqli_stmt_execute($stmt);
-    $emisor_row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    mysqli_stmt_close($stmt);
-    $emisor_cond_id = intval($emisor_row['condicion_fiscal_id'] ?? 1) ?: 1;
+    $emisor_cond_id = 0;
+    if ($fecha !== null) {
+        $stmt = mysqli_prepare($conexion, "SELECT condicion_fiscal_id FROM gestion__empresas_parametros
+                                           WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+                                             AND f_desde <= ? AND (f_hasta IS NULL OR f_hasta >= ?)
+                                           ORDER BY f_desde DESC, empresa_parametro_id DESC LIMIT 1");
+        mysqli_stmt_bind_param($stmt, 'iss', $empresa_id, $fecha, $fecha);
+        mysqli_stmt_execute($stmt);
+        $emisor_row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        $emisor_cond_id = intval($emisor_row['condicion_fiscal_id'] ?? 0);
+    }
+    if ($emisor_cond_id <= 0) {
+        $stmt = mysqli_prepare($conexion, "SELECT condicion_fiscal_id FROM conf__empresas WHERE empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, 'i', $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $emisor_row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+        $emisor_cond_id = intval($emisor_row['condicion_fiscal_id'] ?? 1) ?: 1;
+    }
 
     // 2. Condición fiscal receptor (cliente o consumidor final)
     $receptor_cond_id = 2; // Default Consumidor Final
@@ -302,13 +332,13 @@ function vfObtenerRelacionFiscal($conexion, $empresa_id, $entidad_id = null) {
             INNER JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE ecf.entidad_id = ?
               AND ecf.tabla_estado_registro_id = 1
-              AND (ecf.f_desde IS NULL OR ecf.f_desde <= CURDATE())
-              AND (ecf.f_hasta IS NULL OR ecf.f_hasta >= CURDATE())
+              AND (ecf.f_desde IS NULL OR ecf.f_desde <= COALESCE(?, CURDATE()))
+              AND (ecf.f_hasta IS NULL OR ecf.f_hasta >= COALESCE(?, CURDATE()))
             ORDER BY ecf.f_desde DESC, ecf.entidad_condicion_fiscal_id DESC
             LIMIT 1
         ");
         $eid = intval($entidad_id);
-        mysqli_stmt_bind_param($stmt2, 'i', $eid);
+        mysqli_stmt_bind_param($stmt2, 'iss', $eid, $fecha, $fecha);
         mysqli_stmt_execute($stmt2);
         $rec = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt2));
         mysqli_stmt_close($stmt2);
@@ -494,7 +524,8 @@ function vfRemitosPendientes($conexion, $empresa_id, $entidad_id, $entidad_sucur
                         WHERE vr.empresa_id = ? AND COALESCE(vr.entidad_id, 0) = ?
                             AND (? = 0 OR vr.entidad_sucursal_id = ?)
                             AND (? = 0 OR vr.venta_remito_id = ?)
-              AND er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC')
+              -- Facturado también, si la línea es de la factura que se edita (al guardarla el remito pudo quedar Facturado)
+              AND (er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC') OR COALESCE(propia.cantidad_propia, 0) > 0)
               AND (rd.cantidad - GREATEST(0, COALESCE(rd.cantidad_facturada, 0) - COALESCE(propia.cantidad_propia, 0))) > 0
               AND rd.tabla_estado_registro_id = 1
             ORDER BY vr.f_emision, vr.venta_remito_id, rd.venta_remito_detalle_id";
@@ -1069,6 +1100,14 @@ function vfCalcularDetallesFactura($detalles, $comprobante_fiscal_id) {
         $bruto += $brutoLinea; $descuentos += $desc; $subtotal += $neto; $iva += $ivaImporte; $total += $linea;
     }
     unset($d);
+    // La cabecera se guarda en centavos: el total tiene que ser neto + IVA ya redondeados (sumar sin
+    // redondear dejaba, p. ej., 69.610,443 + 14.618,193 -> ,44 + ,19 contra un total de ,64, y ARCA y el
+    // asiento lo rechazaban). El centavo de diferencia queda en el total, o sea en la deuda del cliente.
+    $bruto = round($bruto, 2);
+    $subtotal = round($subtotal, 2);
+    $descuentos = round($bruto - $subtotal, 2);
+    $iva = round($iva, 2);
+    $total = round($subtotal + $iva, 2);
     return [$detalles, ['bruto' => $bruto, 'descuentos' => $descuentos, 'subtotal' => $subtotal, 'iva' => $iva, 'total' => $total]];
 }
 
@@ -1076,20 +1115,23 @@ function vfCalcularDetallesFactura($detalles, $comprobante_fiscal_id) {
 // (misma lógica que el bloque de detalle de guardarVentaFactura()).
 function vfInsertarDetallesFactura($conexion, $factura_id, $detalles) {
     $sqlDet = "INSERT INTO gestion__ventas_facturas_detalles
-        (venta_factura_id, producto_id, venta_remito_detalle_id, venta_pedido_detalle_id, cantidad,
+        (venta_factura_id, producto_id, leyenda, venta_remito_detalle_id, venta_pedido_detalle_id, cantidad,
          precio_unitario, descuento_general_pct, descuento_general, precio_unitario_neto, importe_neto,
          iva_alicuota_id, porcentaje_iva, importe_iva, importe_no_gravado, importe_exento, importe_linea, tabla_estado_registro_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1)";
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1)";
     $remitoIds = [];
     foreach ($detalles as $d) {
         $stmt = mysqli_prepare($conexion, $sqlDet);
         $producto = intval($d['producto_id']);
+        // Leyenda del ítem: texto libre que se imprime debajo del producto (NULL = sin leyenda)
+        $leyenda = mb_substr(trim((string)($d['leyenda'] ?? '')), 0, 1000);
+        $leyenda = $leyenda === '' ? null : $leyenda;
         $remitoDetalle = intval($d['venta_remito_detalle_id'] ?? 0) ?: null;
         $pedidoDetalle = intval($d['venta_pedido_detalle_id'] ?? 0) ?: null;
         $cantidad = floatval($d['cantidad']); $precio = floatval($d['precio_unitario']); $descPct = floatval($d['descuento_general_pct'] ?? 0);
         $desc = $d['_desc']; $netoUnit = $d['_neto'] / max($cantidad, 0.0001); $neto = $d['_neto'];
         $ivaId = intval($d['iva_alicuota_id'] ?? 1); $ivaPct = floatval($d['iva_porcentaje'] ?? 0); $ivaLinea = $d['_iva']; $linea = $d['_linea'];
-        mysqli_stmt_bind_param($stmt, 'iiiiddddddiddd', $factura_id, $producto, $remitoDetalle, $pedidoDetalle, $cantidad, $precio, $descPct, $desc, $netoUnit, $neto, $ivaId, $ivaPct, $ivaLinea, $linea);
+        mysqli_stmt_bind_param($stmt, 'iisiiddddddiddd', $factura_id, $producto, $leyenda, $remitoDetalle, $pedidoDetalle, $cantidad, $precio, $descPct, $desc, $netoUnit, $neto, $ivaId, $ivaPct, $ivaLinea, $linea);
         if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
         mysqli_stmt_close($stmt);
 
@@ -1118,7 +1160,7 @@ function vfInsertarDetallesFactura($conexion, $factura_id, $detalles) {
 }
 
 /* =========================================================================
- * PERCEPCIONES DE IIBB PRACTICADAS (docs/gestion/09_percepciones_iibb.md)
+ * PERCEPCIONES DE IIBB PRACTICADAS (_local/docs/gestion/09_percepciones_iibb.md)
  * Se calculan con percepciones_iibb_core_model.php al guardar/editar el borrador y se recalculan al
  * confirmar (padrón del período de f_emision). Quedan en gestion__comprobantes_impuestos y suman
  * importe_otros_impuestos al total. Corren dentro de la transacción del llamador.
@@ -1153,7 +1195,7 @@ function vfPercepcionesRecalcular($conexion, $empresa_id, $venta_factura_id, $pa
     if (!$f) throw new Exception('Factura no encontrada.');
 
     try {
-        $calc = perIibbCalcular($conexion, $empresa_id, $f, vfPercepcionesDetalles($conexion, $venta_factura_id));
+        $calc = perCalcularPracticadas($conexion, $empresa_id, $f, vfPercepcionesDetalles($conexion, $venta_factura_id));
     } catch (Exception $e) {
         if ($estricto) throw $e;
         $calc = ['percepciones' => [], 'total' => 0.0, 'avisos' => [$e->getMessage() . ' (se exige al confirmar)']];
@@ -1163,8 +1205,10 @@ function vfPercepcionesRecalcular($conexion, $empresa_id, $venta_factura_id, $pa
 
     $otros_ant = floatval($f['importe_otros_impuestos']);
     $otros = round($calc['total'], 2);
-    if (abs($otros - $otros_ant) > 0.004) {
-        $total = round(floatval($f['importe_total']) - $otros_ant + $otros, 2);
+    // Total = componentes (neto incluye exento y no gravado): también corrige el centavo de redondeo
+    // de las facturas guardadas antes de que la cabecera se redondeara.
+    $total = round(floatval($f['importe_neto']) + floatval($f['importe_iva']) + $otros, 2);
+    if (abs($otros - $otros_ant) > 0.004 || abs($total - floatval($f['importe_total'])) > 0.004) {
         $stmt = mysqli_prepare($conexion, "UPDATE gestion__ventas_facturas SET importe_otros_impuestos = ?, importe_total = ? WHERE venta_factura_id = ?");
         mysqli_stmt_bind_param($stmt, 'ddi', $otros, $total, $venta_factura_id);
         if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
@@ -1176,6 +1220,31 @@ function vfPercepcionesRecalcular($conexion, $empresa_id, $venta_factura_id, $pa
         syncComprobante($conexion, vfDatosComprobanteFactura($f, $empresa_id, intval($f['tabla_estado_registro_id'])), $tabla_origen_id);
     }
     return ['factura' => $f, 'percepciones' => $calc['percepciones'], 'avisos' => $calc['avisos']];
+}
+
+// Ajuste de redondeo de la cabecera: si importe_total difiere en menos de $1 de neto + IVA + otros
+// impuestos (neto incluye exento y no gravado), el total pasa a ser esa suma y se re-sincroniza el
+// espejo en gestion__comprobantes. La diferencia queda en la deuda del cliente. Una diferencia mayor
+// no se toca: la frenan los controles de ARCA / del asiento. Devuelve la fila actualizada.
+function vfCuadrarTotalFactura($conexion, $empresa_id, array $f, $pagina_id) {
+    $total = round(floatval($f['importe_neto']) + floatval($f['importe_iva']) + floatval($f['importe_otros_impuestos']), 2);
+    $dif = round($total - floatval($f['importe_total']), 2);
+    if (abs($dif) < 0.005 || abs($dif) >= 1.0) return $f;
+
+    $id = intval($f['venta_factura_id']);
+    error_log("=== vfCuadrarTotalFactura ID: $id total " . $f['importe_total'] . " -> $total ===");
+    $stmt = mysqli_prepare($conexion, "UPDATE gestion__ventas_facturas SET importe_total = ? WHERE venta_factura_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, 'dii', $total, $id, $empresa_id);
+    if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
+    mysqli_stmt_close($stmt);
+    $f['importe_total'] = $total;
+
+    if (intval($f['comprobante_id'] ?? 0) > 0) {
+        $tabla_origen_id = obtenerTablaOrigenPorPagina($conexion, $pagina_id);
+        if (!$tabla_origen_id) throw new Exception('No se pudo determinar la tabla de origen.');
+        syncComprobante($conexion, vfDatosComprobanteFactura($f, $empresa_id, intval($f['tabla_estado_registro_id'])), $tabla_origen_id);
+    }
+    return $f;
 }
 
 // Vista previa para la pantalla (no graba nada): mismos datos que agregar/editar.
@@ -1211,7 +1280,7 @@ function vfPercepcionesPreview($conexion, $empresa_id, $data) {
         'comprobante_asociado_id' => intval($data['comprobante_asociado_id'] ?? 0),
     ];
     try {
-        $calc = perIibbCalcular($conexion, $empresa_id, $cab, $lineas);
+        $calc = perCalcularPracticadas($conexion, $empresa_id, $cab, $lineas);
         return ['success' => true, 'percepciones' => $calc['percepciones'], 'total' => $calc['total'], 'avisos' => $calc['avisos']];
     } catch (Exception $e) {
         return ['success' => true, 'percepciones' => [], 'total' => 0, 'avisos' => [$e->getMessage()]];
@@ -1477,70 +1546,6 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
     } catch (Exception $e) { mysqli_rollback($conexion); return ['success' => false, 'error' => $e->getMessage()]; }
 }
 
-function vfEjecutarTransicionEstado($conexion, $venta_factura_id, $accion_js, $empresa_id, $pagina_id) {
-    $venta_factura_id = intval($venta_factura_id);
-    $pagina_id = intval($pagina_id);
-
-    $sql = "SELECT * FROM gestion__ventas_facturas WHERE venta_factura_id = ? AND empresa_id = ?";
-    $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, 'ii', $venta_factura_id, $empresa_id);
-    mysqli_stmt_execute($stmt);
-    $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    mysqli_stmt_close($stmt);
-    if (!$factura) return ['success' => false, 'error' => 'Factura no encontrada.'];
-
-    $estado_actual_id = intval($factura['tabla_estado_registro_id']);
-
-    $sql_funcion = "SELECT * FROM conf__paginas_funciones
-                    WHERE pagina_id = ? AND tabla_estado_registro_origen_id = ? AND accion_js = ? AND tabla_estado_registro_id = 1
-                    LIMIT 1";
-    $stmt = mysqli_prepare($conexion, $sql_funcion);
-    mysqli_stmt_bind_param($stmt, 'iis', $pagina_id, $estado_actual_id, $accion_js);
-    mysqli_stmt_execute($stmt);
-    $funcion = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    mysqli_stmt_close($stmt);
-    if (!$funcion) return ['success' => false, 'error' => 'Acción no permitida para el estado actual.'];
-
-    $estado_destino_id = intval($funcion['tabla_estado_registro_destino_id']);
-    if ($estado_destino_id === $estado_actual_id) {
-        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
-    }
-
-    // Comprobante fiscal (A/B...) con ARCA habilitado en Parámetros de Empresa: no queda Confirmado
-    // hasta tener CAE, y el número lo da ARCA. Sin ARCA habilitado sigue el circuito manual.
-    $tipo_fiscal = vfComprobanteFiscalArca($conexion, intval($factura['comprobante_tipo_id']), $empresa_id);
-    $fiscal = ($tipo_fiscal && vfArcaHabilitado($conexion, $empresa_id)) ? $tipo_fiscal : null;
-    if ($fiscal && $accion_js === 'aprobada') {
-        $res_arca = vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagina_id);
-        if (!empty($res_arca['success'])) {
-            mysqli_begin_transaction($conexion);
-            try {
-                $post = vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, intval($_SESSION['usuario_id'] ?? 0));
-                mysqli_commit($conexion);
-                if (!empty($post['mensajes'])) $res_arca['message'] = ($res_arca['message'] ?? '') . ' ' . implode(' ', $post['mensajes']);
-            } catch (Exception $e) {
-                mysqli_rollback($conexion);
-                $res_arca['message'] = ($res_arca['message'] ?? '') . ' ATENCIÓN: autorizada, pero falló el cobro/aplicación automática: ' . $e->getMessage();
-            }
-            $res_arca['notas_credito_disponibles'] = vfNotasCreditoDisponiblesFactura($conexion, $venta_factura_id, $empresa_id);
-        }
-        return $res_arca;
-    }
-    if ($accion_js === 'borrador') {
-        return vfVolverABorrador($conexion, $factura, $tipo_fiscal, $fiscal !== null, $estado_destino_id, $empresa_id, $pagina_id);
-    }
-
-    mysqli_begin_transaction($conexion);
-    try {
-        if ($accion_js === 'eliminar' || $accion_js === 'anular' || $estado_destino_id === 6) {
-            if (intval($factura['comprobante_id']) > 0) perIibbAnularDelComprobante($conexion, intval($factura['comprobante_id']));
-            vfLiberarRemitosDeFactura($conexion, $venta_factura_id);
-            $stmt_det_del = mysqli_prepare($conexion, "UPDATE gestion__ventas_facturas_detalles SET tabla_estado_registro_id = 6 WHERE venta_factura_id = ?");
-            mysqli_stmt_bind_param($stmt_det_del, 'i', $venta_factura_id);
-            mysqli_stmt_execute($stmt_det_del);
-            mysqli_stmt_close($stmt_det_del);
-        }
-
 function vfValidarComprobantesAnterioresConCae($conexion, $empresa_id, $punto_venta_id, $comprobante_tipo_id, $venta_factura_id, $comprobante_nro) {
     $sql = "SELECT venta_factura_id, comprobante_nro, f_emision
             FROM gestion__ventas_facturas
@@ -1583,6 +1588,97 @@ function vfValidarComprobantesAnterioresConCae($conexion, $empresa_id, $punto_ve
     }
 }
 
+// $medios_contado: medios de pago del cobro de contado a consumidor final (acción 'aprobada'); null = efectivo.
+function vfEjecutarTransicionEstado($conexion, $venta_factura_id, $accion_js, $empresa_id, $pagina_id, $medios_contado = null) {
+    $venta_factura_id = intval($venta_factura_id);
+    $pagina_id = intval($pagina_id);
+
+    $sql = "SELECT * FROM gestion__ventas_facturas WHERE venta_factura_id = ? AND empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, 'ii', $venta_factura_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$factura) return ['success' => false, 'error' => 'Factura no encontrada.'];
+
+    $estado_actual_id = intval($factura['tabla_estado_registro_id']);
+
+    $sql_funcion = "SELECT * FROM conf__paginas_funciones
+                    WHERE pagina_id = ? AND tabla_estado_registro_origen_id = ? AND accion_js = ? AND tabla_estado_registro_id = 1
+                    LIMIT 1";
+    $stmt = mysqli_prepare($conexion, $sql_funcion);
+    mysqli_stmt_bind_param($stmt, 'iis', $pagina_id, $estado_actual_id, $accion_js);
+    mysqli_stmt_execute($stmt);
+    $funcion = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$funcion) return ['success' => false, 'error' => 'Acción no permitida para el estado actual.'];
+
+    $estado_destino_id = intval($funcion['tabla_estado_registro_destino_id']);
+    if ($estado_destino_id === $estado_actual_id) {
+        return ['success' => true, 'message' => 'Acción ejecutada correctamente'];
+    }
+
+    // Períodos fiscales cerrados (Tesorería > Cierres Fiscales): sacar la factura de los libros se controla acá;
+    // entrarla, antes de pedir el CAE o ya con las percepciones calculadas (más abajo).
+    $pf_computa_antes = in_array($estado_actual_id, PF_ESTADOS_VENTAS, true);
+    $pf_computa_despues = in_array($estado_destino_id, PF_ESTADOS_VENTAS, true);
+    try {
+        if ($pf_computa_antes && !$pf_computa_despues) {
+            pfExigirDocumentoAbierto($conexion, $empresa_id, 'VENTA', $venta_factura_id, 'anular ni revertir el comprobante');
+            cont_periodo_exigir_comprobante($conexion, $empresa_id, intval($factura['comprobante_id'] ?? 0), 'anular ni revertir el comprobante');
+        }
+        if (!$pf_computa_antes && $pf_computa_despues && $accion_js === 'aprobada') {
+            pfExigirDocumentoAbierto($conexion, $empresa_id, 'VENTA', $venta_factura_id, 'aprobar el comprobante');
+        }
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+
+    // Medios del cobro de contado: se validan antes de pedir el CAE, para no autorizar en ARCA
+    // una factura cuyo cobro después falla por un dato mal cargado.
+    if ($medios_contado !== null && $accion_js === 'aprobada' && empty($factura['entidad_id'])) {
+        $val = vfValidarMediosCobro($conexion, $empresa_id, $medios_contado, true);
+        if (isset($val['error'])) return ['success' => false, 'error' => $val['error']];
+        if (abs($val['total'] - round(floatval($factura['importe_total']), 2)) > VF_CONTADO_TOLERANCIA) {
+            return ['success' => false, 'error' => 'Los medios de pago ($' . fmt_numero($val['total'], 2) . ') tienen que sumar el total de la factura ($' . fmt_numero(floatval($factura['importe_total']), 2) . ').'];
+        }
+    }
+
+    // Comprobante fiscal (A/B...) con ARCA habilitado en Parámetros de Empresa: no queda Confirmado
+    // hasta tener CAE, y el número lo da ARCA. Sin ARCA habilitado sigue el circuito manual.
+    $tipo_fiscal = vfComprobanteFiscalArca($conexion, intval($factura['comprobante_tipo_id']), $empresa_id);
+    $fiscal = ($tipo_fiscal && vfArcaHabilitado($conexion, $empresa_id)) ? $tipo_fiscal : null;
+    if ($fiscal && $accion_js === 'aprobada') {
+        $res_arca = vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagina_id);
+        if (!empty($res_arca['success'])) {
+            mysqli_begin_transaction($conexion);
+            try {
+                $post = vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, intval($_SESSION['usuario_id'] ?? 0), $medios_contado);
+                mysqli_commit($conexion);
+                if (!empty($post['mensajes'])) $res_arca['message'] = ($res_arca['message'] ?? '') . ' ' . implode(' ', $post['mensajes']);
+            } catch (Exception $e) {
+                mysqli_rollback($conexion);
+                $res_arca['message'] = ($res_arca['message'] ?? '') . ' ATENCIÓN: autorizada, pero falló el cobro/aplicación automática: ' . $e->getMessage();
+            }
+            $res_arca['notas_credito_disponibles'] = vfNotasCreditoDisponiblesFactura($conexion, $venta_factura_id, $empresa_id);
+        }
+        return $res_arca;
+    }
+    if ($accion_js === 'borrador') {
+        return vfVolverABorrador($conexion, $factura, $tipo_fiscal, $fiscal !== null, $estado_destino_id, $empresa_id, $pagina_id);
+    }
+
+    mysqli_begin_transaction($conexion);
+    try {
+        if ($accion_js === 'eliminar' || $accion_js === 'anular' || $estado_destino_id === 6) {
+            if (intval($factura['comprobante_id']) > 0) perIibbAnularDelComprobante($conexion, intval($factura['comprobante_id']));
+            vfLiberarRemitosDeFactura($conexion, $venta_factura_id);
+            $stmt_det_del = mysqli_prepare($conexion, "UPDATE gestion__ventas_facturas_detalles SET tabla_estado_registro_id = 6 WHERE venta_factura_id = ?");
+            mysqli_stmt_bind_param($stmt_det_del, 'i', $venta_factura_id);
+            mysqli_stmt_execute($stmt_det_del);
+            mysqli_stmt_close($stmt_det_del);
+        }
+
         $numero_asignado = null;
         if ($accion_js === 'confirma' || $accion_js === 'aprobada') {
             if (empty($factura['comprobante_nro']) || intval($factura['comprobante_nro']) <= 0) {
@@ -1598,6 +1694,9 @@ function vfValidarComprobantesAnterioresConCae($conexion, $empresa_id, $punto_ve
             } else {
                 $numero_asignado = intval($factura['comprobante_nro']);
             }
+
+            // Centavo de redondeo entre el total y sus componentes: se ajusta el total antes de validar
+            $factura = vfCuadrarTotalFactura($conexion, $empresa_id, $factura, $pagina_id);
 
             if ($fiscal) {
                 $error_arca = vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id)['error'];
@@ -1668,10 +1767,14 @@ function vfValidarComprobantesAnterioresConCae($conexion, $empresa_id, $punto_ve
             }
         }
 
+        if (!$pf_computa_antes && ($pf_computa_despues || $estado_destino_id === 4)) {
+            pfExigirDocumentoAbierto($conexion, $empresa_id, 'VENTA', $venta_factura_id, 'confirmar el comprobante');
+        }
+
         // Confirmada: aplicación de la NC a su comprobante asociado / cobro de contado a consumidor final
         $post = ['mensajes' => []];
         if ($estado_destino_id === 5) {
-            $post = vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, intval($_SESSION['usuario_id'] ?? 0));
+            $post = vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, intval($_SESSION['usuario_id'] ?? 0), $medios_contado);
         }
 
         mysqli_commit($conexion);
@@ -1743,7 +1846,7 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
         // 1. Obtener cabecera de la factura
         $sql = "SELECT f.*,
                        ct.comprobante_tipo, ct.letra, ct.signo AS tipo_signo,
-                       e.entidad_nombre, e.cont_cuenta_id_cliente,
+                       e.entidad_nombre, " . ent_sql_cuenta_rol('e.entidad_id', 'CLI') . " AS cont_cuenta_id_cliente,
                        pv.nombre AS pv_nombre
                 FROM gestion__ventas_facturas f
                 LEFT JOIN gestion__comprobantes_tipos ct ON f.comprobante_tipo_id = ct.comprobante_tipo_id
@@ -1895,28 +1998,26 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
             $total_haber += $info['importe'];
         }
 
-        // Movimiento 4: PERCEPCIONES IIBB A DEPOSITAR (HABER -), una línea por jurisdicción
+        // Movimiento 4: PERCEPCIONES A DEPOSITAR (HABER -): IIBB una línea por jurisdicción, IVA una línea
         foreach (perIibbDelComprobante($conexion, $comprobante_id) as $p) {
             $imp = round(floatval($p['importe']), 2);
             if ($imp <= 0) continue;
-            if (intval($p['cont_cuenta_id']) <= 0) throw new Exception('Percepción IIBB ' . $p['jurisdiccion_nombre'] . ': falta la cuenta contable en Impuestos Adic. - Conf.');
+            if (intval($p['cont_cuenta_id']) <= 0) throw new Exception($p['descripcion'] . ': falta la cuenta contable en Impuestos Adic. - Conf.');
             $movimientos[] = [
                 'cuenta_id' => intval($p['cont_cuenta_id']),
                 'importe' => -$imp,
-                'descripcion' => 'Percepción IIBB ' . $p['jurisdiccion_nombre'] . ' ' . number_format(floatval($p['alicuota']), 2, ',', '.') . '%'
+                'descripcion' => $p['descripcion'] . ' ' . number_format(floatval($p['alicuota']), 2, ',', '.') . '%'
             ];
             $total_haber += $imp;
         }
 
-        // Control de balance y ajuste de redondeo (< $1.00 en Deudores por Ventas de la empresa)
+        // Control de balance y ajuste de redondeo (< $1.00): todo contra la cuenta del cliente
         $diferencia = round($total_debe - $total_haber, 2);
 
         if (abs($diferencia) > 0.0001 && abs($diferencia) < 1.0) {
             $ajustado = false;
-            $cuenta_deudores_id = emp_cuenta_id($conexion, $empresa_id, 'DEUDORES_VENTAS', 'cuenta_deudores_ventas_id');
             foreach ($movimientos as &$m) {
-                if ($m['cuenta_id'] == $cuenta_deudores_id || $m['cuenta_id'] == $cuenta_cliente_id) {
-                    $m['cuenta_id'] = $cuenta_deudores_id; // Asegurar Deudores por Ventas de la empresa
+                if ($m['cuenta_id'] == $cuenta_cliente_id) {
                     $m['importe'] = round($m['importe'] - $diferencia, 2);
                     $total_debe = round($total_debe - $diferencia, 2);
                     $ajustado = true;
@@ -1927,9 +2028,9 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
 
             if (!$ajustado) {
                 $movimientos[] = [
-                    'cuenta_id' => $cuenta_deudores_id,
+                    'cuenta_id' => $cuenta_cliente_id,
                     'importe' => -$diferencia,
-                    'descripcion' => 'Ajuste redondeo - Deudores por Ventas'
+                    'descripcion' => 'Ajuste redondeo - Cliente: ' . $cliente
                 ];
                 if ($diferencia > 0) {
                     $total_haber = round($total_haber + $diferencia, 2);
@@ -1944,7 +2045,7 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
         if (abs($total_debe - $total_haber) > 0.001) {
             return [
                 'success' => false,
-                'error' => "Asiento no balanceado: Debe=" . number_format($total_debe, 2) . ", Haber=" . number_format($total_haber, 2) . ", diferencia=" . number_format($total_debe - $total_haber, 2)
+                'error' => "Asiento no balanceado: Debe=" . fmt_numero($total_debe, 2) . ", Haber=" . fmt_numero($total_haber, 2) . ", diferencia=" . fmt_numero($total_debe - $total_haber, 2)
             ];
         }
 
@@ -1956,6 +2057,10 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
             }
             unset($m);
         }
+
+        // Período contable abierto, para la fecha del asiento y para el asiento anterior del comprobante
+        cont_periodo_exigir_abierto($conexion, $empresa_id, $factura['f_emision'], 'generar el asiento del comprobante');
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, $comprobante_id, 'modificar el asiento del comprobante');
 
         if (!$en_transaccion) {
             mysqli_begin_transaction($conexion);
@@ -2140,7 +2245,7 @@ function vfObtenerAsientoFactura($conexion, $venta_factura_id, $empresa_id) {
 // venta, confirmado e imputado a esta factura. Usa cobranzas_model.php (lo incluye el _ajax) para
 // que el recibo sea el mismo que uno cargado en cobranzas.php: numeración, movimientos de
 // tesorería, asiento, cheques en cartera y estado derivado de la factura (39 / 40) vía
-// recalcularEstadoDestino(). La función 'cobrar' de la página (sql/mantenimiento/
+// recalcularEstadoDestino(). La función 'cobrar' de la página (_local/sql/mantenimiento/
 // 20261007_ventas_facturas_cobro_01_funciones.sql) define desde qué estados se puede cobrar.
 // ---------------------------------------------------------------------------------------------
 
@@ -2211,10 +2316,10 @@ function vfCobroFactura($conexion, $venta_factura_id, $empresa_id, $pagina_id) {
         mysqli_stmt_close($stmt);
     }
 
+    // Consumidor final: el cobro de contado sale al aprobar; si quedó saldo (falló el cobro automático
+    // después del CAE) se cobra acá, siempre por el total.
     $motivo = '';
-    if (empty($f['entidad_id'])) {
-        $motivo = 'Las facturas a consumidor final no se cobran con recibo: el recibo se imputa a la cuenta corriente de un cliente.';
-    } elseif (!vfFuncionPermitida($conexion, $pagina_id, intval($f['tabla_estado_registro_id']), 'cobrar')) {
+    if (!vfFuncionPermitida($conexion, $pagina_id, intval($f['tabla_estado_registro_id']), 'cobrar')) {
         $motivo = 'La factura no admite cobros en su estado actual (' . ($f['estado_registro'] ?? 'sin estado') . '). Se cobra una vez confirmada y aprobada.';
     } elseif ($comprobante_id <= 0 || $saldo <= 0.001) {
         $motivo = 'La factura no tiene saldo pendiente de cobro.';
@@ -2223,6 +2328,7 @@ function vfCobroFactura($conexion, $venta_factura_id, $empresa_id, $pagina_id) {
     return [
         'venta_factura_id' => intval($f['venta_factura_id']),
         'entidad_id'       => intval($f['entidad_id']),
+        'consumidor_final' => empty($f['entidad_id']),
         'entidad_nombre'   => $f['entidad_nombre'],
         'sucursal_id'      => intval($f['sucursal_id']),
         'comprobante_id'   => $comprobante_id,
@@ -2253,6 +2359,65 @@ function vfTiposReciboPorPuntoVenta($conexion, $empresa_id, $punto_venta_id) {
     return obtenerTiposComprobanteCobranza($conexion, $empresa_id, $punto_venta_id, VF_PAGINA_COBRANZAS);
 }
 
+/**
+ * Valida los medios de cobro que manda la pantalla (solapa Medios de Pago o cobro de contado):
+ * solo medios habilitados para cobranzas y cuentas de tesorería de esta empresa, importes > 0.
+ * $consumidor_final: sin retenciones (un consumidor final no es agente de retención).
+ * Devuelve ['medios' => [...], 'total' => float] o ['error' => string].
+ */
+function vfValidarMediosCobro($conexion, $empresa_id, $medios, $consumidor_final = false) {
+    $conn = $conexion;   // el modelo hace "$conexion = $conn" al cargarse; acá se carga dentro de una función
+    require_once __DIR__ . '/cobranzas_model.php';
+    if (!is_array($medios) || count($medios) === 0) return ['error' => 'Agregue al menos un medio de pago.'];
+    $medios_validos = array_column(obtenerMediosPagoDisponibles($conexion, $empresa_id), null, 'medio_pago_id');
+    $cuentas_validas = array_column(obtenerCuentasTesoreriaEmpresa($conexion, $empresa_id), null, 'tesoreria_cuenta_id');
+    $total = 0.0;
+    $out = [];
+    foreach (array_values($medios) as $i => $m) {
+        if (!is_array($m)) return ['error' => 'Medio de pago inválido en la fila ' . ($i + 1) . '.'];
+        $medio = $medios_validos[intval($m['medio_pago_id'] ?? 0)] ?? null;
+        if (!$medio) return ['error' => 'Medio de pago inválido en la fila ' . ($i + 1) . '.'];
+        if ($consumidor_final && ($medio['medio_pago_tipo'] ?? '') === 'RETENCION') {
+            return ['error' => 'A consumidor final no se le registran retenciones (fila ' . ($i + 1) . ').'];
+        }
+        if (!empty($m['tesoreria_cuenta_id']) && !isset($cuentas_validas[intval($m['tesoreria_cuenta_id'])])) {
+            return ['error' => 'Cuenta de tesorería inválida en la fila ' . ($i + 1) . '.'];
+        }
+        $importe = round(floatval($m['importe'] ?? 0), 2);
+        if ($importe <= 0) return ['error' => 'Cada medio de pago debe tener un importe mayor a cero.'];
+        $m['importe'] = $importe;
+        $m['importe_comprobante'] = $importe;
+        $out[] = $m;
+        $total += $importe;
+    }
+    return ['medios' => $out, 'total' => round($total, 2)];
+}
+
+/**
+ * ¿La acción 'aprobada' de esta factura emite el cobro de contado a consumidor final?
+ * (factura / ND sin cliente, en Pendiente de aprobación / ARCA). Lo usa la pantalla para pedir
+ * los medios de pago antes de aprobar.
+ */
+function vfCobroContadoInfo($conexion, $venta_factura_id, $empresa_id) {
+    $stmt = mysqli_prepare($conexion, "SELECT vf.venta_factura_id, vf.entidad_id, vf.sucursal_id, vf.importe_total,
+                                              vf.tabla_estado_registro_id, ct.signo
+                                       FROM gestion__ventas_facturas vf
+                                       JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = vf.comprobante_tipo_id
+                                       WHERE vf.venta_factura_id = ? AND vf.empresa_id = ?");
+    $venta_factura_id = intval($venta_factura_id);
+    $empresa_id = intval($empresa_id);
+    mysqli_stmt_bind_param($stmt, 'ii', $venta_factura_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $f = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$f) return null;
+    return [
+        'requiere'    => empty($f['entidad_id']) && $f['signo'] === '+' && intval($f['tabla_estado_registro_id']) === 4,
+        'total'       => round(floatval($f['importe_total']), 2),
+        'sucursal_id' => intval($f['sucursal_id'])
+    ];
+}
+
 function vfEmitirReciboFactura($conexion, $venta_factura_id, $empresa_id, $pagina_id, $usuario_id, $data) {
     $empresa_id = intval($empresa_id);
     $usuario_id = intval($usuario_id);
@@ -2262,29 +2427,18 @@ function vfEmitirReciboFactura($conexion, $venta_factura_id, $empresa_id, $pagin
     if (!$cobro) return ['success' => false, 'message' => 'Factura no encontrada.'];
     if (!$cobro['puede_cobrar']) return ['success' => false, 'message' => $cobro['motivo']];
 
-    // Medios: solo los habilitados para cobranzas y cuentas de tesorería de esta empresa
-    $medios = $data['medios'] ?? [];
-    if (!is_array($medios) || count($medios) === 0) return ['success' => false, 'message' => 'Agregue al menos un medio de pago.'];
-    $medios_validos = array_column(obtenerMediosPagoDisponibles($conexion, $empresa_id), null, 'medio_pago_id');
-    $cuentas_validas = array_column(obtenerCuentasTesoreriaEmpresa($conexion, $empresa_id), null, 'tesoreria_cuenta_id');
-    $total = 0.0;
-    foreach ($medios as $i => $m) {
-        if (!isset($medios_validos[intval($m['medio_pago_id'] ?? 0)])) {
-            return ['success' => false, 'message' => 'Medio de pago inválido en la fila ' . ($i + 1) . '.'];
-        }
-        if (!empty($m['tesoreria_cuenta_id']) && !isset($cuentas_validas[intval($m['tesoreria_cuenta_id'])])) {
-            return ['success' => false, 'message' => 'Cuenta de tesorería inválida en la fila ' . ($i + 1) . '.'];
-        }
-        $importe = round(floatval($m['importe'] ?? 0), 2);
-        if ($importe <= 0) return ['success' => false, 'message' => 'Cada medio de pago debe tener un importe mayor a cero.'];
-        $medios[$i]['importe'] = $importe;
-        $medios[$i]['importe_comprobante'] = $importe;
-        $total += $importe;
-    }
-    $total = round($total, 2);
+    $es_cf = $cobro['entidad_id'] <= 0;
+    $val = vfValidarMediosCobro($conexion, $empresa_id, $data['medios'] ?? [], $es_cf);
+    if (isset($val['error'])) return ['success' => false, 'message' => $val['error']];
+    $medios = $val['medios'];
+    $total = $val['total'];
     // Un excedente sería un anticipo del cliente: se registra desde Cobranzas, no desde la factura.
     if ($total > $cobro['saldo'] + 0.001) {
-        return ['success' => false, 'message' => 'El total de los medios ($' . number_format($total, 2, ',', '.') . ') supera el saldo de la factura ($' . number_format($cobro['saldo'], 2, ',', '.') . ').'];
+        return ['success' => false, 'message' => 'El total de los medios ($' . fmt_numero($total, 2) . ') supera el saldo de la factura ($' . fmt_numero($cobro['saldo'], 2) . ').'];
+    }
+    // Consumidor final: no tiene cuenta corriente, se cobra todo el saldo.
+    if ($es_cf && abs($total - $cobro['saldo']) > 0.001) {
+        return ['success' => false, 'message' => 'A consumidor final se cobra el total del saldo ($' . fmt_numero($cobro['saldo'], 2) . ').'];
     }
 
     // Punto de venta del recibo: habilitado para recibos y para el usuario (accesos por sucursal)
@@ -2315,6 +2469,7 @@ function vfEmitirReciboFactura($conexion, $venta_factura_id, $empresa_id, $pagin
             'empresa_id'          => $empresa_id,
             'usuario_id'          => $usuario_id,
             'entidad_id'          => $cobro['entidad_id'],
+            'consumidor_final'    => $es_cf,
             'sucursal_id'         => intval($pv['sucursal_id']),
             'comprobante_pv'      => $pv_id,
             'comprobante_tipo_id' => $tipo_id,
@@ -2368,9 +2523,10 @@ function vfEmitirReciboFactura($conexion, $venta_factura_id, $empresa_id, $pagin
 // número autorizado y, si coincide con esta factura, se toma ese CAE (conciliación).
 // ---------------------------------------------------------------------------------------------
 
-// Tipos de ARCA que se autorizan desde acá: Factura A, B y C. Las notas de crédito/débito
-// necesitan el comprobante asociado (CbtesAsoc), que la factura de venta hoy no guarda.
+// Tipos de ARCA que se autorizan desde acá: Factura A, B y C, y sus notas de débito / crédito.
+// Las notas van con <CbtesAsoc>, armado desde comprobante_asociado_id (obligatorio).
 const VF_ARCA_TIPOS_FACTURA = [1, 6, 11];
+const VF_ARCA_TIPOS_NOTA = [2, 3, 7, 8, 12, 13];
 // condicion_fiscal_codigo (gestion__condiciones_fiscales) -> CondicionIVAReceptorId de ARCA
 // (FEParamGetCondicionIvaReceptor, mismos códigos que afip__condiciones_iva.codigo_afip).
 const VF_ARCA_CONDICION_IVA = ['RI' => 1, 'EX' => 4, 'CF' => 5, 'MT' => 6, 'NC' => 7, 'EXT' => 9];
@@ -2398,7 +2554,7 @@ function vfArcaHabilitado($conexion, $empresa_id) {
 // Datos fiscales del tipo de comprobante (null si no es fiscal: Factura X y similares).
 function vfComprobanteFiscalArca($conexion, $comprobante_tipo_id, $empresa_id) {
     $sql = "SELECT ct.comprobante_tipo_id, ct.comprobante_tipo, cf.comprobante_fiscal_id,
-                   CAST(cf.codigo AS UNSIGNED) AS arca_tipo, cf.comprobante_fiscal
+                   CAST(cf.codigo AS UNSIGNED) AS arca_tipo, cf.comprobante_fiscal, cf.letra AS fiscal_letra
             FROM gestion__comprobantes_tipos ct
             INNER JOIN gestion__comprobantes_fiscales cf ON cf.comprobante_fiscal_id = ct.comprobante_fiscal_id
             WHERE ct.comprobante_tipo_id = ? AND ct.empresa_id IN (0, ?) AND ct.comprobante_fiscal_id > 0
@@ -2411,8 +2567,36 @@ function vfComprobanteFiscalArca($conexion, $comprobante_tipo_id, $empresa_id) {
     return $row ?: null;
 }
 
-// Integración WSFE activa de la empresa. Devuelve [cfg, error].
+// Integración WSFE elegida en Parámetros de Empresa (arca_integracion_empresa_id de la vigencia
+// abierta, script 20261018_arca_certificado_parametros_01). Sin columna o sin elegir: 0.
+function vfArcaIntegracionElegida($conexion, $empresa_id) {
+    $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'arca_integracion_empresa_id'");
+    if (!$res || mysqli_num_rows($res) === 0) return 0;
+    $stmt = mysqli_prepare($conexion, "SELECT arca_integracion_empresa_id FROM gestion__empresas_parametros
+                                       WHERE empresa_id = ? AND f_hasta IS NULL AND tabla_estado_registro_id = 1
+                                       ORDER BY f_desde DESC, empresa_parametro_id DESC LIMIT 1");
+    mysqli_stmt_bind_param($stmt, 'i', $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return intval($row['arca_integracion_empresa_id'] ?? 0);
+}
+
+// Integración WSFE con la que se pide el CAE. Devuelve [cfg, error].
+// La elegida en Parámetros de Empresa (certificado + homologación / producción), propia o delegada
+// por otra empresa; si no se eligió ninguna, la única WSFE activa de la empresa, como antes.
 function vfArcaConfiguracion($conexion, $empresa_id) {
+    $elegida = vfArcaIntegracionElegida($conexion, $empresa_id);
+    if ($elegida > 0) {
+        $cfg = arca_obtener_configuracion_para_empresa($conexion, $elegida, $empresa_id);
+        if (!$cfg) return [null, 'La integración ARCA elegida en Parámetros de Empresa no existe, es de otra empresa o su delegación no está vigente.'];
+        if ($cfg['cuit'] === '') return [null, 'La empresa no tiene CUIT cargado: no se puede pedir el CAE.'];
+        if ($cfg['servicio'] !== 'wsfe') return [null, 'La integración ARCA elegida en Parámetros de Empresa no es de facturación (WSFE).'];
+        if (intval($cfg['tabla_estado_registro_id']) !== 1) return [null, 'La integración ARCA elegida en Parámetros de Empresa está inactiva. Actívela en Integraciones ARCA o elija otra.'];
+        if (intval($cfg['ambiente_activo']) !== 1) return [null, 'El ambiente ' . $cfg['ambiente_nombre'] . ' de la integración ARCA elegida está inactivo.'];
+        return [$cfg, null];
+    }
+
     $sql = "SELECT ie.integracion_empresa_id
             FROM gestion__integraciones_empresas ie
             INNER JOIN conf__integraciones_ambientes a ON a.integracion_ambiente_id = ie.integracion_ambiente_id
@@ -2427,7 +2611,7 @@ function vfArcaConfiguracion($conexion, $empresa_id) {
 
     if (count($ids) === 0) return [null, 'La empresa no tiene una integración ARCA (WSFE) activa. Configúrela en Integraciones ARCA.'];
     // Con homologación y producción activas a la vez no se adivina: un CAE de producción es real.
-    if (count($ids) > 1) return [null, 'La empresa tiene más de una integración ARCA (WSFE) activa. Deje activa solo la que corresponde (homologación o producción).'];
+    if (count($ids) > 1) return [null, 'La empresa tiene más de una integración ARCA (WSFE) activa. Elija con cuál se pide el CAE en Parámetros de Empresa.'];
     $cfg = arca_obtener_configuracion($conexion, $ids[0], $empresa_id);
     if (!$cfg) return [null, 'No se pudo leer la configuración de la integración ARCA.'];
     return [$cfg, null];
@@ -2439,10 +2623,18 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
     $id = intval($factura['venta_factura_id']);
     $arca_tipo = intval($fiscal['arca_tipo']);
 
-    if (!in_array($arca_tipo, VF_ARCA_TIPOS_FACTURA, true)) {
-        return $error($fiscal['comprobante_tipo'] . ': todavía no se autoriza con ARCA desde Facturas (las notas de crédito/débito requieren el comprobante asociado).');
+    $es_nota = in_array($arca_tipo, VF_ARCA_TIPOS_NOTA, true);
+    if (!$es_nota && !in_array($arca_tipo, VF_ARCA_TIPOS_FACTURA, true)) {
+        return $error($fiscal['comprobante_tipo'] . ': ese tipo de comprobante todavía no se autoriza con ARCA desde Facturas.');
     }
     if (intval($factura['moneda_id']) !== emp_moneda_por_codigo($conexion, $empresa_id, 'ARS')) return $error('ARCA: por ahora solo se autorizan comprobantes en pesos.');
+
+    $cbtes_asoc = [];
+    if ($es_nota) {
+        [$asoc, $error_asoc] = vfArcaComprobanteAsociado($conexion, $factura, $fiscal, $empresa_id);
+        if ($error_asoc !== null) return $error($error_asoc);
+        $cbtes_asoc[] = $asoc;
+    }
 
     $stmt = mysqli_prepare($conexion, "SELECT nombre, codigo_fiscal, sistema_emision FROM gestion__puntos_venta WHERE punto_venta_id = ? AND empresa_id = ?");
     $pv_id = intval($factura['punto_venta_id']);
@@ -2485,7 +2677,7 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
             $doc_nro = $cuit;
         }
     }
-    if ($arca_tipo === 1 && $doc_tipo !== 80) return $error('La Factura A requiere que el cliente tenga CUIT cargado (11 dígitos).');
+    if (in_array($arca_tipo, [1, 2, 3], true) && $doc_tipo !== 80) return $error($fiscal['comprobante_tipo'] . ' requiere que el cliente tenga CUIT cargado (11 dígitos).');
 
     // Importes por alícuota desde el detalle
     $sql = "SELECT d.importe_neto, d.importe_iva, d.porcentaje_iva, a.es_exento, a.es_no_gravado
@@ -2517,24 +2709,25 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
     $exento = round($exento, 2);
     $no_gravado = round($no_gravado, 2);
     $total = round(floatval($factura['importe_total']), 2);
-    $iva = $arca_tipo === 11 ? 0.0 : round(floatval($factura['importe_iva']), 2);
+    $es_clase_c = in_array($arca_tipo, [11, 12, 13], true);
+    $iva = $es_clase_c ? 0.0 : round(floatval($factura['importe_iva']), 2);
     $neto = round(floatval($factura['importe_neto']) - $exento - $no_gravado, 2);
 
-    // Percepciones IIBB practicadas -> <Tributos>
+    // Percepciones practicadas (IIBB e IVA) -> <Tributos>
     $tributos = [];
     foreach (perIibbDelComprobante($conexion, intval($factura['comprobante_id'])) as $p) {
         $imp = round(floatval($p['importe']), 2);
         if ($imp <= 0) continue;
-        if (intval($p['arca_tributo_id'] ?? 0) <= 0) return $error('Percepción IIBB ' . $p['jurisdiccion_nombre'] . ': falta el código de tributo de ARCA en Impuestos Adic. - Conf.');
-        $tributos[] = ['id' => intval($p['arca_tributo_id']), 'desc' => mb_substr($p['leyenda'] ?: ('Percepción IIBB ' . $p['jurisdiccion_nombre']), 0, 80),
+        if (intval($p['arca_tributo_id'] ?? 0) <= 0) return $error($p['descripcion'] . ': falta el código de tributo de ARCA en Impuestos Adic. - Conf.');
+        $tributos[] = ['id' => intval($p['arca_tributo_id']), 'desc' => mb_substr($p['leyenda'] ?: $p['descripcion'], 0, 80),
                        'base' => round(floatval($p['base_imponible']), 2), 'alic' => round(floatval($p['alicuota']), 2), 'importe' => $imp];
     }
     $imp_trib = round(array_sum(array_column($tributos, 'importe')), 2);
     if (abs($neto + $iva + $exento + $no_gravado + $imp_trib - $total) > 0.005) {
         return $error('Los importes de la factura no cuadran (neto + IVA + exento + no gravado + percepciones distinto del total).');
     }
-    if ($arca_tipo === 11) {
-        $alicuotas = [];   // Factura C: sin IVA discriminado
+    if ($es_clase_c) {
+        $alicuotas = [];   // Clase C: sin IVA discriminado
     } elseif (!empty($alicuotas)) {
         $principal = null;
         foreach ($alicuotas as $aid => &$a) {
@@ -2546,7 +2739,7 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
         $dif_base = round($neto - array_sum(array_column($alicuotas, 'base')), 2);
         $dif_iva = round($iva - array_sum(array_column($alicuotas, 'importe')), 2);
         if (abs($dif_base) > 0.05 || abs($dif_iva) > 0.05) {
-            return $error('El total de la factura ($' . number_format($total, 2, ',', '.') . ') no coincide con la suma de sus líneas: revise el detalle.');
+            return $error('El total de la factura ($' . fmt_numero($total, 2) . ') no coincide con la suma de sus líneas: revise el detalle.');
         }
         $alicuotas[$principal]['base'] = round($alicuotas[$principal]['base'] + $dif_base, 2);
         $alicuotas[$principal]['importe'] = round($alicuotas[$principal]['importe'] + $dif_iva, 2);
@@ -2576,8 +2769,52 @@ function vfArcaDatosFactura($conexion, $factura, $fiscal, $empresa_id) {
         'alicuotas' => array_values($alicuotas),
         'tributos' => $tributos,
         'imp_trib' => $imp_trib,
+        'cbtes_asoc' => $cbtes_asoc,
         'fecha' => $f->format('Ymd')
     ], 'error' => null];
+}
+
+// <CbteAsoc> de una NC/ND: el comprobante asociado (gestion__comprobantes) con su tipo y PV de ARCA.
+// Tiene que ser fiscal y, si salió por un PV de Web Service, tener CAE (si no, ARCA no lo conoce).
+// Devuelve [asoc, error].
+function vfArcaComprobanteAsociado($conexion, $factura, $fiscal, $empresa_id) {
+    $asociado_id = intval($factura['comprobante_asociado_id'] ?? 0);
+    if ($asociado_id <= 0) {
+        return [null, $fiscal['comprobante_tipo'] . ': ARCA exige el comprobante asociado. Vuelva la nota a Borrador y elíjalo.'];
+    }
+    $sql = "SELECT c.comprobante_nro, c.f_emision, ct.comprobante_tipo, CAST(cf.codigo AS UNSIGNED) AS arca_tipo,
+                   pv.codigo_fiscal, pv.sistema_emision, vf.CAE
+            FROM gestion__comprobantes c
+            JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
+            LEFT JOIN gestion__comprobantes_fiscales cf ON cf.comprobante_fiscal_id = ct.comprobante_fiscal_id AND ct.comprobante_fiscal_id > 0
+            LEFT JOIN gestion__puntos_venta pv ON pv.punto_venta_id = c.comprobante_pv AND pv.empresa_id = c.empresa_id
+            LEFT JOIN gestion__ventas_facturas vf ON vf.comprobante_id = c.comprobante_id AND vf.empresa_id = c.empresa_id
+            WHERE c.comprobante_id = ? AND c.empresa_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, 'ii', $asociado_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $a = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$a) return [null, 'No se encontró el comprobante asociado de la nota.'];
+
+    $pto_vta = intval($a['codigo_fiscal'] ?? 0);
+    $numero = str_pad($pto_vta, 4, '0', STR_PAD_LEFT) . '-' . str_pad(intval($a['comprobante_nro']), 8, '0', STR_PAD_LEFT);
+    if (intval($a['arca_tipo'] ?? 0) <= 0 || $pto_vta <= 0) {
+        return [null, 'El comprobante asociado (' . $a['comprobante_tipo'] . ') no es fiscal: una nota autorizada por ARCA solo puede asociarse a un comprobante fiscal.'];
+    }
+    if (($a['sistema_emision'] ?: 'WSFE') === 'WSFE' && trim((string)$a['CAE']) === '') {
+        return [null, 'El comprobante asociado (' . $a['comprobante_tipo'] . ' ' . $numero . ') no tiene CAE: ARCA no lo tiene registrado y rechazaría la nota.'];
+    }
+
+    $asoc = [
+        'tipo' => intval($a['arca_tipo']),
+        'pto_vta' => $pto_vta,
+        'nro' => intval($a['comprobante_nro']),
+        'fecha' => str_replace('-', '', substr((string)$a['f_emision'], 0, 10))
+    ];
+    $cuit = emp_cuit($conexion, $empresa_id);
+    if ($cuit !== '') $asoc['cuit'] = $cuit;
+    return [$asoc, null];
 }
 
 // ¿Algún comprobante de la empresa (que no sea el de esta factura) ya usa ese número?
@@ -2606,6 +2843,13 @@ function vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagi
     $id = intval($factura['venta_factura_id']);
     error_log("=== INICIO vfArcaAutorizarFactura ID: $id ===");
     if (trim((string)($factura['CAE'] ?? '')) !== '') return ['success' => false, 'error' => 'La factura ya tiene CAE.'];
+
+    // 0. Centavo de redondeo entre el total y sus componentes (facturas guardadas antes del ajuste)
+    try {
+        $factura = vfCuadrarTotalFactura($conexion, $empresa_id, $factura, $pagina_id);
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 
     // 1. Asegurar que tenga número asignado por el sistema
     if (empty($factura['comprobante_nro']) || intval($factura['comprobante_nro']) <= 0) {
@@ -2677,11 +2921,30 @@ function vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagi
         if (!$autorizacion) {
             $proximo_arca = $n + 1;
             if ($nro_sistema !== $proximo_arca) {
-                return ['success' => false, 'error' => 'Desincronización de numeración con ARCA: el comprobante en el sistema tiene asignado el N° '
-                    . str_pad($datos['pto_vta'], 5, '0', STR_PAD_LEFT) . '-' . str_pad($nro_sistema, 8, '0', STR_PAD_LEFT)
-                    . ', pero en ARCA el próximo número esperado a autorizar es N° '
-                    . str_pad($datos['pto_vta'], 5, '0', STR_PAD_LEFT) . '-' . str_pad($proximo_arca, 8, '0', STR_PAD_LEFT)
-                    . '. Por favor verifique/ajuste el último número en Puntos de Venta -> Comprobantes.'];
+                // El número lo da ARCA: el interno se asignó al confirmar con el numerador de ese momento (p. ej.
+                // antes de corregir el último número en Puntos de Venta, o con comprobantes emitidos fuera del
+                // sistema) y no se recalcula. Solo es un error si otro comprobante del sistema ya tiene ese número.
+                if (vfArcaNumeroOcupado($conexion, $empresa_id, intval($factura['comprobante_tipo_id']), intval($factura['punto_venta_id']), $proximo_arca, intval($factura['comprobante_id'] ?? 0))) {
+                    return ['success' => false, 'error' => 'Desincronización de numeración con ARCA: el próximo número a autorizar en ARCA es el '
+                        . str_pad($datos['pto_vta'], 5, '0', STR_PAD_LEFT) . '-' . str_pad($proximo_arca, 8, '0', STR_PAD_LEFT)
+                        . ', pero en el sistema ya hay otro comprobante de ese tipo con ese número. Revise los comprobantes de ese punto de venta.'];
+                }
+                error_log("=== vfArcaAutorizarFactura ID: $id renumera $nro_sistema -> $proximo_arca (próximo de ARCA) ===");
+                // Antes de pedir el CAE: si la respuesta se pierde, el próximo intento concilia con este número
+                $stmt = mysqli_prepare($conexion, "UPDATE gestion__ventas_facturas SET comprobante_nro = ? WHERE venta_factura_id = ? AND empresa_id = ?");
+                mysqli_stmt_bind_param($stmt, 'iii', $proximo_arca, $id, $empresa_id);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+                // Las próximas facturas del punto de venta siguen desde ese número
+                $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_numeradores SET ultimo_numero = GREATEST(ultimo_numero, ?)
+                                                   WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?");
+                $pv_id = intval($factura['punto_venta_id']);
+                $tipo_id = intval($factura['comprobante_tipo_id']);
+                mysqli_stmt_bind_param($stmt, 'iiii', $proximo_arca, $empresa_id, $pv_id, $tipo_id);
+                mysqli_stmt_execute($stmt);
+                mysqli_stmt_close($stmt);
+                $nro_sistema = $proximo_arca;
+                $factura['comprobante_nro'] = $proximo_arca;
             }
             $datos['cbte_nro_esperado'] = $nro_sistema;
             $r = arca_wsfe_solicitar_cae($conexion, $cfg, $datos);
@@ -2769,7 +3032,7 @@ function vfArcaGuardarAutorizacion($conexion, $factura, $aut, $datos, $empresa_i
         'comprobante_nro' => $nro,
         'cae' => $cae,
         'message' => (!empty($aut['conciliado']) ? 'Autorización recuperada de ARCA. ' : 'Factura autorizada por ARCA. ')
-            . "N° $numero_txt - CAE $cae" . ($vto ? ' (vence ' . date('d/m/Y', strtotime($vto)) . ')' : '')
+            . "N° $numero_txt - CAE $cae" . ($vto ? ' (vence ' . fmt_fecha($vto) . ')' : '')
     ];
 }
 
@@ -2796,6 +3059,7 @@ function vfVolverABorrador($conexion, $factura, $tipo_fiscal, $con_arca, $estado
         // Asiento generado al confirmar antes de que la factura fiscal esperara el CAE (facturas viejas)
         $comp_id = intval($factura['comprobante_id']);
         if ($comp_id > 0) {
+            cont_periodo_exigir_comprobante($conexion, $empresa_id, $comp_id, 'aprobar el comprobante');
             $stmt = mysqli_prepare($conexion, "DELETE d FROM gestion__cont_asientos_detalles d
                                                JOIN gestion__cont_asientos a ON a.cont_asiento_id = d.cont_asiento_id
                                                WHERE a.comprobante_id = ? AND a.empresa_id = ?");
@@ -2828,7 +3092,7 @@ function vfVolverABorrador($conexion, $factura, $tipo_fiscal, $con_arca, $estado
 
 /* =========================================================================
  * NOTAS DE CRÉDITO Y CONTADO A CONSUMIDOR FINAL (decisión Pablo 2026-10-09)
- * sql/mantenimiento/20261009_notas_credito_aplicacion_01.sql
+ * _local/sql/mantenimiento/20261009_notas_credito_aplicacion_01.sql
  *
  * - La NC/ND guarda su comprobante asociado (comprobante_asociado_id). Al quedar confirmada (5), una NC
  *   cuyo asociado tiene saldo se le aplica (imputación directa NC -> comprobante, tesoreriaAplicarNotaCredito)
@@ -2838,6 +3102,9 @@ function vfVolverABorrador($conexion, $factura, $tipo_fiscal, $con_arca, $estado
  * - Factura de contado a consumidor final: al quedar confirmada se emite un recibo automático en efectivo a la
  *   caja de la sucursal, imputado a la factura (queda cancelada).
  * ========================================================================= */
+
+// Diferencia aceptada entre los medios del cobro de contado y el total aprobado (redondeo del total).
+const VF_CONTADO_TOLERANCIA = 0.05;
 
 /** Tipo de comprobante dependiente (NC/ND): tiene padre en gestion__comprobantes_tipos_dependencias. */
 function vfTipoEsNota($conexion, $empresa_id, $tipo_id) {
@@ -2850,6 +3117,74 @@ function vfTipoEsNota($conexion, $empresa_id, $tipo_id) {
     $es = (bool) mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
     return $es;
+}
+
+/** ¿El tipo resta (signo '-', nota de crédito)? */
+function vfTipoEsCredito($conexion, $empresa_id, $tipo_id) {
+    $stmt = mysqli_prepare($conexion, "SELECT signo FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? AND empresa_id = ?");
+    $tipo_id = intval($tipo_id);
+    $empresa_id = intval($empresa_id);
+    mysqli_stmt_bind_param($stmt, 'ii', $tipo_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $fila = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    return $fila && in_array(trim((string)$fila['signo']), ['-', '-1'], true);
+}
+
+/**
+ * Ítems del comprobante asociado a una NC (factura o ND de venta del cliente), para elegir cuáles acreditar.
+ * cantidad_disponible = facturada - lo que ya acreditan otras NC vivas asociadas al mismo comprobante (por producto).
+ */
+function vfItemsComprobanteAsociado($conexion, $empresa_id, $entidad_id, $comprobante_id, $excluir_factura_id = 0) {
+    $empresa_id = intval($empresa_id);
+    $entidad_id = intval($entidad_id);
+    $comprobante_id = intval($comprobante_id);
+    $excluir_factura_id = intval($excluir_factura_id);
+    $tabla_id = intval(obtenerTablaOrigenPorPagina($conexion, 56) ?: 80);
+
+    $stmt = mysqli_prepare($conexion, "SELECT c.registro_origen_id FROM gestion__comprobantes c
+                                       WHERE c.comprobante_id = ? AND c.empresa_id = ? AND c.entidad_id = ? AND c.tabla_origen_id = ?");
+    mysqli_stmt_bind_param($stmt, 'iiii', $comprobante_id, $empresa_id, $entidad_id, $tabla_id);
+    mysqli_stmt_execute($stmt);
+    $origen = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$origen) return [];
+    $factura_id = intval($origen['registro_origen_id']);
+
+    $sql = "SELECT d.venta_factura_detalle_id, d.producto_id, p.producto_codigo, p.producto_nombre, d.leyenda,
+                   d.cantidad, d.precio_unitario, d.descuento_general_pct, d.iva_alicuota_id, d.porcentaje_iva,
+                   COALESCE(nc.acreditado, 0) AS acreditado
+            FROM gestion__ventas_facturas_detalles d
+            JOIN gestion__ventas_facturas f ON f.venta_factura_id = d.venta_factura_id AND f.empresa_id = ?
+            LEFT JOIN gestion__productos p ON p.producto_id = d.producto_id
+            LEFT JOIN (SELECT nd.producto_id, SUM(nd.cantidad) AS acreditado
+                       FROM gestion__ventas_facturas n
+                       JOIN gestion__ventas_facturas_detalles nd ON nd.venta_factura_id = n.venta_factura_id AND nd.tabla_estado_registro_id <> 6
+                       WHERE n.empresa_id = ? AND n.comprobante_asociado_id = ? AND n.venta_factura_id <> ?
+                         AND n.tabla_estado_registro_id NOT IN (6, 38)
+                       GROUP BY nd.producto_id) nc ON nc.producto_id = d.producto_id
+            WHERE d.venta_factura_id = ? AND d.tabla_estado_registro_id <> 6
+            ORDER BY d.venta_factura_detalle_id";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, 'iiiii', $empresa_id, $empresa_id, $comprobante_id, $excluir_factura_id, $factura_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $rows = [];
+    // Lo ya acreditado de un producto se descuenta de sus líneas en orden
+    $restante = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $prod = intval($r['producto_id']);
+        if (!isset($restante[$prod])) $restante[$prod] = floatval($r['acreditado']);
+        $cantidad = floatval($r['cantidad']);
+        $usado = min($cantidad, $restante[$prod]);
+        $restante[$prod] -= $usado;
+        $r['cantidad'] = $cantidad;
+        $r['cantidad_disponible'] = round($cantidad - $usado, 4);
+        unset($r['acreditado']);
+        $rows[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+    return $rows;
 }
 
 /** Comprobantes de venta confirmados del cliente a los que se puede asociar una NC/ND (con su saldo). */
@@ -2947,13 +3282,16 @@ function vfAplicarNotasCredito($conexion, $empresa_id, $destino_comprobante_id, 
     try {
         $aplicado_total = 0.0;
         $detalle = [];
+        $imputacion_ids = [];
         foreach ($aplicaciones as $a) {
             $nc_id = intval($a['nc_comprobante_id'] ?? 0);
-            $importe = tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_id, $destino_comprobante_id, floatval($a['importe'] ?? 0), $usuario_id);
+            $imputacion_id = null;
+            $importe = tesoreriaAplicarNotaCredito($conexion, $empresa_id, $nc_id, $destino_comprobante_id, floatval($a['importe'] ?? 0), $usuario_id, $imputacion_id);
             if ($importe > 0) {
+                if ($imputacion_id) $imputacion_ids[] = intval($imputacion_id);
                 $aplicado_total += $importe;
                 $nro = vfNroComprobante($conexion, $nc_id);
-                $detalle[] = $nro . ' por $' . number_format($importe, 2, ',', '.');
+                $detalle[] = $nro . ' por $' . fmt_numero($importe, 2);
             }
         }
         if ($aplicado_total <= 0) throw new Exception('No había saldo para aplicar.');
@@ -2969,10 +3307,26 @@ function vfAplicarNotasCredito($conexion, $empresa_id, $destino_comprobante_id, 
         ]);
         $rec = confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, true);
 
+        // El recibo documenta estas imputaciones: su detalle las muestra (factura +, NC -) y anularlo las deshace
+        // (gestion__comprobantes_imputaciones.documento_comprobante_id, 20261103_imputaciones_documento_recibo_01.sql)
+        $stmt = mysqli_prepare($conexion, "SELECT comprobante_id FROM gestion__cobranzas WHERE cobranza_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt, 'ii', $cobranza_id, $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $recibo_comp_id = intval(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt))['comprobante_id'] ?? 0);
+        mysqli_stmt_close($stmt);
+        if ($recibo_comp_id > 0) {
+            $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_imputaciones SET documento_comprobante_id = ? WHERE imputacion_id = ? AND empresa_id = ?");
+            foreach ($imputacion_ids as $imp_id) {
+                mysqli_stmt_bind_param($stmt, 'iii', $recibo_comp_id, $imp_id, $empresa_id);
+                if (!mysqli_stmt_execute($stmt)) throw new Exception('No se pudo ligar la aplicación al recibo: ' . mysqli_stmt_error($stmt));
+            }
+            mysqli_stmt_close($stmt);
+        }
+
         if (!$en_transaccion) mysqli_commit($conexion);
         return ['success' => true, 'aplicado' => round($aplicado_total, 2), 'cobranza_id' => $cobranza_id,
                 'recibo_nro' => $rec['comprobante_nro'] ?? null,
-                'message' => 'Notas de crédito aplicadas por $' . number_format($aplicado_total, 2, ',', '.') . ' (recibo en $0 N° ' . ($rec['comprobante_nro'] ?? '') . ').'];
+                'message' => 'Notas de crédito aplicadas por $' . fmt_numero($aplicado_total, 2) . ' (recibo en $0 N° ' . ($rec['comprobante_nro'] ?? '') . ').'];
     } catch (Exception $e) {
         if (!$en_transaccion) mysqli_rollback($conexion);
         if ($en_transaccion) throw $e;
@@ -2996,7 +3350,7 @@ function vfNroComprobante($conexion, $comprobante_id) {
  *  - Factura de contado a consumidor final: recibo automático en efectivo a la caja de la sucursal.
  * Devuelve ['mensajes' => [...]]. Lanza Exception si algo falla (la confirmación se revierte).
  */
-function vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, $usuario_id) {
+function vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, $usuario_id, $medios_contado = null) {
     require_once __DIR__ . '/tesoreria_core_model.php';
     $venta_factura_id = intval($venta_factura_id);
     $empresa_id = intval($empresa_id);
@@ -3053,31 +3407,53 @@ function vfPostConfirmacion($conexion, $venta_factura_id, $empresa_id, $usuario_
                 'imputaciones' => [['comprobante_destino_id' => $nc_id, 'importe_imputado' => $saldo_nc]],
             ]);
             $op = confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, true);
-            $mensajes[] = 'Devolución en efectivo de $' . number_format($saldo_nc, 2, ',', '.') . ' registrada en caja (OP N° ' . ($op['comprobante_nro'] ?? '') . ').';
+            $mensajes[] = 'Devolución en efectivo de $' . fmt_numero($saldo_nc, 2) . ' registrada en caja (OP N° ' . ($op['comprobante_nro'] ?? '') . ').';
         }
     }
 
-    // Contado a consumidor final: recibo automático en efectivo
+    // Contado a consumidor final: recibo automático con los medios que cargó el usuario al aprobar
+    // ($medios_contado, ya validados en vfEjecutarTransicionEstado) o, si no vinieron (facturación
+    // de abonos del estudio, llamadas sin pantalla), en efectivo a la caja de la sucursal.
     if ($f['signo'] === '+' && empty($f['entidad_id']) && floatval($f['importe_pendiente']) > 0.001) {
         $conn = $conexion;   // el modelo hace "$conexion = $conn" al cargarse; acá se carga dentro de una función
         require_once __DIR__ . '/cobranzas_model.php';
         $sucursal_id = intval($f['sucursal_id']);
-        $caja = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas
-                                  WHERE empresa_id = $empresa_id AND cuenta_tipo = 'CAJA' AND tabla_estado_registro_id = 1
-                                  ORDER BY (sucursal_id = $sucursal_id) DESC, tesoreria_cuenta_id LIMIT 1")->fetch_assoc();
-        $efectivo = $conexion->query("SELECT medio_pago_id FROM gestion__medios_pago WHERE empresa_id = $empresa_id AND medio_pago_tipo = 'EFECTIVO' AND tabla_estado_registro_id = 1
-                                      ORDER BY medio_pago_id LIMIT 1")->fetch_assoc();
-        if (!$caja || !$efectivo) {
-            throw new Exception('No hay caja o medio de pago en efectivo configurado para cobrar la venta de contado a consumidor final.');
-        }
         $importe = round(floatval($f['importe_pendiente']), 2);
+        $moneda_id = emp_moneda_id($conexion, $empresa_id, $f['moneda_id']);
+        if ($medios_contado !== null) {
+            $val = vfValidarMediosCobro($conexion, $empresa_id, $medios_contado, true);
+            if (isset($val['error'])) throw new Exception($val['error']);
+            $dif = round($importe - $val['total'], 2);
+            if (abs($dif) > VF_CONTADO_TOLERANCIA) {
+                throw new Exception('Los medios de pago ($' . fmt_numero($val['total'], 2) . ') tienen que sumar el total de la factura ($' . fmt_numero($importe, 2) . ').');
+            }
+            $medios = $val['medios'];
+            // Centavos de redondeo del total al aprobar: los absorbe el último medio
+            $ult = count($medios) - 1;
+            $medios[$ult]['importe'] = round($medios[$ult]['importe'] + $dif, 2);
+            $medios[$ult]['importe_comprobante'] = $medios[$ult]['importe'];
+            foreach ($medios as $i => $m) {
+                $medios[$i]['moneda_id'] = $moneda_id;
+                $medios[$i]['tipo_cambio'] = 1;
+            }
+        } else {
+            $caja = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__tesoreria_cuentas
+                                      WHERE empresa_id = $empresa_id AND cuenta_tipo = 'CAJA' AND tabla_estado_registro_id = 1
+                                      ORDER BY (sucursal_id = $sucursal_id) DESC, tesoreria_cuenta_id LIMIT 1")->fetch_assoc();
+            $efectivo = $conexion->query("SELECT medio_pago_id FROM gestion__medios_pago WHERE empresa_id = $empresa_id AND medio_pago_tipo = 'EFECTIVO' AND tabla_estado_registro_id = 1
+                                          ORDER BY medio_pago_id LIMIT 1")->fetch_assoc();
+            if (!$caja || !$efectivo) {
+                throw new Exception('No hay caja o medio de pago en efectivo configurado para cobrar la venta de contado a consumidor final.');
+            }
+            $medios = [['medio_pago_id' => intval($efectivo['medio_pago_id']), 'importe' => $importe, 'importe_comprobante' => $importe,
+                        'moneda_id' => $moneda_id, 'tipo_cambio' => 1, 'tesoreria_cuenta_id' => intval($caja['tesoreria_cuenta_id'])]];
+        }
         $cobranza_id = guardarCobranzaBorrador($conexion, [
             'empresa_id' => $empresa_id, 'sucursal_id' => $sucursal_id, 'entidad_id' => 0, 'consumidor_final' => true,
             'comprobante_pv' => vfPuntoVentaRecibo($conexion, $empresa_id, intval($f['punto_venta_id'])),
-            'moneda_id' => emp_moneda_id($conexion, $empresa_id, $f['moneda_id']), 'tipo_cambio' => 1, 'f_emision' => date('Y-m-d'), 'usuario_id' => $usuario_id,
+            'moneda_id' => $moneda_id, 'tipo_cambio' => 1, 'f_emision' => date('Y-m-d'), 'usuario_id' => $usuario_id,
             'observaciones' => 'Cobro de contado - consumidor final',
-            'medios' => [['medio_pago_id' => intval($efectivo['medio_pago_id']), 'importe' => $importe, 'importe_comprobante' => $importe,
-                          'moneda_id' => emp_moneda_id($conexion, $empresa_id, $f['moneda_id']), 'tipo_cambio' => 1, 'tesoreria_cuenta_id' => intval($caja['tesoreria_cuenta_id'])]],
+            'medios' => $medios,
             'imputaciones' => [['comprobante_destino_id' => intval($f['comprobante_id']), 'importe_imputado' => $importe]],
         ]);
         $rec = confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, true);

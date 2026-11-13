@@ -1,6 +1,8 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 // ============================================================
@@ -16,22 +18,17 @@ $conexion = $conn;
 // - gestion__ventas_remitos.comprobante_pv guarda directamente el punto_venta_id elegido
 //   (igual que ya hace gestion__comprobantes.comprobante_pv en syncComprobante() de
 //   ventas_pedidos_model.php), no un número de PV separado.
-// - "Pendiente de entrega" = gestion__ventas_pedidos_detalles.cantidad - cantidad_entregada,
-//   tal cual pidió Pablo. Se excluyen pedidos cuyo estado tenga codigo_estandar = 'CANCELADO'.
-// - (2026-09-12) cantidad_entregada se sigue reservando al agregar/editar el remito
-//   (con FOR UPDATE, ver insertarDetallesRemito) — eso no cambió. Lo que se agregó es
-//   gestion__ventas_pedidos.tabla_estado_registro_id: recién al CONFIRMAR el remito se
-//   decide, pedido por pedido, si quedó completo (11, sin ninguna línea con diferencia
-//   entre cantidad y cantidad_entregada) o todavía con diferencia (10). Ver
-//   actualizarEstadoPedidosPorEntregaRemito(), llamada desde ejecutarTransicionEstadoRemito
-//   tanto al confirmar como al cancelar/anular (ahí para recalcular hacia atrás).
-//   OJO: esto deja una ventana entre "agregar remito" (ya reservó cantidad_entregada)
-//   y "confirmar remito" (recién ahí se refleja en el estado del pedido) — si se prefiere
-//   que las dos cosas pasen juntas en un solo momento, avisar para unificarlo.
-// - La reversión de cantidad_entregada (al editar o al anular un remito) dispara cuando el
-//   estado destino de la transición tiene codigo_estandar 'CANCELADO' o 'ANULADO'. Si en
-//   conf__estados_registros usás otro código para "remito anulado", ajustar la comparación
-//   en revertirCantidadEntregadaRemito()/ejecutarTransicionEstadoRemito().
+// - "Pendiente de entrega" = gestion__ventas_pedidos_detalles.cantidad - cantidad_entregada.
+//   Solo se ofrecen pedidos vivos: se excluyen los de estado (id genérico) BORRADOR, CANCELADO,
+//   ELIMINADO y ANULADO.
+// - cantidad_entregada se reserva al agregar/editar el remito, ya en Borrador (con FOR UPDATE, ver
+//   insertarDetallesRemito). Editar revierte y vuelve a reservar; eliminar (Borrador -> 6),
+//   cancelar o anular revierte (revertirCantidadEntregadaRemito, desde ejecutarTransicionEstadoRemito).
+// - El estado del pedido sale de lo ENTREGADO, que son solo los remitos confirmados (pendiente de
+//   facturar, facturado o parcial): 11 entrega total, 10 parcial, 5 si ya no queda nada entregado
+//   (actualizarEstadoPedidosPorEntregaRemito, al confirmar y al liberar, con el remito ya en su estado
+//   nuevo; actualiza también el espejo del pedido en gestion__comprobantes). Prueba en el simulador:
+//   casos/19b_pedidos_remitos_eliminacion.py (2026-10-21).
 // ============================================================
 
 
@@ -76,7 +73,11 @@ function obtenerFuncionesPaginaRemitos($conexion, $pagina_id)
 
 function obtenerBotonesPorEstadoRemito($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPaginaRemitos($conexion, $pagina_id);
+    static $cache = [];
+    if (!isset($cache[$pagina_id])) {
+        $cache[$pagina_id] = permisos_filtrar_funciones($conexion, obtenerFuncionesPaginaRemitos($conexion, $pagina_id));
+    }
+    $funciones = $cache[$pagina_id];
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -106,7 +107,10 @@ function obtenerBotonesPorEstadoRemito($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregarRemito($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPaginaRemitos($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPaginaRemitos($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -541,20 +545,51 @@ function actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id)
     mysqli_stmt_close($stmt);
 
     foreach ($pedido_ids as $pedido_id) {
-        $sql_check = "SELECT COUNT(*) as pendientes
-                      FROM gestion__ventas_pedidos_detalles
-                      WHERE venta_pedido_id = ? AND cantidad <> cantidad_entregada";
+        // Entregado = remitos confirmados (pendientes de facturar, facturados o parciales); los Borradores
+        // descuentan cantidad_entregada (reservan el pendiente) pero no cuentan como entrega.
+        $sql_check = "SELECT vp.tabla_estado_registro_id AS estado,
+                             SUM(COALESCE(ent.cant, 0) >= vpd.cantidad) AS completas,
+                             SUM(COALESCE(ent.cant, 0) > 0) AS con_entrega,
+                             COUNT(*) AS lineas
+                      FROM gestion__ventas_pedidos vp
+                      JOIN gestion__ventas_pedidos_detalles vpd ON vpd.venta_pedido_id = vp.venta_pedido_id
+                      LEFT JOIN (SELECT rd.venta_pedido_detalle_id, SUM(rd.cantidad) cant
+                                 FROM gestion__ventas_remitos_detalles rd
+                                 JOIN gestion__ventas_remitos vr ON vr.venta_remito_id = rd.venta_remito_id
+                                 JOIN conf__estados_registros er ON er.estado_registro_id = vr.tabla_estado_registro_id
+                                 WHERE rd.tabla_estado_registro_id = 1
+                                   AND er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
+                                 GROUP BY rd.venta_pedido_detalle_id) ent ON ent.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                      WHERE vp.venta_pedido_id = ?
+                      GROUP BY vp.venta_pedido_id, vp.tabla_estado_registro_id";
         $stmt_check = mysqli_prepare($conexion, $sql_check);
         if (!$stmt_check) {
             throw new Exception("Error preparando verificación de pedido completo: " . mysqli_error($conexion));
         }
         mysqli_stmt_bind_param($stmt_check, "i", $pedido_id);
         mysqli_stmt_execute($stmt_check);
-        $result_check = mysqli_stmt_get_result($stmt_check);
-        $fila_check = mysqli_fetch_assoc($result_check);
+        $fila_check = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_check));
         mysqli_stmt_close($stmt_check);
+        if (!$fila_check) {
+            continue;
+        }
 
-        $estado_pedido = (intval($fila_check['pendientes']) === 0) ? 11 : 10;
+        $estado_actual = intval($fila_check['estado']);
+        // Solo pedidos vivos: confirmado (5), en preparación (9), entrega parcial (10) o total (11)
+        if (!in_array($estado_actual, [5, 9, 10, 11], true)) {
+            continue;
+        }
+        if (intval($fila_check['completas']) === intval($fila_check['lineas'])) {
+            $estado_pedido = 11;
+        } elseif (intval($fila_check['con_entrega']) > 0) {
+            $estado_pedido = 10;
+        } else {
+            // Sin nada entregado: vuelve a confirmado si estaba marcado como entregado; si no, queda como está
+            $estado_pedido = in_array($estado_actual, [10, 11], true) ? 5 : $estado_actual;
+        }
+        if ($estado_pedido === $estado_actual) {
+            continue;
+        }
 
         $sql_upd_pedido = "UPDATE gestion__ventas_pedidos SET tabla_estado_registro_id = ? WHERE venta_pedido_id = ?";
         $stmt_upd_pedido = mysqli_prepare($conexion, $sql_upd_pedido);
@@ -566,6 +601,16 @@ function actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id)
             throw new Exception("Error actualizando estado del pedido: " . mysqli_stmt_error($stmt_upd_pedido));
         }
         mysqli_stmt_close($stmt_upd_pedido);
+
+        // Espejo del pedido en gestion__comprobantes
+        $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = ?
+                                           WHERE registro_origen_id = ?
+                                             AND tabla_origen_id = (SELECT t.tabla_id FROM conf__tablas t WHERE t.tabla_nombre = 'gestion__ventas_pedidos')");
+        mysqli_stmt_bind_param($stmt, "ii", $estado_pedido, $pedido_id);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Error sincronizando el comprobante del pedido: ' . mysqli_stmt_error($stmt));
+        }
+        mysqli_stmt_close($stmt);
     }
 }
 
@@ -612,7 +657,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
                        WHERE rd_confirmado.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
                          AND rd_confirmado.tabla_estado_registro_id = 1
                          AND vr_confirmado.empresa_id = vp.empresa_id
-                         AND er_confirmado.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT')
+                         AND er_confirmado.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
                    ), 0) as cantidad_entregada_confirmada,
                    (vpd.cantidad - vpd.cantidad_entregada) as pendiente,
                    vpd.precio_unitario_bruto, vpd.descuento_general_pct, vpd.precio_unitario_neto,
@@ -676,8 +721,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
             INNER JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
             INNER JOIN gestion__productos p ON vpd.producto_id = p.producto_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
-            LEFT JOIN conf__tablas_estados_registros ter ON vp.tabla_estado_registro_id = ter.tabla_estado_registro_id
-            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = vp.tabla_estado_registro_id
             WHERE vp.entidad_id = ?
             AND vp.empresa_id = ?
             AND (
@@ -696,8 +740,7 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
                     )
                 )
             )
-            AND vp.tabla_estado_registro_id != 137
-            AND (er.codigo_estandar IS NULL OR er.codigo_estandar NOT IN ('BORRADOR', 'CANCELADO', 'ELIMINADO'))
+            AND (er.codigo_estandar IS NULL OR er.codigo_estandar NOT IN ('BORRADOR', 'CANCELADO', 'ELIMINADO', 'ANULADO'))
             AND (vp.venta_pedido_id = ? OR ? IS NULL)
             ORDER BY (orden_seccion IS NULL), orden_seccion, orden_estanteria, orden_estante, orden_posicion,
                      vp.f_emision, vp.venta_pedido_id, vpd.venta_pedido_detalle_id";
@@ -1331,8 +1374,7 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
                                 er.codigo_estandar
                          FROM gestion__ventas_pedidos_detalles vpd
                          INNER JOIN gestion__ventas_pedidos vp ON vpd.venta_pedido_id = vp.venta_pedido_id
-                         LEFT JOIN conf__tablas_estados_registros ter ON vp.tabla_estado_registro_id = ter.tabla_estado_registro_id
-                         LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
+                         LEFT JOIN conf__estados_registros er ON er.estado_registro_id = vp.tabla_estado_registro_id
                          INNER JOIN gestion__productos p ON vpd.producto_id = p.producto_id
                          WHERE vpd.venta_pedido_detalle_id = ?
                          FOR UPDATE";
@@ -1352,9 +1394,14 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
             if (intval($linea_pedido['empresa_id']) !== intval($empresa_id) || intval($linea_pedido['entidad_id']) !== intval($entidad_id)) {
                 throw new Exception("La línea de pedido seleccionada no corresponde al cliente del remito");
             }
-            if (intval($linea_pedido['tabla_estado_registro_id']) === 137 || ($linea_pedido['codigo_estandar'] ?? '') === 'BORRADOR') {
+            $codigo_pedido = $linea_pedido['codigo_estandar'] ?? '';
+            if ($codigo_pedido === 'BORRADOR') {
                 $nro = !empty($linea_pedido['comprobante_nro']) ? '#' . $linea_pedido['comprobante_nro'] : '';
                 throw new Exception("No se puede cargar un remito para el pedido $nro porque se encuentra en estado Borrador. Debe confirmarlo primero.");
+            }
+            if (in_array($codigo_pedido, ['ELIMINADO', 'CANCELADO', 'ANULADO'], true)) {
+                $nro = !empty($linea_pedido['comprobante_nro']) ? '#' . $linea_pedido['comprobante_nro'] : '';
+                throw new Exception("No se puede cargar un remito para el pedido $nro porque está " . strtolower($codigo_pedido) . ".");
             }
 
             $pendiente = floatval($linea_pedido['cantidad']) - floatval($linea_pedido['cantidad_entregada']);
@@ -1514,21 +1561,35 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
                 $numero_asignado = $proximo_numero;
             }
 
-            // Recién al confirmar (queda numerado) se considera oficialmente entregado
-            // lo que este remito trae vinculado a pedidos: acá se decide si cada pedido
-            // afectado queda completo (11) o todavía con diferencia (10).
-            actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id);
         }
 
-        // Si el estado destino es una cancelación/anulación, liberar el pendiente que
-        // este remito le había descontado a los pedidos de origen.
+        // Si el remito se elimina (Borrador -> Eliminado), se cancela o se anula, liberar el pendiente
+        // que le había descontado a los pedidos de origen (lo descuenta desde el alta en Borrador).
         $info_destino = obtenerCodigoEstandarEstado($conexion, $estado_destino_id);
         $codigo_destino = $info_destino['codigo_estandar'] ?? '';
-        if (in_array($codigo_destino, ['CANCELADO', 'ANULADO'])) {
+        $libera_pedido = in_array($codigo_destino, ['CANCELADO', 'ANULADO', 'ELIMINADO'], true);
+        // Anular un remito confirmado: solo si ninguna factura (tampoco un borrador) usa sus líneas;
+        // si no, primero se anula o se quita la línea de la factura.
+        if ($codigo_destino === 'ANULADO') {
+            $stmt = mysqli_prepare($conexion, "SELECT f.venta_factura_id, f.comprobante_nro
+                                               FROM gestion__ventas_remitos_detalles rd
+                                               JOIN gestion__ventas_facturas_detalles fd ON fd.venta_remito_detalle_id = rd.venta_remito_detalle_id
+                                                    AND fd.tabla_estado_registro_id <> 6
+                                               JOIN gestion__ventas_facturas f ON f.venta_factura_id = fd.venta_factura_id
+                                                    AND f.tabla_estado_registro_id NOT IN (6, 38)
+                                               WHERE rd.venta_remito_id = ?
+                                               LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "i", $venta_remito_id);
+            mysqli_stmt_execute($stmt);
+            $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            mysqli_stmt_close($stmt);
+            if ($factura) {
+                throw new Exception('El remito tiene líneas en una factura (' . (intval($factura['comprobante_nro']) > 0 ? 'N° ' . intval($factura['comprobante_nro']) : 'borrador ID ' . intval($factura['venta_factura_id']))
+                    . '). Para anularlo, primero anulá la factura o quitá esas líneas.');
+            }
+        }
+        if ($libera_pedido) {
             revertirCantidadEntregadaRemito($conexion, $venta_remito_id);
-            // El pedido puede haber dejado de estar completo (o de tener algo entregado)
-            // al liberarse lo que aportaba este remito: se recalcula igual que al confirmar.
-            actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id);
         }
 
         $sql_update = "UPDATE gestion__ventas_remitos SET tabla_estado_registro_id = ? WHERE venta_remito_id = ?";
@@ -1538,6 +1599,11 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
             throw new Exception('Error actualizando estado: ' . mysqli_stmt_error($stmt));
         }
         mysqli_stmt_close($stmt);
+
+        // Con el remito ya en su estado nuevo: entrega total (11), parcial (10) o ninguna (5) de cada pedido afectado
+        if ($accion_js === 'confirmar' || $libera_pedido) {
+            actualizarEstadoPedidosPorEntregaRemito($conexion, $venta_remito_id);
+        }
 
         // Espejo en gestion__comprobantes: estado y número del remito (antes quedaba en Borrador y sin número)
         $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes c
@@ -1775,7 +1841,7 @@ function obtenerClientesRemitos($conexion, $empresa_idx)
                    )
             LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE e.empresa_id = ?
-            AND e.es_cliente = 1
+            AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "
             AND e.tabla_estado_registro_id = 1
             ORDER BY e.entidad_nombre";
 

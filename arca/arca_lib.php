@@ -53,7 +53,79 @@ function arca_obtener_configuracion($conexion, $integracion_empresa_id, $empresa
     $cfg = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
 
+    if ($cfg) {
+        // La titular usa su certificado con su CUIT (ver arca_obtener_configuracion_para_empresa)
+        $cfg['titular_empresa_id'] = $cfg['empresa_id'];
+        $cfg['certificado_cuit'] = $cfg['cuit'];
+        $cfg['delegada'] = 0;
+    }
     return $cfg ?: null;
+}
+
+// gestion__integraciones_delegaciones (_local/sql/mantenimiento/20261019_arca_certificado_parametros_02_delegaciones.sql)
+function arca_delegaciones_existen($conexion)
+{
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__integraciones_delegaciones'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
+// Condición SQL de delegación vigente; el alias de la tabla es d.
+function arca_sql_delegacion_vigente()
+{
+    return "d.tabla_estado_registro_id = 1 AND d.fecha_desde <= CURDATE()
+            AND (d.fecha_hasta IS NULL OR d.fecha_hasta >= CURDATE())";
+}
+
+// Configuración de una integración para la empresa que la usa: la propia o una que la titular le
+// delegó (vigente). En la delegada, el certificado y el TA son los de la titular, pero la llamada a
+// WSFE va con el CUIT de la empresa que factura (en ARCA esa empresa delegó el servicio en el CUIT
+// del certificado) y el historial queda en la empresa que factura. Null si no la puede usar.
+function arca_obtener_configuracion_para_empresa($conexion, $integracion_empresa_id, $empresa_id)
+{
+    $cfg = arca_obtener_configuracion($conexion, $integracion_empresa_id, $empresa_id);
+    if ($cfg || !arca_delegaciones_existen($conexion)) {
+        return $cfg;
+    }
+
+    $sql = "SELECT ie.integracion_empresa_id, ie.empresa_id, ie.integracion_ambiente_id,
+                   ie.servicio, ie.cuit, ie.certificado_ruta, ie.clave_privada_ruta,
+                   ie.tabla_estado_registro_id,
+                   a.integracion_id, a.codigo AS ambiente_codigo, a.nombre AS ambiente_nombre,
+                   a.url_wsaa, a.url_servicio, a.activo AS ambiente_activo,
+                   e.documento_numero AS cuit_destino
+            FROM gestion__integraciones_empresas ie
+            INNER JOIN conf__integraciones_ambientes a
+                ON a.integracion_ambiente_id = ie.integracion_ambiente_id
+            INNER JOIN gestion__integraciones_delegaciones d
+                ON d.integracion_empresa_id = ie.integracion_empresa_id AND d.empresa_destino_id = ?
+            INNER JOIN conf__empresas e ON e.empresa_id = d.empresa_destino_id
+            WHERE ie.integracion_empresa_id = ? AND " . arca_sql_delegacion_vigente();
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("arca_obtener_configuracion_para_empresa: " . mysqli_error($conexion));
+        return null;
+    }
+    $integracion_empresa_id = intval($integracion_empresa_id);
+    $empresa_id = intval($empresa_id);
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $integracion_empresa_id);
+    mysqli_stmt_execute($stmt);
+    $cfg = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$cfg) {
+        return null;
+    }
+
+    $cfg['titular_empresa_id'] = $cfg['empresa_id'];
+    $cfg['certificado_cuit'] = $cfg['cuit'];
+    $cfg['empresa_id'] = $empresa_id;
+    $cfg['cuit'] = preg_replace('/\D/', '', (string)$cfg['cuit_destino']);
+    $cfg['delegada'] = 1;
+    unset($cfg['cuit_destino']);
+    return $cfg;
 }
 
 // Ruta absoluta de un certificado/clave, o null si no existe o queda fuera de arca/.
@@ -222,7 +294,9 @@ function arca_fecha_local($iso)
 // Primer nodo por nombre local (ignora namespaces), como string; '' si no existe.
 function arca_xml_valor($xml, $nombre)
 {
-    $nodos = $xml->xpath('//*[local-name()="' . $nombre . '"]');
+    // ".//" busca dentro del nodo recibido; con "//" un <Err> u <Obs> leía el primer
+    // Code/Msg de todo el documento (el evento informativo 39 tapaba el motivo real).
+    $nodos = $xml->xpath('.//*[local-name()="' . $nombre . '"]');
     return isset($nodos[0]) ? trim((string)$nodos[0]) : '';
 }
 
@@ -341,6 +415,10 @@ function arca_http_soap($url, $soap_action, $xml, $timeout = 60)
         ],
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
+        // Los servidores de WSFE negocian DH de 1024 bits: OpenSSL 3 los rechaza con
+        // "dh key too small" (en Ubuntu también con SECLEVEL=1). Se baja solo el nivel
+        // de seguridad, el certificado del servidor se sigue verificando.
+        CURLOPT_SSL_CIPHER_LIST => 'DEFAULT@SECLEVEL=0',
         CURLOPT_CONNECTTIMEOUT => 30,
         CURLOPT_TIMEOUT => $timeout
     ]);
@@ -469,6 +547,19 @@ function arca_parsear_login_ticket($texto)
     ];
 }
 
+// El TA es de cada certificado: desde 20261018_arca_certificado_parametros_01.sql se guarda por
+// integracion_empresa_id (puede haber varias integraciones por empresa + ambiente + servicio).
+// Sin la columna (script sin correr): una fila por empresa + ambiente + servicio, como antes.
+function arca_ta_por_integracion($conexion)
+{
+    static $existe = null;
+    if ($existe === null) {
+        $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__integraciones_autenticaciones LIKE 'integracion_empresa_id'");
+        $existe = $res && mysqli_num_rows($res) > 0;
+    }
+    return $existe;
+}
+
 // TA vigente en BD (con margen) o null.
 function arca_ta_vigente($conexion, $cfg)
 {
@@ -476,15 +567,22 @@ function arca_ta_vigente($conexion, $cfg)
     $sql = "SELECT token, sign, fecha_hora_generacion, fecha_hora_vencimiento
             FROM gestion__integraciones_autenticaciones
             WHERE empresa_id = ? AND integracion_ambiente_id = ? AND servicio = ?
-              AND activo = 1 AND fecha_hora_vencimiento > ?
-            LIMIT 1";
+              AND activo = 1 AND fecha_hora_vencimiento > ?"
+        . (arca_ta_por_integracion($conexion) ? " AND integracion_empresa_id = ?" : "")
+        . " LIMIT 1";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return null;
     }
-    $empresa_id = intval($cfg['empresa_id']);
+    // El TA es del certificado: en una integración delegada se guarda con la empresa titular
+    $empresa_id = intval($cfg['titular_empresa_id'] ?? $cfg['empresa_id']);
     $ambiente_id = intval($cfg['integracion_ambiente_id']);
-    mysqli_stmt_bind_param($stmt, "iiss", $empresa_id, $ambiente_id, $cfg['servicio'], $limite);
+    if (arca_ta_por_integracion($conexion)) {
+        $integracion_id = intval($cfg['integracion_empresa_id']);
+        mysqli_stmt_bind_param($stmt, "iissi", $empresa_id, $ambiente_id, $cfg['servicio'], $limite, $integracion_id);
+    } else {
+        mysqli_stmt_bind_param($stmt, "iiss", $empresa_id, $ambiente_id, $cfg['servicio'], $limite);
+    }
     mysqli_stmt_execute($stmt);
     $fila = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
@@ -502,10 +600,12 @@ function arca_estado_ta($conexion, $cfg)
 
 function arca_guardar_ta($conexion, $cfg, $ticket)
 {
+    $por_integracion = arca_ta_por_integracion($conexion);
     $sql = "INSERT INTO gestion__integraciones_autenticaciones
                 (empresa_id, integracion_ambiente_id, servicio, tipo_autenticacion, token, sign,
-                 fecha_hora_generacion, fecha_hora_vencimiento, activo, fecha_hora_actualizacion)
-            VALUES (?, ?, ?, 'token_sign', ?, ?, ?, ?, 1, ?)
+                 fecha_hora_generacion, fecha_hora_vencimiento, activo, fecha_hora_actualizacion"
+        . ($por_integracion ? ", integracion_empresa_id" : "") . ")
+            VALUES (?, ?, ?, 'token_sign', ?, ?, ?, ?, 1, ?" . ($por_integracion ? ", ?" : "") . ")
             ON DUPLICATE KEY UPDATE
                 tipo_autenticacion = VALUES(tipo_autenticacion), token = VALUES(token), sign = VALUES(sign),
                 fecha_hora_generacion = VALUES(fecha_hora_generacion),
@@ -516,21 +616,17 @@ function arca_guardar_ta($conexion, $cfg, $ticket)
         error_log("arca_guardar_ta: " . mysqli_error($conexion));
         return false;
     }
-    $empresa_id = intval($cfg['empresa_id']);
+    $empresa_id = intval($cfg['titular_empresa_id'] ?? $cfg['empresa_id']);
     $ambiente_id = intval($cfg['integracion_ambiente_id']);
     $ahora = date('Y-m-d H:i:s');
-    mysqli_stmt_bind_param(
-        $stmt,
-        "iissssss",
-        $empresa_id,
-        $ambiente_id,
-        $cfg['servicio'],
-        $ticket['token'],
-        $ticket['sign'],
-        $ticket['generacion'],
-        $ticket['vencimiento'],
-        $ahora
-    );
+    $params = [$empresa_id, $ambiente_id, $cfg['servicio'], $ticket['token'], $ticket['sign'],
+        $ticket['generacion'], $ticket['vencimiento'], $ahora];
+    $tipos = "iissssss";
+    if ($por_integracion) {
+        $params[] = intval($cfg['integracion_empresa_id']);
+        $tipos .= "i";
+    }
+    mysqli_stmt_bind_param($stmt, $tipos, ...$params);
     $ok = mysqli_stmt_execute($stmt);
     if (!$ok) {
         error_log("arca_guardar_ta: " . mysqli_stmt_error($stmt));
@@ -650,7 +746,7 @@ function arca_importar_ta_respuestas($conexion, $cfg)
         if (!$ticket['ok'] || $ticket['vencimiento'] === null || $ticket['vencimiento'] <= $limite) {
             continue;
         }
-        if (strpos($ticket['destination'], 'CUIT ' . $cfg['cuit']) === false) {
+        if (strpos($ticket['destination'], 'CUIT ' . ($cfg['certificado_cuit'] ?? $cfg['cuit'])) === false) {
             continue;
         }
         if ((stripos($ticket['source'], 'wsaahomo') !== false) !== $es_homologacion) {
@@ -669,7 +765,7 @@ function arca_importar_ta_respuestas($conexion, $cfg)
     }
 
     if ($mejor === null) {
-        $mensaje = 'No hay respuestas guardadas con un TA vigente para CUIT ' . $cfg['cuit']
+        $mensaje = 'No hay respuestas guardadas con un TA vigente para CUIT ' . ($cfg['certificado_cuit'] ?? $cfg['cuit'])
             . ', servicio ' . $cfg['servicio'] . ' y ambiente ' . $cfg['ambiente_nombre'];
         arca_registrar_resultado($conexion, $cfg, 'wsaa_importar_ta', [
             'resultado' => 'ERROR',
@@ -965,6 +1061,22 @@ function arca_wsfe_solicitar_cae($conexion, $cfg, $datos)
         $tributos .= '</ar:Tributos>';
     }
 
+    // Comprobantes asociados de una NC/ND: [['tipo', 'pto_vta', 'nro', 'cuit'?, 'fecha'?], ...]
+    $cbtes_asoc = '';
+    if (!empty($datos['cbtes_asoc'])) {
+        $cbtes_asoc = '<ar:CbtesAsoc>';
+        foreach ($datos['cbtes_asoc'] as $c) {
+            $cbtes_asoc .= '<ar:CbteAsoc>'
+                . '<ar:Tipo>' . intval($c['tipo']) . '</ar:Tipo>'
+                . '<ar:PtoVta>' . intval($c['pto_vta']) . '</ar:PtoVta>'
+                . '<ar:Nro>' . intval($c['nro']) . '</ar:Nro>'
+                . (!empty($c['cuit']) ? '<ar:Cuit>' . preg_replace('/\D/', '', (string)$c['cuit']) . '</ar:Cuit>' : '')
+                . (!empty($c['fecha']) ? '<ar:CbteFch>' . preg_replace('/\D/', '', (string)$c['fecha']) . '</ar:CbteFch>' : '')
+                . '</ar:CbteAsoc>';
+        }
+        $cbtes_asoc .= '</ar:CbtesAsoc>';
+    }
+
     $cuerpo = '<ar:FeCAEReq>'
         . '<ar:FeCabReq><ar:CantReg>1</ar:CantReg><ar:PtoVta>' . $pto_vta . '</ar:PtoVta><ar:CbteTipo>' . $cbte_tipo . '</ar:CbteTipo></ar:FeCabReq>'
         . '<ar:FeDetReq><ar:FECAEDetRequest>'
@@ -983,6 +1095,7 @@ function arca_wsfe_solicitar_cae($conexion, $cfg, $datos)
         . '<ar:MonId>PES</ar:MonId>'
         . '<ar:MonCotiz>1</ar:MonCotiz>'
         . '<ar:CondicionIVAReceptorId>' . intval($datos['condicion_iva_receptor_id']) . '</ar:CondicionIVAReceptorId>'
+        . $cbtes_asoc
         . $tributos
         . $iva
         . '</ar:FECAEDetRequest></ar:FeDetReq>'

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "Impuestos por Jurisdicción";
 $currentPage = 'impuestos_jurisdicciones';
 $modudo_idx = 5;
-$pagina_idx = 76; // ID de página para Impuestos por Jurisdicción
+$pagina_idx = 576; // ID de página para Impuestos por Jurisdicción
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -19,12 +19,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <h3 class="mb-0">
                         <i class="fas fa-dollar-sign me-2"></i>Impuestos por Jurisdicción
                     </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
+                    <small class="text-muted">Gestión Normal Multiempresa</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
                         <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
+                        <li class="breadcrumb-item"><a href="#">Gestión Normal</a></li>
                         <li class="breadcrumb-item"><a href="#">Configuración</a></li>
                         <li class="breadcrumb-item active" aria-current="page">Impuestos por Jurisdicción</li>
                     </ol>
@@ -530,7 +530,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                        url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                     },
                     order: currentOrder,
                     responsive: true,
@@ -1016,13 +1016,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Librerías necesarias -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

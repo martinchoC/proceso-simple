@@ -7,36 +7,20 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 
 $pageTitle = "Obligaciones Impositivas y Rendiciones";
 $currentPage = 'obligaciones_rendiciones';
 $modudo_idx = 2; // Typo intencional y consistente del ERP
 $pagina_idx = 109;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-file-invoice text-primary me-2"></i>Obligaciones Fiscales y Rendiciones
-                    </h3>
-                    <small class="text-muted">Liquidaciones de impuestos (I_LIQ/I_PAG), anticipos de viáticos y rendición de comprobantes de gastos</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Obligaciones y Rendiciones</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Rendiciones de gastos','fas fa-file-invoice', 'Anticipos de gastos a rendir, rendición de comprobantes de gastos y reembolsos al personal. Las liquidaciones de impuestos están en Obligaciones de Pago.', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -55,80 +39,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </ul>
 
             <div class="tab-content" id="mainTabsContent">
-                <!-- TAB 1: OBLIGACIONES IMPOSITIVAS -->
+                <!-- TAB 1: las liquidaciones impositivas pasaron a Obligaciones de Pago (2026-10-30) y se pagan con Órdenes de Pago -->
                 <div class="tab-pane fade show active" id="tab-impuestos" role="tabpanel" aria-labelledby="tab-impuestos-tab">
-                    <div class="card card-outline card-primary shadow-sm mb-4">
-                        <div class="card-header bg-light py-3">
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <h5 class="card-title mb-0 fw-bold">
-                                    <i class="fas fa-file-invoice-dollar text-secondary me-2"></i>Liquidaciones Impositivas (I_LIQ / I_PAG)
-                                </h5>
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargarImp" title="Actualizar">
-                                        <i class="fas fa-sync-alt me-1"></i> Actualizar
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-primary" id="btnNuevaObligacion">
-                                        <i class="fas fa-plus me-1"></i> Nueva Obligación / VEP
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Filtros Impuestos -->
-                        <div class="card-body bg-light border-bottom py-2">
-                            <form id="formFiltrosImp" class="row g-2 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold mb-1">Período Fiscal (AAAA-MM)</label>
-                                    <input type="text" class="form-control form-control-sm" id="filtroPeriodo" placeholder="Ej: 2026-10">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold mb-1">Vto Desde</label>
-                                    <input type="date" class="form-control form-control-sm" id="filtroVtoDesde">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold mb-1">Vto Hasta</label>
-                                    <input type="date" class="form-control form-control-sm" id="filtroVtoHasta">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Estado</label>
-                                    <select class="form-select form-select-sm" id="filtroEstadoImp">
-                                        <option value="">-- Todos --</option>
-                                        <option value="5">Confirmada</option>
-                                        <option value="38">Anulada</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-1 d-grid">
-                                    <button type="button" class="btn btn-sm btn-primary" id="btnFiltrarImp">
-                                        <i class="fas fa-filter"></i>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- Tabla Impuestos -->
-                        <div class="card-body p-3">
-                            <div class="table-responsive">
-                                <table id="tablaObligaciones" class="table table-sm table-striped table-hover align-middle w-100">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th style="width: 120px;">N° Comprobante</th>
-                                            <th style="width: 90px;">Período</th>
-                                            <th>Impuesto / Concepto</th>
-                                            <th>Organismo</th>
-                                            <th style="width: 100px;">Vencimiento</th>
-                                            <th style="width: 130px;">N° VEP</th>
-                                            <th style="width: 120px;" class="text-end">Total</th>
-                                            <th style="width: 120px;" class="text-end">Pendiente</th>
-                                            <th style="width: 95px;">Estado</th>
-                                            <th style="width: 90px;" class="text-center">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- DataTables -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="alert alert-info d-flex align-items-center gap-3">
+                        <i class="bi bi-info-circle fs-4"></i>
+                        <div>Las liquidaciones de impuestos, los sueldos y las demás deudas que no son facturas de compra ahora están en
+                            <a class="fw-bold" href="obligaciones_pago.php">Obligaciones de Pago</a>, y se pagan desde Órdenes de Pago.</div>
                     </div>
                 </div>
 
@@ -144,12 +60,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargarRend" title="Actualizar">
                                         <i class="fas fa-sync-alt me-1"></i> Actualizar
                                     </button>
+                                    <?php if (permisos_puede($conexion, $pagina_idx, 'agregar_anticipo')): ?>
                                     <button type="button" class="btn btn-sm btn-outline-success" id="btnNuevoAnticipo">
                                         <i class="fas fa-hand-holding-usd me-1"></i> Entregar Anticipo
                                     </button>
+                                    <?php endif; ?>
+                                    <?php if (permisos_puede($conexion, $pagina_idx, 'agregar_rendicion')): ?>
                                     <button type="button" class="btn btn-sm btn-success" id="btnNuevaRendicion">
                                         <i class="fas fa-plus me-1"></i> Nueva Rendición de Gastos
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -473,5 +393,5 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>
 
 <!-- SweetAlert2 y Script de Fase 6 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="obligaciones_rendiciones.js"></script>

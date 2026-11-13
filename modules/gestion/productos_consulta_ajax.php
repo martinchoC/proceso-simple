@@ -38,4 +38,7 @@ if (!in_array($accion_consulta, $acciones_permitidas, true)) {
     exit;
 }
 
+// productos_ajax.php limita las ubicaciones a las sucursales del usuario (accesos_perfiles.php)
+// solo cuando entra por acá.
+define('PRODUCTOS_CONSULTA', true);
 require __DIR__ . '/productos_ajax.php';

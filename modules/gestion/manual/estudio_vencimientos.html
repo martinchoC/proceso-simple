@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Estudio Contable: Vencimientos Impositivos</title>
+<style>
+    :root { --azul: #0d6efd; --azul-oscuro: #0a58ca; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --cian: #055160; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; padding: 24px; line-height: 1.55; max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; color: #111827; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; color: var(--azul-oscuro); }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #1e293b; }
+    .volver { display: inline-block; margin-bottom: 12px; font-size: 0.9rem; color: var(--azul); text-decoration: none; font-weight: 500; }
+    .volver:hover { text-decoration: underline; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .badge-pantalla { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; background: #cff4fc; color: #055160; text-transform: uppercase; margin-bottom: 6px; }
+    .card { border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 14px 0; background: #fff; }
+    .card-outline-cyan { border-left: 4px solid var(--cian); }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); font-weight: 600; }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="manual_modulo_estudio_contable.html">← Volver al manual de Estudio Contable</a> | <a class="volver" href="index.html">Portal General</a>
+
+<span class="badge-pantalla">Estudio Contable · Calendario Fiscal</span>
+<h1>Manual de usuario: Tablero de Vencimientos</h1>
+<p class="subtitulo">Panel semaforizado para control de presentaciones tributarias (IVA, Ganancias, IIBB, Cargas Sociales F.931) y generador automático según terminación de CUIT.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#proposito">¿Para qué sirve esta pantalla?</a></li>
+        <li><a href="#tablero">El Tablero de Control de Vencimientos</a></li>
+        <li><a href="#generador">Generador Automático de Calendario</a></li>
+        <li><a href="#estados">Estados de una presentación</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="proposito">¿Para qué sirve esta pantalla?</h2>
+<p>En <code>vencimientos_tablero.php</code> y <code>vencimientos_generador.php</code> el estudio supervisa todas las obligaciones fiscales que vencen en el mes para el total de clientes, evitando multas formales por presentaciones tardías.</p>
+
+<h2 id="tablero">El Tablero de Control de Vencimientos</h2>
+<p>Organiza las obligaciones en columnas de avance:</p>
+<ul>
+    <li><strong>Por Presentar:</strong> Declaración aún no confeccionada.</li>
+    <li><strong>En Proceso:</strong> Carga de comprobantes en curso o esperando información del cliente.</li>
+    <li><strong>Presentada:</strong> Declaración jurada transmitida exitosamente (permite adjuntar acuse de recibo y VEP).</li>
+    <li><strong>Pagada:</strong> Volante Electrónico de Pago abonado por el cliente.</li>
+</ul>
+
+<h2 id="generador">Generador Automático de Calendario</h2>
+<p>La herramienta proyecta los vencimientos anuales cruzando el calendario oficial de ARCA y Rentas Provinciales con el último dígito del CUIT de cada cliente:</p>
+<table class="tabla-referencia">
+    <tr>
+        <th>Obligación</th>
+        <th>Regla de Vencimiento</th>
+    </tr>
+    <tr>
+        <td><strong>IVA y Libro IVA Digital</strong></td>
+        <td>Mensual, entre los días 18 y 22 según terminación de CUIT (0-1, 2-3, 4-5, 6-7, 8-9).</td>
+    </tr>
+    <tr>
+        <td><strong>Cargas Sociales (F.931)</strong></td>
+        <td>Mensual, entre los días 9 y 13 de cada mes.</td>
+    </tr>
+    <tr>
+        <td><strong>Ingresos Brutos (Convenio Multilateral)</strong></td>
+        <td>Mensual según calendario de la Comisión Arbitral (COMARB).</td>
+    </tr>
+</table>
+
+<h2 id="estados">Estados de una presentación</h2>
+<p>Cada vencimiento cuenta con un semáforo visual: <strong style="color:var(--verde);">Verde</strong> (presentado en término), <strong style="color:var(--amarillo);">Amarillo</strong> (vence en los próximos 3 días hábiles) y <strong style="color:var(--rojo);">Rojo</strong> (vencido sin presentar).</p>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr>
+        <th>Consulta</th>
+        <th>Respuesta</th>
+    </tr>
+    <tr>
+        <td>¿Cómo adjunto el acuse de presentación de ARCA?</td>
+        <td>Haga clic en la tarjeta del vencimiento y seleccione "Adjuntar Acuse/VEP" subiendo el archivo PDF oficial.</td>
+    </tr>
+</table>
+
+<footer>
+    Manual de usuario — Módulo Estudio Contable — Sistema Integral Casalucho.
+</footer>
+
+</body>
+</html>

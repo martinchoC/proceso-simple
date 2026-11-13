@@ -373,19 +373,26 @@ function obtenerFlujoFondosProyectado($conexion, $empresa_id, $dias_horizonte = 
 
     $saldo_inicial = floatval($row_s['saldo_disponible'] ?? 0);
 
-    // 2) Cobros pendientes de Facturación (Ventas: signo = 1)
-    $sql_cobros = "SELECT 
+    // 2) Cobros pendientes: los tipos que cancela el recibo de cliente (RCX) en la matriz de
+    // cancelaciones, como la cuenta corriente de clientes. El signo no separa ventas de compras
+    // (las facturas de proveedor también tienen signo 1) y sin filtrar el tipo entraban pedidos
+    // y remitos, que también llevan importe_pendiente.
+    $sql_cobros = "SELECT
                        COALESCE(c.f_vto, c.f_emision) AS fecha,
-                       SUM(c.importe_pendiente) AS importe
+                       SUM(c.importe_pendiente * c.tipo_cambio) AS importe
                    FROM gestion__comprobantes c
                    WHERE c.empresa_id = ?
                      AND c.tabla_estado_registro_id IN (5, 39)
                      AND c.importe_pendiente > 0.001
-                     AND c.signo = 1
+                     AND c.comprobante_tipo_id IN (
+                         SELECT tc.comprobante_tipo_destino_id
+                         FROM gestion__comprobantes_tipos_cancelaciones tc
+                         JOIN gestion__comprobantes_tipos o ON o.comprobante_tipo_id = tc.comprobante_tipo_origen_id
+                         WHERE tc.empresa_id = ? AND tc.tabla_estado_registro_id = 1 AND o.codigo = 'RCX')
                      AND COALESCE(c.f_vto, c.f_emision) <= ?
                    GROUP BY COALESCE(c.f_vto, c.f_emision)";
     $stmt_c = mysqli_prepare($conexion, $sql_cobros);
-    mysqli_stmt_bind_param($stmt_c, "is", $empresa_id, $fecha_limite);
+    mysqli_stmt_bind_param($stmt_c, "iis", $empresa_id, $empresa_id, $fecha_limite);
     mysqli_stmt_execute($stmt_c);
     $res_c = mysqli_stmt_get_result($stmt_c);
 
@@ -426,19 +433,28 @@ function obtenerFlujoFondosProyectado($conexion, $empresa_id, $dias_horizonte = 
     }
     mysqli_stmt_close($stmt_cc);
 
-    // 4) Pagos pendientes a Proveedores (Compras: signo = -1)
-    $sql_pagos = "SELECT 
+    // 4) Pagos pendientes a proveedores: los tipos que cancela la OP, sin los de ventas (mismo
+    // criterio que la cuenta corriente de proveedores).
+    $sql_pagos = "SELECT
                       COALESCE(c.f_vto, c.f_emision) AS fecha,
-                      SUM(c.importe_pendiente) AS importe
+                      SUM(c.importe_pendiente * c.tipo_cambio) AS importe
                   FROM gestion__comprobantes c
                   WHERE c.empresa_id = ?
                     AND c.tabla_estado_registro_id IN (5, 39)
                     AND c.importe_pendiente > 0.001
-                    AND c.signo = -1
+                    AND c.comprobante_tipo_id IN (
+                        SELECT tc.comprobante_tipo_destino_id
+                        FROM gestion__comprobantes_tipos_cancelaciones tc
+                        JOIN gestion__comprobantes_tipos o ON o.comprobante_tipo_id = tc.comprobante_tipo_origen_id
+                        JOIN gestion__comprobantes_tipos d ON d.comprobante_tipo_id = tc.comprobante_tipo_destino_id
+                        LEFT JOIN gestion__comprobantes_grupos cg ON cg.comprobante_grupo_id = d.comprobante_grupo_id
+                        WHERE tc.empresa_id = ? AND tc.tabla_estado_registro_id = 1 AND o.codigo = 'OP'
+                          AND (cg.codigo IS NULL OR cg.codigo != 'VENTAS')
+                          AND d.codigo NOT LIKE 'V_%')
                     AND COALESCE(c.f_vto, c.f_emision) <= ?
                   GROUP BY COALESCE(c.f_vto, c.f_emision)";
     $stmt_p = mysqli_prepare($conexion, $sql_pagos);
-    mysqli_stmt_bind_param($stmt_p, "is", $empresa_id, $fecha_limite);
+    mysqli_stmt_bind_param($stmt_p, "iis", $empresa_id, $empresa_id, $fecha_limite);
     mysqli_stmt_execute($stmt_p);
     $res_p = mysqli_stmt_get_result($stmt_p);
 

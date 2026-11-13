@@ -22,6 +22,11 @@ require_once __DIR__ . '/minigestion_recibos_model.php';
 $empresa_id = $ctx['empresa_id'];
 $usuario_id = $ctx['usuario_id'];
 $accion = $_REQUEST['accion'] ?? '';
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php);
+// los botones de esas acciones están marcados data-funcion y header1.php oculta los que el perfil no tiene.
+permisos_exigir_accion($conn, 415, (string)$accion, [
+    'emitir_recibo' => 'agregar',
+]);
 
 $model = new MiniGestionRecibosModel($conn);
 
@@ -39,21 +44,17 @@ try {
     switch ($accion) {
         case 'listar':
             $empresa_sel = intval($_REQUEST['empresa_id'] ?? $empresa_id);
-            $recibos = $model->listarRecibos($empresa_sel);
-            responderJson(true, "Recibos listados con éxito.", $recibos);
+            responderJson(true, "Recibos listados con éxito.", $model->listarRecibos($empresa_sel));
             break;
 
-        case 'listar_clientes':
+        case 'maestros':
             $empresa_sel = intval($_REQUEST['empresa_id'] ?? $empresa_id);
-            $sql = "SELECT entidad_id, entidad_nombre, cuit FROM gestion__entidades WHERE empresa_id = ? AND es_cliente = 1 AND tabla_estado_registro_id = 1 ORDER BY entidad_nombre ASC";
-            $st = mysqli_prepare($conn, $sql);
-            mysqli_stmt_bind_param($st, "i", $empresa_sel);
-            mysqli_stmt_execute($st);
-            $res = mysqli_stmt_get_result($st);
-            $list = [];
-            while ($r = mysqli_fetch_assoc($res)) $list[] = $r;
-            mysqli_stmt_close($st);
-            responderJson(true, "Clientes obtenidos.", $list);
+            responderJson(true, "Datos del recibo obtenidos.", $model->maestros($empresa_sel));
+            break;
+
+        case 'tipos_por_punto_venta':
+            $empresa_sel = intval($_REQUEST['empresa_id'] ?? $empresa_id);
+            responderJson(true, "Tipos de recibo obtenidos.", $model->tiposRecibo($empresa_sel, intval($_REQUEST['punto_venta_id'] ?? 0)));
             break;
 
         case 'emitir_recibo':
@@ -62,13 +63,14 @@ try {
             }
             $empresa_sel = intval($_POST['empresa_id'] ?? $empresa_id);
             $res = $model->emitirRecibo($empresa_sel, $_POST, $usuario_id);
-            responderJson(true, "Recibo oficial emitido correctamente con imputación contable.", $res);
+            responderJson(true, "Recibo {$res['numero']} emitido y confirmado.", $res);
             break;
 
         default:
             responderJson(false, "Acción no reconocida.", null, "Acción '{$accion}' no existe.");
             break;
     }
-} catch (Exception $e) {
-    responderJson(false, "Error al procesar recibo.", null, $e->getMessage());
+} catch (Throwable $e) {
+    error_log("=== minigestion_recibos_ajax {$accion}: " . $e->getMessage());
+    responderJson(false, $e->getMessage(), null, $e->getMessage());
 }

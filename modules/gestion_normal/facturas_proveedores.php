@@ -7,33 +7,39 @@ $currentPage = 'facturas_proveedores';
 
 $modudo_idx = 5;
 $pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 57;
+$ui_simple = true;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+require_once ROOT_PATH . '/core/csrf.php';
+// "Cargar desde archivo": mismo permiso que "Agregar" ($pagina_idx, como en facturas_proveedores_ajax.php)
+$puede_cargar_archivo = usuario_puede_funcion($conexion, intval($usuario_logueado_id), intval($current_empresa_id), $pagina_idx, 'agregar');
+
+// Estados posibles de la factura de proveedor (según transiciones configuradas para la página)
+$estados_filtro = [];
+$sql_estados_fp = "SELECT er.estado_registro_id, er.estado_registro, er.codigo_estandar
+                   FROM conf__estados_registros er
+                   WHERE er.estado_registro_id IN (
+                       SELECT tabla_estado_registro_origen_id FROM conf__paginas_funciones WHERE pagina_id = ? AND tabla_estado_registro_id = 1 AND tabla_estado_registro_origen_id > 0
+                       UNION
+                       SELECT tabla_estado_registro_destino_id FROM conf__paginas_funciones WHERE pagina_id = ? AND tabla_estado_registro_id = 1 AND tabla_estado_registro_destino_id > 0
+                   )
+                   ORDER BY er.orden_estandar ASC, er.estado_registro_id ASC";
+if ($stmt_est_fp = mysqli_prepare($conexion, $sql_estados_fp)) {
+    mysqli_stmt_bind_param($stmt_est_fp, "ii", $pagina_idx, $pagina_idx);
+    mysqli_stmt_execute($stmt_est_fp);
+    $res_est_fp = mysqli_stmt_get_result($stmt_est_fp);
+    while ($r_est = mysqli_fetch_assoc($res_est_fp)) {
+        $estados_filtro[] = $r_est;
+    }
+    mysqli_stmt_close($stmt_est_fp);
+}
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-file-invoice me-2"></i>Facturas de Proveedores
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Compras</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Facturas de Proveedores</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Facturas de proveedores','fas fa-file-invoice', '', ['Compras']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -48,6 +54,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="btnImportarArca" title="Importar Comprobantes Recibidos de ARCA">
                                             <i class="fas fa-file-import me-1"></i> Importar ARCA
                                         </button>
+                                        <?php if ($puede_cargar_archivo): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-primary ms-2" id="btnCargarArchivo" title="Cargar una factura desde el PDF o la foto del comprobante">
+                                            <i class="fas fa-file-upload me-1"></i> Cargar desde archivo
+                                        </button>
+                                        <?php endif; ?>
+                                        <div class="d-inline-flex align-items-center ms-2" style="vertical-align: middle;">
+                                            <label for="filtroEstado" class="small text-muted me-1 mb-0">Estado:</label>
+                                            <select class="form-select form-select-sm" id="filtroEstado" style="width: auto; min-width: 195px;" title="Filtrar facturas por estado">
+                                                <option value="" selected>Todos (excepto Eliminado)</option>
+                                                <option value="todos">Todos (incluye Eliminado)</option>
+                                                <?php foreach ($estados_filtro as $est): ?>
+                                                <option value="<?= intval($est['estado_registro_id']) ?>"><?= htmlspecialchars($est['estado_registro']) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
                                         <div class="float-end">
                                             <div class="btn-group" role="group">
                                                 <button type="button" class="btn btn-sm btn-outline-secondary"
@@ -123,6 +144,28 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>
                         </div>
                         <div class="modal-body p-3">
+                          <div class="fl-split">
+                            <!-- Documento leído (carga desde archivo): visor + lo que se leyó; lo llena facturas_proveedores_lectura.js -->
+                            <aside id="panelLecturaArchivo" class="fl-panel d-none" aria-label="Documento leído">
+                                <div class="fl-panel-barra">
+                                    <span class="fw-medium"><i class="fas fa-file-alt me-1"></i>Documento</span>
+                                    <span id="flCapas" class="d-inline-flex flex-wrap gap-1"></span>
+                                    <span class="ms-auto d-inline-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnFlReintentarIa" title="Volver a leer el archivo con IA">
+                                            <i class="fas fa-magic me-1"></i>Reintentar con IA
+                                        </button>
+                                        <a class="btn btn-sm btn-outline-secondary" id="btnFlAbrirArchivo" href="#" target="_blank" rel="noopener" title="Abrir el archivo en otra pestaña">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFlOcultarPanel" title="Ocultar el documento">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                                <div id="flVisor" class="fl-visor"></div>
+                                <div id="flResumen" class="fl-resumen"></div>
+                            </aside>
+                            <div class="fl-form">
                             <form id="formFacturaProveedor" class="needs-validation" novalidate>
                                 <input type="hidden" id="factura_proveedor_id" name="factura_proveedor_id" />
                                 <input type="hidden" id="producto_iva_id" name="producto_iva_id" />
@@ -202,14 +245,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <select class="form-select form-select-sm" id="comprobante_asociado_id">
                                                             <option value="">Sin comprobante asociado</option>
                                                         </select>
-                                                        <small class="text-muted">Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con una OP en $0).</small>
+                                                        <?= ui_ayuda('Si el comprobante asociado tiene saldo, la nota de crédito se le aplica al confirmarla (con una OP en $0).') ?>
                                                     </div>
                                                     <div class="col-md-6 mt-2 d-none" id="debito_wrap">
                                                         <label class="form-label small mb-1">Debitado de la cuenta <span class="text-muted" id="debito_ayuda">(opcional: débito automático)</span></label>
                                                         <select class="form-select form-select-sm" id="tesoreria_cuenta_debito_id">
                                                             <option value="">Sin débito en cuenta (se paga con OP)</option>
                                                         </select>
-                                                        <small class="text-muted">Al confirmar se cancela solo con una OP automática que egresa de esa cuenta bancaria.</small>
+                                                        <?= ui_ayuda('Al confirmar se cancela solo con una OP automática que egresa de esa cuenta bancaria.') ?>
                                                     </div>
                                                 </div>
 
@@ -246,6 +289,30 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="col-md-1">
                                                         <label class="form-label small mb-1">Dto.%</label>
                                                         <input type="number" class="form-control form-control-sm no-spinner" id="descuento_general_pct" step="0.01" min="0" max="100" value="0">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Fila Modalidad Descuento y Costo -->
+                                                <div class="row mb-2">
+                                                    <div class="col-md-5">
+                                                        <label class="form-label small mb-1">Modalidad de Descuento</label>
+                                                        <select class="form-select form-select-sm" id="modalidad_descuento_factura">
+                                                            <option value="EN_FACTURA_GLOBAL">En Factura - Descuento Global (al pie)</option>
+                                                            <option value="EN_FACTURA_ITEM">En Factura - Aplicado individualmente por producto</option>
+                                                            <option value="NOTA_CREDITO">Con Nota de Crédito posterior</option>
+                                                            <option value="SIN_DESCUENTO">Sin Descuento</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-1">¿Costo contempla descuento?</label>
+                                                        <select class="form-select form-select-sm" id="precio_compra_contempla_descuento">
+                                                            <option value="1">Sí (Costo neto con descuento)</option>
+                                                            <option value="0">No (Costo a precio de lista / sin dto)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3" id="col_descuento_nc" style="display:none;">
+                                                        <label class="form-label small mb-1">Dto. NC Posterior %</label>
+                                                        <input type="number" class="form-control form-control-sm no-spinner" id="descuento_nc_pct" step="0.01" min="0" max="100" value="0">
                                                     </div>
                                                 </div>
 
@@ -286,9 +353,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <i class="fas fa-link me-1"></i><span id="oc_vinculada_texto"></span>
                                                         <a href="#" class="text-white ms-1" id="btnDesvincularOC" title="Desvincular la orden de compra"><i class="fas fa-times"></i></a>
                                                     </span>
+                                                    <span id="cert_vinculada_badge" class="badge bg-success ms-2 d-none">
+                                                        <i class="fas fa-award me-1"></i><span id="cert_vinculada_texto"></span>
+                                                        <a href="#" class="text-white ms-1" id="btnDesvincularCert" title="Desvincular la certificación"><i class="fas fa-times"></i></a>
+                                                    </span>
                                                 </h6>
                                                 <input type="hidden" id="orden_compra_id" name="orden_compra_id" value="">
+                                                <input type="hidden" id="certificacion_id" name="certificacion_id" value="">
                                                 <div class="d-flex gap-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-success" id="btnImportarCertificacion" title="Importar certificación de avance aprobada">
+                                                        <i class="fas fa-award me-1"></i>Certificación
+                                                    </button>
                                                     <button type="button" class="btn btn-sm btn-outline-primary" id="btnImportarOC">
                                                         <i class="fas fa-file-import me-1"></i>Importar OC
                                                     </button>
@@ -306,7 +381,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <div class="card-body py-2">
                                                         <div class="row g-1 align-items-end">
                                                             <div class="col-md-4 position-relative">
-                                                                <input type="text" class="form-control form-control-sm" id="busqueda_producto" placeholder="Buscar producto..." autocomplete="off">
+                                                                <div class="input-group input-group-sm">
+                                                                    <input type="text" class="form-control" id="busqueda_producto" placeholder="Buscar producto o servicio..." autocomplete="off">
+                                                                    <button class="btn btn-outline-secondary" type="button" id="btnModalSelectorProductos" title="Ver catálogo y seleccionar">
+                                                                        <i class="fas fa-ellipsis-h"></i>
+                                                                    </button>
+                                                                </div>
                                                                 <input type="hidden" id="producto_seleccionado_id">
                                                                 <div id="resultados_busqueda" class="list-group position-absolute" style="z-index: 1000; max-height: 200px; overflow-y: auto; width: 100%; display: none;"></div>
                                                             </div>
@@ -443,6 +523,73 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <input type="hidden" id="impuestos" name="impuestos" value="0">
                                 <input type="hidden" id="total" name="total" value="0">
                             </form>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Cargar desde archivo: se sube el PDF o la foto, se lee y se abre el formulario pre-cargado -->
+            <div class="modal fade" id="modalLecturaArchivo" tabindex="-1" aria-labelledby="modalLecturaArchivoLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h5 class="modal-title mb-0" id="modalLecturaArchivoLabel">
+                                <i class="fas fa-file-upload me-2 text-primary"></i>Cargar factura desde archivo
+                                <?= ui_ayuda('El archivo (PDF o imagen) se lee directamente con IA. Los datos quedan en el formulario para que los revise; la factura se guarda en Borrador.') ?>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="flElegir">
+                                <label id="flZona" class="fl-zona" for="flArchivo">
+                                    <input type="file" id="flArchivo" class="d-none" multiple accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png">
+                                    <i class="fas fa-cloud-upload-alt fa-2x mb-2 text-primary"></i>
+                                    <span class="fw-medium">Arrastre uno o varios archivos (o una carpeta), o haga clic para elegirlos</span>
+                                    <small class="text-muted">PDF, JPG o PNG, hasta 10 MB cada uno</small>
+                                </label>
+                                <div class="text-center mt-2">
+                                    <label class="btn btn-sm btn-outline-secondary mb-0" for="flCarpeta">
+                                        <i class="fas fa-folder-open me-1"></i>Elegir una carpeta
+                                    </label>
+                                    <input type="file" id="flCarpeta" class="d-none" webkitdirectory directory multiple>
+                                </div>
+                            </div>
+                            <!-- Varios archivos: se leen de a uno y se listan; los listos se guardan juntos en Borrador -->
+                            <div id="flLote" class="d-none">
+                                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                    <span id="flLoteResumen" class="fw-medium"></span>
+                                    <span class="ms-auto d-inline-flex flex-wrap gap-2 align-items-center">
+                                        <label for="flLoteSucursal" class="small text-muted mb-0">Sucursal</label>
+                                        <select id="flLoteSucursal" class="form-select form-select-sm w-auto"></select>
+                                        <button type="button" class="btn btn-sm btn-primary" id="btnFlGuardarListos" disabled>
+                                            <i class="fas fa-save me-1"></i>Guardar los listos en Borrador
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnFlNuevoLote">Cargar otros</button>
+                                    </span>
+                                </div>
+                                <div class="table-responsive fl-lote-tabla">
+                                    <table class="table table-sm align-middle mb-0" data-ui-acciones="no">
+                                        <thead><tr><th>Archivo</th><th>Comprobante</th><th>Proveedor</th><th class="text-end">Total</th><th>Estado</th><th></th></tr></thead>
+                                        <tbody id="flLoteFilas"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="form-check mt-3 d-none">
+                                <input class="form-check-input" type="checkbox" id="flForzarIa" checked>
+                                <label class="form-check-label" for="flForzarIa">Leer con IA</label>
+                            </div>
+                            <div class="small text-muted mt-3" id="flAvisoPrivacidad">
+                                <i class="fas fa-magic me-1"></i>El documento se procesa directamente con IA (Google Gemini / Anthropic) según la configuración de la empresa en Configuración &gt; Empresas.
+                            </div>
+                            <div id="flProgreso" class="fl-progreso d-none" aria-live="polite">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                                    <span id="flProgresoTexto">Leyendo…</span>
+                                </div>
+                                <div class="progress mt-2" style="height:4px;"><div class="progress-bar" id="flProgresoBarra" style="width:0%"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -610,7 +757,48 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     </div>
                 </div>
             </div>
-            <!-- Modal Importación ARCA (Comprobantes Recibidos) -->
+            <!-- Modal Importar Certificación de Avance / Contrato -->
+            <div class="modal fade" id="modalImportarCertificacion" tabindex="-1" aria-labelledby="modalImportarCertLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header py-2 d-flex justify-content-between align-items-center bg-success bg-opacity-10">
+                            <h5 class="modal-title mb-0" id="modalImportarCertLabel">
+                                <i class="fas fa-award text-success me-2"></i>Importar Certificación de Avance (Contrato de Servicios / Obra)
+                            </h5>
+                            <button type="button" class="btn-close m-0 ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <div class="alert alert-info py-2 px-3 small mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Listado de certificaciones de avance aprobadas y pendientes de facturar para este contratista. Al seleccionarla, se vinculará la orden de compra y se pre-cargará la línea por el <strong>Neto Facturable</strong> (descontando automáticamente amortizaciones de anticipo y fondo de reparo).
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Contrato / OC</th>
+                                            <th>N° Cert.</th>
+                                            <th>Período</th>
+                                            <th>Fecha Medición</th>
+                                            <th class="text-center">Avance Acum.</th>
+                                            <th class="text-end">Bruto Período</th>
+                                            <th class="text-end text-danger">Amort. Anticipo</th>
+                                            <th class="text-end text-warning">Fondo Reparo</th>
+                                            <th class="text-end fw-bold text-success">Neto Facturable</th>
+                                            <th class="text-center" style="width: 140px;">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cert_tabla_disponibles"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <!-- Modal Importación ARCA (Comprobantes Recibidos) -->
             <div class="modal fade" id="modalImportarArca" tabindex="-1" aria-labelledby="modalImportarArcaLabel" aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -630,7 +818,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <i class="fas fa-file-excel text-success me-1"></i>Archivo exportado de ARCA (.csv, .xlsx, .xls)
                                             </label>
                                             <input type="file" class="form-control form-control-sm" id="inputArchivoArca" accept=".csv, .xlsx, .xls">
-                                            <small class="text-muted d-block mt-1">Archivo descargado desde "Mis Comprobantes Recibidos" de ARCA (ex AFIP).</small>
+                                            <small class="text-muted d-block mt-1">Archivo descargado desde "Mis Comprobantes Recibidos" de ARCA (ex AFIP). Cada comprobante se imputa al producto de la última compra del proveedor o, si no tiene, a "Gastos varios".</small>
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label fw-bold mb-1">Sucursal Destino</label>
@@ -641,10 +829,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <select class="form-select form-select-sm" id="arca_deposito_id"></select>
                                         </div>
                                         <div class="col-md-4">
-                                            <label class="form-label fw-bold mb-1">Condición de Pago por Defecto</label>
+                                            <label class="form-label fw-bold mb-1">Condición de Pago</label>
                                             <select class="form-select form-select-sm" id="arca_condicion_pago_id"></select>
                                         </div>
-                                        <div class="col-md-5">
+                                        <div class="col-md-6">
                                             <div class="form-check pt-2">
                                                 <input class="form-check-input" type="checkbox" id="arca_crear_proveedores" checked>
                                                 <label class="form-check-label small fw-bold" for="arca_crear_proveedores">
@@ -652,7 +840,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 </label>
                                             </div>
                                         </div>
-                                        <div class="col-md-3 text-end">
+                                        <div class="col-md-2 text-end">
                                             <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="btnLimpiarArca">
                                                 <i class="fas fa-trash me-1"></i>Limpiar
                                             </button>
@@ -664,28 +852,40 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <!-- Resumen / Estadísticas -->
                             <div id="arca_resumen" class="d-none mb-3">
                                 <div class="row g-2">
-                                    <div class="col-md-3 col-6">
+                                    <div class="col-md-2 col-6">
                                         <div class="border rounded p-2 text-center bg-light shadow-sm">
                                             <div class="small text-muted">Total Detectados</div>
                                             <div class="fs-5 fw-bold" id="cnt_arca_total">0</div>
                                         </div>
                                     </div>
-                                    <div class="col-md-3 col-6">
+                                    <div class="col-md-2 col-6">
                                         <div class="border rounded p-2 text-center bg-light shadow-sm">
                                             <div class="small text-success">Listos para Importar</div>
                                             <div class="fs-5 fw-bold text-success" id="cnt_arca_listos">0</div>
                                         </div>
                                     </div>
-                                    <div class="col-md-3 col-6">
+                                    <div class="col-md-2 col-6">
                                         <div class="border rounded p-2 text-center bg-light shadow-sm">
                                             <div class="small text-warning">Duplicados (se omiten)</div>
                                             <div class="fs-5 fw-bold text-warning" id="cnt_arca_duplicados">0</div>
                                         </div>
                                     </div>
-                                    <div class="col-md-3 col-6">
+                                    <div class="col-md-2 col-6">
                                         <div class="border rounded p-2 text-center bg-light shadow-sm">
                                             <div class="small text-primary">Proveedores Nuevos</div>
                                             <div class="fs-5 fw-bold text-primary" id="cnt_arca_nuevos_prov">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 col-6">
+                                        <div class="border rounded p-2 text-center bg-light shadow-sm">
+                                            <div class="small text-danger">Con Error (se omiten)</div>
+                                            <div class="fs-5 fw-bold text-danger" id="cnt_arca_errores">0</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 col-6">
+                                        <div class="border rounded p-2 text-center bg-light shadow-sm">
+                                            <div class="small text-secondary">Listos con Avisos</div>
+                                            <div class="fs-5 fw-bold text-secondary" id="cnt_arca_avisos">0</div>
                                         </div>
                                     </div>
                                 </div>
@@ -707,11 +907,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <th width="120">Tipo</th>
                                             <th width="130">Punto - Número</th>
                                             <th width="120">CUIT</th>
-                                            <th>Proveedor / Razón Social</th>
+                                            <th>Proveedor</th>
+                                            <th width="160">Imputación</th>
                                             <th width="100" class="text-end">Neto</th>
                                             <th width="90" class="text-end">IVA</th>
+                                            <th width="100" class="text-end">No grav. / Otros</th>
                                             <th width="110" class="text-end">Total</th>
-                                            <th width="130">CAE</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tbodyPreviewArca"></tbody>
@@ -723,6 +924,60 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-primary btn-sm" id="btnConfirmarImportarArca" disabled>
                                 <i class="fas fa-cloud-upload-alt me-1"></i>Confirmar e Importar (<span id="txtCantAImportar">0</span>)
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Catálogo / Selector de Productos y Servicios -->
+            <div class="modal fade" id="modalSelectorProductos" tabindex="-1" aria-labelledby="modalSelectorProductosLabel" aria-hidden="true" style="z-index: 1065;">
+                <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+                    <div class="modal-content shadow border-0">
+                        <div class="modal-header py-2 bg-light border-bottom">
+                            <h6 class="modal-title mb-0 text-dark fw-bold" id="modalSelectorProductosLabel">
+                                <i class="fas fa-boxes text-warning me-2"></i>Catálogo de Productos y Servicios
+                            </h6>
+                            <button type="button" class="btn-close m-0" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-7">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                                        <input type="text" class="form-control" id="filtroModalProductos" placeholder="Buscar por código, nombre o cuenta contable...">
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <select class="form-select form-select-sm" id="filtroModalCategoria">
+                                        <option value="">Todas las categorías</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="table-responsive border rounded" style="max-height: 380px;">
+                                <table class="table table-sm table-hover align-middle mb-0" id="tablaModalProductos">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th width="120">Código</th>
+                                            <th>Descripción / Producto</th>
+                                            <th width="150">Categoría</th>
+                                            <th width="140">Cta. Gasto / Compra</th>
+                                            <th width="70" class="text-center">IVA</th>
+                                            <th width="80" class="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyModalProductos">
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4 text-muted">
+                                                <i class="fas fa-spinner fa-spin me-1"></i> Cargando catálogo...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer py-2 bg-light border-top d-flex justify-content-between">
+                            <small class="text-muted" id="txtTotalProductosModal">0 productos encontrados</small>
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
                         </div>
                     </div>
                 </div>
@@ -924,26 +1179,71 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             z-index: 10;
             background-color: white;
         }
+        /* Carga desde archivo: documento a la izquierda, formulario a la derecha */
+        .fl-split { display: flex; gap: 1rem; align-items: flex-start; }
+        .fl-form { flex: 1 1 auto; min-width: 0; }
+        .fl-panel { flex: 0 0 38%; max-width: 38%; position: sticky; top: 0; display: flex; flex-direction: column;
+                    gap: .5rem; max-height: calc(96vh - 90px); }
+        .fl-panel-barra { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+        .fl-visor { flex: 1 1 55%; min-height: 260px; border: 1px solid #dee2e6; border-radius: .375rem; background: #f1f3f5; overflow: auto; }
+        .fl-visor iframe, .fl-visor img { width: 100%; display: block; border: 0; }
+        .fl-visor iframe { height: 100%; min-height: 420px; }
+        .fl-resumen { flex: 1 1 45%; overflow: auto; font-size: .85rem; }
+        .fl-resumen table td { padding: .15rem .35rem; vertical-align: top; }
+        .fl-capa { font-size: .72rem; }
+        .fl-conf-alta { color: #146c43; }
+        .fl-conf-media { color: #997404; }
+        .fl-conf-baja { color: #b02a37; }
+        .fl-campo-media { background-color: #fff8e1 !important; border-color: #f0c36d !important; }
+        .fl-campo-baja { background-color: #fdecea !important; border-color: #e8a0a6 !important; }
+        .fl-campo-error { border-color: #dc3545 !important; box-shadow: 0 0 0 .15rem rgba(220, 53, 69, .2) !important; }
+        .fl-motivo { color: #b02a37; font-size: .75rem; margin-top: .15rem; }
+        .fl-zona { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+                   gap: .15rem; padding: 2rem 1rem; border: 2px dashed #9ec5fe; border-radius: .5rem; cursor: pointer; background: #f8fbff; }
+        .fl-zona.fl-arrastrando { background: #e7f1ff; border-color: #0d6efd; }
+        .fl-progreso { margin-top: 1rem; }
+        .fl-lote-tabla { max-height: 55vh; overflow-y: auto; font-size: .85rem; }
+        .fl-lote-tabla .fl-motivo { max-width: 22rem; }
+        @media (max-width: 991.98px) {
+            .fl-split { flex-direction: column; }
+            .fl-panel { flex-basis: auto; max-width: 100%; width: 100%; position: static; max-height: none; }
+            .fl-visor { max-height: 50vh; }
+        }
+        <?php if (!empty($_GET['embed'])): ?>
+        /* Modo embebido dentro de Bandeja de Documentos: muestra únicamente el formulario/visor de la factura */
+        .app-header, .app-sidebar, .app-footer, .app-content-header, .content-wrapper { display: none !important; }
+        .app-main, .app-content, .app-content > .container-fluid { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+        #modalFacturaProveedor .modal-factura-proveedor { max-width: 100vw !important; width: 100vw !important; height: 100vh !important; margin: 0 !important; }
+        #modalFacturaProveedor .modal-content { min-height: 100vh !important; height: 100vh !important; border: 0 !important; border-radius: 0 !important; }
+        #modalFacturaProveedor .modal-body { max-height: calc(100vh - 52px) !important; height: calc(100vh - 52px) !important; overflow-y: auto !important; }
+        #btnToggleFullscreen { display: none !important; }
+        <?php endif; ?>
     </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+    <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+    <script src="<?= asset_local('js/arca-mis-comprobantes.js') ?>"></script>
     
     <script>
         const empresa_id = <?php echo json_encode($empresa_id); ?>;
         const pagina_idx = <?php echo json_encode($pagina_idx); ?>;
         const modulo_id = <?php echo json_encode($modulo_id); ?>;
+        window.FP_CSRF = <?= json_encode(csrf_token()) ?>;
+        window.FP_EMBED = <?= !empty($_GET['embed']) ? 'true' : 'false' ?>;
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="facturas_proveedores.js?v=<?= filemtime(__DIR__.'/facturas_proveedores.js') ?>"></script>
+    <?php if ($puede_cargar_archivo): ?>
+    <script src="<?= asset_local('js/facturas-proveedores-lectura.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/facturas-proveedores-lectura.js') ?>"></script>
+    <?php endif; ?>
     
 
 

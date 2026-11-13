@@ -21,6 +21,52 @@ function sdbFiltroSucursal(mysqli $conexion, int $usuario_id, int $empresa_id, s
     return AccesosSucursalesHelper::filtroSqlSucursal($conexion, $usuario_id, $empresa_id, $columna);
 }
 
+/**
+ * Filtros de producto (alias p = gestion__productos) que comparten la grilla de stock, el blanqueo de negativos y la
+ * planilla de conteo: categoria_id, producto_id, texto (search[value] de DataTables o buscar) y compatibilidad
+ * (marca_id / modelo_id / submodelo_id en la MISMA fila de gestion__productos_compatibilidad, como productos.php;
+ * solo la manda Gestión, módulo 2). Devuelve el SQL a agregar al WHERE y suma tipos y parámetros.
+ */
+function sdbFiltroProductos(array $req, string &$types, array &$params): string
+{
+    $sql = '';
+    $categoria_id = intval($req['categoria_id'] ?? 0);
+    $producto_id = intval($req['producto_id'] ?? 0);
+    if ($categoria_id > 0) {
+        $sql .= " AND p.producto_categoria_id = ?";
+        $types .= 'i';
+        $params[] = $categoria_id;
+    }
+    if ($producto_id > 0) {
+        $sql .= " AND p.producto_id = ?";
+        $types .= 'i';
+        $params[] = $producto_id;
+    }
+    $buscar = trim((string)($req['search']['value'] ?? ($req['buscar'] ?? '')));
+    // Cada palabra tiene que estar en el código, el nombre o el código de barras
+    foreach (array_slice(preg_split('/\s+/', $buscar, -1, PREG_SPLIT_NO_EMPTY), 0, 6) as $palabra) {
+        $like = '%' . $palabra . '%';
+        $sql .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.codigo_barras LIKE ?)";
+        $types .= 'sss';
+        array_push($params, $like, $like, $like);
+    }
+    $compat = [];
+    foreach (['marca_id', 'modelo_id', 'submodelo_id'] as $campo) {
+        $id = intval($req[$campo] ?? 0);
+        if ($id > 0) {
+            $compat[] = "pcx.$campo = ?";
+            $types .= 'i';
+            $params[] = $id;
+        }
+    }
+    if ($compat) {
+        $sql .= " AND EXISTS (SELECT 1 FROM gestion__productos_compatibilidad pcx
+                              WHERE pcx.producto_id = p.producto_id AND pcx.empresa_id = p.empresa_id
+                                AND pcx.tabla_estado_registro_id = 1 AND " . implode(' AND ', $compat) . ")";
+    }
+    return $sql;
+}
+
 function sdbConsultar(mysqli $conexion, string $sql, string $types, array $params): array
 {
     $stmt = mysqli_prepare($conexion, $sql);
@@ -198,12 +244,13 @@ function sdbResumen(mysqli $conexion, int $empresa_id, int $usuario_id, int $boc
 function sdbListarStock(mysqli $conexion, int $empresa_id, int $usuario_id, array $req): array
 {
     $boca_id = intval($req['boca_id'] ?? 0);
-    $categoria_id = intval($req['categoria_id'] ?? 0);
+    $sucursal_id = intval($req['sucursal_id'] ?? 0);   // opcional (Stock y Movimientos, página 138)
     $filtro = (string)($req['filtro'] ?? 'movidos');
-    $buscar = trim((string)($req['search']['value'] ?? ''));
     $start = max(0, intval($req['start'] ?? 0));
     $length = intval($req['length'] ?? 25);
-    $length = ($length < 1 || $length > 500) ? 25 : $length;
+    // La planilla de conteo de Stock y Movimientos pide todo lo filtrado (tope 5000); la grilla, de a una página
+    $tope = !empty($req['reporte']) ? 5000 : 500;
+    $length = ($length < 1 || $length > $tope) ? 25 : $length;
 
     $filtroSuc = sdbFiltroSucursal($conexion, $usuario_id, $empresa_id, 's.sucursal_id');
 
@@ -213,10 +260,12 @@ function sdbListarStock(mysqli $conexion, int $empresa_id, int $usuario_id, arra
                    MAX(s.f_ultimo_movimiento) AS f_ultimo_movimiento,
                    GROUP_CONCAT(CONCAT(s.boca_id, ':', s.cantidad) SEPARATOR ',') AS por_boca
             FROM gestion__stock s
-            WHERE s.empresa_id = ?" . ($boca_id > 0 ? " AND s.boca_id = ?" : "") . $filtroSuc . "
+            WHERE s.empresa_id = ?" . ($boca_id > 0 ? " AND s.boca_id = ?" : "") . ($sucursal_id > 0 ? " AND s.sucursal_id = ?" : "") . $filtroSuc . "
             GROUP BY s.producto_id";
-    $subTypes = 'i' . ($boca_id > 0 ? 'i' : '');
-    $subParams = $boca_id > 0 ? [$empresa_id, $boca_id] : [$empresa_id];
+    $subTypes = 'i' . ($boca_id > 0 ? 'i' : '') . ($sucursal_id > 0 ? 'i' : '');
+    $subParams = [$empresa_id];
+    if ($boca_id > 0) $subParams[] = $boca_id;
+    if ($sucursal_id > 0) $subParams[] = $sucursal_id;
 
     $from = " FROM gestion__productos p
               LEFT JOIN ($sub) st ON st.producto_id = p.producto_id
@@ -241,10 +290,15 @@ function sdbListarStock(mysqli $conexion, int $empresa_id, int $usuario_id, arra
                                    JOIN gestion__bocas b ON b.boca_id = a.boca_id
                                    WHERE a.empresa_id = p.empresa_id AND a.producto_id = p.producto_id AND a.abierta = 1"
                 . ($boca_id > 0 ? " AND a.boca_id = ?" : "")
+                . ($sucursal_id > 0 ? " AND b.sucursal_id = ?" : "")
                 . sdbFiltroSucursal($conexion, $usuario_id, $empresa_id, 'b.sucursal_id') . ")";
             if ($boca_id > 0) {
                 $baseTypes .= 'i';
                 $baseParams[] = $boca_id;
+            }
+            if ($sucursal_id > 0) {
+                $baseTypes .= 'i';
+                $baseParams[] = $sucursal_id;
             }
             break;
         default:
@@ -254,17 +308,7 @@ function sdbListarStock(mysqli $conexion, int $empresa_id, int $usuario_id, arra
     $where = $base;
     $types = $baseTypes;
     $params = $baseParams;
-    if ($categoria_id > 0) {
-        $where .= " AND p.producto_categoria_id = ?";
-        $types .= 'i';
-        $params[] = $categoria_id;
-    }
-    if ($buscar !== '') {
-        $like = '%' . $buscar . '%';
-        $where .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.codigo_barras LIKE ?)";
-        $types .= 'sss';
-        array_push($params, $like, $like, $like);
-    }
+    $where .= sdbFiltroProductos($req, $types, $params);
 
     $total = intval(sdbConsultar($conexion, "SELECT COUNT(*) AS n" . $from . $base, $baseTypes, $baseParams)[0]['n'] ?? 0);
     $filtrados = ($where === $base) ? $total
@@ -308,12 +352,22 @@ function sdbListarStock(mysqli $conexion, int $empresa_id, int $usuario_id, arra
     }
     unset($f);
 
-    return [
+    $resultado = [
         'draw' => intval($req['draw'] ?? 0),
         'recordsTotal' => $total,
         'recordsFiltered' => $filtrados,
         'data' => $filas,
     ];
+    // Totales de todo lo filtrado (no solo la página): los pide Stock y Movimientos
+    if (!empty($req['con_totales'])) {
+        $t = sdbConsultar($conexion, "SELECT COUNT(*) AS productos, COALESCE(SUM(COALESCE(st.cantidad, 0)), 0) AS unidades,
+                                             COALESCE(SUM(COALESCE(st.valorizado, 0)), 0) AS valorizado,
+                                             COALESCE(SUM(st.cantidad < 0), 0) AS negativos"
+            . $from . $where, $types, $params)[0] ?? [];
+        $resultado['totales'] = ['productos' => intval($t['productos'] ?? 0), 'unidades' => (float)($t['unidades'] ?? 0),
+                                 'valorizado' => (float)($t['valorizado'] ?? 0), 'negativos' => intval($t['negativos'] ?? 0)];
+    }
+    return $resultado;
 }
 
 /**
@@ -323,6 +377,9 @@ function sdbListarMovimientos(mysqli $conexion, int $empresa_id, int $usuario_id
 {
     [$desde, $hasta] = sdbRango($req['desde'] ?? null, $req['hasta'] ?? null);
     $boca_id = intval($req['boca_id'] ?? 0);
+    $sucursal_id = intval($req['sucursal_id'] ?? 0);   // opcional (Stock y Movimientos, página 138)
+    $producto_id = intval($req['producto_id'] ?? 0);   // opcional (ídem)
+    $categoria_id = intval($req['categoria_id'] ?? 0); // opcional (ídem)
     $tipo_id = intval($req['comprobante_tipo_id'] ?? 0);
     $direccion = (string)($req['direccion'] ?? '');
     $buscar = trim((string)($req['search']['value'] ?? ''));
@@ -351,6 +408,21 @@ function sdbListarMovimientos(mysqli $conexion, int $empresa_id, int $usuario_id
         $types .= 'i';
         $params[] = $boca_id;
     }
+    if ($sucursal_id > 0) {
+        $where .= " AND m.sucursal_id = ?";
+        $types .= 'i';
+        $params[] = $sucursal_id;
+    }
+    if ($producto_id > 0) {
+        $where .= " AND m.producto_id = ?";
+        $types .= 'i';
+        $params[] = $producto_id;
+    }
+    if ($categoria_id > 0) {
+        $where .= " AND p.producto_categoria_id = ?";
+        $types .= 'i';
+        $params[] = $categoria_id;
+    }
     if ($tipo_id > 0) {
         $where .= " AND m.comprobante_tipo_id = ?";
         $types .= 'i';
@@ -363,10 +435,10 @@ function sdbListarMovimientos(mysqli $conexion, int $empresa_id, int $usuario_id
     }
     if ($buscar !== '') {
         $like = '%' . $buscar . '%';
-        $where .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR e.entidad_nombre LIKE ?
+        $where .= " AND (p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR e.entidad_nombre LIKE ? OR e.entidad_fantasia LIKE ?
                          OR ct.comprobante_tipo LIKE ? OR CAST(c.comprobante_nro AS CHAR) = ?)";
-        $types .= 'sssss';
-        array_push($params, $like, $like, $like, $like, $buscar);
+        $types .= 'ssssss';
+        array_push($params, $like, $like, $like, $like, $like, $buscar);
     }
 
     $total = intval(sdbConsultar($conexion, "SELECT COUNT(*) AS n FROM gestion__stock_movimientos m" . $base,
@@ -380,7 +452,7 @@ function sdbListarMovimientos(mysqli $conexion, int $empresa_id, int $usuario_id
         'codigo' => 'p.producto_codigo',
         'producto' => 'p.producto_nombre',
         'comprobante' => 'ct.comprobante_tipo',
-        'entidad' => 'e.entidad_nombre',
+        'entidad' => "COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre)",
         'cantidad' => "(CASE WHEN m.tipo_movimiento = 'INGRESO' THEN m.cantidad ELSE -m.cantidad END)",
     ];
     $orden = 'm.f_movimiento DESC, m.stock_movimiento_id DESC';
@@ -399,15 +471,25 @@ function sdbListarMovimientos(mysqli $conexion, int $empresa_id, int $usuario_id
                                              b.boca_nombre, su.sucursal_nombre,
                                              ct.comprobante_tipo, ct.codigo AS comprobante_tipo_codigo,
                                              " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv, c.comprobante_nro, c.f_emision,
-                                             e.entidad_nombre, u.usuario_nombre"
+                                             COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, u.usuario_nombre"
         . $from . $where . " ORDER BY $orden LIMIT ? OFFSET ?", $types . 'ii', array_merge($params, [$length, $start]));
 
-    return [
+    $resultado = [
         'draw' => intval($req['draw'] ?? 0),
         'recordsTotal' => $total,
         'recordsFiltered' => $filtrados,
         'data' => $filas,
     ];
+    // Totales de todo lo filtrado: unidades que entraron y salieron (Stock y Movimientos)
+    if (!empty($req['con_totales'])) {
+        $t = sdbConsultar($conexion, "SELECT COUNT(*) AS movimientos,
+                                             COALESCE(SUM(CASE WHEN m.tipo_movimiento = 'INGRESO' THEN m.cantidad ELSE 0 END), 0) AS ingresos,
+                                             COALESCE(SUM(CASE WHEN m.tipo_movimiento = 'EGRESO' THEN m.cantidad ELSE 0 END), 0) AS egresos"
+            . $from . $where, $types, $params)[0] ?? [];
+        $resultado['totales'] = ['movimientos' => intval($t['movimientos'] ?? 0), 'ingresos' => (float)($t['ingresos'] ?? 0),
+                                 'egresos' => (float)($t['egresos'] ?? 0)];
+    }
+    return $resultado;
 }
 
 /**
@@ -458,7 +540,7 @@ function sdbKardex(mysqli $conexion, int $empresa_id, int $usuario_id, int $prod
     $movs = sdbConsultar($conexion, "SELECT m.stock_movimiento_id, m.f_movimiento, m.tipo_movimiento, m.cantidad,
                                             m.costo_unitario, m.observaciones, b.boca_nombre,
                                             ct.comprobante_tipo, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv, c.comprobante_nro,
-                                            e.entidad_nombre, u.usuario_nombre
+                                            COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, u.usuario_nombre
                                      FROM gestion__stock_movimientos m
                                      JOIN gestion__bocas b ON b.boca_id = m.boca_id
                                      JOIN gestion__comprobantes c ON c.comprobante_id = m.comprobante_id

@@ -46,6 +46,8 @@ try {
             break;
 
         case 'ejecutar_accion':
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)((string)($_POST['accion_js'] ?? '')));
             $nombre = salEjecutarAccion($conexion, $empresa_id, $usuario_id, $pagina_idx,
                 (int)($_POST['stock_alerta_id'] ?? 0), (string)($_POST['accion_js'] ?? ''));
             salResponder(true, null, "$nombre: listo");

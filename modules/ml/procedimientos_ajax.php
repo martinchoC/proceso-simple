@@ -87,11 +87,43 @@ switch ($accion) {
         $empresas = [];
         while ($r = mysqli_fetch_assoc($q_e)) $empresas[] = $r;
 
+        $tipos_documento = procedimientos_tipos_listar($conexion);
+
+        // Usuarios activos para asignar como responsables del procedimiento
+        $q_u = mysqli_query($conexion, "SELECT DISTINCT u.usuario_id, u.usuario, u.usuario_nombre 
+                                        FROM conf__usuarios u
+                                        INNER JOIN conf__usuarios_perfiles up ON up.usuario_id = u.usuario_id
+                                        INNER JOIN conf__empresas_perfiles ep ON ep.empresa_perfil_id = up.empresa_perfil_id
+                                        WHERE (ep.empresa_id = {$empresa_idx} OR {$empresa_idx} = 0)
+                                          AND u.tabla_estado_registro_id = 1
+                                        ORDER BY u.usuario_nombre ASC");
+        $usuarios = [];
+        while ($ru = mysqli_fetch_assoc($q_u)) {
+            $usuarios[] = [
+                'usuario_id' => (int)$ru['usuario_id'],
+                'nombre' => $ru['usuario_nombre'] ?: $ru['usuario']
+            ];
+        }
+
+        $areas_sugeridas = [
+            'Impuestos y Finanzas',
+            'Operaciones y Almacenaje',
+            'Logística y Despacho',
+            'Seguridad, Higiene y MA (HSE)',
+            'Mantenimiento e Integridad Mecánica',
+            'Calidad y Procesos',
+            'Recursos Humanos y Nómina',
+            'Legales y Compliance Corporativo'
+        ];
+
         echo json_encode([
             'success' => true,
             'data' => [
                 'normas' => $normas,
                 'empresas' => $empresas,
+                'tipos_documento' => $tipos_documento,
+                'usuarios' => $usuarios,
+                'areas_sugeridas' => $areas_sugeridas,
                 'permite_guardar' => isset($funciones_permitidas['guardar_procedimiento']),
                 'permite_aprobar' => isset($funciones_permitidas['aprobar_procedimiento'])
             ]
@@ -100,7 +132,8 @@ switch ($accion) {
 
     case 'listar':
         $estado = intval($_GET['filtro_estado'] ?? 0);
-        $lista = procedimientos_listar($conexion, $empresa_idx, $estado);
+        $tipo_id = intval($_GET['filtro_tipo'] ?? 0);
+        $lista = procedimientos_listar($conexion, $empresa_idx, $estado, $tipo_id);
 
         $permite_guardar = isset($funciones_permitidas['guardar_procedimiento']);
         $permite_aprobar = isset($funciones_permitidas['aprobar_procedimiento']);
@@ -123,12 +156,23 @@ switch ($accion) {
         ]);
         break;
 
+    case 'obtener':
+        $proc_id = intval($_GET['procedimiento_id'] ?? 0);
+        $item = procedimiento_obtener($conexion, $proc_id);
+        if ($item) {
+            echo json_encode(['success' => true, 'data' => $item]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Procedimiento no encontrado.']);
+        }
+        break;
+
     case 'guardar':
         if (!isset($funciones_permitidas['guardar_procedimiento'])) {
             echo json_encode(['success' => false, 'message' => 'No tiene permisos para guardar procedimientos.']);
             exit;
         }
-        $res = procedimiento_guardar($conexion, $_POST, $usuario_id);
+        $archivo = isset($_FILES['archivo_adjunto']) && $_FILES['archivo_adjunto']['error'] === UPLOAD_ERR_OK ? $_FILES['archivo_adjunto'] : null;
+        $res = procedimiento_guardar($conexion, $_POST, $usuario_id, $archivo);
         echo json_encode($res);
         break;
 
@@ -157,7 +201,8 @@ switch ($accion) {
             exit;
         }
         $procedimiento_id = intval($_POST['procedimiento_id'] ?? 0);
-        $res = procedimiento_version_crear($conexion, $procedimiento_id, $_POST, $usuario_id);
+        $archivo = isset($_FILES['archivo_version']) && $_FILES['archivo_version']['error'] === UPLOAD_ERR_OK ? $_FILES['archivo_version'] : null;
+        $res = procedimiento_version_crear($conexion, $procedimiento_id, $_POST, $usuario_id, $archivo);
         echo json_encode($res);
         break;
 
@@ -184,6 +229,111 @@ switch ($accion) {
         $ins_id = intval($_POST['instruccion_id'] ?? 0);
         $res = procedimiento_instruccion_eliminar($conexion, $ins_id);
         echo json_encode($res);
+        break;
+
+    // --- Puntos 1 y 2: Documentos Asociados / Jerarquía ---
+    case 'listar_documentos_asociados':
+        $proc_id = intval($_GET['procedimiento_id'] ?? 0);
+        $docs = procedimiento_documentos_listar($conexion, $proc_id);
+        echo json_encode(['success' => true, 'data' => $docs]);
+        break;
+
+    case 'candidatos_documentos_asociados':
+        $proc_id = intval($_GET['procedimiento_id'] ?? 0);
+        $cands = procedimiento_documentos_candidatos($conexion, $proc_id, $empresa_idx);
+        echo json_encode(['success' => true, 'data' => $cands]);
+        break;
+
+    case 'vincular_documento':
+        if (!isset($funciones_permitidas['guardar_procedimiento'])) {
+            echo json_encode(['success' => false, 'message' => 'No tiene permisos para vincular documentos.']);
+            exit;
+        }
+        $padre_id = intval($_POST['procedimiento_padre_id'] ?? 0);
+        $doc_id = intval($_POST['documento_asociado_id'] ?? 0);
+        $tipo_rel = trim($_POST['tipo_relacion'] ?? 'anexo');
+        $oblig = !empty($_POST['obligatorio']) ? 1 : 0;
+        $notas = trim($_POST['notas'] ?? '');
+        $res = procedimiento_documento_vincular($conexion, $padre_id, $doc_id, $tipo_rel, $oblig, $notas, $usuario_id);
+        echo json_encode($res);
+        break;
+
+    case 'desvincular_documento':
+        if (!isset($funciones_permitidas['guardar_procedimiento'])) {
+            echo json_encode(['success' => false, 'message' => 'No tiene permisos para desvincular documentos.']);
+            exit;
+        }
+        $proc_doc_id = intval($_POST['procedimiento_documento_id'] ?? 0);
+        $res = procedimiento_documento_desvincular($conexion, $proc_doc_id, $usuario_id);
+        echo json_encode($res);
+        break;
+
+    // --- Punto 3: Workflow de Aprobación y Firmas Electrónicas ---
+    case 'solicitar_aprobacion':
+        $proc_id = intval($_POST['procedimiento_id'] ?? 0);
+        $nota = trim($_POST['nota'] ?? '');
+        $res = procedimiento_solicitar_aprobacion($conexion, $proc_id, $usuario_id, $nota);
+        echo json_encode($res);
+        break;
+
+    case 'aprobar_formal':
+        if (!isset($funciones_permitidas['aprobar_procedimiento'])) {
+            echo json_encode(['success' => false, 'message' => 'No tiene permisos para aprobar procedimientos.']);
+            exit;
+        }
+        $proc_id = intval($_POST['procedimiento_id'] ?? 0);
+        $ver_id = intval($_POST['procedimiento_version_id'] ?? 0);
+        $rol_firmante = trim($_POST['rol_firmante'] ?? 'Aprobador de Compliance');
+        $obs = trim($_POST['observaciones'] ?? '');
+        $res = procedimiento_aprobar_formal($conexion, $proc_id, $ver_id, $usuario_id, $rol_firmante, $obs);
+        echo json_encode($res);
+        break;
+
+    case 'rechazar_formal':
+        $proc_id = intval($_POST['procedimiento_id'] ?? 0);
+        $ver_id = intval($_POST['procedimiento_version_id'] ?? 0);
+        $motivo = trim($_POST['motivo_rechazo'] ?? '');
+        $res = procedimiento_rechazar_formal($conexion, $proc_id, $ver_id, $usuario_id, $motivo);
+        echo json_encode($res);
+        break;
+
+    case 'listar_aprobaciones':
+        $proc_id = intval($_GET['procedimiento_id'] ?? 0);
+        $aprs = procedimiento_aprobaciones_listar($conexion, $proc_id);
+        echo json_encode(['success' => true, 'data' => $aprs]);
+        break;
+
+    // --- Punto 4: Publicación, Difusión y Toma de Conocimiento ---
+    case 'registrar_lectura':
+        $ver_id = intval($_POST['procedimiento_version_id'] ?? 0);
+        $comentario = trim($_POST['comentario'] ?? '');
+        $res = procedimiento_lectura_registrar($conexion, $ver_id, $usuario_id, $comentario);
+        echo json_encode($res);
+        break;
+
+    case 'listar_lecturas':
+        $ver_id = intval($_GET['procedimiento_version_id'] ?? 0);
+        $res = procedimiento_lecturas_listar($conexion, $ver_id, $empresa_idx);
+        echo json_encode(['success' => true, 'data' => $res]);
+        break;
+
+    // --- Punto 6: Obsolescencia y Baja Controlada ---
+    case 'marcar_obsoleto':
+        if (!isset($funciones_permitidas['aprobar_procedimiento'])) {
+            echo json_encode(['success' => false, 'message' => 'No tiene permisos para dar de baja procedimientos.']);
+            exit;
+        }
+        $proc_id = intval($_POST['procedimiento_id'] ?? 0);
+        $motivo = trim($_POST['motivo'] ?? '');
+        $res = procedimiento_marcar_obsoleto($conexion, $proc_id, $usuario_id, $motivo);
+        echo json_encode($res);
+        break;
+
+    // --- Punto 7: Pista de Auditoría ---
+    case 'listar_logs':
+        $proc_id = intval($_GET['procedimiento_id'] ?? 0);
+        $logs = procedimiento_logs_listar($conexion, $proc_id);
+        echo json_encode(['success' => true, 'data' => $logs]);
         break;
 
     default:

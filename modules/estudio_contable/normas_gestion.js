@@ -94,7 +94,7 @@ $(document).ready(function () {
                         let st = parseInt(row.tabla_estado_registro_id);
                         let bClass = 'bg-secondary';
                         if (st === 5) bClass = 'bg-success';
-                        if (st === 6) bClass = 'bg-danger';
+                        if (st === 20) bClass = 'bg-danger';
                         return `<span class="badge ${bClass}">${data || 'Borrador'}</span>`;
                     }
                 },
@@ -105,10 +105,10 @@ $(document).ready(function () {
                     render: function (data, type, row) {
                         return `
                             <div class="btn-group btn-group-sm">
-                                <button type="button" class="btn btn-outline-primary btn-evaluar" data-id="${row.norma_id}" title="Evaluar Reglas sobre Clientes">
+                                <button type="button" class="btn btn-outline-primary btn-evaluar" data-funcion="editar" data-id="${row.norma_id}" title="Evaluar Reglas sobre Clientes">
                                     <i class="fas fa-play"></i> Evaluar
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-editar-norma" data-id="${row.norma_id}" title="Editar">
+                                <button type="button" class="btn btn-outline-secondary btn-editar-norma" data-funcion="editar" data-id="${row.norma_id}" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
                             </div>
@@ -116,7 +116,7 @@ $(document).ready(function () {
                     }
                 }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             dom: '<"row align-items-center p-2 mb-0"<"col-12 col-md-6"l><"col-12 col-md-6 text-end"f>>' +
                  '<"row"<"col-12"tr>>' +
                  '<"row align-items-center p-2 mt-2"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-end"p>>',

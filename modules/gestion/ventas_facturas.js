@@ -43,7 +43,7 @@ $(function () {
             } },
             { data: null, render: function (d) {
                 if (!d.entidad_id) return esc(d.consumidor_final_nombre || '') + '<small class="d-block text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>';
-                return (d.entidad_nombre || '') + (d.entidad_fantasia ? '<small class="d-block text-muted">' + d.entidad_fantasia + '</small>' : '');
+                return esc(d.entidad_fantasia || d.entidad_nombre || '');
             } },
             { data: 'comprobante_tipo', className: 'text-center' },
             {
@@ -52,16 +52,15 @@ $(function () {
                 render: function (data, type) {
                     if (type === 'sort' || type === 'filter') return data || '';
                     if (type === 'export' || !data) return data || '';
-                    var parts = (data || '').split('-');
-                    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data;
+                    return Fmt.fecha(data);
                 }
             },
             { data: 'condicion_pago' },
-            { data: 'importe_total', className: 'text-end', render: function (d) { return '$' + Number(d || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 }); } },
+            { data: 'importe_total', className: 'text-end', render: function (d) { return '$' + Fmt.numero(Number(d || 0), { minimumFractionDigits: 2 }); } },
             { data: 'CAE', className: 'text-center', defaultContent: '', render: function (d, type, row) {
                 if (type !== 'display') return d || '';
                 if (!d) return '<span class="text-muted">-</span>';
-                var vto = row.f_vto_CAE ? row.f_vto_CAE.split('-').reverse().join('/') : '';
+                var vto = row.f_vto_CAE ? Fmt.fecha(row.f_vto_CAE) : '';
                 return '<span title="' + (vto ? 'Vence ' + vto : '') + '">' + esc(d) + '</span>';
             } },
             { data: 'estado_registro', className: 'text-center' },
@@ -91,7 +90,7 @@ $(function () {
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
         language: {
-            url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+            url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json',
             lengthMenu: 'Mostrar _MENU_ registros',
             info: 'Página _PAGE_ de _PAGES_',
             infoEmpty: 'Página 0 de 0',
@@ -109,7 +108,7 @@ $(function () {
         tabla.search(this.value).draw();
     });
 
-    function moneda(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function moneda(v) { return Fmt.numero(Number(v || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
     function cargarBotonAgregar() {
         $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener_boton_agregar', pagina_idx: PAGINA_ID }, function (b) {
@@ -273,9 +272,39 @@ $(function () {
     // posterior de un producto manual (acá o al reabrir una factura para editar) apunta a un
     // tbody que no existe y el .append() no inserta nada — la fila (y su cantidad) desaparece
     // en silencio. La fila "sin pendientes" se saca sola apenas entra la primera línea manual.
+    // Dos tablas con las mismas columnas: "A facturar" (cantidad > 0 y productos manuales) y
+    // "Pendientes" (líneas de remito en 0, paginadas). La fila pasa de una a otra al cambiar la
+    // cantidad (actualizarVisibilidadRemitos); data-orden conserva el orden original.
+    var ordenFilasFactura = 0;
+    // Las dos tablas tienen las mismas celdas; el CSS (ventas_facturas.php) oculta en "Pendientes" las
+    // editables (.col-edit) y en "A facturar" el botón Agregar (.col-agregar).
+    function tablaItemsFactura(tbodyId, clase) {
+        return '<div class="table-responsive"><table class="table table-sm table-hover mb-0 factura-items ' + clase + '"><thead class="table-light"><tr>'
+            + '<th>Remito</th><th>Código</th><th>Detalle</th><th class="text-end">Pend.</th><th class="text-end col-edit">Cantidad</th>'
+            + '<th class="text-end col-edit">Precio lista</th><th class="text-end col-edit">Desc. %</th><th class="text-end">Precio neto</th>'
+            + '<th class="text-end col-edit">Total neto</th><th class="col-edit"></th><th class="col-agregar"></th>'
+            + '</tr></thead><tbody id="' + tbodyId + '"></tbody></table></div>';
+    }
+    function agregarFilaFactura(html) {
+        var fila = $(html).attr('data-orden', ordenFilasFactura++);
+        $('#tbodyItemsElegidos').append(fila);
+        return fila;
+    }
     function renderRemitos(rows) {
         var autoRemitoId = remitoParaAutoFacturar;
-        var html = '<div class="table-responsive factura-remitos-scroll"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Nro. Remito</th><th>Código</th><th>Detalle</th><th class="text-end">Cantidad Pendiente</th><th class="text-end">Cantidad</th><th class="text-end">Precio De Lista</th><th class="text-end">Descuento</th><th class="text-end">Precio Neto</th><th class="text-end">Total Neto</th></tr></thead><tbody>';
+        ordenFilasFactura = 0;
+        $('#contenedorRemitosFactura').html(
+            '<div class="small fw-semibold text-primary mb-1"><i class="fas fa-check-circle me-1"></i>A facturar <span class="badge bg-primary ms-1" id="cantItemsElegidos">0</span></div>'
+            + tablaItemsFactura('tbodyItemsElegidos', 'factura-items-elegidos')
+            // Nota de crédito: ítems del comprobante asociado (renderItemsAsociado)
+            + '<div id="itemsAsociadoFactura"></div>'
+            // Pendientes plegados: se despliegan para elegir qué sumar (no en notas de crédito / débito)
+            + '<details class="factura-pendientes mt-2' + (notaTipo ? ' d-none' : '') + '" id="detallesPendientesFactura"><summary class="small fw-semibold text-muted">'
+            + '<i class="fas fa-truck me-1"></i>Pendientes de remitos del cliente <span class="badge bg-secondary ms-1" id="cantItemsPendientes">0</span>'
+            + '<span class="fw-normal ms-2 factura-pendientes-hint">Ver y agregar</span>'
+            + ' <span class="ui-ayuda" tabindex="0" role="button" data-bs-toggle="tooltip" data-bs-placement="bottom" aria-label="Ayuda" title="&quot;Agregar&quot; suma la línea con todo lo pendiente y pasa a &quot;A facturar&quot;; ahí se ajusta la cantidad. Con cantidad 0 vuelve acá."><i class="bi bi-question-circle"></i></span></summary>'
+            + '<div class="mt-1">' + tablaItemsFactura('tbodyItemsPendientes', 'factura-items-pendientes')
+            + '<div id="paginacionRemitosFactura" class="d-flex justify-content-end mt-2"></div></div></details>');
         (rows || []).forEach(function (r) {
             // Deep-link desde ventas_remitos.php: precarga (cantidad = pendiente) solo las
             // líneas del remito puntual que se vino a facturar, dejando el resto del cliente
@@ -283,13 +312,11 @@ $(function () {
             if (autoRemitoId && Number(r.venta_remito_id) === Number(autoRemitoId)) {
                 r = $.extend({}, r, { cantidad_propia: r.cantidad_pendiente_facturar });
             }
-            html += filaItemFactura(r, false);
+            $('#tbodyItemsPendientes').append($(filaItemFactura(r, false)).attr('data-orden', ordenFilasFactura++));
         });
-        if (!rows || !rows.length) {
-            html += '<tr class="fila-sin-pendientes"><td colspan="9" class="text-muted small text-center py-2">No hay remitos pendientes de facturar.</td></tr>';
-        }
-        $('#contenedorRemitosFactura').html(html + '</tbody></table></div><div id="paginacionRemitosFactura" class="d-flex justify-content-end mt-2"></div>');
+        if (window.UiSimple && UiSimple.tooltips) UiSimple.tooltips('#contenedorRemitosFactura');
         inicializarPaginacionRemitos();
+        renderItemsAsociado();
         if (autoRemitoId) {
             $('#contenedorRemitosFactura .factura-cantidad').each(function () { if (parseFloat(this.value) > 0) $(this).trigger('change'); });
             remitoParaAutoFacturar = null;
@@ -305,7 +332,7 @@ $(function () {
         // Un producto manual no viene de un remito, así que no hay "pendiente" que lo limite —
         // usar item.cantidad (la cantidad con la que se agregó la primera vez) como tope dejaba
         // el campo trabado en ese valor para siempre, sin poder subirlo después.
-        var cantidadMax = manual ? 999999 : (parseFloat(item.cantidad_pendiente_facturar || item.cantidad) || 0);
+        var cantidadMax = manual ? (parseFloat(item.cantidad_max) || 999999) : (parseFloat(item.cantidad_pendiente_facturar || item.cantidad) || 0);
         var cantidadPendiente = parseFloat(item.cantidad_pendiente_facturar) || 0;
         var precio = parseFloat(item.precio_unitario_bruto || item.precio_unitario) || 0;
         // Mismo cálculo que el servidor (bruto * pct / 100): los productos manuales solo traen
@@ -315,8 +342,21 @@ $(function () {
         var descuento = precio * descuentoPct / 100;
         var neto = Math.max(0, precio - descuento);
         var valorInicial = cantidadPropia > 0 ? cantidadPropia.toFixed(2) : '0.00';
-        var nroRemito = manual ? '-' : (item.comprobante_nro || '-') + (item.consumidor_final_nombre ? '<small class="d-block text-muted">' + esc(item.consumidor_final_nombre) + '</small>' : '');
-        return '<tr><td>' + nroRemito + '</td><td>' + (item.producto_codigo || item.producto_id) + '</td><td>' + (item.producto_nombre || 'Producto manual') + (manual ? ' <small class="text-muted">(Manual)</small>' : '') + '</td><td class="text-end cantidad-pendiente">' + (manual ? '-' : cantidadPendiente.toFixed(2)) + '</td><td class="text-end"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td><td class="text-end"><input type="number" class="form-control form-control-sm text-end factura-precio no-spinner" value="' + precio.toFixed(2) + '" min="0" step="0.01"></td><td class="text-end factura-descuento-renglon">$' + moneda(descuento) + '</td><td class="text-end factura-neto-renglon">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon">$0.00</td></tr>';
+        var nroRemito = manual ? '-' : esc(item.comprobante_nro || '-') + (item.consumidor_final_nombre ? ' <small class="text-muted">' + esc(item.consumidor_final_nombre) + '</small>' : '');
+        var nombre = (item.producto_nombre || 'Producto manual') + (manual ? (item.etiqueta || ' (Manual)') : '');
+        var leyenda = item.leyenda || '';
+        // Una línea por ítem: la leyenda va plegada detrás del ícono (resaltado si tiene texto)
+        return '<tr><td>' + nroRemito + '</td><td>' + esc(item.producto_codigo || item.producto_id) + '</td>'
+            + '<td class="col-detalle"><div class="d-flex align-items-center gap-1"><span class="text-truncate factura-item-nombre" title="' + esc(nombre) + '">' + esc(nombre) + '</span>'
+            + '<button type="button" class="btn btn-link btn-sm p-0 ms-auto col-edit btn-leyenda-item ' + (leyenda ? 'text-primary' : 'text-muted') + '" title="' + (leyenda ? esc(leyenda) : 'Agregar leyenda (se imprime debajo del producto)') + '"><i class="fas fa-comment-dots"></i></button></div>'
+            + '<textarea class="form-control form-control-sm mt-1 factura-leyenda d-none" rows="2" maxlength="1000" placeholder="Leyenda del ítem (opcional, se imprime debajo del producto)">' + esc(leyenda) + '</textarea></td>'
+            + '<td class="text-end cantidad-pendiente">' + (manual ? '-' : Fmt.numero(cantidadPendiente, 2)) + '</td><td class="text-end col-edit"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td>'
+            + '<td class="text-end col-edit"><input type="number" class="form-control form-control-sm text-end factura-precio no-spinner" value="' + precio.toFixed(2) + '" min="0" step="0.01"></td>'
+            // El importe del descuento va en el tooltip (factura-descuento-renglon), no en una segunda línea
+            + '<td class="text-end col-edit"><div class="input-group input-group-sm flex-nowrap factura-descuento-renglon" title="Descuento $' + moneda(descuento) + '"><input type="number" class="form-control form-control-sm text-end factura-descuento-pct no-spinner" value="' + descuentoPct.toFixed(2) + '" min="0" max="100" step="0.01"><span class="input-group-text">%</span></div></td>'
+            + '<td class="text-end factura-neto-renglon">$' + moneda(neto) + '</td><td class="text-end fw-bold total-neto-renglon col-edit">$0.00</td>'
+            + '<td class="text-center col-edit"><button type="button" class="btn btn-sm btn-outline-danger btn-quitar-item" title="' + (manual ? 'Quitar el producto de la factura' : 'Quitar la línea de la factura (vuelve a quedar pendiente en el remito)') + '"><i class="fas fa-trash"></i></button></td>'
+            + '<td class="text-end col-agregar"><button type="button" class="btn btn-sm btn-outline-primary btn-agregar-pendiente" title="Sumar a la factura con todo lo pendiente"><i class="fas fa-plus me-1"></i>Agregar</button></td></tr>';
     }
     // Única fuente de verdad de qué entra a la factura: la cantidad tipeada. Cantidad > 0 =
     // la línea se agrega/actualiza en `detalles`; 0 = se saca. Sin click de checkbox de por medio.
@@ -327,25 +367,64 @@ $(function () {
         var key = el.data('key');
         detalles = detalles.filter(function (d) { return d.key !== key; });
         if (valor > 0) {
-            detalles.push({ key: key, producto_id: el.data('producto-id'), venta_remito_detalle_id: el.data('remito-detalle-id') || null, venta_pedido_detalle_id: el.data('pedido-detalle-id') || null, cantidad: valor, precio_unitario: parseFloat(el.data('precio')) || 0, descuento_general_pct: parseFloat(el.data('descuento-pct')) || 0, precio_unitario_neto: parseFloat(el.data('precio-neto')) || 0, iva_alicuota_id: parseInt(el.data('iva-id')) || 1, iva_porcentaje: parseFloat(el.data('iva')) || 0 });
+            detalles.push({ key: key, producto_id: el.data('producto-id'), venta_remito_detalle_id: el.data('remito-detalle-id') || null, venta_pedido_detalle_id: el.data('pedido-detalle-id') || null, cantidad: valor, precio_unitario: parseFloat(el.data('precio')) || 0, descuento_general_pct: parseFloat(el.data('descuento-pct')) || 0, precio_unitario_neto: parseFloat(el.data('precio-neto')) || 0, iva_alicuota_id: parseInt(el.data('iva-id')) || 1, iva_porcentaje: parseFloat(el.data('iva')) || 0, leyenda: el.closest('tr').find('.factura-leyenda').val() || '' });
         }
         actualizarTotalNetoFila(el.closest('tr'));
         actualizarVisibilidadRemitos();
         renderDetalle();
     });
-    // Precio editable en cualquier línea (de remito o manual): actualiza los data-* de la
-    // cantidad, que son los que arman `detalles`, y recalcula descuento y neto de la fila.
-    $(document).on('change', '.factura-precio', function () {
-        var row = $(this).closest('tr');
+    // Leyenda del ítem: se guarda en su línea de `detalles` si ya está incluida (cantidad > 0).
+    $(document).on('input', '.factura-leyenda', function () {
+        var key = $(this).closest('tr').find('.factura-cantidad').data('key');
+        var texto = this.value;
+        detalles.forEach(function (d) { if (d.key === key) d.leyenda = texto; });
+        $(this).closest('td').find('.btn-leyenda-item').toggleClass('text-primary', texto.trim() !== '').toggleClass('text-muted', texto.trim() === '')
+            .attr('title', texto.trim() !== '' ? texto : 'Agregar leyenda (se imprime debajo del producto)');
+    });
+    // El ícono despliega / pliega la leyenda de la fila
+    $(document).on('click', '.btn-leyenda-item', function () {
+        var area = $(this).closest('td').find('.factura-leyenda').toggleClass('d-none');
+        if (!area.hasClass('d-none')) area.trigger('focus');
+    });
+    // "Agregar" de un pendiente: la cantidad pasa a todo lo pendiente y la fila sube a "A facturar"
+    $(document).on('click', '.btn-agregar-pendiente', function () {
+        if (facturaSoloLectura) return;
+        var input = $(this).closest('tr').find('.factura-cantidad');
+        input.val(parseFloat(input.attr('max')) || 0).trigger('change');
+    });
+    // Precio y % de descuento editables en cualquier línea (de remito o manual) mientras la factura
+    // está en Borrador: actualizan los data-* de la cantidad, que son los que arman `detalles`, y
+    // recalculan descuento y neto de la fila.
+    function recalcularPrecioFila(row) {
         var input = row.find('.factura-cantidad');
-        var precio = Math.max(0, parseFloat(this.value) || 0);
-        this.value = precio.toFixed(2);
-        var descuento = precio * (parseFloat(input.data('descuento-pct')) || 0) / 100;
+        var precio = Math.max(0, parseFloat(row.find('.factura-precio').val()) || 0);
+        var pct = Math.max(0, Math.min(100, parseFloat(row.find('.factura-descuento-pct').val()) || 0));
+        row.find('.factura-precio').val(precio.toFixed(2));
+        row.find('.factura-descuento-pct').val(pct.toFixed(2));
+        var descuento = precio * pct / 100;
         var neto = Math.max(0, precio - descuento);
-        input.data('precio', precio).data('precio-neto', neto);
-        row.find('.factura-descuento-renglon').text('$' + moneda(descuento));
+        input.data('precio', precio).data('descuento-pct', pct).data('precio-neto', neto);
+        row.find('.factura-descuento-renglon').attr('title', 'Descuento $' + moneda(descuento));
         row.find('.factura-neto-renglon').text('$' + moneda(neto));
         input.trigger('change');
+    }
+    $(document).on('change', '.factura-precio, .factura-descuento-pct', function () { recalcularPrecioFila($(this).closest('tr')); });
+    // Quitar una línea: la manual se borra de la tabla; la de remito queda como candidata (cantidad 0),
+    // así se puede volver a sumar. Se guarda recién con "Guardar" (el servidor reemplaza el detalle).
+    $(document).on('click', '.btn-quitar-item', function () {
+        if (facturaSoloLectura) return;
+        var row = $(this).closest('tr');
+        var input = row.find('.factura-cantidad');
+        var key = String(input.data('key'));
+        if (key.charAt(0) === 'm') {
+            detalles = detalles.filter(function (d) { return String(d.key) !== key; });
+            row.remove();
+            actualizarVisibilidadRemitos();
+            renderItemsAsociado();
+            renderDetalle();
+        } else {
+            input.val('0.00').trigger('change');
+        }
     });
     // Botones +/- del stepper: mismo patrón visual que ventas_pedidos, sin las flechas nativas
     // del input number (ocultas vía .no-spinner).
@@ -362,22 +441,31 @@ $(function () {
         var neto = parseFloat(input.data('precio-neto')) || 0;
         row.find('.total-neto-renglon').text('$' + moneda(cantidad * neto));
     }
-    // La paginación solo aplica a las filas "candidatas" (cantidad en 0, todavía sin elegir).
-    // Las que ya están incluidas en la factura (cantidad > 0, vengan de un remito o cargadas a
-    // mano) se muestran siempre, sin importar la página — si no, una línea con datos cargados
-    // podía quedar oculta (display:none) en una página que el usuario no está mirando, y parecía
-    // que "no traía" la cantidad cuando en realidad estaba ahí, tapada.
+    // Ubica cada fila en su tabla: "A facturar" las de cantidad > 0 y las manuales (aunque estén en 0,
+    // no vienen de un remito); "Pendientes" el resto, paginadas. Las elegidas se ven siempre.
     var paginaRemitos = 1;
     function actualizarVisibilidadRemitos() {
         var porPagina = 10;
-        var todas = $('#contenedorRemitosFactura tbody tr');
-        todas.filter('.fila-sin-pendientes').show();
-        var incluidas = todas.not('.fila-sin-pendientes').filter(function () {
+        var elegidas = $('#tbodyItemsElegidos'), pendientes = $('#tbodyItemsPendientes');
+        if (!elegidas.length) return;
+        var filas = $('#contenedorRemitosFactura tbody tr').not('.fila-vacia');
+        var porOrden = function (a, b) { return (parseInt($(a).attr('data-orden'), 10) || 0) - (parseInt($(b).attr('data-orden'), 10) || 0); };
+        var aElegidas = [], aPendientes = [];
+        filas.each(function () {
             var input = $(this).find('.factura-cantidad');
-            return input.length > 0 && (parseFloat(input.val()) || 0) > 0;
+            var manual = String(input.data('key')).charAt(0) === 'm';
+            ((parseFloat(input.val()) || 0) > 0 || manual ? aElegidas : aPendientes).push(this);
         });
-        incluidas.show();
-        var candidatas = todas.not('.fila-sin-pendientes').not(incluidas);
+        $('#contenedorRemitosFactura .fila-vacia').remove();
+        // Solo se mueven las que cambiaron de tabla (mover la fila del input con foco lo desenfoca)
+        if (aElegidas.some(function (f) { return f.parentNode !== elegidas[0]; })) elegidas.append(aElegidas.sort(porOrden));
+        if (aPendientes.some(function (f) { return f.parentNode !== pendientes[0]; })) pendientes.append(aPendientes.sort(porOrden));
+        $(aElegidas).show();
+        if (!aElegidas.length) elegidas.append('<tr class="fila-vacia"><td colspan="11" class="text-muted small text-center py-2">Todavía no hay ítems. Agregá líneas de los pendientes o un producto.</td></tr>');
+        if (!aPendientes.length) pendientes.append('<tr class="fila-vacia"><td colspan="11" class="text-muted small text-center py-2">No hay remitos pendientes de facturar.</td></tr>');
+        $('#cantItemsElegidos').text(aElegidas.length);
+        $('#cantItemsPendientes').text(aPendientes.length);
+        var candidatas = $(aPendientes);
         var totalPaginas = Math.max(1, Math.ceil(candidatas.length / porPagina));
         if (paginaRemitos > totalPaginas) paginaRemitos = totalPaginas;
         candidatas.hide().slice((paginaRemitos - 1) * porPagina, paginaRemitos * porPagina).show();
@@ -451,10 +539,9 @@ $(function () {
         if (!p || qty <= 0) return;
         var descuentoPct = parseFloat($('#factura_producto_descuento_pct').val()) || 0;
         var item = { key: Date.now(), producto_id: p.producto_id, producto_codigo: p.producto_codigo, producto_nombre: p.producto_nombre, cantidad: qty, cantidad_propia: qty, precio_unitario: parseFloat($('#factura_producto_precio').val()) || 0, descuento_general_pct: descuentoPct, iva_alicuota_id: p.iva_alicuota_id || 1, iva_porcentaje: p.iva_porcentaje || 0 };
-        $('#contenedorRemitosFactura .fila-sin-pendientes').remove();
-        $('#contenedorRemitosFactura tbody').append(filaItemFactura(item, true));
+        var fila = agregarFilaFactura(filaItemFactura(item, true));
         inicializarPaginacionRemitos();
-        $('#contenedorRemitosFactura tbody tr:last .factura-cantidad').trigger('change');
+        fila.find('.factura-cantidad').trigger('change');
         $('#factura_producto_busqueda').val('').removeData('producto');
         $('#factura_producto_descuento_pct').val(descuentoGeneralCliente.toFixed(2));
         // Foco de vuelta al buscador para poder tipear el siguiente producto sin tocar el mouse.
@@ -518,22 +605,93 @@ $(function () {
 
     // ---------- Notas de crédito / débito: comprobante asociado ----------
     // El combo aparece solo para tipos NC/ND (es_nota) y con un cliente elegido (no consumidor final).
+    // Con NC / ND no se ofrecen remitos pendientes; con NC, los ítems del comprobante asociado (renderItemsAsociado).
+    var notaTipo = '';          // '' factura | 'NC' | 'ND'
+    var itemsAsociado = [];     // ítems del comprobante asociado a la NC (vfItemsComprobanteAsociado)
+    function aplicarModoNota(tipoNota) {
+        notaTipo = tipoNota || '';
+        $('#detallesPendientesFactura').toggleClass('d-none', !!notaTipo);
+        if (notaTipo) {
+            // Las líneas de remito no van en una nota: vuelven a pendientes (ocultos)
+            $('#tbodyItemsElegidos .factura-cantidad').filter(function () { return String($(this).data('key')).charAt(0) === 'r' && (parseFloat(this.value) || 0) > 0; })
+                .val('0.00').trigger('change');
+        }
+        if (notaTipo !== 'NC') itemsAsociado = [];
+        renderItemsAsociado();
+    }
+    function cargarItemsAsociado(entidad) {
+        var comp = $('#factura_comprobante_asociado_id').val();
+        if (entidad === undefined || typeof entidad === 'object') entidad = entidadIdConsulta();
+        itemsAsociado = [];
+        if (notaTipo !== 'NC' || !comp) { renderItemsAsociado(); return; }
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'items_asociado', comprobante_id: comp, entidad_id: entidad || 0, excluir_factura_id: facturaEditId || 0, empresa_idx: EMPRESA_ID }, function (res) {
+            itemsAsociado = (res && res.success) ? (res.data || []) : [];
+            renderItemsAsociado();
+        });
+    }
+    // Lista de los ítems del comprobante asociado con "Agregar": la línea pasa a "A facturar" con lo disponible
+    // (se puede bajar la cantidad o el precio). Sin ítems elegidos, la NC puede ser un descuento general:
+    // se agrega un concepto con el buscador de productos.
+    function renderItemsAsociado() {
+        var cont = $('#itemsAsociadoFactura');
+        if (!cont.length) return;
+        if (notaTipo !== 'NC') { cont.empty(); return; }
+        var ayuda = ' <span class="ui-ayuda" tabindex="0" role="button" data-bs-toggle="tooltip" data-bs-placement="bottom" aria-label="Ayuda" title="Agregá los ítems que devuelve o acredita. Si es un descuento general, no elijas ninguno: agregá un concepto con el buscador de productos."><i class="bi bi-question-circle"></i></span>';
+        if (!$('#factura_comprobante_asociado_id').val()) {
+            cont.html('<div class="small text-muted mt-2"><i class="fas fa-info-circle me-1"></i>Elegí el comprobante asociado para ver sus ítems.' + ayuda + '</div>');
+        } else {
+            var elegidos = {};
+            $('#tbodyItemsElegidos .factura-cantidad').each(function () { elegidos[String($(this).data('producto-id'))] = true; });
+            var filas = itemsAsociado.map(function (it, i) {
+                var disp = parseFloat(it.cantidad_disponible) || 0;
+                var ya = !!elegidos[String(it.producto_id)];
+                return '<tr><td>' + esc(it.producto_codigo || it.producto_id) + '</td><td class="col-detalle"><span class="text-truncate d-block" title="' + esc(it.producto_nombre || '') + '">' + esc(it.producto_nombre || '') + '</span></td>'
+                    + '<td class="text-end">' + Fmt.numero(parseFloat(it.cantidad) || 0, 2) + '</td><td class="text-end">' + Fmt.numero(disp, 2) + '</td>'
+                    + '<td class="text-end">$' + moneda(parseFloat(it.precio_unitario) || 0) + '</td><td class="text-end">' + Fmt.numero(parseFloat(it.descuento_general_pct) || 0, 2) + ' %</td>'
+                    + '<td class="text-end">' + (ya ? '<span class="small text-success"><i class="fas fa-check me-1"></i>Agregado</span>'
+                        : '<button type="button" class="btn btn-sm btn-outline-primary btn-agregar-item-asociado" data-i="' + i + '"' + (disp > 0 ? '' : ' disabled title="Ya acreditado en otra nota de crédito"') + '><i class="fas fa-plus me-1"></i>Agregar</button>') + '</td></tr>';
+            }).join('');
+            cont.html('<details class="factura-pendientes mt-2" open><summary class="small fw-semibold text-muted"><i class="fas fa-file-invoice me-1"></i>Ítems del comprobante asociado <span class="badge bg-secondary ms-1">' + itemsAsociado.length + '</span>' + ayuda + '</summary>'
+                + '<div class="table-responsive mt-1"><table class="table table-sm table-hover mb-0 factura-items factura-items-asociado"><thead class="table-light"><tr><th>Código</th><th>Detalle</th><th class="text-end">Facturado</th><th class="text-end">Disponible</th><th class="text-end">Precio lista</th><th class="text-end">Desc.</th><th></th></tr></thead><tbody>'
+                + (filas || '<tr><td colspan="7" class="text-muted small text-center py-2">El comprobante no tiene ítems.</td></tr>') + '</tbody></table></div></details>');
+        }
+        if (window.UiSimple && UiSimple.tooltips) UiSimple.tooltips(cont[0]);
+    }
+    $(document).on('click', '.btn-agregar-item-asociado', function () {
+        if (facturaSoloLectura) return;
+        var it = itemsAsociado[parseInt($(this).data('i'), 10)];
+        if (!it) return;
+        var disp = parseFloat(it.cantidad_disponible) || 0;
+        var fila = agregarFilaFactura(filaItemFactura({ key: 'fd' + it.venta_factura_detalle_id, producto_id: it.producto_id, producto_codigo: it.producto_codigo,
+            producto_nombre: it.producto_nombre, etiqueta: '', cantidad_propia: disp, cantidad_max: disp, precio_unitario: parseFloat(it.precio_unitario) || 0,
+            descuento_general_pct: parseFloat(it.descuento_general_pct) || 0, iva_alicuota_id: it.iva_alicuota_id || 1, iva_porcentaje: parseFloat(it.porcentaje_iva) || 0,
+            leyenda: it.leyenda || '' }, true));
+        fila.find('.factura-cantidad').trigger('change');
+        renderItemsAsociado();
+    });
+    $(document).on('change', '#factura_comprobante_asociado_id', cargarItemsAsociado);
+
     function actualizarComprobanteAsociado(seleccionado, entidadForzada) {
         var tipo = $('#factura_comprobante_tipo_id').val();
         var entidad = entidadForzada !== undefined ? entidadForzada : entidadIdConsulta();
         var wrap = $('#factura_asociado_wrap'), sel = $('#factura_comprobante_asociado_id');
-        if (!tipo || !entidad || String(entidad) === '0') { wrap.addClass('d-none'); sel.html('<option value="">Sin comprobante asociado</option>'); return; }
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'comprobantes_asociables', entidad_id: entidad, comprobante_tipo_id: tipo, empresa_idx: EMPRESA_ID }, function (res) {
-            if (!res || !res.success || !res.es_nota) { wrap.addClass('d-none'); sel.html('<option value="">Sin comprobante asociado</option>'); return; }
+        var sinAsociado = function () { wrap.addClass('d-none'); sel.html('<option value="">Sin comprobante asociado</option>'); };
+        if (!tipo) { sinAsociado(); aplicarModoNota(''); return; }
+        // Consumidor final (entidad 0): igual se consulta si el tipo es nota, pero sin comprobantes para asociar
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'comprobantes_asociables', entidad_id: entidad || 0, comprobante_tipo_id: tipo, empresa_idx: EMPRESA_ID }, function (res) {
+            if (!res || !res.success || !res.es_nota) { sinAsociado(); aplicarModoNota(''); return; }
+            aplicarModoNota(res.es_credito ? 'NC' : 'ND');
+            if (!entidad || String(entidad) === '0') { sinAsociado(); return; }
             var html = '<option value="">Sin comprobante asociado</option>';
             (res.data || []).forEach(function (c) {
                 var nro = String(c.comprobante_pv).padStart(4, '0') + '-' + String(c.comprobante_nro).padStart(8, '0');
                 var s = String(c.comprobante_id) === String(seleccionado || '') ? ' selected' : '';
-                html += '<option value="' + c.comprobante_id + '"' + s + '>' + esc(c.comprobante_tipo) + ' ' + nro + ' · ' + esc((c.f_emision || '').split('-').reverse().join('/'))
+                html += '<option value="' + c.comprobante_id + '"' + s + '>' + esc(c.comprobante_tipo) + ' ' + nro + ' · ' + esc(Fmt.fecha(c.f_emision))
                       + ' · total $' + moneda(c.importe_total) + ' · saldo $' + moneda(c.importe_pendiente) + '</option>';
             });
             sel.html(html).prop('disabled', $('#factura_comprobante_tipo_id').prop('disabled'));
             wrap.removeClass('d-none');
+            cargarItemsAsociado(entidad);
         });
     }
     $('#factura_comprobante_tipo_id, #factura_entidad_id').on('change', function () { actualizarComprobanteAsociado(); });
@@ -568,7 +726,7 @@ $(function () {
 
     function habilitarFormulario(habilitar) {
         $('#formFacturaCliente').find('input, select, textarea').prop('disabled', !habilitar);
-        $('#btnAgregarProductoFactura, .factura-cantidad, .factura-precio, .btn-cantidad-mas, .btn-cantidad-menos').prop('disabled', !habilitar);
+        $('#btnAgregarProductoFactura, .factura-cantidad, .factura-precio, .factura-descuento-pct, .btn-cantidad-mas, .btn-cantidad-menos, .btn-quitar-item, .btn-agregar-pendiente').prop('disabled', !habilitar);
         $('#btnGuardarFactura').toggle(habilitar);
     }
 
@@ -579,6 +737,7 @@ $(function () {
     function abrirFacturaNueva() {
         facturaEditId = null;
         remitoParaAutoFacturar = null;
+        notaTipo = ''; itemsAsociado = [];
         facturaSoloLectura = false;
         percepcionesFactura = []; percepcionesAvisos = [];
         habilitarFormulario(true);
@@ -593,7 +752,7 @@ $(function () {
         descuentoGeneralCliente = 0;
         $('#contenedorRemitosFactura').html('<div class="text-muted small">Seleccione un cliente.</div>');
         $('#cardAgregarProductoManual').show();
-        $('#tituloCardRemitosFactura').text('Remitos Pendientes De Facturar');
+        $('#tituloCardRemitosFactura').text('Ítems De La Factura');
         $('#modalFacturaAccionesExtra').empty();
         detalles = []; renderDetalle();
         cargarPuntosVenta();
@@ -643,7 +802,18 @@ $(function () {
             });
         });
     }
-    $('#btnRecargar').on('click', function () { tabla.ajax.reload(null, false); });
+    // Recargar: el ícono gira y el botón queda deshabilitado hasta que llegan los datos (sin eso no se
+    // notaba que había recargado); delegado por si el encabezado de la card se vuelve a armar.
+    $(document).on('click', '#btnRecargar', function () {
+        var btn = $(this);
+        if (btn.prop('disabled')) return;
+        btn.prop('disabled', true).find('i').addClass('fa-spin');
+        tabla.one('xhr.dt', function (e, settings, json, xhr) {
+            btn.prop('disabled', false).find('i').removeClass('fa-spin');
+            if (!json && xhr && xhr.status !== 200) Swal.fire('Error', 'No se pudo actualizar el listado (HTTP ' + xhr.status + ').', 'error');
+        });
+        tabla.ajax.reload(null, false);
+    });
     $('#btnGuardarFactura').on('click', function () {
         var btn = $(this), esEdicion = !!facturaEditId;
         var fEmision = $('#factura_f_emision').val(), fVto = $('#factura_f_vto').val();
@@ -670,8 +840,8 @@ $(function () {
         }
         var html = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0"><thead><tr><th>Nro. Remito</th><th>Código</th><th>Producto</th><th class="text-end">Cantidad</th><th class="text-end">Precio Unit.</th><th class="text-end">Descuento</th><th class="text-end">IVA</th><th class="text-end">Total Línea</th></tr></thead><tbody>';
         detallesFactura.forEach(function (d) {
-            html += '<tr><td>' + (d.remito_comprobante_nro || '-') + '</td><td>' + (d.producto_codigo || d.producto_id) + '</td><td>' + (d.producto_nombre || '') + '</td>'
-                + '<td class="text-end">' + (parseFloat(d.cantidad) || 0).toFixed(2) + '</td>'
+            html += '<tr><td>' + (d.remito_comprobante_nro || '-') + '</td><td>' + (d.producto_codigo || d.producto_id) + '</td><td>' + (d.producto_nombre || '') + (d.leyenda ? '<small class="d-block text-muted" style="white-space: pre-line;">' + esc(d.leyenda) + '</small>' : '') + '</td>'
+                + '<td class="text-end">' + Fmt.numero((parseFloat(d.cantidad) || 0), 2) + '</td>'
                 + '<td class="text-end">$' + moneda(d.precio_unitario) + '</td>'
                 + '<td class="text-end">$' + moneda(d.descuento_general) + '</td>'
                 + '<td class="text-end">$' + moneda(d.importe_iva) + '</td>'
@@ -689,6 +859,7 @@ $(function () {
             facturaSoloLectura = readonly;
             percepcionesFactura = f.percepciones || []; percepcionesAvisos = [];
             facturaEditId = f.venta_factura_id;
+            notaTipo = ''; itemsAsociado = [];
             $('#formFacturaCliente')[0].reset();
             detalles = [];
             habilitarFormulario(true);
@@ -712,7 +883,7 @@ $(function () {
                 $('#factura_observaciones').val(f.observaciones || '');
                 $('#factura_destino_bien_uso').prop('checked', parseInt(f.destino_bien_uso || 0, 10) === 1);
                 $('#factura_comprobante_nro').val(f.comprobante_nro > 0 ? f.comprobante_nro : (parseInt(f.tabla_estado_registro_id, 10) === 4 ? 'Lo asigna ARCA con el CAE' : 'Se asigna al confirmar'));
-                $('#factura_cae_info').html(f.CAE ? '<i class="fas fa-shield-alt me-1 text-success"></i>CAE <strong>' + esc(f.CAE) + '</strong>' + (f.f_vto_CAE ? ' · vence ' + esc(f.f_vto_CAE.split('-').reverse().join('/')) : '') : '');
+                $('#factura_cae_info').html(f.CAE ? '<i class="fas fa-shield-alt me-1 text-success"></i>CAE <strong>' + esc(f.CAE) + '</strong>' + (f.f_vto_CAE ? ' · vence ' + esc(Fmt.fecha(f.f_vto_CAE)) : '') : '');
                 $.getJSON('ventas_facturas_ajax.php', { accion: 'condicion_cliente', entidad_id: f.entidad_id || 0, empresa_idx: EMPRESA_ID }, mostrarCondicionCliente);
 
                 function finalizarApertura() {
@@ -741,7 +912,7 @@ $(function () {
                 }
 
                 $('#cardAgregarProductoManual').show();
-                $('#tituloCardRemitosFactura').text('Remitos Pendientes De Facturar');
+                $('#tituloCardRemitosFactura').text('Ítems De La Factura');
                 $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: f.entidad_id || 0, entidad_sucursal_id: f.entidad_sucursal_id || 0, excluir_factura_id: facturaEditId }, function (pendientes) {
                     // El precio de una línea de remito se puede cambiar en la factura: al reabrirla,
                     // el precio y descuento guardados pisan los del remito.
@@ -749,14 +920,13 @@ $(function () {
                     (f.detalles || []).forEach(function (d) { if (d.venta_remito_detalle_id) guardadoPorRemito[d.venta_remito_detalle_id] = d; });
                     (pendientes || []).forEach(function (r) {
                         var d = guardadoPorRemito[r.venta_remito_detalle_id];
-                        if (d) { r.precio_unitario_bruto = parseFloat(d.precio_unitario) || 0; r.descuento_general_pct = parseFloat(d.descuento_general_pct) || 0; }
+                        if (d) { r.precio_unitario_bruto = parseFloat(d.precio_unitario) || 0; r.descuento_general_pct = parseFloat(d.descuento_general_pct) || 0; r.leyenda = d.leyenda || ''; }
                     });
                     renderRemitos(pendientes);
                     (f.detalles || []).forEach(function (d) {
                         if (!d.venta_remito_detalle_id) {
-                            var item = { key: d.venta_factura_detalle_id, producto_id: d.producto_id, producto_codigo: d.producto_codigo, producto_nombre: d.producto_nombre, cantidad_propia: parseFloat(d.cantidad) || 0, precio_unitario: parseFloat(d.precio_unitario) || 0, descuento_general_pct: parseFloat(d.descuento_general_pct) || 0, iva_alicuota_id: d.iva_alicuota_id || 1, iva_porcentaje: parseFloat(d.porcentaje_iva) || 0 };
-                            $('#contenedorRemitosFactura .fila-sin-pendientes').remove();
-                            $('#contenedorRemitosFactura tbody').append(filaItemFactura(item, true));
+                            var item = { key: d.venta_factura_detalle_id, producto_id: d.producto_id, producto_codigo: d.producto_codigo, producto_nombre: d.producto_nombre, cantidad_propia: parseFloat(d.cantidad) || 0, precio_unitario: parseFloat(d.precio_unitario) || 0, descuento_general_pct: parseFloat(d.descuento_general_pct) || 0, iva_alicuota_id: d.iva_alicuota_id || 1, iva_porcentaje: parseFloat(d.porcentaje_iva) || 0, leyenda: d.leyenda || '' };
+                            agregarFilaFactura(filaItemFactura(item, true));
                         }
                     });
                     inicializarPaginacionRemitos();
@@ -810,12 +980,77 @@ $(function () {
         window.open('ventas_facturas_print.php?venta_factura_id=' + encodeURIComponent(id) + '&empresa_idx=' + EMPRESA_ID, '_blank');
     }
 
+    // ===== Cobro de contado a consumidor final =====
+    // Al aprobar una factura sin cliente se emite su recibo de contado: antes se piden los medios
+    // de pago (efectivo, transferencia, cheque...), que tienen que sumar el total de la factura.
+    var contadoInfo = null;
+
+    function recalcularContado() {
+        var total = totalMediosCobro($('#tablaContadoMedios'));
+        var dif = Math.round(((contadoInfo ? contadoInfo.total : 0) - total) * 100) / 100;
+        $('#contadoTotalMedios').text('$' + moneda(total));
+        if (dif > 0.001) $('#contadoDiferencia').attr('class', 'text-danger').text('Falta cobrar $' + moneda(dif));
+        else if (dif < -0.001) $('#contadoDiferencia').attr('class', 'text-danger').text('Supera el total en $' + moneda(-dif));
+        else $('#contadoDiferencia').attr('class', 'text-success').text('Cubre el total de la factura.');
+    }
+
+    function pedirMediosContado(info, comprobanteInfo) {
+        contadoInfo = info;
+        return Swal.fire({
+            title: 'Cobro de contado',
+            html: '<p class="mb-2">' + esc(comprobanteInfo) + ' a consumidor final por <strong>$' + moneda(info.total) + '</strong>. ¿Cómo pagó?</p>'
+                + '<div class="table-responsive text-start"><table class="table table-sm align-middle mb-2" id="tablaContadoMedios">'
+                + '<thead><tr><th style="width:28%">Medio</th><th>Datos</th><th style="width:18%" class="text-end">Importe</th><th style="width:40px"></th></tr></thead><tbody></tbody></table></div>'
+                + '<div class="d-flex justify-content-between align-items-start">'
+                + '<button type="button" class="btn btn-sm btn-outline-primary" id="btnContadoAgregarMedio"><i class="fas fa-plus me-1"></i>Agregar medio</button>'
+                + '<div class="text-end"><div>Total medios: <strong id="contadoTotalMedios">$0,00</strong></div><small id="contadoDiferencia"></small></div></div>',
+            width: 960, showCancelButton: true, confirmButtonText: 'Aprobar y cobrar', cancelButtonText: 'Cancelar',
+            reverseButtons: true, allowOutsideClick: false, focusConfirm: false,
+            didOpen: function () {
+                var tabla = $('#tablaContadoMedios');
+                var tr = agregarFilaCobro(info.total, tabla);
+                var efectivo = tr.find('.cobro-medio option[data-tipo="EFECTIVO"]').first();
+                if (efectivo.length) { tr.find('.cobro-medio').val(efectivo.val()); renderCamposMedioCobro(tr); }
+                $('#btnContadoAgregarMedio').on('click', function () {
+                    agregarFilaCobro(Math.max(0, Math.round((info.total - totalMediosCobro(tabla)) * 100) / 100), tabla);
+                });
+            },
+            preConfirm: function () {
+                var tabla = $('#tablaContadoMedios');
+                var r = recopilarMediosCobro(tabla);
+                if (r.error) { Swal.showValidationMessage(r.error); return false; }
+                if (Math.abs(totalMediosCobro(tabla) - info.total) > 0.001) {
+                    Swal.showValidationMessage('Los medios tienen que sumar el total de la factura ($' + moneda(info.total) + ').');
+                    return false;
+                }
+                return r.medios;
+            }
+        });
+    }
+
     function ejecutarAccionFactura(id, accionJs, comprobanteInfo, cerrarModal) {
+        if (accionJs !== 'aprobada') { enviarAccionFactura(id, accionJs, comprobanteInfo, cerrarModal, null); return; }
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'cobro_contado_info', venta_factura_id: id, empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID }, function (res) {
+            if (!res || !res.success) { Swal.fire('Error', (res && (res.message || res.error)) || 'No se pudo leer la factura.', 'error'); return; }
+            if (!res.data.requiere) { enviarAccionFactura(id, accionJs, comprobanteInfo, cerrarModal, null); return; }
+            // El modal de la factura retiene el foco: se cierra antes de pedir los medios
+            if (cerrarModal) bootstrap.Modal.getInstance(document.getElementById('modalFacturaCliente')).hide();
+            cargarCobroMaestros(function () {
+                pedirMediosContado(res.data, comprobanteInfo).then(function (r) {
+                    if (r.isConfirmed && r.value) enviarAccionFactura(id, accionJs, comprobanteInfo, false, r.value);
+                });
+            });
+        }).fail(function () { Swal.fire('Error', 'Error al comunicarse con el servidor.', 'error'); });
+    }
+
+    function enviarAccionFactura(id, accionJs, comprobanteInfo, cerrarModal, mediosContado) {
         // Aprobar una factura fiscal puede pedir el CAE a ARCA (si está habilitado en Parámetros de
         // Empresa): puede tardar varios segundos.
         var esArca = accionJs === 'aprobada';
         if (esArca) Swal.fire({ title: 'Aprobando...', text: comprobanteInfo + ': si corresponde, se solicita el CAE a ARCA. No cierre la ventana.', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
-        $.ajax({ url: 'ventas_facturas_ajax.php', type: 'POST', dataType: 'json', timeout: esArca ? 200000 : 0, data: { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID } }).done(function (res) {
+        var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: EMPRESA_ID, pagina_idx: PAGINA_ID };
+        if (mediosContado) datos.medios_contado = JSON.stringify(mediosContado);
+        $.ajax({ url: 'ventas_facturas_ajax.php', type: 'POST', dataType: 'json', timeout: esArca ? 200000 : 0, data: datos }).done(function (res) {
             if (res && res.success) {
                 if (cerrarModal) bootstrap.Modal.getInstance(document.getElementById('modalFacturaCliente')).hide();
                 tabla.ajax.reload(null, false);
@@ -865,7 +1100,7 @@ $(function () {
                 $('#asientoIdSpan').text(a.cont_asiento_id);
                 $('#asientoTipoSpan').text(a.cont_tipo_asiento || 'Automático');
                 $('#asientoEstadoSpan').text(a.estado_registro || 'Registrado');
-                $('#asientoFechaSpan').text(a.f_asiento ? a.f_asiento.split('-').reverse().join('/') : '-');
+                $('#asientoFechaSpan').text(a.f_asiento ? Fmt.fecha(a.f_asiento) : '-');
                 $('#asientoDescripcionSpan').text(a.descripcion || '');
 
                 var filasHtml = '';
@@ -989,7 +1224,7 @@ $(function () {
             var anulada = r.codigo_estandar === 'ANULADO' || r.codigo_estandar === 'ELIMINADO';
             return '<tr' + (anulada ? ' class="text-muted text-decoration-line-through"' : '') + '>'
                 + '<td>' + esc((r.comprobante_tipo || r.comprobante_codigo || '') + ' ' + nro) + '</td>'
-                + '<td>' + esc(r.f_imputacion ? r.f_imputacion.split('-').reverse().join('/') : '') + '</td>'
+                + '<td>' + esc(r.f_imputacion ? Fmt.fecha(r.f_imputacion) : '') + '</td>'
                 + '<td>' + esc(r.medios || '-') + '</td>'
                 + '<td class="text-end">$' + moneda(r.importe_imputado) + '</td>'
                 + '<td>' + esc(r.estado_registro || '') + '</td></tr>';
@@ -1010,8 +1245,16 @@ $(function () {
     }
     $('#cobro_punto_venta_id').on('change', cargarTiposRecibo);
 
-    function agregarFilaCobro(importe) {
-        var opciones = (cobroMaestros.medios_pago || []).map(function (m) {
+    // tabla: #tablaCobroMedios (solapa Medios de Pago, por defecto) o #tablaContadoMedios (cobro de
+    // contado a consumidor final al aprobar, sin retenciones).
+    function esTablaContado(tabla) { return tabla.is('#tablaContadoMedios'); }
+
+    function agregarFilaCobro(importe, tabla) {
+        tabla = tabla || $('#tablaCobroMedios');
+        var contado = esTablaContado(tabla);
+        var opciones = (cobroMaestros.medios_pago || []).filter(function (m) {
+            return !contado || m.medio_pago_tipo !== 'RETENCION';
+        }).map(function (m) {
             return '<option value="' + m.medio_pago_id + '" data-tipo="' + esc(m.medio_pago_tipo) + '" data-impuesto="' + (parseInt(m.impuesto_tipo_id, 10) || '') + '">' + esc(m.medio_pago) + '</option>';
         }).join('');
         var tr = $('<tr>'
@@ -1020,9 +1263,14 @@ $(function () {
             + '<td><input type="number" step="0.01" min="0.01" class="form-control form-control-sm text-end cobro-importe" value="' + (importe > 0 ? Number(importe).toFixed(2) : '') + '"></td>'
             + '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger cobro-quitar" title="Quitar"><i class="fas fa-times"></i></button></td>'
             + '</tr>');
-        $('#tablaCobroMedios tbody').append(tr);
+        tabla.find('tbody').append(tr);
         renderCamposMedioCobro(tr);
-        recalcularTotalCobro();
+        recalcularMedios(tabla);
+        return tr;
+    }
+
+    function recalcularMedios(tabla) {
+        if (esTablaContado(tabla)) recalcularContado(); else recalcularTotalCobro();
     }
 
     function opcionesCuentas(tipo, sucursalId) {
@@ -1033,7 +1281,10 @@ $(function () {
 
     function renderCamposMedioCobro(tr) {
         var tipo = tr.find('.cobro-medio option:selected').data('tipo');
-        var sucursalId = parseInt($('#cobro_punto_venta_id option:selected').data('sucursal-id'), 10) || 0;
+        // Caja de efectivo: la de la sucursal del recibo (en el cobro de contado, la de la factura)
+        var sucursalId = esTablaContado(tr.closest('table'))
+            ? (contadoInfo ? contadoInfo.sucursal_id : 0)
+            : (parseInt($('#cobro_punto_venta_id option:selected').data('sucursal-id'), 10) || 0);
         var html = '';
         if (tipo === 'EFECTIVO') {
             var cajas = opcionesCuentas('CAJA', sucursalId);
@@ -1070,9 +1321,9 @@ $(function () {
         if (!esIibb) tr.find('.cobro-ret-jur').val('');
     }
 
-    function totalMediosCobro() {
+    function totalMediosCobro(tabla) {
         var t = 0;
-        $('#tablaCobroMedios .cobro-importe').each(function () { t += parseFloat(this.value) || 0; });
+        (tabla || $('#tablaCobroMedios')).find('.cobro-importe').each(function () { t += parseFloat(this.value) || 0; });
         return Math.round(t * 100) / 100;
     }
 
@@ -1096,14 +1347,18 @@ $(function () {
         ultima.val(Math.max(0, resto).toFixed(2));
         recalcularTotalCobro();
     });
-    $(document).on('change', '#tablaCobroMedios .cobro-medio', function () { renderCamposMedioCobro($(this).closest('tr')); });
+    $(document).on('change', '#tablaCobroMedios .cobro-medio, #tablaContadoMedios .cobro-medio', function () { renderCamposMedioCobro($(this).closest('tr')); });
     $(document).on('change', '#tablaCobroMedios .cobro-ret-tipo', function () { mostrarJurisdiccionRetencion($(this).closest('tr')); });
-    $(document).on('input', '#tablaCobroMedios .cobro-importe', recalcularTotalCobro);
-    $(document).on('click', '#tablaCobroMedios .cobro-quitar', function () { $(this).closest('tr').remove(); recalcularTotalCobro(); });
+    $(document).on('input', '#tablaCobroMedios .cobro-importe, #tablaContadoMedios .cobro-importe', function () { recalcularMedios($(this).closest('table')); });
+    $(document).on('click', '#tablaCobroMedios .cobro-quitar, #tablaContadoMedios .cobro-quitar', function () {
+        var tabla = $(this).closest('table');
+        $(this).closest('tr').remove();
+        recalcularMedios(tabla);
+    });
 
-    function recopilarMediosCobro() {
+    function recopilarMediosCobro(tabla) {
         var medios = [], error = null;
-        $('#tablaCobroMedios tbody tr').each(function (i) {
+        (tabla || $('#tablaCobroMedios')).find('tbody tr').each(function (i) {
             var tr = $(this), tipo = tr.find('.cobro-medio option:selected').data('tipo');
             var m = { medio_pago_id: parseInt(tr.find('.cobro-medio').val(), 10) || 0, importe: parseFloat(tr.find('.cobro-importe').val()) || 0 };
             var fila = 'Fila ' + (i + 1) + ': ';
@@ -1169,5 +1424,5 @@ $(function () {
     cargarClientes();
     cargarBotonAgregar();
     if (REMITO_ID_INICIAL) abrirFacturaDesdeRemito(REMITO_ID_INICIAL);
-    if (FACTURA_ID_INICIAL) cargarFacturaParaEditar(FACTURA_ID_INICIAL, FACTURA_ACCION_INICIAL === 'visualizar');
+    if (FACTURA_ID_INICIAL) cargarFacturaParaEditar(FACTURA_ID_INICIAL, FACTURA_ACCION_INICIAL !== 'editar', FACTURA_ACCION_INICIAL === 'cobrar' ? 'pagos' : undefined);
 });

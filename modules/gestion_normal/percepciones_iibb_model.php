@@ -1,7 +1,9 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 /**
  * Percepciones IIBB practicadas (página 116): listado por jurisdicción y período, exportación de la DDJJ
- * (SIRCAR Diseño N° 1 / SIRCIP) y liquidación (I_LIQ). Diseño: docs/gestion/09_percepciones_iibb.md §8.
+ * (SIRCAR Diseño N° 1 / SIRCIP) y liquidación (I_LIQ). Diseño: _local/docs/gestion/09_percepciones_iibb.md §8.
  */
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
@@ -53,7 +55,7 @@ function perListado($conexion, $empresa_id, $jurisdiccion_id, $periodo, $solo_pe
                    ci.tipo_registro_ddjj, ci.padron_crc, ci.liquidacion_comprobante_id,
                    c.f_emision, c.comprobante_tipo_id, c.comprobante_pv, c.comprobante_nro, c.entidad_id,
                    IF(ct.signo = '-', -1, 1) AS signo, ct.letra, ct.comprobante_tipo,
-                   e.entidad_nombre, e.cuit,
+                   COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia, e.cuit,
                    liq.comprobante_nro AS liquidacion_nro,
                    vf.comprobante_asociado_id
             FROM gestion__comprobantes_impuestos ci
@@ -147,7 +149,7 @@ function perDdjjComprobante($conexion, $empresa_id, $f) {
         'letra' => strtoupper(trim((string)$f['letra'])) ?: 'Z',
         'pv' => emp_pv_numero($conexion, $empresa_id, $f['comprobante_pv']),
         'nro' => intval($f['comprobante_nro']),
-        'fecha' => date('d/m/Y', strtotime($f['f_emision'])),
+        'fecha' => fmt_fecha($f['f_emision']),
     ];
 }
 
@@ -206,14 +208,14 @@ function perSucursales($conexion, $empresa_id) {
 function perEntidadesOrganismo($conexion, $empresa_id) {
     return perIibbFilas($conexion,
         "SELECT entidad_id, entidad_nombre FROM gestion__entidades
-         WHERE empresa_id = ? AND es_proveedor = 1 AND tabla_estado_registro_id = 1
+         WHERE empresa_id = ? AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . " AND tabla_estado_registro_id = 1
          ORDER BY entidad_nombre", 'i', intval($empresa_id));
 }
 
 /**
  * Genera la I_LIQ por lo pendiente del período y marca esas percepciones como declaradas, en una sola
  * transacción. Asiento: Debe y Haber la cuenta "a depositar" de la config (la percepción ya está en el
- * pasivo desde la factura); el pago (I_PAG, página 109) la cancela.
+ * pasivo desde la factura); la orden de pago la cancela.
  */
 function perLiquidar($conexion, $empresa_id, $usuario_id, $data) {
     $empresa_id = intval($empresa_id);
@@ -249,7 +251,7 @@ function perLiquidar($conexion, $empresa_id, $usuario_id, $data) {
         if (count($bloq) !== count($ids)) throw new Exception('Otra liquidación tomó parte de estas percepciones. Actualice la pantalla.');
 
         $total = round(array_sum(array_column($filas, 'importe_firmado')), 2);
-        if ($total <= 0) throw new Exception('El neto a liquidar del período no es positivo ($' . number_format($total, 2, ',', '.') . '): revise las notas de crédito.');
+        if ($total <= 0) throw new Exception('El neto a liquidar del período no es positivo ($' . fmt_numero($total, 2) . '): revise las notas de crédito.');
 
         $res = registrarObligacionImpositiva($conexion, [
             'en_transaccion' => true,
@@ -278,7 +280,7 @@ function perLiquidar($conexion, $empresa_id, $usuario_id, $data) {
 
         mysqli_commit($conexion);
         return ['comprobante_id' => $liq_id, 'numero' => $res['numero'], 'total' => $total, 'registros' => count($ids),
-                'message' => 'Liquidación ' . $res['numero'] . ' por $' . number_format($total, 2, ',', '.') . ' (' . count($ids) . ' percepciones). Se paga desde Obligaciones y Rendiciones.'];
+                'message' => 'Liquidación ' . $res['numero'] . ' por $' . fmt_numero($total, 2) . ' (' . count($ids) . ' percepciones). Se paga desde Órdenes de Pago.'];
     } catch (Exception $e) {
         mysqli_rollback($conexion);
         error_log('ERROR perLiquidar: ' . $e->getMessage());

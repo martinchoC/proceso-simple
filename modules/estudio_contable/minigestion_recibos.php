@@ -16,7 +16,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 require_once __DIR__ . '/../../db.php';
 $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numero FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC");
@@ -30,7 +30,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                     <h3 class="mb-0 fw-bold">
                         <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Recibos y Cobranzas (Con Retenciones)
                     </h3>
-                    <small class="text-muted">Emisión de recibos deduciendo certificados de retenciones sufridas con imputación contable automática</small>
+                    <small class="text-muted">Recibos de cobranza de Tesorería con certificados de retenciones sufridas, imputación a facturas y asiento automático</small>
                 </div>
                 <div class="col-sm-6">
                     <ol class="breadcrumb float-sm-end">
@@ -62,7 +62,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             </select>
                         </div>
                         <div class="col-md-7 text-md-end mt-auto pb-1">
-                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevoRecibo">
+                            <button class="btn btn-primary btn-sm shadow-sm" id="btnNuevoRecibo" data-funcion="agregar">
                                 <i class="fas fa-plus me-1"></i>+ Emitir Recibo Oficial
                             </button>
                         </div>
@@ -103,9 +103,11 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             <thead class="table-light">
                                 <tr>
                                     <th>Fecha</th>
+                                    <th>Tipo</th>
                                     <th>Número</th>
                                     <th>Cliente</th>
                                     <th>CUIT</th>
+                                    <th class="text-end">Retenciones</th>
                                     <th class="text-end">Importe Total</th>
                                     <th class="text-center">Estado</th>
                                 </tr>
@@ -131,8 +133,11 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
             </div>
             <form id="formRecibo">
                 <input type="hidden" id="rec_empresa_id" name="empresa_id" value="<?= $empresa_id ?>">
-
                 <div class="modal-body p-3">
+                    <div class="alert alert-light border small py-2 mb-2">
+                        <i class="fas fa-info-circle me-1 text-primary"></i>El recibo se emite como una cobranza de Tesorería: queda confirmado,
+                        con número del punto de venta, movimiento de fondos, imputación a las facturas y asiento. Se consulta y se anula en Tesorería &gt; Cobranzas.
+                    </div>
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
                             <label class="form-label form-label-sm mb-1 fw-bold">Cliente <span class="text-danger">*</span></label>
@@ -140,82 +145,43 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                                 <option value="">-- Seleccionar Cliente --</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label class="form-label form-label-sm mb-1 fw-bold">Fecha <span class="text-danger">*</span></label>
                             <input type="date" id="rec_f_emision" name="f_emision" class="form-control form-control-sm" value="<?= date('Y-m-d') ?>" required>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label form-label-sm mb-1 fw-bold">Punto de Venta</label>
-                            <input type="number" id="rec_pv" name="comprobante_pv" class="form-control form-control-sm" value="1" min="1" required>
-                        </div>
                     </div>
-
                     <div class="row g-2 mb-2">
                         <div class="col-md-6">
-                            <label class="form-label form-label-sm mb-1 fw-bold">Medio de Cobro de Fondos</label>
-                            <select id="rec_medio_pago" name="medio_pago" class="form-select form-select-sm">
-                                <option value="EFECTIVO">Caja General (Efectivo)</option>
-                                <option value="BANCO">Banco Cuenta Corriente (Transferencia/Depósito)</option>
-                            </select>
+                            <label class="form-label form-label-sm mb-1 fw-bold">Punto de Venta <span class="text-danger">*</span></label>
+                            <select id="rec_pv" name="punto_venta_id" class="form-select form-select-sm" required></select>
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label form-label-sm mb-1 fw-bold">Tipo de Recibo <span class="text-danger">*</span></label>
+                            <select id="rec_tipo" name="comprobante_tipo_id" class="form-select form-select-sm" required></select>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm mb-1 fw-bold">Medio de Cobro de Fondos</label>
+                            <select id="rec_medio_pago" name="medio_pago_id" class="form-select form-select-sm"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm mb-1 fw-bold">Cuenta de Tesorería</label>
+                            <select id="rec_cuenta" name="tesoreria_cuenta_id" class="form-select form-select-sm"></select>
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label form-label-sm mb-1 fw-bold text-primary">Importe Total del Recibo ($) <span class="text-danger">*</span></label>
                             <input type="number" step="0.01" id="rec_total" name="importe_total" class="form-control form-control-sm fw-bold text-end fs-6 text-primary" required placeholder="0.00">
                         </div>
                     </div>
 
-                    <!-- Sección de Certificados de Retenciones Sufridas -->
+                    <!-- Certificados de Retenciones Sufridas: una fila por medio de cobro de tipo Retención de la empresa -->
                     <div class="card border border-warning bg-light p-2 mb-2">
                         <h6 class="fw-bold mb-2 text-dark small">
                             <i class="fas fa-file-invoice me-1 text-warning"></i>Certificados de Retenciones Sufridas (Deducciones)
                         </h6>
-                        <div class="row g-2 align-items-center mb-1">
-                            <div class="col-md-3">
-                                <span class="small fw-semibold">Retención Ganancias:</span>
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" name="ret_ganancias_nro" class="form-control form-control-sm" placeholder="N° Certificado">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="number" step="0.01" name="ret_ganancias_importe" class="form-control form-control-sm text-end ret-importe" placeholder="Importe $ (0.00)">
-                            </div>
-                        </div>
-
-                        <div class="row g-2 align-items-center mb-1">
-                            <div class="col-md-3">
-                                <span class="small fw-semibold">Retención IVA:</span>
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" name="ret_iva_nro" class="form-control form-control-sm" placeholder="N° Certificado">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="number" step="0.01" name="ret_iva_importe" class="form-control form-control-sm text-end ret-importe" placeholder="Importe $ (0.00)">
-                            </div>
-                        </div>
-
-                        <div class="row g-2 align-items-center mb-1">
-                            <div class="col-md-3">
-                                <span class="small fw-semibold">Retención IIBB:</span>
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" name="ret_iibb_nro" class="form-control form-control-sm" placeholder="N° Certificado">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="number" step="0.01" name="ret_iibb_importe" class="form-control form-control-sm text-end ret-importe" placeholder="Importe $ (0.00)">
-                            </div>
-                        </div>
-
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-3">
-                                <span class="small fw-semibold">Retención SUSS:</span>
-                            </div>
-                            <div class="col-md-4">
-                                <input type="text" name="ret_suss_nro" class="form-control form-control-sm" placeholder="N° Certificado">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="number" step="0.01" name="ret_suss_importe" class="form-control form-control-sm text-end ret-importe" placeholder="Importe $ (0.00)">
-                            </div>
-                        </div>
+                        <div id="rec_retenciones"></div>
+                        <small class="text-muted">Sin número, el certificado queda pendiente y se completa en Control Fiscal.</small>
                     </div>
 
                     <div class="p-2 border rounded bg-white mb-2">
@@ -228,10 +194,13 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             <strong class="text-success fs-6" id="lblNetoCobro">$ 0,00</strong>
                         </div>
                     </div>
-
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="rec_imputar" name="imputar" value="1" checked>
+                        <label class="form-check-label small" for="rec_imputar">Imputar a las facturas pendientes más viejas del cliente (lo que sobre queda a cuenta)</label>
+                    </div>
                     <div class="mb-0">
                         <label class="form-label form-label-sm mb-1">Observaciones</label>
-                        <input type="text" name="observaciones" class="form-control form-control-sm" placeholder="Detalle adicional opcional...">
+                        <input type="text" name="observaciones" class="form-control form-control-sm" maxlength="500" placeholder="Detalle adicional opcional...">
                     </div>
                 </div>
                 <div class="modal-footer py-2">

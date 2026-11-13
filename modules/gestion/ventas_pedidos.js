@@ -228,14 +228,11 @@ $(document).ready(function () {
                 {
                     data: null,
                     render: function(data, type, row) {
-                        if (data.entidad_id && !data.entidad_nombre) {
-                            console.warn('[DIAGNOSTICO] Pedido con entidad_id pero sin entidad_nombre:', JSON.parse(JSON.stringify(data)));
-                        }
+                        var nombreMostrar = data.entidad_fantasia || data.entidad_nombre || '';
                         if (type === 'export') {
-                            return data.entidad_nombre || '';
+                            return nombreMostrar;
                         }
-                        return `<div>${data.entidad_nombre || ''}</div>
-                                <small class="text-muted">${data.entidad_fantasia || ''}</small>`;
+                        return `<div>${nombreMostrar}</div>`;
                     }
                 },
                 {
@@ -248,11 +245,7 @@ $(document).ready(function () {
                             return data;
                         }
                         if (!data) return '';
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        }
-                        return data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
@@ -262,11 +255,7 @@ $(document).ready(function () {
                         if (type !== 'display' || !data) {
                             return data || '';
                         }
-                        let parts = data.split('-');
-                        if (parts.length === 3) {
-                            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                        }
-                        return data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
@@ -280,7 +269,7 @@ $(document).ready(function () {
                         if (type === 'sort' || type === 'filter') {
                             return valor;
                         }
-                        return `<span class="text-primary">$${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                        return `<span class="text-primary">$${Fmt.numero(valor, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
                     }
                 },
                 {
@@ -355,7 +344,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Página _PAGE_ de _PAGES_',
                 infoEmpty: 'Página 0 de 0',
@@ -385,7 +374,7 @@ $(document).ready(function () {
                     $('#tablaVentasPedidos_filter').addClass('dataTables_filter_custom');
                     
                     if ($('#tablaVentasPedidos_length').html().trim() === '') {
-                        var selectHtml = '<label>Mostrar <select name="tablaVentasPedidos_length" aria-controls="tablaVentasPedidos" class="form-select form-select-sm"><option value="10" selected="">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="-1">Todos</option></select> registros</label>';
+                        var selectHtml = '<label title="Filas por página"><select name="tablaVentasPedidos_length" aria-controls="tablaVentasPedidos" class="form-select form-select-sm"><option value="10" selected="">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="-1">Todos</option></select></label>';
                         $('#tablaVentasPedidos_length').html(selectHtml);
                         
                         $('#tablaVentasPedidos_length select').on('change', function() {
@@ -394,7 +383,7 @@ $(document).ready(function () {
                     }
                     
                     if ($('#tablaVentasPedidos_filter').html().trim() === '') {
-                        var filterHtml = '<label>Buscar:<input type="search" class="form-control form-control-sm" placeholder="" aria-controls="tablaVentasPedidos"></label>';
+                        var filterHtml = '<label><input type="search" class="form-control form-control-sm" placeholder="Buscar…" aria-controls="tablaVentasPedidos"></label>';
                         $('#tablaVentasPedidos_filter').html(filterHtml);
                         
                         $('#tablaVentasPedidos_filter input').on('keyup', function() {
@@ -827,7 +816,8 @@ $(document).ready(function () {
             data: {
                 accion: 'obtener',
                 venta_pedido_id: pedidoId,
-                empresa_idx: empresa_idx
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx
             },
             dataType: 'json',
             success: function (res) {
@@ -871,7 +861,7 @@ $(document).ready(function () {
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
 
-                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
                 actualizarVisibilidadCargarRemitoNuevo();
@@ -889,11 +879,11 @@ $(document).ready(function () {
                 $('#impuestos').val(res.impuestos || 0);
                 $('#total').val(res.total || 0);
                 
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+                $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+                $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+                $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+                $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+                $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
 
                 $('#modalLabel').text('Visualizar Pedido de Venta');
 
@@ -914,7 +904,7 @@ $(document).ready(function () {
                     }
                     
                     if (res.detalles && res.detalles.length > 0) {
-                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                         actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
@@ -1017,6 +1007,8 @@ $(document).ready(function () {
             cargarPedidoParaVisualizar(pedidoId);
         } else if (accionJs === 'imprimir') {
             imprimirComprobante(pedidoId);
+        } else if (accionJs === 'copiar') {
+            copiarPedido(pedidoId, comprobanteInfo, clienteInfo);
         } else if (confirmable == 1) {
             Swal.fire({
                 title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
@@ -1040,6 +1032,38 @@ $(document).ready(function () {
             ejecutarAccion(pedidoId, accionJs, comprobanteInfo);
         }
     });
+
+    // Copia el pedido en uno nuevo en Borrador (fecha de hoy, mismas líneas y precios) y lo abre para editar
+    function copiarPedido(pedidoId, comprobanteInfo, clienteInfo) {
+        Swal.fire({
+            title: '¿Copiar el pedido?',
+            html: `Se crea un pedido nuevo en <strong>Borrador</strong> con los mismos productos, cantidades y precios de<br>
+                <strong>${comprobanteInfo}</strong>` + (clienteInfo ? `<br><small class="text-muted">Cliente: ${clienteInfo}</small>` : ''),
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, copiar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            $.post('ventas_pedidos_ajax.php', {
+                accion: 'copiar',
+                venta_pedido_id: pedidoId,
+                empresa_idx: empresa_idx,
+                pagina_idx: pagina_idx
+            }, function (res) {
+                if (!res || !res.success) {
+                    Swal.fire({ icon: 'error', title: 'No se pudo copiar', text: (res && res.message) || 'Error al copiar el pedido.', confirmButtonText: 'Entendido' });
+                    return;
+                }
+                tabla.ajax.reload(null, false);
+                Swal.fire({ icon: 'success', title: 'Pedido copiado', text: 'Quedó en Borrador: revisalo antes de confirmarlo.', showConfirmButton: false, timer: 1800, toast: true, position: 'top-end' });
+                cargarPedidoParaEditar(res.data.venta_pedido_id);
+            }, 'json').fail(function () {
+                Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo copiar el pedido.', confirmButtonText: 'Entendido' });
+            });
+        });
+    }
 
     function ejecutarAccion(pedidoId, accionJs, comprobanteInfo) {
         var savedState = {
@@ -1141,7 +1165,7 @@ $(document).ready(function () {
                 <td>${item.producto_nombre || ''}
                     ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
                 </td>
-                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
                 <td class="text-end">$${formatMoneda(precio)}</td>
                 <td>
                     <div class="cantidad-stepper mx-auto">
@@ -1465,7 +1489,7 @@ $(document).ready(function () {
                     return `<span class="text-danger fw-bold">${formatMoneda(pendiente)}</span>`;
                 })()}</td>
                 <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
-                <td class="text-center">${detalle.iva_porcentaje.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(detalle.iva_porcentaje, 2)}%</td>
                 <td class="text-end">$${formatMoneda(detalle.iva_importe)}</td>
                 <td class="text-end fw-bold text-success">$${formatMoneda(detalle.total_linea)}</td>
                 <td class="text-center">
@@ -1616,7 +1640,7 @@ $(document).ready(function () {
     });
 
     function formatMoneda(valor) {
-        return (valor || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return Fmt.numero((valor || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function actualizarTotales() {
@@ -1851,7 +1875,8 @@ $(document).ready(function () {
         $.get('ventas_pedidos_ajax.php', {
             accion: 'obtener',
             venta_pedido_id: pedidoId,
-            empresa_idx: empresa_idx
+            empresa_idx: empresa_idx,
+            pagina_idx: pagina_idx
         }, function (res) {
             if (res && res.venta_pedido_id) {
                 resetModal();
@@ -1893,7 +1918,7 @@ $(document).ready(function () {
                 $('#venta_pedido_id').val(res.venta_pedido_id);
                 $('#comprobante_nro').val(res.comprobante_nro);
 
-                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
                 actualizarVisibilidadCargarRemitoNuevo();
@@ -1911,11 +1936,11 @@ $(document).ready(function () {
                 $('#impuestos').val(res.impuestos || 0);
                 $('#total').val(res.total || 0);
                 
-                $('#total_neto_display').text(parseFloat(res.subtotal || 0).toFixed(2));
-                $('#no_gravado_display').text(parseFloat(res.no_gravado || 0).toFixed(2));
-                $('#exento_display').text(parseFloat(res.exento || 0).toFixed(2));
-                $('#impuestos_display').text(parseFloat(res.impuestos || 0).toFixed(2));
-                $('#total_display').text(parseFloat(res.total || 0).toFixed(2));
+                $('#total_neto_display').text(Fmt.numero(parseFloat(res.subtotal || 0), 2));
+                $('#no_gravado_display').text(Fmt.numero(parseFloat(res.no_gravado || 0), 2));
+                $('#exento_display').text(Fmt.numero(parseFloat(res.exento || 0), 2));
+                $('#impuestos_display').text(Fmt.numero(parseFloat(res.impuestos || 0), 2));
+                $('#total_display').text(Fmt.numero(parseFloat(res.total || 0), 2));
                 $('#modalLabel').text('Editar Pedido de Venta');
 
                 if (res.comprobante_nro && res.comprobante_nro > 0) {
@@ -1947,7 +1972,7 @@ $(document).ready(function () {
                     }
                     
                     if (res.detalles && res.detalles.length > 0) {
-                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 137 && parseInt(res.tabla_estado_registro_id) > 0);
+                        pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                         actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
                             return {
@@ -2288,7 +2313,7 @@ $(document).ready(function () {
         $.ajax({
             url: 'ventas_pedidos_ajax.php',
             type: 'GET',
-            data: { accion: 'obtener', venta_pedido_id: pedidoId, empresa_idx: empresa_idx },
+            data: { accion: 'obtener', venta_pedido_id: pedidoId, empresa_idx: empresa_idx, pagina_idx: pagina_idx },
             dataType: 'json',
             success: function (res) {
                 if (!res || !res.detalles) return;
@@ -2344,10 +2369,7 @@ $(document).ready(function () {
     }
 
     function formatFechaCorta(fecha) {
-        if (!fecha) return '';
-        var partes = fecha.split('-');
-        if (partes.length !== 3) return fecha;
-        return partes[2] + '/' + partes[1] + '/' + partes[0];
+        return Fmt.fecha(fecha);
     }
 
     // ---------- Remitos ya generados para este pedido ----------

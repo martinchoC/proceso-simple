@@ -14,6 +14,7 @@ function obligaciones_listar(mysqli $conexion, array $filtros = []): array
     $sql = "SELECT o.obligacion_id, o.norma_id, n.codigo AS norma_codigo, n.titulo AS norma_titulo,
                    o.empresa_id, emp.empresa AS empresa_nombre,
                    o.articulo_referencia, o.codigo, o.descripcion,
+                   o.sigla, o.icono, o.color_hex, o.imagen_ref,
                    o.periodicidad_id, p.codigo AS periodicidad_codigo, p.nombre AS periodicidad_nombre, p.es_evento,
                    o.vencimiento_regla_id, vr.codigo AS vencimiento_regla_codigo, vr.nombre AS vencimiento_regla_nombre,
                    o.criticidad_id, c.nombre AS criticidad_nombre, c.peso AS criticidad_peso,

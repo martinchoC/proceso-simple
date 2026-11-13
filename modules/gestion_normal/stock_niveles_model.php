@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/permisos.php';
 /**
  * stock_niveles_model.php — Stock mínimo / máximo por producto y boca (página 112, tabla 429).
  *
@@ -39,7 +40,7 @@ function snvFuncionesPagina(mysqli $conexion, int $pagina_id): array
 function snvBotonesPorEstado(mysqli $conexion, int $pagina_id, int $estado_id): array
 {
     $out = [];
-    foreach (snvFuncionesPagina($conexion, $pagina_id) as $f) {
+    foreach (permisos_filtrar_funciones($conexion, snvFuncionesPagina($conexion, $pagina_id), $pagina_id) as $f) {
         if (intval($f['origen']) !== $estado_id || $estado_id === 0) continue;
         $out[] = [
             'nombre_funcion' => $f['nombre_funcion'],
@@ -57,7 +58,7 @@ function snvBotonesPorEstado(mysqli $conexion, int $pagina_id, int $estado_id): 
 function snvBotonesCreacion(mysqli $conexion, int $pagina_id): array
 {
     $out = [];
-    foreach (snvFuncionesPagina($conexion, $pagina_id) as $f) {
+    foreach (permisos_filtrar_funciones($conexion, snvFuncionesPagina($conexion, $pagina_id), $pagina_id) as $f) {
         if (intval($f['origen']) !== 0) continue;
         $out[] = [
             'nombre_funcion' => $f['nombre_funcion'],

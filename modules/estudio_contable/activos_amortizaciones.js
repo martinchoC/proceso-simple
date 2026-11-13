@@ -45,7 +45,7 @@ $(document).ready(function() {
         tabla = $('#tablaActivos').DataTable({
             responsive: true,
             language: {
-                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                url: window.APP_ASSETS_URL + "js/datatables-i18n-1.13.6/es-ES.json"
             },
             ajax: {
                 url: 'activos_amortizaciones_ajax.php',
@@ -86,14 +86,14 @@ $(document).ready(function() {
                     data: 'valor_origen',
                     className: 'text-end fw-bold',
                     render: function(data) {
-                        return '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        return '$ ' + Fmt.numero(parseFloat(data), 2);
                     }
                 },
                 { 
                     data: 'cuota_mensual_estimada',
                     className: 'text-end text-success fw-bold',
                     render: function(data) {
-                        return '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        return '$ ' + Fmt.numero(parseFloat(data), 2);
                     }
                 },
                 { 
@@ -116,7 +116,7 @@ $(document).ready(function() {
                     render: function(data) {
                         const val = parseFloat(data || 0);
                         const color = val <= 0 ? 'text-muted' : 'text-dark';
-                        return `<span class="${color}">$ ${val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                        return `<span class="${color}">$ ${Fmt.numero(val, 2)}</span>`;
                     }
                 },
                 {
@@ -129,7 +129,7 @@ $(document).ready(function() {
                                 <button class="btn btn-outline-dark btn-historial" data-id="${row.activo_id}" data-desc="${row.descripcion}" title="Ver Historial de Cuotas">
                                     <i class="fas fa-history"></i>
                                 </button>
-                                <button class="btn btn-outline-primary btn-editar" data-id="${row.activo_id}" title="Editar Activo">
+                                <button class="btn btn-outline-primary btn-editar" data-funcion="editar" data-id="${row.activo_id}" title="Editar Activo">
                                     <i class="fas fa-edit"></i>
                                 </button>
                             </div>
@@ -237,7 +237,7 @@ $(document).ready(function() {
             let html = '';
             if (res.success && res.data.length > 0) {
                 res.data.forEach(c => {
-                    const imp = parseFloat(c.importe_amortizacion).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+                    const imp = Fmt.numero(parseFloat(c.importe_amortizacion), 2);
                     html += `
                         <tr>
                             <td><strong>${c.periodo}</strong></td>

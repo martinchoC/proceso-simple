@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * pagos_model.php
@@ -6,7 +8,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  * Modelo para la Gestión de Pagos a Proveedores (Órdenes de Pago OP)
  * Sistema gestion_multipyme - Módulo Tesorería
  *
- * Cumple estrictamente con las especificaciones de docs/gestion/08_proc_tesoreria_v3_11.docx:
+ * Cumple estrictamente con las especificaciones de _local/docs/gestion/08_proc_tesoreria_v3_11.docx:
  * - §4.3: Orden de Pago (gestion__pagos + gestion__pagos_medios + comprobante OP).
  * - §2.5: Patrón de confirmación transaccional atómico y orden de locks (RT16 / RT21).
  * - §2.6: Patrón de anulación y reversión íntegra.
@@ -17,11 +19,17 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
+require_once __DIR__ . '/retenciones_practicadas_core_model.php';
+require_once __DIR__ . '/periodos_fiscales_core_model.php';
+// Obligaciones de pago (sueldos, impuestos, anticipos) y motor de aprobaciones: _local/docs/gestion/13_obligaciones_de_pago.md
+require_once __DIR__ . '/../../core/obligaciones/obligaciones_service.php';
 
 $conexion = $conn;
 
 const ESTADO_PAGO_BORRADOR   = 3;
+const ESTADO_PAGO_PEND_APROBACION = 4;
 const ESTADO_PAGO_CONFIRMADO = 5;
 const ESTADO_PAGO_ANULADO    = 38;
 const ESTADO_PAGO_ELIMINADO  = 6;
@@ -51,6 +59,80 @@ function pagoTipoComprobanteOpId($conexion, $empresa_id): int
         mysqli_stmt_close($stmt);
     }
     return TIPO_COMPROBANTE_OP_ID;
+}
+
+/**
+ * Puntos de venta activos de la empresa con la Orden de Pago habilitada (gestion__puntos_venta_comprobantes con el
+ * tipo OP). Con $filtrar_acceso, solo los que el usuario de la sesión puede usar (accesos por sucursal).
+ */
+function pagoPuntosVentaOp($conexion, $empresa_id, $filtrar_acceso = true, $comprobante_tipo_id = 0): array
+{
+    $empresa_id = intval($empresa_id);
+    $tipo_op = intval($comprobante_tipo_id) ?: pagoTipoComprobanteOpId($conexion, $empresa_id);
+    $stmt = mysqli_prepare($conexion, "SELECT pv.punto_venta_id, pv.sucursal_id, pv.nombre, pv.codigo_fiscal, s.sucursal_nombre
+            FROM gestion__puntos_venta pv
+            INNER JOIN gestion__puntos_venta_comprobantes pvc ON pvc.punto_venta_id = pv.punto_venta_id AND pvc.empresa_id = pv.empresa_id
+                   AND pvc.comprobante_tipo_id = ? AND pvc.tabla_estado_registro_id = 1
+            LEFT JOIN gestion__sucursales s ON s.sucursal_id = pv.sucursal_id
+            WHERE pv.empresa_id = ? AND pv.tabla_estado_registro_id = 1
+            GROUP BY pv.punto_venta_id, pv.sucursal_id, pv.nombre, pv.codigo_fiscal, s.sucursal_nombre
+            ORDER BY s.sucursal_nombre, pv.codigo_fiscal, pv.punto_venta_id");
+    mysqli_stmt_bind_param($stmt, "ii", $tipo_op, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $rows = mysqli_fetch_all(mysqli_stmt_get_result($stmt), MYSQLI_ASSOC);
+    mysqli_stmt_close($stmt);
+    if ($filtrar_acceso && file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+        require_once __DIR__ . '/../../core/accesos_sucursales.php';
+        $rows = AccesosSucursalesHelper::filtrarPuntosVenta($conexion, $empresa_id, $rows);
+    }
+    return $rows;
+}
+
+/**
+ * Punto de venta de la OP. Si la empresa habilitó la OP en algún punto de venta, el elegido tiene que ser uno de ellos;
+ * sin elegir, el habilitado de la sucursal (primero el "Tesoreria…") o el primero habilitado. Si no habilitó ninguno,
+ * la regla anterior (D29): el de tesorería de la sucursal (nombre "Tesoreria…" o código >= 10000) o el primero.
+ */
+function pagoResolverPuntoVenta($conexion, $empresa_id, $sucursal_id, $comprobante_pv, $comprobante_tipo_id = 0): int
+{
+    $empresa_id = intval($empresa_id);
+    $sucursal_id = intval($sucursal_id);
+    $comprobante_pv = intval($comprobante_pv);
+
+    $habilitados = pagoPuntosVentaOp($conexion, $empresa_id, false, $comprobante_tipo_id);
+    if ($habilitados) {
+        if ($comprobante_pv > 0) {
+            if (!in_array($comprobante_pv, array_map('intval', array_column($habilitados, 'punto_venta_id')), true)) {
+                throw new Exception('El punto de venta elegido no tiene habilitada la Orden de Pago (se habilita en Puntos de Venta, en sus tipos de comprobante).');
+            }
+            return $comprobante_pv;
+        }
+        usort($habilitados, static function ($a, $b) use ($sucursal_id) {
+            $pa = [intval($a['sucursal_id']) === $sucursal_id ? 0 : 1, stripos((string)$a['nombre'], 'Tesoreria') === 0 ? 0 : 1, intval($a['punto_venta_id'])];
+            $pb = [intval($b['sucursal_id']) === $sucursal_id ? 0 : 1, stripos((string)$b['nombre'], 'Tesoreria') === 0 ? 0 : 1, intval($b['punto_venta_id'])];
+            return $pa <=> $pb;
+        });
+        return intval($habilitados[0]['punto_venta_id']);
+    }
+
+    if ($comprobante_pv > 0) return $comprobante_pv;
+    $sql_pv = "SELECT punto_venta_id FROM gestion__puntos_venta
+               WHERE empresa_id = ? AND sucursal_id = ? AND (nombre LIKE 'Tesoreria%' OR codigo_fiscal >= 10000)
+               ORDER BY (nombre LIKE 'Tesoreria%') DESC, punto_venta_id LIMIT 1";
+    $stmt_pv = mysqli_prepare($conexion, $sql_pv);
+    mysqli_stmt_bind_param($stmt_pv, "ii", $empresa_id, $sucursal_id);
+    mysqli_stmt_execute($stmt_pv);
+    $row_pv = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_pv));
+    mysqli_stmt_close($stmt_pv);
+    if ($row_pv) return intval($row_pv['punto_venta_id']);
+
+    $sql_pv2 = "SELECT punto_venta_id FROM gestion__puntos_venta WHERE empresa_id = ? ORDER BY (sucursal_id = ?) DESC, punto_venta_id LIMIT 1";
+    $stmt_pv2 = mysqli_prepare($conexion, $sql_pv2);
+    mysqli_stmt_bind_param($stmt_pv2, "ii", $empresa_id, $sucursal_id);
+    mysqli_stmt_execute($stmt_pv2);
+    $row_pv2 = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_pv2));
+    mysqli_stmt_close($stmt_pv2);
+    return $row_pv2 ? intval($row_pv2['punto_venta_id']) : 1;
 }
 
 /**
@@ -181,13 +263,15 @@ function syncComprobantePago($conexion, $pago_id, $data)
 /**
  * Obtiene el listado de Órdenes de Pago con filtros
  */
-function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros = [])
+function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros = [], $usuario_id = 0)
 {
     $empresa_id = intval($empresa_id);
+    $usuario_id = intval($usuario_id);
+    $puede_rechazar = $usuario_id > 0 && usuario_puede_funcion($conexion, $usuario_id, $empresa_id, intval($pagina_id), 'rechazar');
 
     $sql = "SELECT p.pago_id, p.f_emision, " . emp_sql_pv_mostrar('p.comprobante_pv', 'p.empresa_id') . " AS comprobante_pv, p.comprobante_nro,
-                   p.importe_total, p.observaciones, p.tabla_estado_registro_id,
-                   p.entidad_id, COALESCE(e.entidad_nombre, 'Consumidor Final') AS proveedor_nombre, e.cuit AS proveedor_cuit,
+                   p.importe_total, p.observaciones, p.tabla_estado_registro_id, p.usuario_id,
+                   p.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre, 'Consumidor Final') AS proveedor_nombre, e.cuit AS proveedor_cuit,
                    s.sucursal_nombre,
                    m.simbolo AS moneda_simbolo,
                    er.codigo_estandar AS estado_codigo, er.estado_registro,
@@ -250,6 +334,8 @@ function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros 
             $estado_badge = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Borrador</span>';
         } elseif ($estado_id === ESTADO_PAGO_ANULADO) {
             $estado_badge = '<span class="badge bg-danger"><i class="fas fa-ban me-1"></i>Anulada</span>';
+        } elseif ($estado_id === ESTADO_PAGO_PEND_APROBACION) {
+            $estado_badge = '<span class="badge bg-info text-dark"><i class="fas fa-user-check me-1"></i>Pend. aprobación</span>';
         } else {
             $estado_badge = '<span class="badge bg-secondary">' . htmlspecialchars($row['estado_registro'] ?? 'Estado ' . $estado_id) . '</span>';
         }
@@ -257,29 +343,45 @@ function obtenerPagosListado($conexion, $empresa_id, $pagina_id = 106, $filtros 
         // Saldo anticipo / A cuenta de proveedor
         $saldo_ant = floatval($row['saldo_anticipo'] ?? 0);
         $saldo_badge = ($saldo_ant > 0.001)
-            ? '<span class="badge bg-info-subtle text-info border border-info-subtle" title="Monto no aplicado disponible como anticipo al proveedor">Anticipo: $' . number_format($saldo_ant, 2, ',', '.') . '</span>'
+            ? '<span class="badge bg-info-subtle text-info border border-info-subtle" title="Monto no aplicado disponible como anticipo al proveedor">Anticipo: $' . fmt_numero($saldo_ant, 2) . '</span>'
             : '<span class="text-muted small">Totalmente aplicado</span>';
 
         // Botones de acción
+        // Por estado y solo las funciones asignadas al perfil del usuario (core/permisos.php)
         $botones = '<div class="btn-group btn-group-sm" role="group">';
         $botones .= '<button type="button" class="btn btn-outline-info btn-accion" data-id="' . $id . '" data-accion="visualizar" title="Ver Orden de Pago"><i class="fas fa-eye"></i></button>';
 
         if ($estado_id === ESTADO_PAGO_BORRADOR) {
-            $botones .= '<button type="button" class="btn btn-outline-primary btn-accion" data-id="' . $id . '" data-accion="editar" title="Editar Borrador"><i class="fas fa-edit"></i></button>';
-            $botones .= '<button type="button" class="btn btn-outline-success btn-accion" data-id="' . $id . '" data-accion="confirmar" title="Confirmar Pago (Emitir OP)"><i class="fas fa-check"></i></button>';
-            $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="eliminar" title="Eliminar Borrador"><i class="fas fa-trash"></i></button>';
+            if (permisos_puede($conexion, intval($pagina_id), 'editar')) {
+                $botones .= '<button type="button" class="btn btn-outline-primary btn-accion" data-id="' . $id . '" data-accion="editar" title="Editar Borrador"><i class="fas fa-edit"></i></button>';
+            }
+            if (permisos_puede($conexion, intval($pagina_id), 'confirmar')) {
+                $botones .= '<button type="button" class="btn btn-outline-success btn-accion" data-id="' . $id . '" data-accion="confirmar" title="Confirmar Pago (Emitir OP)"><i class="fas fa-check"></i></button>';
+            }
+            if (permisos_puede($conexion, intval($pagina_id), 'eliminar')) {
+                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="eliminar" title="Eliminar Borrador"><i class="fas fa-trash"></i></button>';
+            }
         } elseif ($estado_id === ESTADO_PAGO_CONFIRMADO) {
-            $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="anular" title="Anular Orden de Pago"><i class="fas fa-ban"></i></button>';
+            if (permisos_puede($conexion, intval($pagina_id), 'anular')) {
+                $botones .= '<button type="button" class="btn btn-outline-danger btn-accion" data-id="' . $id . '" data-accion="anular" title="Anular Orden de Pago"><i class="fas fa-ban"></i></button>';
+            }
+        } elseif ($estado_id === ESTADO_PAGO_PEND_APROBACION && $usuario_id > 0) {
+            if (aprob_puede($conexion, $usuario_id, $empresa_id, intval($pagina_id), 'OP', $id, 0, floatval($row['importe_total']), intval($row['usuario_id']))) {
+                $botones .= '<button type="button" class="btn btn-outline-success btn-accion" data-id="' . $id . '" data-accion="aprobar" title="Aprobar y emitir la OP"><i class="fas fa-check-double"></i></button>';
+            }
+            if ($puede_rechazar) {
+                $botones .= '<button type="button" class="btn btn-outline-warning btn-accion" data-id="' . $id . '" data-accion="rechazar" title="Rechazar (vuelve a Borrador)"><i class="fas fa-undo"></i></button>';
+            }
         }
         $botones .= '</div>';
 
         $datos[] = [
             'id'             => $id,
-            'f_emision'      => date('d/m/Y', strtotime($row['f_emision'])),
+            'f_emision'      => fmt_fecha($row['f_emision']),
             'numero'         => $nro_formateado,
             'proveedor'      => '<strong>' . htmlspecialchars($row['proveedor_nombre']) . '</strong><br><small class="text-muted">CUIT: ' . htmlspecialchars($row['proveedor_cuit'] ?? 'S/D') . '</small>',
             'sucursal'       => htmlspecialchars($row['sucursal_nombre']),
-            'total'          => '<span class="fw-bold fs-6">$' . number_format(floatval($row['importe_total']), 2, ',', '.') . '</span>',
+            'total'          => '<span class="fw-bold fs-6">$' . fmt_numero(floatval($row['importe_total']), 2) . '</span>',
             'saldo_anticipo' => $saldo_badge,
             'estado'         => $estado_badge,
             'acciones'       => $botones
@@ -301,10 +403,12 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id, $estado_imputacion
 
     // Cabecera
     $sql_c = "SELECT p.*, " . emp_sql_pv_mostrar('p.comprobante_pv', 'p.empresa_id') . " AS pv_nro, COALESCE(e.entidad_nombre, 'Consumidor Final') AS entidad_nombre, e.cuit, e.domicilio_legal,
-                     e.es_cliente, e.es_proveedor, e.cont_cuenta_id_cliente, e.cont_cuenta_id_proveedor,
+                     " . ent_sql_roles_select('e.entidad_id') . ",
                      s.sucursal_nombre, m.codigo AS moneda_codigo, m.simbolo AS moneda_simbolo,
-                     er.codigo_estandar AS estado_codigo, er.estado_registro
+                     er.codigo_estandar AS estado_codigo, er.estado_registro,
+                     emp.empresa AS empresa_nombre, CAST(emp.documento_numero AS DECIMAL(15,0)) AS empresa_cuit, emp.domicilio AS empresa_domicilio
               FROM gestion__pagos p
+              JOIN conf__empresas emp ON emp.empresa_id = p.empresa_id
               LEFT JOIN gestion__entidades e ON e.entidad_id = p.entidad_id
               JOIN gestion__sucursales s ON s.sucursal_id = p.sucursal_id
               JOIN gestion__monedas m ON m.moneda_id = p.moneda_id
@@ -321,12 +425,17 @@ function obtenerPagoDetalle($conexion, $pago_id, $empresa_id, $estado_imputacion
 
     // Medios de Pago
     $sql_m = "SELECT pm.*, mp.codigo AS medio_codigo, mp.medio_pago, mp.medio_pago_tipo,
-                     tc.tesoreria_cuenta, tc.cuenta_tipo,
+                     tc.tesoreria_cuenta, tc.cuenta_tipo, it.impuesto_tipo, j.jurisdiccion_nombre,
+                     pr.retencion_id, pr.importe_calculado AS retencion_importe_calculado,
+                     pr.motivo_ajuste AS retencion_motivo_ajuste, pr.origen_alicuota AS retencion_origen_alicuota,
                      chq.numero AS cheque_nro, chq.librador_nombre, chq.f_pago AS cheque_f_pago, chq.cheque_tipo,
                      b.banco AS cheque_banco
               FROM gestion__pagos_medios pm
               JOIN gestion__medios_pago mp ON mp.medio_pago_id = pm.medio_pago_id
               LEFT JOIN gestion__tesoreria_cuentas tc ON tc.tesoreria_cuenta_id = pm.tesoreria_cuenta_id
+              LEFT JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = pm.impuesto_tipo_id
+              LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = pm.jurisdiccion_id
+              LEFT JOIN gestion__pagos_retenciones pr ON pr.pago_medio_id = pm.pago_medio_id AND pr.pago_id = pm.pago_id
               LEFT JOIN gestion__cheques chq ON chq.cheque_id = pm.cheque_id
               LEFT JOIN conf__bancos b ON b.banco_id = chq.banco_id
               WHERE pm.pago_id = ?
@@ -411,6 +520,9 @@ function guardarPagoBorrador($conexion, $data)
     }
     $importe_total = round($importe_total, 2);
 
+    // Retenciones practicadas: empresa agente del impuesto (y de la jurisdicción en IIBB) y certificado único
+    retPracValidarMedios($conexion, $empresa_id, $entidad_id, $f_emision, $imputaciones, $medios);
+
     // Calcular total de imputaciones (RT02 / D6)
     $total_imputado = 0.0;
     foreach ($imputaciones as $imp) {
@@ -422,36 +534,11 @@ function guardarPagoBorrador($conexion, $data)
     $total_imputado = round($total_imputado, 2);
 
     if ($total_imputado > round($importe_total + 0.001, 2)) {
-        throw new Exception("El total imputado ($" . number_format($total_imputado, 2) . ") no puede superar el total pagado ($" . number_format($importe_total, 2) . ").");
-    }
-
-    // Punto de venta de tesorería para la sucursal (D29)
-    $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
-    if ($comprobante_pv <= 0) {
-        $sql_pv = "SELECT punto_venta_id FROM gestion__puntos_venta 
-                   WHERE empresa_id = ? AND sucursal_id = ? AND (nombre LIKE 'Tesoreria%' OR codigo_fiscal >= 10000)
-                   ORDER BY (nombre LIKE 'Tesoreria%') DESC, punto_venta_id LIMIT 1";
-        $stmt_pv = mysqli_prepare($conexion, $sql_pv);
-        mysqli_stmt_bind_param($stmt_pv, "ii", $empresa_id, $sucursal_id);
-        mysqli_stmt_execute($stmt_pv);
-        $res_pv = mysqli_stmt_get_result($stmt_pv);
-        $row_pv = mysqli_fetch_assoc($res_pv);
-        mysqli_stmt_close($stmt_pv);
-        if ($row_pv) {
-            $comprobante_pv = intval($row_pv['punto_venta_id']);
-        } else {
-            $sql_pv2 = "SELECT punto_venta_id FROM gestion__puntos_venta WHERE empresa_id = ? ORDER BY (sucursal_id = ?) DESC, punto_venta_id LIMIT 1";
-            $stmt_pv2 = mysqli_prepare($conexion, $sql_pv2);
-            mysqli_stmt_bind_param($stmt_pv2, "ii", $empresa_id, $sucursal_id);
-            mysqli_stmt_execute($stmt_pv2);
-            $res_pv2 = mysqli_stmt_get_result($stmt_pv2);
-            $row_pv2 = mysqli_fetch_assoc($res_pv2);
-            mysqli_stmt_close($stmt_pv2);
-            $comprobante_pv = $row_pv2 ? intval($row_pv2['punto_venta_id']) : 1;
-        }
+        throw new Exception("El total imputado ($" . fmt_numero($total_imputado, 2) . ") no puede superar el total pagado ($" . fmt_numero($importe_total, 2) . ").");
     }
 
     $comprobante_tipo_id = !empty($data['comprobante_tipo_id']) ? intval($data['comprobante_tipo_id']) : pagoTipoComprobanteOpId($conexion, $empresa_id);
+    $comprobante_pv = pagoResolverPuntoVenta($conexion, $empresa_id, $sucursal_id, intval($data['comprobante_pv'] ?? 0), $comprobante_tipo_id);
     $estado_borrador     = ESTADO_PAGO_BORRADOR;
 
     if ($pago_id > 0) {
@@ -525,12 +612,12 @@ function guardarPagoBorrador($conexion, $data)
                     pago_id, empresa_id, medio_pago_id, tesoreria_cuenta_id,
                     moneda_id, tipo_cambio, importe, importe_comprobante,
                     cheque_id, nro_operacion, f_valor, tarjeta_marca, tarjeta_cupon,
-                    impuesto_tipo_id, retencion_certificado_nro, retencion_base_imponible,
+                    impuesto_tipo_id, jurisdiccion_id, retencion_certificado_nro, retencion_base_imponible,
                     retencion_alicuota, observaciones, usuario_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt_med = mysqli_prepare($conexion, $sql_med);
 
-    foreach ($medios as $m) {
+    foreach ($medios as $idx_medio => $m) {
         $medio_pago_id   = intval($m['medio_pago_id']);
         $tes_cuenta_id   = !empty($m['tesoreria_cuenta_id']) ? intval($m['tesoreria_cuenta_id']) : null;
         $mon_id          = emp_moneda_id($conexion, $empresa_id, $m['moneda_id'] ?? $moneda_id);
@@ -542,6 +629,7 @@ function guardarPagoBorrador($conexion, $data)
         $tarj_marca      = !empty($m['tarjeta_marca']) ? trim($m['tarjeta_marca']) : null;
         $tarj_cupon      = !empty($m['tarjeta_cupon']) ? trim($m['tarjeta_cupon']) : null;
         $imp_tipo_id     = !empty($m['impuesto_tipo_id']) ? intval($m['impuesto_tipo_id']) : null;
+        $jurisdiccion_id = !empty($m['jurisdiccion_id']) ? intval($m['jurisdiccion_id']) : null;
         $ret_cert        = !empty($m['retencion_certificado_nro']) ? trim($m['retencion_certificado_nro']) : null;
         $ret_base        = !empty($m['retencion_base_imponible']) ? floatval($m['retencion_base_imponible']) : null;
         $ret_ali         = !empty($m['retencion_alicuota']) ? floatval($m['retencion_alicuota']) : null;
@@ -584,16 +672,20 @@ function guardarPagoBorrador($conexion, $data)
         }
 
         mysqli_stmt_bind_param(
-            $stmt_med, "iiiiddddissssisddsi",
+            $stmt_med, "iiiiddddissssiisddsi",
             $pago_id, $empresa_id, $medio_pago_id, $tes_cuenta_id,
             $mon_id, $tc, $imp, $imp_comp,
             $cheque_id, $nro_op, $f_val, $tarj_marca, $tarj_cupon,
-            $imp_tipo_id, $ret_cert, $ret_base,
+            $imp_tipo_id, $jurisdiccion_id, $ret_cert, $ret_base,
             $ret_ali, $obs_m, $usuario_id
         );
         mysqli_stmt_execute($stmt_med);
+        $medios[$idx_medio]['_pago_medio_id'] = mysqli_insert_id($conexion);
     }
     mysqli_stmt_close($stmt_med);
+
+    // Registro de las retenciones practicadas (gestion__pagos_retenciones, D32); el certificado se numera al confirmar
+    retPracRegistrarBorrador($conexion, $empresa_id, $pago_id, $entidad_id, $f_emision, $medios, $usuario_id);
 
     // Insertar Imputaciones tentativas en Borrador (3)
     if (!empty($imputaciones) && $comprobante_id > 0) {
@@ -627,7 +719,10 @@ function guardarPagoBorrador($conexion, $data)
  * Confirmación Transaccional de Orden de Pago (§2.5 / RT01 - RT21 / C2 / D27 - D36)
  */
 // $en_transaccion = true: corre dentro de la transacción del llamador (OP en $0 al aplicar notas de crédito).
-function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transaccion = false)
+// $desde_estado: 3 (Borrador) o 4 (Pend. aprobación, lo llama pagoAprobar al completar las aprobaciones).
+// Esta función no evalúa reglas de aprobación: lo hace pagoSolicitarConfirmacion() (acción "confirmar" de la
+// pantalla); las OP automáticas (débito en cuenta, en $0, gastos bancarios) llaman directo acá.
+function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transaccion = false, $desde_estado = ESTADO_PAGO_BORRADOR)
 {
     $pago_id    = intval($pago_id);
     $empresa_id = intval($empresa_id);
@@ -644,14 +739,16 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
                     WHERE pago_id = ? AND empresa_id = ? AND tabla_estado_registro_id = ?";
         $stmt_opt = mysqli_prepare($conexion, $sql_opt);
         $est_conf = ESTADO_PAGO_CONFIRMADO;
-        $est_borr = ESTADO_PAGO_BORRADOR;
+        $est_borr = intval($desde_estado) === ESTADO_PAGO_PEND_APROBACION ? ESTADO_PAGO_PEND_APROBACION : ESTADO_PAGO_BORRADOR;
         mysqli_stmt_bind_param($stmt_opt, "iiiii", $est_conf, $usuario_id, $pago_id, $empresa_id, $est_borr);
         mysqli_stmt_execute($stmt_opt);
         $afectadas = mysqli_stmt_affected_rows($stmt_opt);
         mysqli_stmt_close($stmt_opt);
 
         if ($afectadas !== 1) {
-            throw new Exception("El pago ya no está en estado Borrador o fue modificado por otro usuario.");
+            throw new Exception($est_borr === ESTADO_PAGO_BORRADOR
+                ? "El pago ya no está en estado Borrador o fue modificado por otro usuario."
+                : "El pago ya no está pendiente de aprobación.");
         }
 
         // Obtener detalle completo
@@ -663,6 +760,9 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
         $medios = $pago_info['medios'];
         $comp_origen_id = intval($cab['comprobante_id']);
         $importe_total = floatval($cab['importe_total']);
+
+        // Retenciones practicadas de un período fiscal cerrado (Tesorería > Cierres Fiscales)
+        pfExigirDocumentoAbierto($conexion, $empresa_id, 'PAGO', $pago_id, 'confirmar la orden de pago');
 
         // 2. Lock del comprobante origen y destinos en orden ascendente (RT16)
         $destinos_ids = [];
@@ -696,9 +796,18 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
         // 3. Confirmar Imputaciones (limpiar previas en borrador)
         $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $comp_origen_id AND tabla_estado_registro_id = 3");
         $total_imputado = 0.0;
+        // Obligaciones de pago imputadas: cada una se cancela contra su propia cuenta (Sueldos a pagar, IVA a pagar...).
+        // Las solicitudes de anticipo (clase ANTICIPO) se cancelan pero su importe queda como saldo a favor de la OP.
+        $debe_obligaciones = [];
+        $total_anticipos = 0.0;
         foreach ($pago_info['imputaciones'] as $imp) {
             $dest_id = intval($imp['comp_destino_id']);
             $monto_imp = floatval($imp['importe_imputado']);
+            $obl_dest = obl_cancelacion_destino($conexion, $dest_id);
+            if ($obl_dest) {
+                $debe_obligaciones[$obl_dest['cuenta_id']] = ($debe_obligaciones[$obl_dest['cuenta_id']] ?? 0.0) + $monto_imp;
+                if ($obl_dest['anticipo']) $total_anticipos += $monto_imp;
+            }
 
             if (!isset($comprobantes_locked[$dest_id])) {
                 throw new Exception("Comprobante destino $dest_id no encontrado o no pertenece a la empresa.");
@@ -718,14 +827,16 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
                 'f_imputacion'     => $cab['f_emision'],
                 'moneda_origen_id' => emp_moneda_id($conexion, $empresa_id, $cab['moneda_id'] ?? 0),
                 'tipo_cambio'      => floatval($cab['tipo_cambio'] ?? 1.0),
-                'usuario_id'       => $usuario_id
+                'usuario_id'       => $usuario_id,
+                'origen_sin_consumo' => $obl_dest && $obl_dest['anticipo']
             ]);
 
             $total_imputado += $monto_imp;
         }
 
         // Saldo anticipo si no se aplicó el 100% (Regla D6 / RT02)
-        $saldo_op = max(0.0, round($importe_total - $total_imputado, 2));
+        // (lo imputado a solicitudes de anticipo también queda como saldo a favor, para aplicarlo después)
+        $saldo_op = max(0.0, round($importe_total - $total_imputado + $total_anticipos, 2));
 
         // 4. Numeración correlativa interna con FOR UPDATE (RT21)
         $punto_venta_id = intval($cab['comprobante_pv']);
@@ -878,6 +989,9 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
             }
         }
 
+        // 5b. Retenciones practicadas: certificado correlativo por empresa e impuesto (D32)
+        retPracConfirmar($conexion, $empresa_id, $pago_id, $cab['f_emision'], $usuario_id);
+
         // 6. Asiento Contable Automático (D27 / D36 / Anexo D)
         // DEBE: Cuenta del Proveedor (Proveedores Locales)
         // HABER: Cuentas de contrapartida de cada medio (Caja, Banco, Valores en cartera, Valores a pagar, etc.)
@@ -909,9 +1023,10 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
                     $cta_contable_id = intval($res_cta_b->fetch_assoc()['cont_cuenta_id'] ?? 0);
                 }
             } elseif ($tipo_medio === 'RETENCION') {
+                // Retención practicada: pasivo a depositar de la config del agente (impuesto + jurisdicción)
                 if (!empty($m['impuesto_tipo_id'])) {
-                    $res_it = $conexion->query("SELECT cuenta_contable_id FROM gestion__impuestos_tipos WHERE impuesto_tipo_id = " . intval($m['impuesto_tipo_id']));
-                    $cta_contable_id = intval($res_it->fetch_assoc()['cuenta_contable_id'] ?? 0);
+                    $cta_contable_id = retPracCuentaContable($conexion, $empresa_id, intval($m['impuesto_tipo_id']),
+                        intval($m['jurisdiccion_id'] ?? 0), $cab['f_emision']);
                 }
                 if ($cta_contable_id <= 0) {
                     $res_mp = $conexion->query("SELECT cont_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = " . intval($m['medio_pago_id']) . " AND empresa_id = $empresa_id");
@@ -943,18 +1058,41 @@ function confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, $en_transa
             $cta_prov_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_prov_id);
         } else {
             $cta_prov_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
+            // Empleado que no es proveedor (anticipo o pago a cuenta): su cuenta del rol o la de Empleados
+            if ($cta_prov_id <= 0 && intval($cab['es_proveedor'] ?? 0) !== 1 && ent_tiene_rol($conexion, intval($cab['entidad_id']), 'EMP')) {
+                $cta_prov_id = obl_cuenta_rol_entidad($conexion, $empresa_id, intval($cab['entidad_id']), 'EMP');
+            }
             if ($cta_prov_id <= 0) {
                 $cta_prov_id = emp_cuenta_id($conexion, $empresa_id, 'PROVEEDORES', 'cuenta_proveedores_id');
             }
             $cta_prov_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Proveedores Locales', $cta_prov_id);
         }
 
-        array_unshift($lineas_asiento, [
-            'cuenta_id'   => $cta_prov_valida['cont_cuenta_id'],
-            'debe'        => $total_haber,
-            'haber'       => 0.0,
-            'descripcion' => "Cancelación cuenta corriente proveedor " . ($cab['entidad_nombre'] ?? '')
-        ]);
+        // DEBE: cada obligación imputada contra su cuenta (sueldos, impuestos, anticipos); el resto (facturas,
+        // notas, pago a cuenta) contra la cuenta de la entidad, como siempre.
+        $lineas_debe = [];
+        $total_debe_obligaciones = 0.0;
+        foreach ($debe_obligaciones as $cta_obl => $monto_obl) {
+            $monto_obl = round($monto_obl, 2);
+            if ($monto_obl <= 0) continue;
+            $lineas_debe[] = [
+                'cuenta_id'   => intval($cta_obl),
+                'debe'        => $monto_obl,
+                'haber'       => 0.0,
+                'descripcion' => "Cancelación obligaciones " . ($cab['entidad_nombre'] ?? '')
+            ];
+            $total_debe_obligaciones += $monto_obl;
+        }
+        $debe_entidad = round($total_haber - $total_debe_obligaciones, 2);
+        if ($debe_entidad > 0.0001) {
+            $lineas_debe[] = [
+                'cuenta_id'   => $cta_prov_valida['cont_cuenta_id'],
+                'debe'        => $debe_entidad,
+                'haber'       => 0.0,
+                'descripcion' => "Cancelación cuenta corriente " . ($cab['entidad_nombre'] ?? '')
+            ];
+        }
+        $lineas_asiento = array_merge($lineas_debe, $lineas_asiento);
 
         $descripcion_asiento = "Orden de Pago OP " . emp_numero_comprobante($conexion, $empresa_id, $punto_venta_id, $proximo_nro) . " - " . ($cab['entidad_nombre'] ?? '');
 
@@ -1026,6 +1164,8 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '',
         if (intval($pago['tabla_estado_registro_id']) !== ESTADO_PAGO_CONFIRMADO) {
             throw new Exception("Solo se pueden anular órdenes de pago en estado Confirmado.");
         }
+        pfExigirDocumentoAbierto($conexion, $empresa_id, 'PAGO', $pago_id, 'anular la orden de pago');
+        cont_periodo_exigir_comprobante($conexion, $empresa_id, intval($pago['comprobante_id']), 'anular la orden de pago');
 
         $comp_id = intval($pago['comprobante_id']);
 
@@ -1073,6 +1213,9 @@ function anularPago($conexion, $pago_id, $empresa_id, $usuario_id, $motivo = '',
         // 5. Anular comprobante OP
         $conexion->query("UPDATE gestion__comprobantes SET tabla_estado_registro_id = $est_anul, importe_pendiente = 0, usuario_modificacion_id = $usuario_id WHERE comprobante_id = $comp_id");
 
+        // 5b. Retenciones practicadas: quedan anuladas con su número de certificado
+        retPracAnular($conexion, $empresa_id, $pago_id, $usuario_id, $motivo);
+
         // 6. Anular asiento contable asociado
         $conexion->query("UPDATE gestion__cont_asientos SET tabla_estado_registro_id = 2, usuario_modificacion_id = $usuario_id WHERE comprobante_id = $comp_id");
 
@@ -1117,6 +1260,7 @@ function eliminarPagoBorrador($conexion, $pago_id, $empresa_id, $usuario_id)
 
     mysqli_begin_transaction($conexion);
     try {
+        $conexion->query("DELETE FROM gestion__pagos_retenciones WHERE pago_id = $pago_id AND tabla_estado_registro_id = 3");
         $conexion->query("DELETE FROM gestion__pagos_medios WHERE pago_id = $pago_id");
         if ($comp_id > 0) {
             $conexion->query("DELETE FROM gestion__cheques WHERE comp_origen_id = $comp_id AND cheque_tipo = 'PROPIO'");
@@ -1138,10 +1282,15 @@ function eliminarPagoBorrador($conexion, $pago_id, $empresa_id, $usuario_id)
 function obtenerProveedoresPago($conexion, $empresa_id)
 {
     $empresa_id = intval($empresa_id);
-    // Incluye clientes: devolución de dinero de una nota de crédito de venta
-    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal, es_cliente, es_proveedor
+    // Beneficiarios: proveedores, empleados (sueldos, anticipos) y organismos (impuestos); también clientes, para la
+    // devolución de dinero de una nota de crédito de venta
+    $e = 'gestion__entidades.entidad_id';
+    $sql = "SELECT entidad_id, entidad_nombre, cuit, domicilio_legal, IF(" . ent_sql_tiene_rol($e, 'CLI') . ", 1, 0) AS es_cliente,
+                   IF(" . ent_sql_tiene_rol($e, 'PRO') . ", 1, 0) AS es_proveedor, IF(" . ent_sql_tiene_rol($e, 'EMP') . ", 1, 0) AS es_empleado,
+                   IF(" . ent_sql_tiene_rol($e, 'ORG') . ", 1, 0) AS es_organismo
             FROM gestion__entidades
-            WHERE empresa_id = ? AND (es_proveedor = 1 OR es_cliente = 1) AND tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND (" . ent_sql_tiene_rol($e, 'PRO') . " OR " . ent_sql_tiene_rol($e, 'CLI') . " OR "
+                                      . ent_sql_tiene_rol($e, 'EMP') . " OR " . ent_sql_tiene_rol($e, 'ORG') . ") AND tabla_estado_registro_id = 1
             ORDER BY entidad_nombre ASC";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1206,4 +1355,148 @@ function obtenerCuentasBancariasChequeras($conexion, $empresa_id)
     }
     mysqli_stmt_close($stmt);
     return $rows;
+}
+
+// =========================================================================================================
+// Aprobación de órdenes de pago y pago en lote (_local/docs/gestion/13_obligaciones_de_pago.md §5.3 y §6.1)
+// =========================================================================================================
+
+/**
+ * Acción "Confirmar" de la pantalla: si la regla de aprobación de OP de la empresa aplica, la OP pasa a
+ * Pendiente de aprobación (sin mover fondos ni numerar); si no, se confirma como siempre. Antes de pasarla a
+ * pendiente se prueba la confirmación completa y se deshace, para no aprobar algo que después falla.
+ */
+function pagoSolicitarConfirmacion($conexion, $pago_id, $empresa_id, $usuario_id)
+{
+    $pago_id = intval($pago_id);
+    $empresa_id = intval($empresa_id);
+    $p = obl_fila($conexion, "SELECT pago_id, comprobante_id, importe_total, f_emision, tabla_estado_registro_id FROM gestion__pagos
+                              WHERE pago_id = ? AND empresa_id = ?", 'ii', $pago_id, $empresa_id);
+    if (!$p) throw new Exception('Orden de pago no encontrada.');
+    $ev = aprob_evaluar($conexion, $empresa_id, 'OP', 0, floatval($p['importe_total']), $p['f_emision']);
+    if (!$ev['requiere']) {
+        return confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id);
+    }
+    if (intval($p['tabla_estado_registro_id']) !== ESTADO_PAGO_BORRADOR) throw new Exception('La orden de pago ya no está en Borrador.');
+
+    mysqli_begin_transaction($conexion);
+    try {
+        confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, true);   // prueba
+    } finally {
+        mysqli_rollback($conexion);
+    }
+    mysqli_begin_transaction($conexion);
+    try {
+        $est = ESTADO_PAGO_PEND_APROBACION;
+        obl_exec($conexion, "UPDATE gestion__pagos SET tabla_estado_registro_id = ?, usuario_modificacion_id = ? WHERE pago_id = ? AND tabla_estado_registro_id = 3",
+                 'iii', $est, $usuario_id, $pago_id);
+        obl_exec($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = ? WHERE comprobante_id = ?", 'ii', $est, intval($p['comprobante_id']));
+        aprob_anular_vigentes($conexion, $empresa_id, 'OP', $pago_id);
+        mysqli_commit($conexion);
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        throw $e;
+    }
+    return ['success' => true, 'pendiente_aprobacion' => true,
+            'message' => 'La orden de pago quedó pendiente de aprobación' . ($ev['aprobaciones'] > 1 ? ' (requiere dos aprobaciones)' : '') . ': se emite cuando la aprueben.'];
+}
+
+function pagoAprobar($conexion, $pago_id, $empresa_id, $usuario_id, $pagina_id)
+{
+    $pago_id = intval($pago_id);
+    $empresa_id = intval($empresa_id);
+    mysqli_begin_transaction($conexion);
+    try {
+        $p = obl_fila($conexion, "SELECT pago_id, importe_total, f_emision, usuario_id, tabla_estado_registro_id FROM gestion__pagos
+                                  WHERE pago_id = ? AND empresa_id = ? FOR UPDATE", 'ii', $pago_id, $empresa_id);
+        if (!$p || intval($p['tabla_estado_registro_id']) !== ESTADO_PAGO_PEND_APROBACION) throw new Exception('La orden de pago no está pendiente de aprobación.');
+        $ev = aprob_evaluar($conexion, $empresa_id, 'OP', 0, floatval($p['importe_total']), $p['f_emision']);
+        $r = aprob_aprobar($conexion, intval($usuario_id), $empresa_id, intval($pagina_id), 'OP', $pago_id, 0, floatval($p['importe_total']),
+                           intval($p['usuario_id']), max(1, intval($ev['aprobaciones'])));
+        if ($r['completa']) {
+            $res = confirmarPago($conexion, $pago_id, $empresa_id, $usuario_id, true, ESTADO_PAGO_PEND_APROBACION);
+            $res['message'] = 'Aprobada. ' . $res['message'];
+        } else {
+            $res = ['success' => true, 'message' => 'Aprobación registrada: falta la de otro usuario.'];
+        }
+        mysqli_commit($conexion);
+        return $res;
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        throw $e;
+    }
+}
+
+function pagoRechazar($conexion, $pago_id, $empresa_id, $usuario_id, $pagina_id, $motivo)
+{
+    $pago_id = intval($pago_id);
+    $empresa_id = intval($empresa_id);
+    mysqli_begin_transaction($conexion);
+    try {
+        $p = obl_fila($conexion, "SELECT pago_id, comprobante_id, importe_total, tabla_estado_registro_id FROM gestion__pagos
+                                  WHERE pago_id = ? AND empresa_id = ? FOR UPDATE", 'ii', $pago_id, $empresa_id);
+        if (!$p || intval($p['tabla_estado_registro_id']) !== ESTADO_PAGO_PEND_APROBACION) throw new Exception('La orden de pago no está pendiente de aprobación.');
+        aprob_rechazar($conexion, intval($usuario_id), $empresa_id, intval($pagina_id), 'OP', $pago_id, floatval($p['importe_total']), (string)$motivo);
+        $est = ESTADO_PAGO_BORRADOR;
+        obl_exec($conexion, "UPDATE gestion__pagos SET tabla_estado_registro_id = ?, usuario_modificacion_id = ? WHERE pago_id = ?", 'iii', $est, $usuario_id, $pago_id);
+        obl_exec($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = ? WHERE comprobante_id = ?", 'ii', $est, intval($p['comprobante_id']));
+        mysqli_commit($conexion);
+        return ['success' => true, 'message' => 'Rechazada: la orden de pago volvió a Borrador.'];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        throw $e;
+    }
+}
+
+/**
+ * Pago en lote: una OP por beneficiario con todo el saldo de los comprobantes elegidos, con un mismo medio
+ * (efectivo o transferencia) y cuenta. Cada OP se guarda y se confirma por separado (o queda pendiente de
+ * aprobación); una que falla no frena a las demás. Devuelve el resultado de cada beneficiario.
+ */
+function pagosPagarLote($conexion, $empresa_id, $usuario_id, array $data)
+{
+    $empresa_id = intval($empresa_id);
+    $ids = array_values(array_unique(array_filter(array_map('intval', (array)($data['comprobante_ids'] ?? [])))));
+    if (!$ids) throw new Exception('Elegí los comprobantes a pagar.');
+    $medio_id = intval($data['medio_pago_id'] ?? 0);
+    $cuenta_id = intval($data['tesoreria_cuenta_id'] ?? 0);
+    $medio = obl_fila($conexion, "SELECT medio_pago_id, medio_pago_tipo FROM gestion__medios_pago
+                                  WHERE medio_pago_id = ? AND empresa_id = ? AND aplica_pago = 1 AND tabla_estado_registro_id = 1",
+                      'ii', $medio_id, $empresa_id);
+    if (!$medio || !in_array($medio['medio_pago_tipo'], ['EFECTIVO', 'TRANSFERENCIA'], true)) throw new Exception('Elegí un medio de pago en efectivo o transferencia.');
+    if (!obl_fila($conexion, "SELECT 1 FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1",
+                  'ii', $cuenta_id, $empresa_id)) {
+        throw new Exception('Elegí la cuenta de tesorería de donde sale el dinero.');
+    }
+    $f_emision = obl_fecha($data['f_emision'] ?? '', date('Y-m-d'));
+
+    // Solo comprobantes cancelables por OP, con su saldo actual
+    $cancelables = [];
+    foreach (tesoreriaObtenerComprobantesCancelables($conexion, $empresa_id, 'OP') as $c) $cancelables[intval($c['comprobante_id'])] = $c;
+    $por_entidad = [];
+    foreach ($ids as $id) {
+        if (!isset($cancelables[$id])) throw new Exception("El comprobante $id ya no está pendiente de pago.");
+        $por_entidad[intval($cancelables[$id]['entidad_id'])][] = $cancelables[$id];
+    }
+
+    $resultados = [];
+    foreach ($por_entidad as $entidad_id => $comps) {
+        $total = round(array_sum(array_map(static fn($c) => floatval($c['importe_pendiente']), $comps)), 2);
+        $nombre = $comps[0]['entidad_nombre'];
+        try {
+            $sucursal = obl_fila($conexion, "SELECT sucursal_id FROM gestion__comprobantes WHERE comprobante_id = ?", 'i', intval($comps[0]['comprobante_id']));
+            $pago_id = guardarPagoBorrador($conexion, [
+                'empresa_id' => $empresa_id, 'usuario_id' => $usuario_id, 'entidad_id' => $entidad_id,
+                'sucursal_id' => intval($sucursal['sucursal_id'] ?? 0), 'f_emision' => $f_emision, 'f_contabilidad' => $f_emision,
+                'observaciones' => trim((string)($data['observaciones'] ?? '')) ?: 'Pago en lote',
+                'medios' => [['medio_pago_id' => $medio_id, 'tesoreria_cuenta_id' => $cuenta_id, 'importe' => $total, 'importe_comprobante' => $total]],
+                'imputaciones' => array_map(static fn($c) => ['comprobante_destino_id' => intval($c['comprobante_id']), 'importe_imputado' => floatval($c['importe_pendiente'])], $comps),
+            ]);
+            $r = pagoSolicitarConfirmacion($conexion, $pago_id, $empresa_id, $usuario_id);
+            $resultados[] = ['entidad' => $nombre, 'importe' => $total, 'ok' => true, 'pago_id' => $pago_id, 'mensaje' => $r['message'] ?? ''];
+        } catch (Throwable $e) {
+            $resultados[] = ['entidad' => $nombre, 'importe' => $total, 'ok' => false, 'mensaje' => $e->getMessage()];
+        }
+    }
+    return $resultados;
 }

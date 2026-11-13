@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 /**
  * clientes_ctacte_model.php
@@ -394,7 +395,7 @@ function ctacteSaldosClientes($conexion, $empresa_id, array $filtros = [])
 /** Cabecera mínima del cliente (nombre, CUIT, condición fiscal vigente). */
 function ctacteDatosCliente($conexion, $entidad_id)
 {
-    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, e.es_cliente,
+    $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, IF(" . ent_sql_tiene_rol('e.entidad_id', 'CLI') . ", 1, 0) AS es_cliente,
                    cf.condicion_fiscal
             FROM gestion__entidades e
             LEFT JOIN gestion__entidades_condiciones_fiscales ecf
@@ -415,4 +416,169 @@ function ctacteDatosCliente($conexion, $entidad_id)
         $fila['entidad_id'] = intval($fila['entidad_id']);
     }
     return $fila;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Envío por correo del detalle de una solapa (Deuda / Cuenta corriente / Comprobantes emitidos)
+// ---------------------------------------------------------------------------------------------
+
+/** El cliente pertenece a la empresa (el detalle por correo nunca sale de otra empresa). */
+function ctacteEntidadDeEmpresa($conexion, $empresa_id, $entidad_id): bool
+{
+    return (bool) ctacteFetchAll($conexion, "SELECT 1 AS ok FROM gestion__entidades WHERE entidad_id = ? AND empresa_id = ?",
+                                 'ii', [intval($entidad_id), intval($empresa_id)]);
+}
+
+/** Correos cargados en las sucursales activas del cliente, sin repetir (para precargar el destinatario). */
+function ctacteEmailsCliente($conexion, $empresa_id, $entidad_id): array
+{
+    $filas = ctacteFetchAll($conexion,
+        "SELECT TRIM(es.sucursal_email) AS email
+         FROM gestion__entidades_sucursales es
+         JOIN gestion__entidades e ON e.entidad_id = es.entidad_id AND e.empresa_id = ?
+         WHERE es.entidad_id = ? AND es.tabla_estado_registro_id = 1
+           AND es.sucursal_email IS NOT NULL AND TRIM(es.sucursal_email) <> ''
+         ORDER BY es.sucursal_numero, es.sucursal_id",
+        'ii', [intval($empresa_id), intval($entidad_id)]);
+    $emails = [];
+    foreach ($filas as $f) {
+        // Una sucursal puede tener varios, separados por coma o punto y coma
+        foreach (preg_split('/[;,\s]+/', (string) $f['email']) as $em) {
+            if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)
+                && !in_array(strtolower($em), array_map('strtolower', $emails), true)) {
+                $emails[] = $em;
+            }
+        }
+    }
+    return $emails;
+}
+
+/** "FA A 0001-00000012" / "PC (borrador)", igual que ComprobantesUI.numero(): comprobante_pv ya viene para mostrar. */
+function ctacteNumeroComprobante(array $r): string
+{
+    $tipo = (string) ($r['tipo_codigo'] ?? '');
+    $letra = (string) ($r['letra'] ?? '');
+    $prefijo = trim($tipo . ($letra !== '' && strpos($tipo, $letra) === false ? ' ' . $letra : ''));
+    if (intval($r['comprobante_nro'] ?? 0) <= 0) {
+        return $prefijo . ' (borrador)';
+    }
+    return $prefijo . ' ' . sprintf('%04d-%08d', intval($r['comprobante_pv'] ?? 0), intval($r['comprobante_nro']));
+}
+
+/**
+ * Arma el correo con el detalle de una solapa a partir de los mismos datos que la pantalla
+ * (nunca del HTML del navegador). $solapa: 'deuda' | 'cta' | 'comp'. Devuelve ['asunto', 'html'].
+ */
+function ctacteCorreoSolapa($conexion, $empresa_id, $usuario_id, $entidad_id, $solapa, $desde, $hasta, $mensaje = ''): array
+{
+    require_once __DIR__ . '/../../core/formato.php';
+    // comprobantes_consulta_model.php se incluye a nivel de archivo (usa $conn global), como en clientes_ctacte_ajax.php
+    if (!function_exists('cconsListar')) {
+        throw new RuntimeException('Falta incluir comprobantes_consulta_model.php');
+    }
+    $h = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+    $mon = function ($v, $simbolo = null) { return fmt_moneda(floatval($v), 2, $simbolo ?: '$'); };
+
+    $cliente = ctacteDatosCliente($conexion, $entidad_id) ?: [];
+    $empresa = ctacteFetchAll($conexion, "SELECT empresa FROM conf__empresas WHERE empresa_id = ?", 'i', [intval($empresa_id)])[0]['empresa'] ?? '';
+    $nombre_cliente = trim((string) ($cliente['entidad_nombre'] ?? ''));
+
+    $estilo = 'border:1px solid #dee2e6;padding:5px 8px;font-size:12px;';
+    $tabla = function (array $cabecera, array $filas, array $pie = []) use ($estilo) {
+        $html = '<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;font-family:Arial,sans-serif"><thead><tr>';
+        foreach ($cabecera as [$titulo, $der]) {
+            $html .= '<th style="' . $estilo . 'background:#f1f3f5;text-align:' . ($der ? 'right' : 'left') . '">' . $titulo . '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+        if (!$filas) {
+            $html .= '<tr><td style="' . $estilo . '" colspan="' . count($cabecera) . '">Sin movimientos.</td></tr>';
+        }
+        foreach ($filas as $f) {
+            $html .= '<tr>';
+            foreach ($f as $i => $celda) {
+                $html .= '<td style="' . $estilo . ($cabecera[$i][1] ? 'text-align:right;white-space:nowrap' : '') . '">' . $celda . '</td>';
+            }
+            $html .= '</tr>';
+        }
+        $html .= '</tbody>';
+        if ($pie) {
+            // $pie[0] = rótulo; el resto, las últimas columnas
+            $html .= '<tfoot><tr><td style="' . $estilo . 'text-align:right;font-weight:bold" colspan="' . (count($cabecera) - count($pie) + 1) . '">' . $pie[0] . '</td>';
+            for ($i = 1; $i < count($pie); $i++) {
+                $html .= '<td style="' . $estilo . 'text-align:right;font-weight:bold;white-space:nowrap">' . $pie[$i] . '</td>';
+            }
+            $html .= '</tr></tfoot>';
+        }
+        return $html . '</table>';
+    };
+    $periodo = ($desde || $hasta)
+        ? 'Período' . ($desde ? ' desde ' . fmt_fecha($desde) : '') . ($hasta ? ' hasta ' . fmt_fecha($hasta) : '')
+        : '';
+
+    $cuerpo = '';
+    if ($solapa === 'deuda') {
+        $titulo = 'Detalle de deuda';
+        $d = ctactePendientes($conexion, $empresa_id, $entidad_id);
+        $filas = [];
+        $total = 0.0;
+        foreach ($d['deuda'] as $r) {
+            $total += $r['pendiente_local'];
+            $filas[] = [fmt_fecha($r['f_emision']), fmt_fecha($r['f_vto'] ?: $r['f_emision']), $h(ctacteNumeroComprobante($r)),
+                        $h($r['sucursal_nombre'] ?? ''), $mon($r['importe_total'], $r['moneda_simbolo'] ?? null),
+                        $mon($r['pendiente'], $r['moneda_simbolo'] ?? null),
+                        intval($r['dias_atraso'] ?? 0) > 0 ? intval($r['dias_atraso']) . ' días' : 'al día'];
+        }
+        $cuerpo .= $tabla([['Emisión', false], ['Vencimiento', false], ['Comprobante', false], ['Sucursal', false],
+                           ['Total', true], ['Pendiente', true], ['Atraso', true]],
+                          $filas, ['Total adeudado', $mon($total), '']);
+        if (!empty($d['a_favor'])) {
+            $filas = [];
+            foreach ($d['a_favor'] as $r) {
+                $filas[] = [fmt_fecha($r['f_emision']), $h(ctacteNumeroComprobante($r)),
+                            $mon($r['importe_total'], $r['moneda_simbolo'] ?? null), $mon($r['pendiente'], $r['moneda_simbolo'] ?? null)];
+            }
+            $cuerpo .= '<h4 style="font-family:Arial,sans-serif;margin:18px 0 6px">Saldo a favor sin aplicar</h4>'
+                     . $tabla([['Emisión', false], ['Comprobante', false], ['Total', true], ['Sin aplicar', true]], $filas);
+        }
+    } elseif ($solapa === 'cta') {
+        $titulo = 'Cuenta corriente';
+        $d = ctacteMovimientos($conexion, $empresa_id, $entidad_id, $desde, $hasta);
+        $filas = [];
+        foreach ($d['movimientos'] as $r) {
+            $filas[] = [fmt_fecha($r['f_emision']), $r['f_vto'] ? fmt_fecha($r['f_vto']) : '', $h(ctacteNumeroComprobante($r)),
+                        $h($r['sucursal_nombre'] ?? ''), $r['debe'] ? $mon($r['debe']) : '', $r['haber'] ? $mon($r['haber']) : '',
+                        $mon($r['saldo'])];
+        }
+        if ($desde) {
+            $cuerpo .= '<p style="font-family:Arial,sans-serif;font-size:13px">Saldo anterior al ' . fmt_fecha($desde) . ': <b>' . $mon($d['saldo_anterior']) . '</b></p>';
+        }
+        $cuerpo .= $tabla([['Fecha', false], ['Vencimiento', false], ['Comprobante', false], ['Sucursal', false],
+                           ['Debe', true], ['Haber', true], ['Saldo', true]],
+                          $filas, ['Totales del período', $mon($d['total_debe']), $mon($d['total_haber']), $mon($d['saldo_final'])]);
+    } else {
+        $titulo = 'Comprobantes emitidos';
+        $res = cconsListar($conexion, $empresa_id, $usuario_id, ['entidad_id' => $entidad_id, 'desde' => $desde, 'hasta' => $hasta]);
+        $filas = [];
+        foreach ($res['filas'] as $r) {
+            $filas[] = [fmt_fecha($r['f_emision']),
+                        $h(ctacteNumeroComprobante($r)) . '<br><span style="color:#6c757d">' . $h($r['comprobante_tipo'] ?? '') . '</span>',
+                        $h($r['sucursal_nombre'] ?? ''), $mon($r['importe_total'], $r['moneda_simbolo'] ?? null),
+                        ($r['saldo'] ?? null) === null ? '-' : $mon($r['saldo'], $r['moneda_simbolo'] ?? null), $h($r['estado'] ?? '')];
+        }
+        $cuerpo .= $tabla([['Emisión', false], ['Comprobante', false], ['Sucursal', false], ['Total', true], ['Saldo', true], ['Estado', false]], $filas);
+        if (!empty($res['truncado'])) {
+            $cuerpo .= '<p style="font-family:Arial,sans-serif;font-size:12px;color:#6c757d">Se incluyen los primeros ' . intval($res['limite']) . ' comprobantes.</p>';
+        }
+    }
+
+    $html = '<div style="font-family:Arial,sans-serif;color:#212529;max-width:900px">'
+          . '<h3 style="margin:0 0 4px">' . $h($titulo) . '</h3>'
+          . '<p style="margin:0 0 4px;font-size:13px"><b>' . $h($nombre_cliente) . '</b>'
+          . (!empty($cliente['cuit']) ? ' · CUIT ' . $h($cliente['cuit']) : '') . '</p>'
+          . '<p style="margin:0 0 12px;font-size:12px;color:#6c757d">' . $h(trim($periodo . ($periodo ? ' · ' : '') . 'Emitido el ' . fmt_fecha(date('Y-m-d')))) . '</p>'
+          . (trim($mensaje) !== '' ? '<p style="font-size:13px;white-space:pre-line">' . $h(trim($mensaje)) . '</p>' : '')
+          . $cuerpo
+          . '<p style="margin-top:16px;font-size:12px;color:#6c757d">' . $h($empresa) . '</p></div>';
+
+    return ['asunto' => $titulo . ' - ' . $nombre_cliente . ($empresa !== '' ? ' - ' . $empresa : ''), 'html' => $html];
 }

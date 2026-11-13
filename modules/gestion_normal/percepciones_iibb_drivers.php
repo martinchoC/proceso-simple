@@ -1,7 +1,7 @@
 <?php
 /**
  * Percepciones IIBB: registro de drivers de fuentes de alícuota (padrones) y de formatos de DDJJ.
- * Diseño: docs/gestion/09_percepciones_iibb.md §12.
+ * Diseño: _local/docs/gestion/09_percepciones_iibb.md §12.
  *
  * Un driver de padrón convierte lo propio de una fuente en FILAS NORMALIZADAS de gestion__padrones_iibb:
  *   cuit, razon_social, f_desde, f_hasta, alicuota, situacion (PADRON | INSCRIPTO_OTRA_JURISDICCION | NO_PERCIBIR),

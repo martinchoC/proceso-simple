@@ -82,11 +82,28 @@ $accion = $_REQUEST['accion'] ?? '';
 try {
     switch ($accion) {
         case 'combos':
-            // Entidades
-            $res_e = mysqli_query($conexion, "SELECT DISTINCT e.entidad_id, e.codigo, e.nombre 
+            // Países con entidades activas de la empresa
+            $res_p = mysqli_query($conexion, "SELECT DISTINCT t.territorio_id, t.codigo, t.nombre 
+                                               FROM ml__territorios t 
+                                               INNER JOIN ml__entidades_ubicaciones eu ON eu.territorio_id = t.territorio_id 
+                                               INNER JOIN ml__entidades e ON e.entidad_id = eu.entidad_id 
+                                               INNER JOIN ml__entidades_empresas ee ON ee.entidad_id = e.entidad_id 
+                                               WHERE t.tabla_estado_registro_id = 1 
+                                                 AND e.tabla_estado_registro_id = 1
+                                                 AND (ee.empresa_id = {$empresa_idx} OR {$empresa_idx} = 1)
+                                               ORDER BY t.nombre ASC");
+            $paises = [];
+            while ($r = mysqli_fetch_assoc($res_p)) { $paises[] = $r; }
+
+            // Entidades activas de la empresa (con vinculación a país/territorio)
+            $res_e = mysqli_query($conexion, "SELECT e.entidad_id, e.codigo, e.nombre,
+                                                      COALESCE(MAX(eu.territorio_id), 2) as territorio_id 
                                                FROM ml__entidades e 
-                                               LEFT JOIN ml__entidades_empresas ee ON ee.entidad_id = e.entidad_id 
-                                               WHERE (ee.empresa_id = {$empresa_idx} OR ee.empresa_id IS NULL) AND e.tabla_estado_registro_id = 1 
+                                               INNER JOIN ml__entidades_empresas ee ON ee.entidad_id = e.entidad_id 
+                                               LEFT JOIN ml__entidades_ubicaciones eu ON eu.entidad_id = e.entidad_id 
+                                               WHERE (ee.empresa_id = {$empresa_idx} OR {$empresa_idx} = 1) 
+                                                 AND e.tabla_estado_registro_id = 1 
+                                               GROUP BY e.entidad_id, e.codigo, e.nombre
                                                ORDER BY e.nombre ASC");
             $entidades = [];
             while ($r = mysqli_fetch_assoc($res_e)) { $entidades[] = $r; }
@@ -113,9 +130,12 @@ try {
 
             echo json_encode([
                 'success' => true,
+                'paises' => $paises,
                 'entidades' => $entidades,
                 'estados' => $estados,
                 'usuarios' => $usuarios,
+                'current_user_id' => $usuario_id,
+                'current_user_name' => $_SESSION['usuario_nombre'] ?? '',
                 'permisos' => $funciones_permitidas
             ]);
             break;
@@ -124,6 +144,7 @@ try {
             $filtros = [
                 'ciclo_id' => $_GET['filtro_ciclo'] ?? null,
                 'entidad_id' => $_GET['filtro_entidad'] ?? null,
+                'territorio_id' => $_GET['filtro_pais'] ?? null,
                 'estado_id' => $_GET['filtro_estado'] ?? null,
                 'usuario_id' => $_GET['filtro_usuario'] ?? null,
                 'fecha_desde' => $_GET['filtro_desde'] ?? null,
@@ -134,6 +155,8 @@ try {
             echo json_encode([
                 'success' => true,
                 'data' => $tareas,
+                'current_user_id' => $usuario_id,
+                'current_user_name' => $_SESSION['usuario_nombre'] ?? '',
                 'permisos' => $funciones_permitidas
             ]);
             break;
@@ -167,6 +190,30 @@ try {
                 'message' => $res['ok'] ? $res['mensaje'] : $res['error'],
                 'nuevo_estado_id' => $res['nuevo_estado_id'] ?? null
             ]);
+            break;
+
+        case 'listar_mensajes':
+            $ciclo_tarea_id = intval($_GET['ciclo_tarea_id'] ?? 0);
+            if ($ciclo_tarea_id <= 0) {
+                echo json_encode(['success' => false, 'message' => 'ID de tarea requerido.']);
+                exit;
+            }
+            $mensajes = ciclos_tareas_mensajes_listar($conexion, $ciclo_tarea_id);
+            echo json_encode([
+                'success' => true,
+                'mensajes' => $mensajes
+            ]);
+            break;
+
+        case 'agregar_mensaje':
+            $ciclo_tarea_id = intval($_POST['ciclo_tarea_id'] ?? 0);
+            $mensaje = trim($_POST['mensaje'] ?? '');
+            if ($ciclo_tarea_id <= 0 || empty($mensaje)) {
+                echo json_encode(['success' => false, 'message' => 'Debe escribir un mensaje.']);
+                exit;
+            }
+            $res_msg = ciclos_tareas_mensajes_agregar($conexion, $ciclo_tarea_id, $usuario_id, $mensaje, $empresa_idx);
+            echo json_encode($res_msg);
             break;
 
         default:

@@ -14,6 +14,8 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 75); // ← Cambiado a 73
+// Solo una página de este módulo (si no, la de jurisdicciones_tipos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'jurisdicciones_tipos.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -36,6 +38,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'empresa_id' => $empresa_idx,
                 'jurisdiccion_tipo' => trim($_POST['jurisdiccion_tipo'] ?? ''),
@@ -49,6 +53,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['jurisdiccion_tipo_id'] ?? 0);
             $data = [
                 'jurisdiccion_tipo' => trim($_POST['jurisdiccion_tipo'] ?? ''),
@@ -70,6 +76,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $jurisdiccion_tipo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

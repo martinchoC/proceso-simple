@@ -4,32 +4,14 @@ $pageTitle = "Gestión de Ubicaciones de Sucursales";
 $currentPage = 'sucursales_ubicaciones';
 $modudo_idx = 2;
 $pagina_idx = 38; // ✅ ID de página para ubicaciones de sucursales
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-sitemap me-2"></i>Árbol de Ubicaciones de Sucursales
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa - Vista Jerárquica</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="sucursales.php">Sucursales</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Árbol de Ubicaciones</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Ubicaciones de depósito','fas fa-sitemap', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -187,7 +169,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <h5 class="card-title mb-0">
                                                     <i class="fas fa-sitemap me-2"></i>Árbol Jerárquico de Ubicaciones
                                                 </h5>
-                                                <small class="text-muted">Explora las ubicaciones jerárquicamente</small>
+                                                <?= ui_ayuda('Explora las ubicaciones jerárquicamente') ?>
                                             </div>
                                             <div class="search-container">
                                                 <div class="input-group input-group-modern">
@@ -223,7 +205,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <div class="col-md-6 text-end">
                                                 <small class="text-muted">
                                                     <i class="fas fa-sync-alt me-1"></i>Última actualización: 
-                                                    <span id="lastUpdate"><?php echo date('d/m/Y H:i:s'); ?></span>
+                                                    <span id="lastUpdate"><?php echo fmt_fecha_hora(time()); ?></span>
                                                 </small>
                                             </div>
                                         </div>
@@ -1121,7 +1103,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         
         function actualizarUltimaActualizacion() {
             var now = new Date();
-            $('#lastUpdate').text(now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES'));
+            $('#lastUpdate').text(Fmt.fechaHora(now));
         }
         
         function inicializarEstadoArbol() {
@@ -1452,7 +1434,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         });
     });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

@@ -1,12 +1,12 @@
 // Historial de Situación Fiscal (clientes / entidades): bloque "Percepciones IIBB" con las jurisdicciones de alta
 // del Convenio Multilateral y los certificados de no percepción. El modal trae la entidad en data-entidad-id.
-// docs/gestion/09_percepciones_iibb.md §4.3 / §4.5
+// _local/docs/gestion/09_percepciones_iibb.md §4.3 / §4.5
 $(function () {
     var URL_AJAX = 'percepciones_iibb_clientes_ajax.php';
     var cont = $('#percepcionesIibbCliente');
     if (!cont.length) return;
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
-    function fecha(d) { return d ? String(d).substr(0, 10).split('-').reverse().join('/') : ''; }
+    function fecha(d) { return d ? Fmt.fecha(d) : ''; }
     function entidad() { return parseInt($('#modalHistorialFiscal').attr('data-entidad-id') || 0, 10); }
     var datos = null;
 

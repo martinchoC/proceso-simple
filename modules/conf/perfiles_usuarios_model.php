@@ -37,19 +37,37 @@ function obtenerEmpresas($conexion)
     return $data;
 }
 
-function obtenerModulos($conexion)
+// Módulos activos que la empresa tiene habilitados (conf__empresas_modulos activo).
+function obtenerModulos($conexion, $empresa_id)
 {
-    $sql = "SELECT modulo_id, modulo FROM conf__modulos WHERE tabla_estado_registro_id = 1 ORDER BY modulo";
-    $res = mysqli_query($conexion, $sql);
-
-    if (!$res) {
+    $empresa_id = (int)$empresa_id;
+    if ($empresa_id <= 0) {
         return [];
     }
+
+    $sql = "SELECT m.modulo_id, m.modulo
+            FROM conf__modulos m
+            INNER JOIN conf__empresas_modulos em
+                    ON em.modulo_id = m.modulo_id
+                   AND em.empresa_id = ?
+                   AND em.tabla_estado_registro_id = 1
+            WHERE m.tabla_estado_registro_id = 1
+            GROUP BY m.modulo_id, m.modulo
+            ORDER BY m.modulo";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("=== obtenerModulos: error al preparar: " . mysqli_error($conexion));
+        return [];
+    }
+    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
 
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;
     }
+    mysqli_stmt_close($stmt);
     return $data;
 }
 
@@ -108,14 +126,209 @@ function obtenerTodosUsuarios($conexion)
     return $data;
 }
 
+// Ejecuta un SELECT preparado y devuelve todas las filas
+function puFetchAll($conexion, $sql, $types = '', array $params = [])
+{
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("=== puFetchAll: error al preparar: " . mysqli_error($conexion));
+        return [];
+    }
+    if ($types !== '') {
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+    }
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $data = [];
+    while ($fila = mysqli_fetch_assoc($res)) {
+        $data[] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+    return $data;
+}
+
+/*
+ * Filtros combinables de la pantalla (empresa, módulo, perfil, usuario; todos opcionales).
+ * Cada lista de opciones se calcula con los OTROS filtros elegidos, así se puede
+ * empezar por cualquiera y el resto se acota solo.
+ */
+function puNormalizarFiltros(array $f)
+{
+    return [
+        'empresa_id'        => (int)($f['empresa_id'] ?? 0),
+        'modulo_id'         => (int)($f['modulo_id'] ?? 0),
+        'empresa_perfil_id' => (int)($f['empresa_perfil_id'] ?? 0),
+        'usuario_id'        => (int)($f['usuario_id'] ?? 0),
+    ];
+}
+
+// Condiciones sobre el alias ep (conf__empresas_perfiles) y up (conf__usuarios_perfiles);
+// $omitir = filtro que no se aplica (el de la lista que se está calculando)
+function puCondicionesAsignacion(array $f, $omitir, array &$conds, &$types, array &$params)
+{
+    $mapa = [
+        'empresa_id'        => 'ep.empresa_id',
+        'modulo_id'         => 'ep.modulo_id',
+        'empresa_perfil_id' => 'ep.empresa_perfil_id',
+        'usuario_id'        => 'up.usuario_id',
+    ];
+    foreach ($mapa as $clave => $columna) {
+        if ($clave !== $omitir && $f[$clave] > 0) {
+            $conds[] = "$columna = ?";
+            $types .= 'i';
+            $params[] = $f[$clave];
+        }
+    }
+}
+
+// EXISTS de una asignación activa que cumpla los filtros, correlacionado con $correlacion
+function puExisteAsignacion(array $f, $omitir, $correlacion, &$types, array &$params)
+{
+    $conds = ['up.tabla_estado_registro_id = 1', $correlacion];
+    puCondicionesAsignacion($f, $omitir, $conds, $types, $params);
+    return "EXISTS (SELECT 1
+                    FROM conf__usuarios_perfiles up
+                    INNER JOIN conf__empresas_perfiles ep ON ep.empresa_perfil_id = up.empresa_perfil_id
+                    WHERE " . implode(' AND ', $conds) . ")";
+}
+
+function obtenerOpcionesFiltros($conexion, array $filtros)
+{
+    $f = puNormalizarFiltros($filtros);
+
+    // Empresas activas; con módulo, solo las que lo tienen activo
+    $types = '';
+    $params = [];
+    $sql = "SELECT e.empresa_id, e.empresa
+            FROM conf__empresas e
+            WHERE e.tabla_estado_registro_id = 1";
+    if ($f['modulo_id'] > 0) {
+        $sql .= " AND EXISTS (SELECT 1 FROM conf__empresas_modulos em
+                              WHERE em.empresa_id = e.empresa_id AND em.modulo_id = ?
+                                AND em.tabla_estado_registro_id = 1)";
+        $types .= 'i';
+        $params[] = $f['modulo_id'];
+    }
+    if ($f['empresa_perfil_id'] > 0) {
+        $sql .= " AND e.empresa_id = (SELECT ep.empresa_id FROM conf__empresas_perfiles ep WHERE ep.empresa_perfil_id = ?)";
+        $types .= 'i';
+        $params[] = $f['empresa_perfil_id'];
+    }
+    if ($f['usuario_id'] > 0) {
+        $sql .= " AND " . puExisteAsignacion($f, 'empresa_id', 'ep.empresa_id = e.empresa_id', $types, $params);
+    }
+    $sql .= " ORDER BY e.empresa";
+    $empresas = puFetchAll($conexion, $sql, $types, $params);
+
+    // Módulos activos habilitados en alguna empresa (o en la elegida)
+    $types = '';
+    $params = [];
+    $sql = "SELECT m.modulo_id, m.modulo
+            FROM conf__modulos m
+            WHERE m.tabla_estado_registro_id = 1
+              AND EXISTS (SELECT 1 FROM conf__empresas_modulos em
+                          INNER JOIN conf__empresas e ON e.empresa_id = em.empresa_id AND e.tabla_estado_registro_id = 1
+                          WHERE em.modulo_id = m.modulo_id AND em.tabla_estado_registro_id = 1";
+    if ($f['empresa_id'] > 0) {
+        $sql .= " AND em.empresa_id = ?";
+        $types .= 'i';
+        $params[] = $f['empresa_id'];
+    }
+    $sql .= ")";
+    if ($f['empresa_perfil_id'] > 0) {
+        $sql .= " AND m.modulo_id = (SELECT ep.modulo_id FROM conf__empresas_perfiles ep WHERE ep.empresa_perfil_id = ?)";
+        $types .= 'i';
+        $params[] = $f['empresa_perfil_id'];
+    }
+    if ($f['usuario_id'] > 0) {
+        $sql .= " AND " . puExisteAsignacion($f, 'modulo_id', 'ep.modulo_id = m.modulo_id', $types, $params);
+    }
+    $sql .= " ORDER BY m.modulo";
+    $modulos = puFetchAll($conexion, $sql, $types, $params);
+
+    // Perfiles activos de empresas activas con el módulo activo
+    $types = '';
+    $params = [];
+    $sql = "SELECT ep.empresa_perfil_id, ep.empresa_perfil_nombre, ep.empresa_id, ep.modulo_id,
+                   e.empresa, p.perfil_nombre AS perfil_base_nombre
+            FROM conf__empresas_perfiles ep
+            INNER JOIN conf__empresas e ON e.empresa_id = ep.empresa_id AND e.tabla_estado_registro_id = 1
+            INNER JOIN conf__empresas_modulos em
+                    ON em.empresa_id = ep.empresa_id AND em.modulo_id = ep.modulo_id
+                   AND em.tabla_estado_registro_id = 1
+            LEFT JOIN conf__perfiles p ON p.perfil_id = ep.perfil_id_base
+            WHERE ep.tabla_estado_registro_id = 1";
+    foreach (['empresa_id', 'modulo_id'] as $clave) {
+        if ($f[$clave] > 0) {
+            $sql .= " AND ep.$clave = ?";
+            $types .= 'i';
+            $params[] = $f[$clave];
+        }
+    }
+    if ($f['usuario_id'] > 0) {
+        $sql .= " AND EXISTS (SELECT 1 FROM conf__usuarios_perfiles up
+                              WHERE up.empresa_perfil_id = ep.empresa_perfil_id
+                                AND up.usuario_id = ? AND up.tabla_estado_registro_id = 1)";
+        $types .= 'i';
+        $params[] = $f['usuario_id'];
+    }
+    $sql .= " GROUP BY ep.empresa_perfil_id, ep.empresa_perfil_nombre, ep.empresa_id, ep.modulo_id, e.empresa, p.perfil_nombre
+              ORDER BY e.empresa, ep.empresa_perfil_nombre";
+    $perfiles = puFetchAll($conexion, $sql, $types, $params);
+
+    // Usuarios activos con alguna asignación activa que cumpla los otros filtros
+    $types = '';
+    $params = [];
+    $sql = "SELECT u.usuario_id, u.usuario_nombre, u.usuario, u.email
+            FROM conf__usuarios u
+            WHERE u.tabla_estado_registro_id = 1
+              AND " . puExisteAsignacion($f, 'usuario_id', 'up.usuario_id = u.usuario_id', $types, $params) . "
+            ORDER BY u.usuario_nombre";
+    $usuarios = puFetchAll($conexion, $sql, $types, $params);
+
+    return [
+        'empresas' => $empresas,
+        'modulos'  => $modulos,
+        'perfiles' => $perfiles,
+        'usuarios' => $usuarios,
+    ];
+}
+
+// Asignaciones activas que cumplen todos los filtros elegidos (sin filtros: todas)
+function listarAsignacionesFiltradas($conexion, array $filtros)
+{
+    $f = puNormalizarFiltros($filtros);
+    $conds = ['up.tabla_estado_registro_id = 1'];
+    $types = '';
+    $params = [];
+    puCondicionesAsignacion($f, null, $conds, $types, $params);
+
+    $sql = "SELECT up.usuario_perfil_id, up.usuario_id, up.empresa_perfil_id,
+            u.usuario_nombre, u.usuario, u.email,
+            e.empresa, e.empresa_id,
+            ep.empresa_perfil_nombre,
+            m.modulo, m.modulo_id,
+            DATE_FORMAT(up.fecha_inicio, '%d/%m/%Y') as fecha_inicio_formateada,
+            DATE_FORMAT(up.fecha_fin, '%d/%m/%Y') as fecha_fin_formateada
+            FROM conf__usuarios_perfiles up
+            INNER JOIN conf__usuarios u ON up.usuario_id = u.usuario_id
+            INNER JOIN conf__empresas_perfiles ep ON up.empresa_perfil_id = ep.empresa_perfil_id
+            INNER JOIN conf__empresas e ON ep.empresa_id = e.empresa_id
+            INNER JOIN conf__modulos m ON ep.modulo_id = m.modulo_id
+            WHERE " . implode(' AND ', $conds) . "
+            ORDER BY e.empresa, m.modulo, ep.empresa_perfil_nombre, u.usuario_nombre";
+    return puFetchAll($conexion, $sql, $types, $params);
+}
+
 // NUEVA: Obtener asignaciones por usuario
-function obtenerAsignacionesPorUsuario($conexion, $usuario_id)
+function obtenerAsignacionesPorUsuario($conexion, $usuario_id, $empresa_id = 0)
 {
     if (!$usuario_id) {
         return [];
     }
 
     $usuario_id = intval($usuario_id);
+    $empresa_id = intval($empresa_id);
 
     $sql = "SELECT up.*, u.usuario_nombre, u.usuario, u.email,
             e.empresa, e.empresa_id,
@@ -128,26 +341,18 @@ function obtenerAsignacionesPorUsuario($conexion, $usuario_id)
             INNER JOIN conf__empresas_perfiles ep ON up.empresa_perfil_id = ep.empresa_perfil_id
             INNER JOIN conf__empresas e ON ep.empresa_id = e.empresa_id
             INNER JOIN conf__modulos m ON ep.modulo_id = m.modulo_id
-            WHERE up.usuario_id = $usuario_id 
+            WHERE up.usuario_id = ?
             AND up.tabla_estado_registro_id = 1
+            AND (? = 0 OR ep.empresa_id = ?)
             ORDER BY e.empresa, m.modulo, ep.empresa_perfil_nombre";
 
-    $res = mysqli_query($conexion, $sql);
-
-    if (!$res) {
-        return [];
-    }
-
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    return $data;
+    return puFetchAll($conexion, $sql, "iii", [$usuario_id, $empresa_id, $empresa_id]);
 }
 
 // NUEVA: Obtener todas las asignaciones de todos los usuarios
-function obtenerTodasAsignaciones($conexion)
+function obtenerTodasAsignaciones($conexion, $empresa_id = 0)
 {
+    $empresa_id = intval($empresa_id);
     $sql = "SELECT up.*, u.usuario_nombre, u.usuario, u.email,
             e.empresa, e.empresa_id,
             ep.empresa_perfil_nombre, ep.empresa_perfil_id,
@@ -160,19 +365,10 @@ function obtenerTodasAsignaciones($conexion)
             INNER JOIN conf__empresas e ON ep.empresa_id = e.empresa_id
             INNER JOIN conf__modulos m ON ep.modulo_id = m.modulo_id
             WHERE up.tabla_estado_registro_id = 1
+            AND (? = 0 OR ep.empresa_id = ?)
             ORDER BY u.usuario_nombre, e.empresa, m.modulo, ep.empresa_perfil_nombre";
 
-    $res = mysqli_query($conexion, $sql);
-
-    if (!$res) {
-        return [];
-    }
-
-    $data = [];
-    while ($fila = mysqli_fetch_assoc($res)) {
-        $data[] = $fila;
-    }
-    return $data;
+    return puFetchAll($conexion, $sql, "ii", [$empresa_id, $empresa_id]);
 }
 
 function obtenerAsignacionesUsuarioPerfil($conexion, $empresa_perfil_id)

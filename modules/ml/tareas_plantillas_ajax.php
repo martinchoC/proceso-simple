@@ -174,6 +174,30 @@ switch ($accion) {
         echo json_encode($res);
         break;
 
+    case 'listar_raci':
+        $tarea_id = intval($_GET['tarea_plantilla_id'] ?? 0);
+        if ($tarea_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'ID de tarea inválido.']);
+            exit;
+        }
+        $roles = tarea_plantilla_raci_listar($conexion, $tarea_id);
+        echo json_encode([
+            'success' => true,
+            'raci' => $roles
+        ]);
+        break;
+
+    case 'guardar_raci':
+        $res = tarea_plantilla_raci_guardar($conexion, $_POST, $usuario_id);
+        echo json_encode($res);
+        break;
+
+    case 'eliminar_raci':
+        $raci_id = intval($_POST['tarea_plantilla_raci_id'] ?? 0);
+        $res = tarea_plantilla_raci_eliminar($conexion, $raci_id);
+        echo json_encode($res);
+        break;
+
     default:
         echo json_encode(['success' => false, 'message' => "Acción desconocida o no implementada: {$accion}"]);
         break;

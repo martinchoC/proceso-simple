@@ -1,15 +1,14 @@
 <?php
 require_once __DIR__ . '/../../db.php';
 
-// Obtener parámetros de la URL — mismo criterio que ventas_pedidos.php:
-// sin default hardcodeado de pagina_id, viene sí o sí por GET desde el
-// menú/acceso directo que arma la URL de esta página.
-$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 0;
+$pagina_idx = 92;
+$pagina_id = 92;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 
 $pageTitle = "Precios de Proveedores";
 $currentPage = 'proveedor_precios';
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -22,27 +21,22 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     #tablaProveedorPrecios th {
         font-size: 0.72rem;
     }
+    /* Producto: el nombre y la compatibilidad necesitan lugar; sin esto la
+       columna quedaba angosta frente a las de las listas de precio. */
+    #tablaProveedorPrecios th.col-producto,
+    #tablaProveedorPrecios td.col-producto {
+        min-width: 360px;
+        white-space: normal;
+    }
+    @media (max-width: 767.98px) {
+        #tablaProveedorPrecios th.col-producto,
+        #tablaProveedorPrecios td.col-producto { min-width: 220px; }
+    }
+    #tablaImportaciones, #tablaDetalleImportacion { font-size: 0.82rem; }
 </style>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-truck-loading me-2"></i>Precios de Proveedores
-                    </h3>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Compras</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Precios de Proveedores</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Precios de proveedores','fas fa-truck-loading', '', ['Compras']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -177,6 +171,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <span class="badge bg-warning text-dark ms-1 d-none" id="badgeControl"></span>
                                             </button>
                                         </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="tab-importaciones-btn" data-bs-toggle="tab" data-bs-target="#tab-importaciones" type="button" role="tab" aria-controls="tab-importaciones" aria-selected="false">
+                                                <i class="fas fa-history me-1"></i>Importaciones
+                                            </button>
+                                        </li>
                                     </ul>
 
                                     <div class="card-body tab-content" id="contenidoTabsProveedorPrecios">
@@ -245,6 +244,25 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <tbody></tbody>
                                                 </table>
                                             </div>
+                                        </div>
+
+                                        <!-- Solapa Importaciones: cada lista importada, con el archivo
+                                             original y el resultado fila por fila (para controlar errores
+                                             del archivo). Del proveedor elegido o, sin proveedor, de todos. -->
+                                        <div class="tab-pane fade" id="tab-importaciones" role="tabpanel" aria-labelledby="tab-importaciones-btn">
+                                            <table class="table table-sm table-striped table-bordered" id="tablaImportaciones" style="width:100%">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Fecha</th><th>Proveedor</th><th>Archivo</th><th class="ui-detalle">Usuario</th>
+                                                        <th class="text-end">Filas</th><th class="text-end">Cargados <?= ui_ayuda('Precios nuevos más precios actualizados') ?></th>
+                                                        <th class="text-end">Sin cambios</th><th class="text-end">No vinculados</th>
+                                                        <th class="text-end">Con error <?= ui_ayuda('Filas sin código, con precio vacío o en cero, con el código repetido o que no se pudieron grabar') ?></th>
+                                                        <th class="text-end">No vinieron <?= ui_ayuda('Productos vinculados al proveedor que no estaban en el archivo') ?></th>
+                                                        <th>Estado</th><th class="text-center">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 </div>
@@ -355,6 +373,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 listados aparte para vincular manualmente en el ABM de Productos-Proveedores.
                                 Al terminar, también se listan los productos vinculados a este proveedor cuyo
                                 código no vino en el archivo (posible cambio de código del proveedor).
+                                El archivo y el resultado de cada fila quedan en la solapa <strong>Importaciones</strong>.
                             </p>
                             <input type="file" id="inputArchivoExcel" class="form-control mb-3" accept=".xlsx,.xls">
                             <div class="progress mb-2 d-none" id="progressImportacion">
@@ -365,6 +384,45 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="modal-footer py-2">
                             <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                             <button class="btn btn-success" id="btnProcesarImportacion">Procesar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================ -->
+            <!-- MODAL: Detalle de una importación (fila por fila)            -->
+            <!-- ============================================================ -->
+            <div class="modal fade" id="modalDetalleImportacion" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header bg-gradient-secondary text-white py-2">
+                            <h5 class="modal-title" id="modalDetalleImportacionTitulo">Importación</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body p-3">
+                            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                                <select class="form-select form-select-sm" id="filtroResultadoImportacion" style="width:auto;"></select>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="btnExportarDetalleImportacion" title="Exportar el detalle a Excel">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <a class="btn btn-sm btn-outline-secondary" id="linkArchivoImportacion" href="#" title="Descargar el archivo tal como se cargó">
+                                    <i class="fas fa-download me-1"></i>Archivo original
+                                </a>
+                                <div class="small ms-auto" id="resumenDetalleImportacion"></div>
+                            </div>
+                            <table class="table table-sm table-striped table-bordered" id="tablaDetalleImportacion" style="width:100%">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="text-end">Fila</th><th>Cód. Prov.</th><th>Descripción del archivo</th><th>Producto</th>
+                                        <th class="text-end">Precio</th><th class="text-end">Precio anterior</th><th>Vigente desde</th>
+                                        <th>Resultado</th><th>Observación</th><th>Código</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                         </div>
                     </div>
                 </div>
@@ -424,19 +482,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 </div>
             </div>
 
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
-            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+            <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+            <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+            <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+            <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
 
-            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-            <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
 
             <script>
                 const PAGINA_ID = <?= $pagina_id ?>;

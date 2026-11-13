@@ -99,7 +99,7 @@ $(document).ready(function () {
                     className: 'text-end',
                     render: function (data) {
                         let num = parseFloat(data || 0);
-                        return `<strong class="text-primary fs-7">$ ${num.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>`;
+                        return `<strong class="text-primary fs-7">$ ${Fmt.numero(num, 2)}</strong>`;
                     }
                 },
                 {
@@ -131,14 +131,14 @@ $(document).ready(function () {
                     className: 'text-center',
                     render: function (data, type, row) {
                         return `
-                            <button type="button" class="btn btn-xs btn-outline-danger btn-eliminar-abono" data-id="${row.abono_id}" title="Dar de baja abono">
+                            <button type="button" class="btn btn-xs btn-outline-danger btn-eliminar-abono" data-funcion="inhabilitar" data-id="${row.abono_id}" title="Dar de baja abono">
                                 <i class="fas fa-trash"></i>
                             </button>
                         `;
                     }
                 }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             dom: '<"row align-items-center p-2 mb-0"<"col-12 col-md-6"l><"col-12 col-md-6 text-end"f>>' +
                  '<"row"<"col-12"tr>>' +
                  '<"row align-items-center p-2 mt-2"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-end"p>>',
@@ -201,7 +201,7 @@ $(document).ready(function () {
                 },
                 { data: 'descripcion' }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.4/es-ES.json' },
             dom: '<"row align-items-center p-2 mb-0"<"col-12 col-md-6"l><"col-12 col-md-6 text-end"f>>' +
                  '<"row"<"col-12"tr>>' +
                  '<"row align-items-center p-2 mt-2"<"col-12 col-md-5"i><"col-12 col-md-7 d-flex justify-content-end"p>>',

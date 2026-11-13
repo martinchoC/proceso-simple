@@ -1,7 +1,14 @@
 <?php
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
-$ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['empresas_parametros.php']]);
+$opciones_guard = ['modulo_id' => 2, 'paginas_url' => ['empresas_parametros.php']];
+$ctx = ajax_guard($opciones_guard);
+// La pantalla elige la empresa (empresa_id): tiene que ser una del usuario y con acceso a esta página en ella
+$empresa_pedida = intval($_REQUEST['empresa_id'] ?? 0);
+if ($empresa_pedida > 0 && $empresa_pedida !== intval($ctx['empresa_id'])) {
+    ajax_guard_exigir_empresa($conn, intval($ctx['usuario_id']), $empresa_pedida);
+    ajax_guard_paginas_url($conn, intval($ctx['usuario_id']), $empresa_pedida, $opciones_guard['modulo_id'], $opciones_guard['paginas_url']);
+}
 /**
  * Controlador AJAX para Parámetros Generales de Empresa
  */
@@ -28,6 +35,13 @@ $accion = $_REQUEST['accion'] ?? '';
 $usuario_id = $_SESSION['usuario_id'] ?? null;
 
 try {
+    // Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+    permisos_exigir_accion($conn, pagina_id_por_url($conn, 2, 'empresas_parametros.php'), (string)$accion, [
+        'guardar' => (intval($_POST['empresa_parametro_id'] ?? 0) > 0 ? 'editar' : 'guardar'),
+        'cambiar_estado' => (intval($_POST['nuevo_estado'] ?? 1) === 1 ? 'habilitar' : 'inactivar'),
+        'impresion_guardar' => 'editar',
+        'impresion_cambiar_estado' => 'editar',
+    ]);
     switch ($accion) {
         case 'obtener_catalogos':
             $empresa_id = intval($_GET['empresa_id'] ?? $ctx['empresa_id']);
@@ -38,7 +52,10 @@ try {
                 'jurisdicciones_sedes' => obtenerJurisdiccionesSedesCatalogo($conexion),
                 'puntos_venta' => obtenerPuntosVentaCatalogo($conexion, $empresa_id),
                 'listas_precios' => obtenerListasPreciosCatalogo($conexion, $empresa_id),
-                'condiciones_pago' => obtenerCondicionesPagoCatalogo($conexion, $empresa_id)
+                'condiciones_pago' => obtenerCondicionesPagoCatalogo($conexion, $empresa_id),
+                // Certificados de la empresa: solo si es una del usuario
+                'integraciones_arca' => ajax_guard_usuario_tiene_empresa($conexion, intval($ctx['usuario_id']), $empresa_id)
+                    ? obtenerIntegracionesArcaCatalogo($conexion, $empresa_id) : []
             ];
             echo json_encode($catalogos, JSON_UNESCAPED_UNICODE);
             break;
@@ -85,10 +102,14 @@ try {
                 'iibb_regimen_id' => !empty($_POST['iibb_regimen_id']) ? intval($_POST['iibb_regimen_id']) : 1,
                 'jurisdiccion_sede_id' => !empty($_POST['jurisdiccion_sede_id']) ? intval($_POST['jurisdiccion_sede_id']) : 2,
                 'inicio_actividades' => $_POST['inicio_actividades'] ?? null,
+                'mes_cierre_ejercicio' => intval($_POST['mes_cierre_ejercicio'] ?? 12),
                 'leyenda_fiscal' => $_POST['leyenda_fiscal'] ?? null,
                 'arca_habilitado' => intval($_POST['arca_habilitado'] ?? 0),
+                'arca_integracion_empresa_id' => intval($_POST['arca_integracion_empresa_id'] ?? 0),
                 'compra_actualiza_lista_proveedor' => intval($_POST['compra_actualiza_lista_proveedor'] ?? 0),
                 'compra_actualiza_listas_venta' => intval($_POST['compra_actualiza_listas_venta'] ?? 0),
+                'ia_lectura_tope_diario' => intval($_POST['ia_lectura_tope_diario'] ?? 20),
+                'ia_asistente_tope_diario' => intval($_POST['ia_asistente_tope_diario'] ?? 50),
                 'f_desde' => $_POST['f_desde'] ?? '',
                 'f_hasta' => !empty($_POST['f_hasta']) ? $_POST['f_hasta'] : null,
                 'observaciones' => $_POST['observaciones'] ?? null,

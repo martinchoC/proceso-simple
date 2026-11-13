@@ -63,12 +63,12 @@ $(document).ready(function () {
                         <div><strong>${it.concepto_nombre}</strong></div>
                         <div class="text-muted fs-8">PV ${it.punto_venta_codigo} - Factura ${it.condicion_fiscal_codigo === 'RI' ? 'A' : 'B'}</div>
                     </td>
-                    <td class="text-end">$ ${it.importe_base.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end">$ ${it.adicional_legajos.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end">$ ${it.novedades_monto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end fw-semibold">$ ${it.importe_neto.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end text-muted">$ ${it.importe_iva.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
-                    <td class="text-end text-primary fw-bold fs-7">$ ${it.importe_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</td>
+                    <td class="text-end">$ ${Fmt.numero(it.importe_base, 2)}</td>
+                    <td class="text-end">$ ${Fmt.numero(it.adicional_legajos, 2)}</td>
+                    <td class="text-end">$ ${Fmt.numero(it.novedades_monto, 2)}</td>
+                    <td class="text-end fw-semibold">$ ${Fmt.numero(it.importe_neto, 2)}</td>
+                    <td class="text-end text-muted">$ ${Fmt.numero(it.importe_iva, 2)}</td>
+                    <td class="text-end text-primary fw-bold fs-7">$ ${Fmt.numero(it.importe_total, 2)}</td>
                     <td>${badgeEstado}</td>
                 </tr>
             `;
@@ -102,7 +102,7 @@ $(document).ready(function () {
             }
         });
 
-        $('#txt_total_lote').text('$ ' + total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+        $('#txt_total_lote').text('$ ' + Fmt.numero(total, 2));
         $('#txt_conteo_sel').text(count + ' seleccionados');
     }
 
@@ -142,10 +142,11 @@ $(document).ready(function () {
                     abonos: seleccionados
                 }, function (res) {
                     if (res.success) {
+                        const conProblemas = res.data && res.data.errores && res.data.errores.length > 0;
                         Swal.fire({
-                            title: '¡Facturación Exitosa!',
+                            title: conProblemas ? 'Facturación con observaciones' : '¡Facturación Exitosa!',
                             text: res.message,
-                            icon: 'success'
+                            icon: conProblemas ? 'warning' : 'success'
                         });
                         cargarConsolidacion();
                     } else {

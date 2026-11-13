@@ -33,6 +33,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 92);
+// Solo una página de este módulo (si no, la de proveedor_precios.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'proveedor_precios.php');
 $usuario_id = intval($_SESSION['usuario_id'] ?? 0);
 
 if (!$conexion) {
@@ -112,6 +114,8 @@ try {
 
         case 'agregar':
         case 'editar':
+            // Si la página tiene la función, el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), $accion === 'agregar' ? 'agregar' : 'editar', true);
             $data = [
                 'producto_id' => intval($_POST['producto_id'] ?? 0),
                 'empresa_id' => $empresa_idx,
@@ -129,13 +133,15 @@ try {
         case 'ejecutar_accion':
             $id = intval($_POST['producto_proveedor_precio_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoPrecioProveedor($conexion, $id, $accion_js, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_historial':
             $producto_proveedor_id = intval($_GET['producto_proveedor_id'] ?? 0);
-            $historial = obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id);
+            $historial = obtenerHistorialPrecioProveedor($conexion, $producto_proveedor_id, $empresa_idx);
             echo json_encode($historial, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -156,10 +162,51 @@ try {
                 manejarError('Error al decodificar el lote: ' . json_last_error_msg(), 400);
             }
             $archivo_nombre = trim($_POST['archivo_nombre'] ?? '');
+            $importacion_id = intval($_POST['importacion_id'] ?? 0);
 
-            $resultado = importarListaProveedorDesdeExcel($conexion, $empresa_idx, $entidad_id, $items, $usuario_id, $archivo_nombre, $pagina_idx);
+            $resultado = importarListaProveedorDesdeExcel($conexion, $empresa_idx, $entidad_id, $items, $usuario_id, $archivo_nombre, $pagina_idx, $importacion_id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
+
+        // Historial de importaciones (core/proveedor_precios_importaciones.php).
+        // Antes del primer lote: sube el archivo original y abre la importación.
+        case 'importacion_iniciar':
+            try {
+                $r = ppi_iniciar($conexion, $empresa_idx, intval($_POST['entidad_id'] ?? 0), $usuario_id,
+                    $_FILES['archivo'] ?? null, $_POST['archivo_nombre'] ?? '', intval($_POST['filas_archivo'] ?? 0));
+                enviarRespuesta(['success' => true, 'data' => $r, 'message' => '']);
+            } catch (RuntimeException $ex) {
+                enviarRespuesta(['success' => false, 'message' => $ex->getMessage()]);
+            }
+            break;
+
+        case 'importaciones_listar':
+            enviarRespuesta(['success' => true, 'data' => ppi_listar($conexion, $empresa_idx, intval($_GET['entidad_id'] ?? 0)), 'message' => '']);
+            break;
+
+        case 'importacion_detalle':
+            $importacion_id = intval($_GET['importacion_id'] ?? 0);
+            $imp = ppi_obtener($conexion, $empresa_idx, $importacion_id);
+            if (!$imp) {
+                enviarRespuesta(['success' => false, 'message' => 'La importación no existe.']);
+            }
+            enviarRespuesta(['success' => true, 'data' => ppi_detalle($conexion, $empresa_idx, $importacion_id), 'message' => '']);
+            break;
+
+        case 'importacion_archivo':   // descarga el archivo original (solo de la empresa de la sesión)
+            $archivo = ppi_archivo($conexion, $empresa_idx, intval($_GET['importacion_id'] ?? 0));
+            if (!$archivo) {
+                http_response_code(404);
+                enviarRespuesta(['success' => false, 'message' => 'Archivo no encontrado.']);
+            }
+            if (ob_get_length()) ob_clean();
+            $nombre = preg_replace('/[^\w.\- ]/u', '_', $archivo['nombre']);
+            header('Content-Type: application/octet-stream');
+            header('Content-Length: ' . filesize($archivo['ruta_abs']));
+            header('Content-Disposition: attachment; filename="' . $nombre . '"');
+            header('X-Content-Type-Options: nosniff');
+            readfile($archivo['ruta_abs']);
+            exit;
 
         // Solapa "Control": productos vinculados al proveedor sin precio cargado.
         case 'listar_control':
@@ -176,7 +223,16 @@ try {
             if (json_last_error() !== JSON_ERROR_NONE || !is_array($codigos)) {
                 manejarError('Error al decodificar los códigos: ' . json_last_error_msg(), 400);
             }
-            echo json_encode(controlarVinculadosFueraDeImportacion($conexion, $empresa_idx, $entidad_id, $codigos), JSON_UNESCAPED_UNICODE);
+            $control = controlarVinculadosFueraDeImportacion($conexion, $empresa_idx, $entidad_id, $codigos);
+            // Cierra la importación del historial con los faltantes y su estado final.
+            $importacion_id = intval($_POST['importacion_id'] ?? 0);
+            if ($importacion_id > 0 && !empty($control['success'])) {
+                $imp = ppi_obtener($conexion, $empresa_idx, $importacion_id);
+                if ($imp && intval($imp['entidad_id']) === $entidad_id) {
+                    ppi_finalizar($conexion, $empresa_idx, $importacion_id, $control['data'], intval($_POST['lotes_fallidos'] ?? 0));
+                }
+            }
+            echo json_encode($control, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'actualizar_costo':
@@ -187,7 +243,8 @@ try {
             $costo_neto_compra = floatval($_POST['costo_neto_compra'] ?? -1);
             $moneda_id = emp_moneda_id($conexion, $empresa_idx, $_POST['moneda_id'] ?? 0);
 
-            $resultado = actualizarCostoDesdeListaProveedor($conexion, $producto_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id);
+            $resultado = validarProveedorPrincipalParaCosto($conexion, $empresa_idx, $entidad_id, $producto_id)
+                ?? actualizarCostoDesdeListaProveedor($conexion, $producto_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -203,7 +260,8 @@ try {
             $categoria_id = $categorias[$producto_id] ?? 0;
             $contexto = obtenerContextoCalculoPrecios($conexion, $empresa_idx, $entidad_id);
 
-            $resultado = actualizarSoloPreciosVenta($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $usuario_id, $contexto);
+            $resultado = validarProveedorPrincipalParaCosto($conexion, $empresa_idx, $entidad_id, $producto_id)
+                ?? actualizarSoloPreciosVenta($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $usuario_id, $contexto);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -217,7 +275,8 @@ try {
             $categoria_id = $categorias[$producto_id] ?? 0;
             $contexto = obtenerContextoCalculoPrecios($conexion, $empresa_idx, $entidad_id);
 
-            $resultado = aplicarActualizacionCostoYPrecios($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id, $contexto);
+            $resultado = validarProveedorPrincipalParaCosto($conexion, $empresa_idx, $entidad_id, $producto_id)
+                ?? aplicarActualizacionCostoYPrecios($conexion, $producto_id, $categoria_id, $empresa_idx, $entidad_id, $costo_neto_compra, $moneda_id, $usuario_id, $contexto);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

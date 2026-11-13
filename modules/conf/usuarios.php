@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Usuarios";
 $currentPage = 'usuarios';
 $modudo_idx = 1;
+$pagina_idx = 18; // conf__paginas
+$ui_simple = true;
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 
@@ -11,19 +13,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Usuarios</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Usuarios</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Usuarios', 'bi bi-person', 'Usuarios que ingresan al sistema.', ['Empresas y accesos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -428,7 +418,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 font-size: 0.75rem;
             }
             </style>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
             <?php
             require_once ROOT_PATH . '/templates/adminlte/footer1.php';

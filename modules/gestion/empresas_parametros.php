@@ -9,6 +9,7 @@ $pageTitle = "Parámetros de Empresa";
 $currentPage = 'empresas_parametros';
 $modulo_idx = 2;
 $pagina_idx = 111;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -20,139 +21,97 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
 ?>
 
 <main class="app-main">
-    <!-- Header -->
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0 fw-bold">
-                        <i class="fas fa-sliders-h me-2 text-primary"></i>Parámetros de Empresa
-                    </h3>
-                    <small class="text-muted">Configuración fiscal y variables generales con historial de vigencias</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Seteo Empresas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Parámetros de Empresa</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Parámetros de empresa', 'bi bi-sliders',
+        'Datos fiscales y valores por defecto de la empresa. Cada cambio queda como una versión con su fecha de vigencia.',
+        ['Seteo Empresas'],
+        '<select class="form-select form-select-sm" id="selectEmpresaFiltro" style="width: 240px;" aria-label="Empresa">'
+        . '<option value="">Cargando empresas…</option></select>'
+        . '<button type="button" class="btn btn-primary" id="btnNuevaVersion" data-funcion="guardar"><i class="bi bi-plus-lg me-1"></i>Nueva versión</button>'); ?>
 
-    <!-- Contenido -->
     <div class="app-content">
         <div class="container-fluid">
-            
-            <!-- Selector de Empresa -->
-            <div class="card card-outline card-secondary mb-3 shadow-sm">
-                <div class="card-body py-2">
-                    <div class="row align-items-center g-2">
-                        <div class="col-auto">
-                            <label for="selectEmpresaFiltro" class="col-form-label fw-bold">
-                                <i class="fas fa-building me-1 text-primary"></i>Empresa:
-                            </label>
-                        </div>
-                        <div class="col-md-5 col-sm-8">
-                            <select class="form-select form-select-sm" id="selectEmpresaFiltro">
-                                <option value="">Cargando empresas...</option>
-                            </select>
-                        </div>
-                        <div class="col-auto ms-auto">
-                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevaVersion">
-                                <i class="fas fa-plus-circle me-1"></i>Nueva Versión de Parámetros
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card de Parámetros Vigentes -->
-            <div class="card card-outline card-primary mb-3 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <h5 class="card-title mb-0 fs-6 fw-bold">
-                        <i class="fas fa-check-circle text-success me-2"></i>Condición y Parámetros Fiscales Vigentes
-                    </h5>
-                    <div>
-                        <span id="badgeEstadoVigente"></span>
-                    </div>
+            <div class="card">
+                <div class="card-header pb-0 border-0">
+                    <ul class="nav ui-solapas" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#solapaVigentes" type="button" role="tab">Vigentes</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#solapaImpresion" type="button" role="tab">Impresión</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#solapaHistorial" type="button" role="tab">Historial</button>
+                        </li>
+                    </ul>
                 </div>
                 <div class="card-body">
-                    <div id="contenedorParametrosVigentes">
-                        <div class="text-center py-4 text-muted">
-                            <i class="fas fa-spinner fa-spin me-2"></i>Cargando parámetros vigentes...
+                    <div class="tab-content">
+
+                        <!-- Parámetros vigentes -->
+                        <div class="tab-pane fade show active" id="solapaVigentes" role="tabpanel">
+                            <div class="mb-3" id="badgeEstadoVigente"></div>
+                            <div id="contenedorParametrosVigentes">
+                                <div class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2"></span>Cargando…
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Configuración de impresión (gestion__empresas_impresion) -->
+                        <div class="tab-pane fade" id="solapaImpresion" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                                <span class="text-muted small">Formato de los comprobantes impresos
+                                    <?= ui_ayuda('La configuración General vale para todos los comprobantes; una por tipo de comprobante la reemplaza para ese tipo. Sin configuración se imprime en A4, con 1 copia.') ?></span>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnNuevaImpresion" data-funcion="editar">
+                                    <i class="bi bi-plus-lg me-1"></i>Nueva configuración
+                                </button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Aplica a</th>
+                                            <th>Formato</th>
+                                            <th class="text-center">Copias</th>
+                                            <th>Se muestra</th>
+                                            <th>Texto al pie</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyImpresion">
+                                        <tr><td colspan="7" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Cargando…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Historial de versiones -->
+                        <div class="tab-pane fade" id="solapaHistorial" role="tabpanel">
+                            <div class="table-responsive">
+                                <table id="tablaHistorialParametros" class="table table-hover align-middle mb-0" style="width:100%">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Condición IVA</th>
+                                            <th>IIBB y sede</th>
+                                            <th>N° IIBB</th>
+                                            <th>PV por defecto</th>
+                                            <th>Desde</th>
+                                            <th>Hasta</th>
+                                            <th>Observaciones</th>
+                                            <th>Estado</th>
+                                            <th class="text-end">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>
-
-            <!-- Card de Configuración de Impresión (gestion__empresas_impresion) -->
-            <div class="card card-outline card-info mb-3 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center py-2">
-                    <h5 class="card-title mb-0 fs-6 fw-bold">
-                        <i class="fas fa-print text-info me-2"></i>Impresión de Comprobantes
-                    </h5>
-                    <button type="button" class="btn btn-sm btn-outline-info" id="btnNuevaImpresion">
-                        <i class="fas fa-plus-circle me-1"></i>Nueva configuración
-                    </button>
-                </div>
-                <div class="card-body p-2">
-                    <div class="small text-muted px-1 mb-2">
-                        La configuración <b>General</b> vale para todos los comprobantes de la empresa; una por tipo de comprobante la reemplaza para ese tipo.
-                        Sin configuración se imprime en A4, con 1 copia.
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Aplica a</th>
-                                    <th>Formato</th>
-                                    <th class="text-center">Copias</th>
-                                    <th>Se muestra</th>
-                                    <th>Texto al pie</th>
-                                    <th width="90" class="text-center">Estado</th>
-                                    <th width="90" class="text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyImpresion">
-                                <tr><td colspan="7" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card con Historial de Parámetros -->
-            <div class="card card-outline card-secondary shadow-sm">
-                <div class="card-header py-2">
-                    <h5 class="card-title mb-0 fs-6 fw-bold">
-                        <i class="fas fa-history text-muted me-2"></i>Historial de Modificaciones y Vigencias
-                    </h5>
-                </div>
-                <div class="card-body p-2">
-                    <div class="table-responsive">
-                        <table id="tablaHistorialParametros" class="table table-sm table-striped table-hover align-middle mb-0" style="width:100%">
-                            <thead class="table-light">
-                                <tr>
-                                    <th width="50" class="text-center">ID</th>
-                                    <th>Condición IVA</th>
-                                    <th>Régimen IIBB & Sede</th>
-                                    <th>Nro. IIBB</th>
-                                    <th>PV Defecto</th>
-                                    <th class="text-center">Vigencia Desde</th>
-                                    <th class="text-center">Vigencia Hasta</th>
-                                    <th>Observaciones</th>
-                                    <th width="90" class="text-center">Estado</th>
-                                    <th width="90" class="text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
         </div>
     </div>
 
@@ -160,44 +119,35 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
     <div class="modal fade" id="modalImpresion" tabindex="-1" aria-labelledby="modalImpresionLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white py-2">
-                    <h5 class="modal-title fs-6" id="modalImpresionLabel"><i class="fas fa-print me-2"></i>Configuración de Impresión</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalImpresionLabel"><i class="bi bi-printer me-2"></i>Impresión</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
                     <form id="formImpresion">
                         <input type="hidden" id="empresa_impresion_id" value="">
-                        <div class="row g-2">
+                        <div class="row g-3">
                             <div class="col-12">
-                                <label for="imp_subgrupo" class="form-label fw-bold mb-1">Aplica a</label>
-                                <select class="form-select form-select-sm" id="imp_subgrupo"></select>
+                                <label for="imp_subgrupo" class="form-label">Aplica a</label>
+                                <select class="form-select" id="imp_subgrupo"></select>
                             </div>
-                            <div class="col-md-8">
-                                <label for="imp_formato" class="form-label fw-bold mb-1">Formato</label>
-                                <select class="form-select form-select-sm" id="imp_formato">
+                            <div class="col-8">
+                                <label for="imp_formato" class="form-label">Formato</label>
+                                <select class="form-select" id="imp_formato">
                                     <option value="A4">A4 (hoja completa)</option>
                                     <option value="TICKET80">Ticket 80 mm (impresora térmica)</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label for="imp_copias" class="form-label fw-bold mb-1">Copias</label>
-                                <select class="form-select form-select-sm" id="imp_copias">
+                            <div class="col-4">
+                                <label for="imp_copias" class="form-label">Copias</label>
+                                <select class="form-select" id="imp_copias">
                                     <option value="1">1 - Original</option>
                                     <option value="2">2 - + Duplicado</option>
                                     <option value="3">3 - + Triplicado</option>
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label for="imp_fuente" class="form-label fw-bold mb-1">Tipografía</label>
-                                <select class="form-select form-select-sm" id="imp_fuente">
-                                    <?php require_once ROOT_PATH . '/core/impresion.php'; foreach (IMPRESION_FUENTES as $clave => $f): ?>
-                                    <option value="<?= htmlspecialchars($clave) ?>"><?= htmlspecialchars($f[0]) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <div class="form-text mt-0">Roboto, Open Sans, Lato, Source Sans, Inter y Nunito Sans son finas; la angosta entra más texto por renglón.</div>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold mb-1">Se muestra</label>
+                                <label class="form-label">Se muestra</label>
                                 <div class="d-flex flex-wrap gap-3">
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="imp_logo"><label class="form-check-label" for="imp_logo">Logo</label></div>
                                     <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="imp_codigo"><label class="form-check-label" for="imp_codigo">Código de producto</label></div>
@@ -206,23 +156,37 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
                                 </div>
                             </div>
                             <div class="col-12">
-                                <label for="imp_pie" class="form-label fw-bold mb-1">Texto al pie</label>
-                                <textarea class="form-control form-control-sm" id="imp_pie" rows="3" maxlength="1000" placeholder="Ej: CBU 0000000000000000000000 - Alias CASA.LUCHO - Garantía de 6 meses"></textarea>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-bold mb-1">Color de los títulos de la tabla (A4)</label>
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="imp_color_usar"><label class="form-check-label" for="imp_color_usar">Usar color</label></div>
-                                    <input type="color" class="form-control form-control-color form-control-sm" id="imp_color" value="#d9d9d9" title="Color">
-                                    <small class="text-muted">Sin marcar: gris.</small>
-                                </div>
+                                <label for="imp_pie" class="form-label">Texto al pie</label>
+                                <textarea class="form-control" id="imp_pie" rows="2" maxlength="1000" placeholder="CBU, alias, garantía…"></textarea>
                             </div>
                         </div>
+                        <details class="ui-mas-opciones">
+                            <summary>Tipografía y color</summary>
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label for="imp_fuente" class="form-label">Tipografía
+                                        <?= ui_ayuda('Roboto, Open Sans, Lato, Source Sans, Inter y Nunito Sans son finas; la angosta entra más texto por renglón.') ?></label>
+                                    <select class="form-select" id="imp_fuente">
+                                        <?php require_once ROOT_PATH . '/core/impresion.php'; foreach (IMPRESION_FUENTES as $clave => $f): ?>
+                                        <option value="<?= htmlspecialchars($clave) ?>"><?= htmlspecialchars($f[0]) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Color de los títulos de la tabla (A4)
+                                        <?= ui_ayuda('Sin marcar, los títulos salen en gris.') ?></label>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="form-check mb-0"><input class="form-check-input" type="checkbox" id="imp_color_usar"><label class="form-check-label" for="imp_color_usar">Usar color</label></div>
+                                        <input type="color" class="form-control form-control-color form-control-sm" id="imp_color" value="#d9d9d9" title="Color">
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
                     </form>
                 </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-sm btn-info text-white" id="btnGuardarImpresion"><i class="fas fa-save me-1"></i>Guardar</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnGuardarImpresion">Guardar</button>
                 </div>
             </div>
         </div>
@@ -230,11 +194,11 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
 
     <!-- Modal para Nueva Versión o Edición de Parámetros -->
     <div class="modal fade" id="modalParametros" tabindex="-1" aria-labelledby="modalParametrosLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalParametrosLabel">
-                        <i class="fas fa-sliders-h me-2"></i>Parámetros de Empresa
+                        <i class="bi bi-sliders me-2"></i>Parámetros de Empresa
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -243,209 +207,194 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
                         <input type="hidden" id="empresa_parametro_id" name="empresa_parametro_id" />
                         <input type="hidden" id="empresa_id_parametro" name="empresa_id" />
 
-                        <!-- Alerta informativa -->
-                        <div class="alert alert-info py-2 mb-3">
-                            <i class="fas fa-info-circle me-1"></i>
-                            <small>Al guardar una nueva vigencia, la condición fiscal del sistema y el régimen de IIBB para la empresa (<code>conf__empresas</code>) se actualizarán automáticamente.</small>
-                        </div>
-
-                        <!-- Sección 1: Nivel Nacional (IVA & ARCA/AFIP) -->
-                        <div class="card card-outline card-primary mb-3">
-                            <div class="card-header py-1 bg-light">
-                                <span class="fw-bold text-primary small">
-                                    <i class="fas fa-landmark me-1"></i>Nivel Nacional (Impuesto al Valor Agregado - IVA / AFIP-ARCA)
-                                </span>
+                        <!-- Datos fiscales: IVA e Ingresos Brutos -->
+                        <section class="ui-seccion">
+                            <div class="ui-seccion-cabecera">
+                                <h6 class="ui-seccion-titulo">Datos fiscales
+                                    <?= ui_ayuda('Al guardar, la condición fiscal y el régimen de IIBB de la empresa se actualizan también en su ficha.') ?></h6>
                             </div>
-                            <div class="card-body py-2">
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <label for="select_condicion_fiscal_id" class="form-label fw-bold mb-1">
-                                            Condición Fiscal Emisora *
-                                        </label>
-                                        <select class="form-select form-select-sm" id="select_condicion_fiscal_id" name="condicion_fiscal_id" required>
-                                            <option value="">Seleccione condición fiscal...</option>
-                                        </select>
-                                        <div class="invalid-feedback">Debe seleccionar una condición fiscal</div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="select_condicion_fiscal_id" class="form-label ui-requerido">Condición frente al IVA</label>
+                                    <select class="form-select" id="select_condicion_fiscal_id" name="condicion_fiscal_id" required>
+                                        <option value="">Elegí…</option>
+                                    </select>
+                                    <div class="invalid-feedback">Elegí la condición fiscal.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="inicio_actividades" class="form-label">Inicio de actividades</label>
+                                    <input type="date" class="form-control" id="inicio_actividades" name="inicio_actividades" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="mes_cierre_ejercicio" class="form-label ui-requerido">Mes de cierre del ejercicio
+                                        <?= ui_ayuda('Define el año contable: el ejercicio termina el último día de este mes. Lo usa Contabilidad > Cierre de Períodos Contables.') ?></label>
+                                    <select class="form-select" id="mes_cierre_ejercicio" name="mes_cierre_ejercicio" required>
+                                        <?php foreach (['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] as $i => $nombre_mes): ?>
+                                            <option value="<?= $i + 1 ?>"<?= $i === 11 ? ' selected' : '' ?>><?= $nombre_mes ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="select_iibb_regimen_id" class="form-label ui-requerido">Régimen de IIBB</label>
+                                    <select class="form-select" id="select_iibb_regimen_id" name="iibb_regimen_id" required>
+                                        <option value="">Elegí…</option>
+                                    </select>
+                                    <div class="invalid-feedback">Elegí el régimen de IIBB.</div>
+                                    <div id="help_iibb_regimen" class="ui-sub mt-1"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="select_jurisdiccion_sede_id" class="form-label ui-requerido">Sede
+                                        <?= ui_ayuda('Jurisdicción con su código ARCA / COMARB (ej. 901 CABA, 902 Bs. As.).') ?></label>
+                                    <select class="form-select" id="select_jurisdiccion_sede_id" name="jurisdiccion_sede_id" required>
+                                        <option value="">Elegí…</option>
+                                    </select>
+                                    <div class="invalid-feedback">Elegí la jurisdicción sede.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ingresos_brutos_nro" class="form-label">N° de IIBB
+                                        <?= ui_ayuda('Número local de la provincia o el CUIT / número de Convenio Multilateral.') ?></label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="ingresos_brutos_nro" name="ingresos_brutos_nro" maxlength="50" />
+                                        <button class="btn btn-outline-secondary" type="button" id="btnCopiarCuitIIBB" title="Copiar el CUIT de la empresa">Usar CUIT</button>
                                     </div>
-                                    <div class="col-md-6">
-                                        <label for="inicio_actividades" class="form-label mb-1">Fecha Inicio de Actividades</label>
-                                        <input type="date" class="form-control form-control-sm" id="inicio_actividades" name="inicio_actividades" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="leyenda_fiscal" class="form-label">Leyenda en comprobantes</label>
+                                    <input type="text" class="form-control" id="leyenda_fiscal" name="leyenda_fiscal" placeholder="IVA Responsable Inscripto" maxlength="255" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Factura electrónica -->
+                        <section class="ui-seccion">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="arca_habilitado" name="arca_habilitado" value="1">
+                                <label class="form-check-label fw-medium" for="arca_habilitado">Factura electrónica con ARCA (CAE)
+                                    <?= ui_ayuda('Activada: las facturas A/B se confirman recién cuando ARCA da el CAE, con el número de ARCA. Desactivada: se numeran al confirmar y la aprobación es manual.') ?></label>
+                            </div>
+                            <div class="mt-2" id="divArcaIntegracion" style="display:none;">
+                                <label for="arca_integracion_empresa_id" class="form-label ui-requerido">Certificado para pedir el CAE
+                                    <?= ui_ayuda('Certificados WSFE de la empresa y los que otra empresa le delegó. Homologación da CAE de prueba, sin valor fiscal; Producción emite comprobantes reales. Solo aparecen los activos con certificado vigente.') ?></label>
+                                <select class="form-select" id="arca_integracion_empresa_id" name="arca_integracion_empresa_id">
+                                    <option value="">Elegí el certificado…</option>
+                                </select>
+                            </div>
+                        </section>
+
+                        <!-- Valores por defecto -->
+                        <section class="ui-seccion">
+                            <div class="ui-seccion-cabecera">
+                                <h6 class="ui-seccion-titulo">Por defecto al emitir</h6>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="punto_venta_defecto_id" class="form-label">Punto de venta</label>
+                                    <select class="form-select" id="punto_venta_defecto_id" name="punto_venta_defecto_id">
+                                        <option value="">Sin definir</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="lista_precio_defecto_id" class="form-label">Lista de precios</label>
+                                    <select class="form-select" id="lista_precio_defecto_id" name="lista_precio_defecto_id">
+                                        <option value="">Sin definir</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="condicion_pago_defecto_id" class="form-label">Condición de pago</label>
+                                    <select class="form-select" id="condicion_pago_defecto_id" name="condicion_pago_defecto_id">
+                                        <option value="">Sin definir</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Vigencia -->
+                        <section class="ui-seccion">
+                            <div class="ui-seccion-cabecera">
+                                <h6 class="ui-seccion-titulo">Vigencia</h6>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label for="f_desde" class="form-label ui-requerido">Desde</label>
+                                    <input type="date" class="form-control" id="f_desde" name="f_desde" required />
+                                    <div class="invalid-feedback">Indicá desde cuándo rige.</div>
+                                </div>
+                                <div class="col-6">
+                                    <label for="f_hasta" class="form-label">Hasta
+                                        <?= ui_ayuda('Vacío: rige sin fecha de fin.') ?></label>
+                                    <input type="date" class="form-control" id="f_hasta" name="f_hasta" />
+                                </div>
+                                <div class="col-12" id="divCerrarAnterior">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="cerrar_anterior" name="cerrar_anterior" value="1" checked />
+                                        <label class="form-check-label small" for="cerrar_anterior">Cerrar la versión anterior el día previo</label>
                                     </div>
-                                    <div class="col-12">
-                                        <label for="leyenda_fiscal" class="form-label mb-1">Leyenda Fiscal en Comprobantes</label>
-                                        <input type="text" class="form-control form-control-sm" id="leyenda_fiscal" name="leyenda_fiscal" placeholder="Ej: IVA Responsable Inscripto" maxlength="255" />
+                                </div>
+                                <div class="col-12">
+                                    <label for="observaciones" class="form-label">Motivo del cambio</label>
+                                    <textarea class="form-control" id="observaciones" name="observaciones" rows="2" placeholder="Opcional" maxlength="255"></textarea>
+                                </div>
+                            </div>
+                        </section>
+
+                        <details class="ui-mas-opciones">
+                            <summary>Compras y logo</summary>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="compra_actualiza_lista_proveedor" class="form-label">Al confirmar una compra, lista del proveedor
+                                        <?= ui_ayuda('Toma el precio unitario de la línea antes de descuentos. El costo del producto se actualiza siempre.') ?></label>
+                                    <select class="form-select" id="compra_actualiza_lista_proveedor" name="compra_actualiza_lista_proveedor">
+                                        <option value="0">No modificar</option>
+                                        <option value="1">Cargar solo los productos sin precio</option>
+                                        <option value="2">Actualizar siempre con el precio de la factura</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="compra_actualiza_listas_venta" class="form-label">Al confirmar una compra, listas de venta
+                                        <?= ui_ayuda('Igual que "Actualizar precios de venta" de Lista Precios Proveedores: las listas manuales o sin regla no se tocan.') ?></label>
+                                    <select class="form-select" id="compra_actualiza_listas_venta" name="compra_actualiza_listas_venta">
+                                        <option value="0">No modificar</option>
+                                        <option value="1">Recalcular con el costo nuevo (reglas de cada lista)</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <div class="small text-muted border rounded p-2 bg-light" id="ia_estado_empresa">
+                                        <i class="fas fa-robot me-1"></i>Si la empresa usa la inteligencia artificial y con qué clave se define en Configuración &gt; Empresas (vale para todos los módulos). Acá solo van los topes por día.
                                     </div>
-                                    <div class="col-12">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" role="switch" id="arca_habilitado" name="arca_habilitado" value="1">
-                                            <label class="form-check-label fw-bold" for="arca_habilitado">Facturación electrónica con ARCA (CAE)</label>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ia_lectura_tope_diario" class="form-label">Lecturas de facturas con IA por día
+                                        <?= ui_ayuda('Tope de envíos a la IA por día para la empresa al leer facturas de proveedores (cada uno tiene costo).') ?></label>
+                                    <input type="number" class="form-control" id="ia_lectura_tope_diario" name="ia_lectura_tope_diario" min="0" max="1000" step="1" value="20">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ia_asistente_tope_diario" class="form-label">Pedidos al Asistente IA por día
+                                        <?= ui_ayuda('Tope de pedidos al Asistente IA por día para toda la empresa (cada uno tiene costo).') ?></label>
+                                    <input type="number" class="form-control" id="ia_asistente_tope_diario" name="ia_asistente_tope_diario" min="0" max="1000" step="1" value="50">
+                                </div>
+                                <div class="col-12">
+                                    <label for="logo" class="form-label">Logo de los comprobantes
+                                        <?= ui_ayuda('PNG, JPG, GIF o WEBP, hasta 1 MB. Va arriba a la izquierda en las facturas. Una versión nueva conserva el logo anterior si no se sube otro.') ?></label>
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div id="logoPreviewBox" class="border rounded d-flex align-items-center justify-content-center bg-white" style="width:180px;height:70px;">
+                                            <img id="logoPreview" src="" alt="Logo" style="max-width:170px;max-height:62px;object-fit:contain;" class="d-none">
+                                            <small id="logoSinImagen" class="text-muted">Sin logo</small>
                                         </div>
-                                        <div class="form-text mt-0">
-                                            Activado: las facturas A/B se confirman recién cuando ARCA otorga el CAE, con el número que asigna ARCA
-                                            (usa la integración WSFE activa de Integraciones ARCA). Desactivado: se numeran al confirmar y la aprobación es manual.
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="compra_actualiza_lista_proveedor" class="form-label mb-1">Al confirmar una factura de compra, lista del proveedor</label>
-                                        <select class="form-select form-select-sm" id="compra_actualiza_lista_proveedor" name="compra_actualiza_lista_proveedor">
-                                            <option value="0">No modificar</option>
-                                            <option value="1">Cargar solo los productos sin precio</option>
-                                            <option value="2">Actualizar siempre con el precio de la factura</option>
-                                        </select>
-                                        <div class="form-text mt-0">Toma el precio unitario de la línea antes de descuentos. El costo del producto se actualiza siempre.</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="compra_actualiza_listas_venta" class="form-label mb-1">Al confirmar una factura de compra, listas de venta</label>
-                                        <select class="form-select form-select-sm" id="compra_actualiza_listas_venta" name="compra_actualiza_listas_venta">
-                                            <option value="0">No modificar</option>
-                                            <option value="1">Recalcular con el costo nuevo (reglas de cada lista)</option>
-                                        </select>
-                                        <div class="form-text mt-0">Igual que "Actualizar Precios de Venta" de Lista Precios Proveedores: las listas manuales o sin regla no se tocan.</div>
-                                    </div>
-                                    <div class="col-12">
-                                        <label for="logo" class="form-label mb-1">Logo para comprobantes impresos</label>
-                                        <div class="d-flex align-items-center gap-3">
-                                            <div id="logoPreviewBox" class="border rounded d-flex align-items-center justify-content-center bg-white" style="width:180px;height:70px;">
-                                                <img id="logoPreview" src="" alt="Logo" style="max-width:170px;max-height:62px;object-fit:contain;" class="d-none">
-                                                <small id="logoSinImagen" class="text-muted">Sin logo</small>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <input type="file" class="form-control form-control-sm" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp">
-                                                <input type="hidden" id="quitar_logo" name="quitar_logo" value="0">
-                                                <div class="d-flex justify-content-between align-items-center mt-1">
-                                                    <div class="form-text mt-0">PNG, JPG, GIF o WEBP, hasta 1 MB. Se imprime arriba a la izquierda en las facturas. Una vigencia nueva conserva el logo anterior si no se sube otro.</div>
-                                                    <button type="button" class="btn btn-xs btn-outline-danger ms-2 text-nowrap" id="btnQuitarLogo"><i class="fas fa-trash-alt me-1"></i>Quitar</button>
-                                                </div>
-                                            </div>
+                                        <div class="flex-grow-1 d-flex gap-2 align-items-center">
+                                            <input type="file" class="form-control" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp">
+                                            <input type="hidden" id="quitar_logo" name="quitar_logo" value="0">
+                                            <button type="button" class="btn btn-light text-danger text-nowrap" id="btnQuitarLogo"><i class="bi bi-trash me-1"></i>Quitar</button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Sección 2: Nivel Provincial (IIBB) -->
-                        <div class="card card-outline card-success mb-3">
-                            <div class="card-header py-1 bg-light">
-                                <span class="fw-bold text-success small">
-                                    <i class="fas fa-map-marked-alt me-1"></i>Nivel Provincial (Impuesto sobre los Ingresos Brutos - IIBB)
-                                </span>
-                            </div>
-                            <div class="card-body py-2">
-                                <div class="row g-2">
-                                    <!-- Régimen de IIBB -->
-                                    <div class="col-md-6">
-                                        <label for="select_iibb_regimen_id" class="form-label fw-bold mb-1">
-                                            Régimen de IIBB *
-                                        </label>
-                                        <select class="form-select form-select-sm" id="select_iibb_regimen_id" name="iibb_regimen_id" required>
-                                            <option value="">Seleccione régimen de IIBB...</option>
-                                        </select>
-                                        <div class="invalid-feedback">Debe seleccionar el régimen de IIBB</div>
-                                        <div id="help_iibb_regimen" class="text-muted small mt-1 p-1 bg-light rounded border"></div>
-                                    </div>
-
-                                    <!-- Sede Principal / Jurisdicción Sede -->
-                                    <div class="col-md-6">
-                                        <label for="select_jurisdiccion_sede_id" class="form-label fw-bold mb-1">
-                                            Sede Principal / Jurisdicción Sede *
-                                        </label>
-                                        <select class="form-select form-select-sm" id="select_jurisdiccion_sede_id" name="jurisdiccion_sede_id" required>
-                                            <option value="">Seleccione jurisdicción sede...</option>
-                                        </select>
-                                        <small class="text-muted">Código ARCA / COMARB (ej. 901 CABA, 902 Bs. As.)</small>
-                                        <div class="invalid-feedback">Debe seleccionar la jurisdicción sede</div>
-                                    </div>
-
-                                    <!-- Número de Inscripción en IIBB -->
-                                    <div class="col-md-12">
-                                        <label for="ingresos_brutos_nro" class="form-label fw-bold mb-1">
-                                            Número de Inscripción en IIBB
-                                        </label>
-                                        <div class="input-group input-group-sm">
-                                            <input type="text" class="form-control form-control-sm" id="ingresos_brutos_nro" name="ingresos_brutos_nro" placeholder="Número local o número de CUIT / Convenio" maxlength="50" />
-                                            <button class="btn btn-outline-secondary" type="button" id="btnCopiarCuitIIBB" title="Copiar CUIT de la empresa">
-                                                <i class="fas fa-copy me-1"></i>Copiar CUIT
-                                            </button>
-                                        </div>
-                                        <small class="text-muted">Número local provincial o número de CUIT / Convenio Multilateral</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección 3: Valores por Defecto -->
-                        <div class="card card-outline card-secondary mb-3">
-                            <div class="card-header py-1 bg-light">
-                                <span class="fw-bold text-secondary small">
-                                    <i class="fas fa-cogs me-1"></i>Valores por Defecto para Emisión de Comprobantes
-                                </span>
-                            </div>
-                            <div class="card-body py-2">
-                                <div class="row g-2">
-                                    <div class="col-md-4">
-                                        <label for="punto_venta_defecto_id" class="form-label mb-1">Punto de Venta Defecto</label>
-                                        <select class="form-select form-select-sm" id="punto_venta_defecto_id" name="punto_venta_defecto_id">
-                                            <option value="">Sin definir</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="lista_precio_defecto_id" class="form-label mb-1">Lista de Precios Defecto</label>
-                                        <select class="form-select form-select-sm" id="lista_precio_defecto_id" name="lista_precio_defecto_id">
-                                            <option value="">Sin definir</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label for="condicion_pago_defecto_id" class="form-label mb-1">Condición Pago Defecto</label>
-                                        <select class="form-select form-select-sm" id="condicion_pago_defecto_id" name="condicion_pago_defecto_id">
-                                            <option value="">Sin definir</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección 4: Vigencia y Control -->
-                        <div class="card card-outline card-dark mb-0">
-                            <div class="card-header py-1 bg-light">
-                                <span class="fw-bold text-dark small">
-                                    <i class="fas fa-calendar-alt me-1"></i>Vigencia y Control
-                                </span>
-                            </div>
-                            <div class="card-body py-2">
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <label for="f_desde" class="form-label fw-bold mb-1">Fecha Desde (Inicio Vigencia) *</label>
-                                        <input type="date" class="form-control form-control-sm" id="f_desde" name="f_desde" required />
-                                        <div class="invalid-feedback">La fecha desde es requerida</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="f_hasta" class="form-label fw-bold mb-1">Fecha Hasta (Fin Vigencia)</label>
-                                        <input type="date" class="form-control form-control-sm" id="f_hasta" name="f_hasta" />
-                                        <small class="text-muted">Dejar vacío para vigencia activa indefinida</small>
-                                    </div>
-                                    <div class="col-12" id="divCerrarAnterior">
-                                        <div class="form-check form-switch mt-1">
-                                            <input class="form-check-input" type="checkbox" id="cerrar_anterior" name="cerrar_anterior" value="1" checked />
-                                            <label class="form-check-label small" for="cerrar_anterior">
-                                                Cerrar automáticamente la vigencia anterior un día antes de la nueva fecha de inicio
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="col-12">
-                                        <label for="observaciones" class="form-label mb-1">Observaciones / Motivo del cambio</label>
-                                        <textarea class="form-control form-control-sm" id="observaciones" name="observaciones" rows="2" placeholder="Motivo o resolución del cambio de parámetros..." maxlength="255"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        </details>
 
                     </form>
                 </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="btnGuardarParametros">
-                        <i class="fas fa-save me-1"></i>Guardar Parámetros
-                    </button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnGuardarParametros">Guardar</button>
                 </div>
             </div>
         </div>
@@ -453,9 +402,9 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
 </main>
 
 <!-- JS Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/es.min.js"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/moment-2.29.4/moment.min.js') ?>"></script>
+<script src="<?= asset_local('js/moment-2.29.4/locale/es.min.js') ?>"></script>
 
 <script>
 $(document).ready(function() {
@@ -546,9 +495,41 @@ $(document).ready(function() {
                 });
             }
 
+            // Integraciones ARCA (WSFE): certificado + ambiente con el que se pide el CAE
+            var selArca = $('#arca_integracion_empresa_id');
+            selArca.empty();
+            selArca.append('<option value="">Seleccione la integración ARCA...</option>');
+            (catalogos.integraciones_arca || []).forEach(function(i) {
+                selArca.append($('<option>').val(i.integracion_empresa_id).text(textoIntegracionArca(i))
+                    .prop('disabled', parseInt(i.utilizable, 10) !== 1));
+            });
+
             if (typeof callback === 'function') callback();
         }, 'json');
     }
+
+    function textoIntegracionArca(i) {
+        var t = (i.ambiente_nombre || i.ambiente_codigo) + ' · ' + i.certificado_archivo;
+        if (parseInt(i.delegada, 10) === 1) t += ' · delegado por ' + (i.titular_empresa || ('empresa ' + i.titular_empresa_id)) + ' (CUIT ' + i.cuit + ')';
+        if (i.observaciones) t += ' · ' + i.observaciones;
+        if (i.certificado_vence) t += ' · vence ' + formatoFecha(i.certificado_vence);
+        if (parseInt(i.tabla_estado_registro_id, 10) !== 1) t += ' (inactiva)';
+        else if (parseInt(i.ambiente_activo, 10) !== 1) t += ' (ambiente inactivo)';
+        else if (parseInt(i.certificado_vencido, 10) === 1) t += ' (certificado vencido o no encontrado)';
+        return t;
+    }
+
+    // Con ARCA activado se elige el certificado; si hay uno solo utilizable, se propone
+    function actualizarArcaIntegracion() {
+        var activo = $('#arca_habilitado').is(':checked');
+        $('#divArcaIntegracion').toggle(activo);
+        $('#arca_integracion_empresa_id').prop('required', activo);
+        if (activo && !$('#arca_integracion_empresa_id').val()) {
+            var utilizables = $('#arca_integracion_empresa_id option[value!=""]:not(:disabled)');
+            if (utilizables.length === 1) $('#arca_integracion_empresa_id').val(utilizables.val());
+        }
+    }
+    $('#arca_habilitado').on('change', actualizarArcaIntegracion);
 
     function actualizarDescripcionRegimen() {
         var desc = $('#select_iibb_regimen_id option:selected').data('desc') || '';
@@ -569,9 +550,7 @@ $(document).ready(function() {
     });
 
     function formatoFecha(d) {
-        if (!d) return '';
-        var p = d.split('-');
-        return (p.length === 3) ? (p[2] + '/' + p[1] + '/' + p[0]) : d;
+        return Fmt.fecha(d);
     }
 
     // Cargar Parámetros Vigentes
@@ -583,149 +562,88 @@ $(document).ready(function() {
             empresa_id: empresaActualId
         }, function(res) {
             logoVigente = (res && res.logo_data) || '';
+            integracionArcaVigente = (res && res.arca_integracion_empresa_id) || '';
+            mesCierreVigente = (res && parseInt(res.mes_cierre_ejercicio, 10)) || 12;
             if (res && res.empresa_parametro_id) {
                 var fDesde = res.f_desde ? formatoFecha(res.f_desde) : '-';
                 var fHasta = res.f_hasta ? formatoFecha(res.f_hasta) : '<span class="badge bg-success">Abierta / Vigente</span>';
                 var fInicioAct = res.inicio_actividades ? formatoFecha(res.inicio_actividades) : '<span class="text-muted">No especificada</span>';
+                var mesCierre = $('#mes_cierre_ejercicio option[value="' + (parseInt(res.mes_cierre_ejercicio, 10) || 12) + '"]').text();
                 var pv = res.punto_venta_numero ? 'PV ' + res.punto_venta_numero + (res.punto_venta_descripcion ? ' (' + res.punto_venta_descripcion + ')' : '') : '<span class="text-muted">Sin definir</span>';
                 var lp = res.lista_precio ? res.lista_precio : '<span class="text-muted">Sin definir</span>';
                 var cp = res.condicion_pago ? res.condicion_pago : '<span class="text-muted">Sin definir</span>';
 
-                var regBadge = '<span class="badge bg-secondary">No definido</span>';
-                if (res.iibb_regimen_id == 1) {
-                    regBadge = '<span class="badge bg-primary fs-7"><i class="fas fa-map-pin me-1"></i>Local / Simplificado</span>';
-                } else if (res.iibb_regimen_id == 2) {
-                    regBadge = '<span class="badge fs-7" style="background-color:#6f42c1;color:white;"><i class="fas fa-network-wired me-1"></i>Convenio Multilateral</span>';
-                } else if (res.iibb_regimen_id == 3) {
-                    regBadge = '<span class="badge bg-warning text-dark fs-7"><i class="fas fa-shield-alt me-1"></i>Exento / No alcanzado</span>';
-                }
+                var regimen = ['No definido', 'Local / Simplificado', 'Convenio Multilateral', 'Exento / No alcanzado'][parseInt(res.iibb_regimen_id, 10) || 0] || 'No definido';
+                var regBadge = regimen + (res.iibb_regimen_descripcion
+                    ? ' <span class="ui-ayuda" tabindex="0" data-bs-toggle="tooltip" title="' + $('<div>').text(res.iibb_regimen_descripcion).html() + '"><i class="bi bi-question-circle"></i></span>'
+                    : '');
 
                 var sedeLabel = '<span class="text-muted">-</span>';
                 if (res.codigo_comarb) {
-                    var org = res.jurisdiccion_sede_organismo ? ` <small class="text-muted">(${res.jurisdiccion_sede_organismo})</small>` : '';
-                    sedeLabel = `<span class="badge bg-dark">${res.codigo_comarb}</span> <strong>${res.jurisdiccion_sede || ''}</strong>${org}`;
+                    var org = res.jurisdiccion_sede_organismo ? ` <span class="ui-sub">(${res.jurisdiccion_sede_organismo})</span>` : '';
+                    sedeLabel = `${res.jurisdiccion_sede || ''} <span class="ui-sub">${res.codigo_comarb}</span>${org}`;
                 }
 
-                $('#badgeEstadoVigente').html(`<span class="badge ${res.bg_clase || 'bg-success'} fs-7">${res.estado_registro || 'Activo'}</span>`);
+                $('#badgeEstadoVigente').html(`<span class="badge ${res.bg_clase || 'bg-success'}">${res.estado_registro || 'Activo'}</span>`
+                    + ` <span class="ui-sub ms-1">desde ${fDesde}${res.f_hasta ? ' hasta ' + formatoFecha(res.f_hasta) : ''}</span>`);
 
-                var html = `
-                    <div class="row g-3">
-                        <!-- Nivel Nacional (IVA) -->
-                        <div class="col-md-6 col-lg-3 border-end">
-                            <h6 class="text-uppercase text-primary fw-bold mb-2 small">
-                                <i class="fas fa-landmark me-1"></i>Nivel Nacional (IVA)
-                            </h6>
-                            <table class="table table-sm table-borderless mb-0">
-                                <tr>
-                                    <th width="45%" class="text-muted">Condición:</th>
-                                    <td><span class="fs-6 fw-bold text-primary">${res.condicion_fiscal}</span> <span class="badge bg-secondary">${res.condicion_fiscal_codigo || ''}</span></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">CUIT Emisora:</th>
-                                    <td><strong>${res.empresa_cuit || '-'}</strong></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Inicio Act.:</th>
-                                    <td>${fInicioAct}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Leyenda:</th>
-                                    <td><em>${res.leyenda_fiscal || '-'}</em></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">ARCA (CAE):</th>
-                                    <td>${parseInt(res.arca_habilitado, 10) === 1
-                                        ? '<span class="badge bg-success"><i class="fas fa-plug me-1"></i>Habilitado</span>'
-                                        : '<span class="badge bg-secondary">No habilitado</span>'}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Compras:</th>
-                                    <td><small>Lista prov.: ${['No modifica', 'Solo sin precio', 'Siempre'][parseInt(res.compra_actualiza_lista_proveedor, 10) || 0] || 'No modifica'}
-                                        · Listas venta: ${parseInt(res.compra_actualiza_listas_venta, 10) === 1 ? 'Recalcula' : 'No modifica'}</small></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Logo:</th>
-                                    <td>${res.logo_data
-                                        ? '<img src="' + res.logo_data + '" alt="Logo" style="max-width:140px;max-height:48px;object-fit:contain;">'
-                                        : '<span class="text-muted">Sin logo</span>'}</td>
-                                </tr>
-                            </table>
-                        </div>
+                var arca = parseInt(res.arca_habilitado, 10) === 1
+                    ? 'Habilitada' + (res.arca_integracion
+                        ? ' · ' + $('<div>').text(res.arca_integracion.ambiente_nombre).html()
+                          + '<div class="ui-sub">' + $('<div>').text(textoIntegracionArca(res.arca_integracion)).html() + '</div>'
+                        : ' <span class="ui-sub">(única integración WSFE activa)</span>')
+                    : '<span class="text-muted">No habilitada</span>';
 
-                        <!-- Nivel Provincial (IIBB) -->
-                        <div class="col-md-6 col-lg-4 border-end">
-                            <h6 class="text-uppercase text-success fw-bold mb-2 small">
-                                <i class="fas fa-map-marked-alt me-1"></i>Nivel Provincial (IIBB)
-                            </h6>
-                            <table class="table table-sm table-borderless mb-0">
-                                <tr>
-                                    <th width="38%" class="text-muted">Régimen IIBB:</th>
-                                    <td>${regBadge}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Alcance:</th>
-                                    <td><small class="text-muted">${res.iibb_regimen_descripcion || '-'}</small></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Nro. IIBB:</th>
-                                    <td><span class="fs-6 fw-bold text-dark font-monospace">${res.ingresos_brutos_nro || '-'}</span></td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Sede Principal:</th>
-                                    <td>${sedeLabel}</td>
-                                </tr>
-                            </table>
-                        </div>
+                var dato = function (etiqueta, valor) {
+                    return '<div class="col-sm-6 col-lg-4"><dt>' + etiqueta + '</dt><dd>' + valor + '</dd></div>';
+                };
+                var listaProv = ['no se modifica', 'solo sin precio', 'siempre'][parseInt(res.compra_actualiza_lista_proveedor, 10) || 0] || 'no se modifica';
+                var listasVenta = parseInt(res.compra_actualiza_listas_venta, 10) === 1 ? 'se recalculan' : 'no se modifican';
+                // Uso de la IA: se define en Configuración > Empresas (core/ia_empresa.php); acá solo los topes
+                var iaOn = parseInt(res.ia_empresa_habilitada, 10) === 1;
+                var iaClave = res.ia_empresa_origen === 'propia' ? 'clave propia ' + (res.ia_empresa_mascara || '')
+                    : (res.ia_empresa_origen === 'principal' ? 'clave de la empresa principal' + (res.ia_empresa_principal ? ' (' + res.ia_empresa_principal + ')' : '')
+                    : 'clave del servidor');
+                var usoIa = iaOn
+                    ? 'Habilitada <span class="ui-sub">· ' + $('<span>').text(iaClave).html() + '</span>'
+                      + '<div class="ui-sub">Hasta ' + (parseInt(res.ia_lectura_tope_diario, 10) || 0) + ' lecturas de facturas y '
+                      + (parseInt(res.ia_asistente_tope_diario, 10) || 0) + ' pedidos al asistente por día</div>'
+                    : '<span class="text-muted">Deshabilitada</span> <span class="ui-sub">(Configuración &gt; Empresas)</span>';
+                $('#ia_estado_empresa').html('<i class="fas fa-robot me-1"></i>Inteligencia artificial: ' + usoIa
+                    + '<div>Se habilita y se carga la clave en Configuración &gt; Empresas (vale para todos los módulos). Acá solo van los topes por día.</div>');
+                var logo = res.logo_data
+                    ? '<img src="' + res.logo_data + '" alt="Logo" style="max-width:140px;max-height:48px;object-fit:contain;">'
+                    : '<span class="text-muted">Sin logo</span>';
 
-                        <!-- Valores por Defecto -->
-                        <div class="col-md-6 col-lg-2 border-end">
-                            <h6 class="text-uppercase text-muted fw-bold mb-2 small">
-                                <i class="fas fa-cogs me-1"></i>Valores Defecto
-                            </h6>
-                            <table class="table table-sm table-borderless mb-0">
-                                <tr>
-                                    <th width="45%" class="text-muted">P. Venta:</th>
-                                    <td>${pv}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Lista Precios:</th>
-                                    <td>${lp}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Cond. Pago:</th>
-                                    <td>${cp}</td>
-                                </tr>
-                            </table>
-                        </div>
-
-                        <!-- Vigencia y Control -->
-                        <div class="col-md-6 col-lg-3">
-                            <h6 class="text-uppercase text-muted fw-bold mb-2 small">
-                                <i class="fas fa-calendar-alt me-1"></i>Vigencia y Control
-                            </h6>
-                            <table class="table table-sm table-borderless mb-2">
-                                <tr>
-                                    <th width="45%" class="text-muted">Desde:</th>
-                                    <td><i class="far fa-calendar-check text-success me-1"></i>${fDesde}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Hasta:</th>
-                                    <td>${fHasta}</td>
-                                </tr>
-                                <tr>
-                                    <th class="text-muted">Obs:</th>
-                                    <td><small class="text-muted">${res.observaciones || 'Sin observaciones'}</small></td>
-                                </tr>
-                            </table>
-                            <div class="mt-2 text-end">
-                                <button type="button" class="btn btn-xs btn-outline-primary btn-editar-param" data-id="${res.empresa_parametro_id}">
-                                    <i class="fas fa-edit me-1"></i>Editar Registro Vigente
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
+                var html =
+                    '<div class="ui-seccion"><h6 class="ui-seccion-titulo mb-2">Datos fiscales</h6><dl class="row g-3 ui-datos">' +
+                        dato('Condición frente al IVA', res.condicion_fiscal + (res.condicion_fiscal_codigo ? ' <span class="ui-sub">' + res.condicion_fiscal_codigo + '</span>' : '')) +
+                        dato('CUIT', res.empresa_cuit || '-') +
+                        dato('Inicio de actividades', fInicioAct) +
+                        dato('Cierre del ejercicio', mesCierre) +
+                        dato('Ingresos Brutos', regBadge) +
+                        dato('N° de IIBB', res.ingresos_brutos_nro || '-') +
+                        dato('Sede', sedeLabel) +
+                        dato('Leyenda en comprobantes', res.leyenda_fiscal || '-') +
+                    '</dl></div>' +
+                    '<div class="ui-seccion"><h6 class="ui-seccion-titulo mb-2">Facturación y compras</h6><dl class="row g-3 ui-datos">' +
+                        dato('Factura electrónica (ARCA)', arca) +
+                        dato('Al confirmar una compra', 'Lista del proveedor: ' + listaProv + '<div>Listas de venta: ' + listasVenta + '</div>') +
+                        dato('Inteligencia artificial', usoIa) +
+                        dato('Logo', logo) +
+                    '</dl></div>' +
+                    '<div class="ui-seccion"><h6 class="ui-seccion-titulo mb-2">Por defecto al emitir</h6><dl class="row g-3 ui-datos">' +
+                        dato('Punto de venta', pv) +
+                        dato('Lista de precios', lp) +
+                        dato('Condición de pago', cp) +
+                    '</dl></div>' +
+                    '<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 border-top pt-3">' +
+                        '<span class="ui-sub">' + (res.observaciones ? $('<div>').text(res.observaciones).html() : '') + '</span>' +
+                        '<button type="button" class="btn btn-sm btn-outline-primary btn-editar-param" data-funcion="editar" data-id="' + res.empresa_parametro_id + '">' +
+                            '<i class="bi bi-pencil me-1"></i>Editar</button>' +
+                    '</div>';
                 $('#contenedorParametrosVigentes').html(html);
+                if (window.UiSimple) UiSimple.tooltips('#contenedorParametrosVigentes');
             } else {
                 $('#badgeEstadoVigente').empty();
                 $('#contenedorParametrosVigentes').html(`
@@ -733,7 +651,7 @@ $(document).ready(function() {
                         <i class="fas fa-exclamation-triangle text-warning fs-3 d-block mb-2"></i>
                         Esta empresa no tiene parámetros vigentes configurados.
                         <div class="mt-3">
-                            <button type="button" class="btn btn-sm btn-primary" id="btnCrearPrimerosParametros">
+                            <button type="button" class="btn btn-sm btn-primary" id="btnCrearPrimerosParametros" data-funcion="guardar">
                                 <i class="fas fa-plus me-1"></i>Configurar Parámetros Iniciales
                             </button>
                         </div>
@@ -772,7 +690,7 @@ $(document).ready(function() {
             pageLength: 10,
             order: [[5, 'desc']],
             columns: [
-                { data: 'empresa_parametro_id', className: 'text-center fw-bold' },
+                { data: 'empresa_parametro_id', className: 'ui-detalle' },
                 {
                     data: 'condicion_fiscal',
                     render: function(data, type, row) {
@@ -796,12 +714,14 @@ $(document).ready(function() {
                 },
                 {
                     data: 'ingresos_brutos_nro',
+                    className: 'ui-detalle',
                     render: function(data) {
                         return data ? `<span class="font-monospace fw-bold">${data}</span>` : '<span class="text-muted">-</span>';
                     }
                 },
                 {
                     data: 'punto_venta_numero',
+                    className: 'ui-detalle',
                     render: function(data, type, row) {
                         if (!data) return '<span class="text-muted">-</span>';
                         return `PV ${data}` + (row.punto_venta_descripcion ? ` <small class="text-muted">(${row.punto_venta_descripcion})</small>` : '');
@@ -812,8 +732,7 @@ $(document).ready(function() {
                     className: 'text-center',
                     render: function(data) {
                         if (!data) return '-';
-                        var p = data.split('-');
-                        return (p.length === 3) ? (p[2] + '/' + p[1] + '/' + p[0]) : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
@@ -821,12 +740,12 @@ $(document).ready(function() {
                     className: 'text-center',
                     render: function(data) {
                         if (!data) return '<span class="badge bg-success">Abierta</span>';
-                        var p = data.split('-');
-                        return (p.length === 3) ? (p[2] + '/' + p[1] + '/' + p[0]) : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
                     data: 'observaciones',
+                    className: 'ui-detalle',
                     render: function(data) {
                         return data ? `<span title="${data}">${data}</span>` : '<span class="text-muted">-</span>';
                     }
@@ -844,20 +763,20 @@ $(document).ready(function() {
                     data: null,
                     orderable: false,
                     searchable: false,
-                    className: "text-center",
+                    className: 'ui-acciones',
                     render: function(data, type, row) {
                         var botones = '';
-                        botones += `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-param me-1" 
+                        botones += `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-param me-1" data-funcion="editar" 
                                         data-id="${row.empresa_parametro_id}" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>`;
                         if (row.tabla_estado_registro_id == 1) {
-                            botones += `<button type="button" class="btn btn-xs btn-outline-danger btn-estado-param" 
+                            botones += `<button type="button" class="btn btn-xs btn-outline-danger btn-estado-param" data-funcion="inactivar" 
                                             data-id="${row.empresa_parametro_id}" data-estado="2" title="Inhabilitar">
                                         <i class="fas fa-ban"></i>
                                     </button>`;
                         } else {
-                            botones += `<button type="button" class="btn btn-xs btn-outline-success btn-estado-param" 
+                            botones += `<button type="button" class="btn btn-xs btn-outline-success btn-estado-param" data-funcion="habilitar" 
                                             data-id="${row.empresa_parametro_id}" data-estado="1" title="Habilitar">
                                         <i class="fas fa-check"></i>
                                     </button>`;
@@ -895,6 +814,11 @@ $(document).ready(function() {
         $('#formParametros').removeClass('was-validated');
         $('#divCerrarAnterior').show();
         $('#cerrar_anterior').prop('checked', true);
+        // Una vigencia nueva propone el certificado de la vigente
+        $('#arca_integracion_empresa_id').val(integracionArcaVigente || '');
+        actualizarArcaIntegracion();
+        // y el mes de cierre del ejercicio vigente
+        $('#mes_cierre_ejercicio').val(String(mesCierreVigente));
         var today = new Date().toISOString().split('T')[0];
         $('#f_desde').val(today);
         $('#f_hasta').val('');
@@ -905,6 +829,8 @@ $(document).ready(function() {
 
     // Logo: vista previa del registro (logo_data viene como data URI) o del archivo elegido
     var logoActual = '', logoVigente = '';
+    var integracionArcaVigente = '';
+    var mesCierreVigente = 12;
     function mostrarLogo(src) {
         $('#logo').val('');
         $('#quitar_logo').val('0');
@@ -955,10 +881,15 @@ $(document).ready(function() {
                 actualizarDescripcionRegimen();
                 $('#ingresos_brutos_nro').val(res.ingresos_brutos_nro || '');
                 $('#inicio_actividades').val(res.inicio_actividades || '');
+                $('#mes_cierre_ejercicio').val(String(parseInt(res.mes_cierre_ejercicio, 10) || 12));
                 $('#leyenda_fiscal').val(res.leyenda_fiscal || '');
                 $('#arca_habilitado').prop('checked', parseInt(res.arca_habilitado, 10) === 1);
+                $('#arca_integracion_empresa_id').val(res.arca_integracion_empresa_id || '');
+                actualizarArcaIntegracion();
                 $('#compra_actualiza_lista_proveedor').val(String(parseInt(res.compra_actualiza_lista_proveedor, 10) || 0));
                 $('#compra_actualiza_listas_venta').val(String(parseInt(res.compra_actualiza_listas_venta, 10) || 0));
+                $('#ia_lectura_tope_diario').val(res.ia_lectura_tope_diario !== undefined && res.ia_lectura_tope_diario !== null ? res.ia_lectura_tope_diario : 20);
+                $('#ia_asistente_tope_diario').val(res.ia_asistente_tope_diario !== undefined && res.ia_asistente_tope_diario !== null ? res.ia_asistente_tope_diario : 50);
                 $('#punto_venta_defecto_id').val(res.punto_venta_defecto_id || '');
                 $('#lista_precio_defecto_id').val(res.lista_precio_defecto_id || '');
                 $('#condicion_pago_defecto_id').val(res.condicion_pago_defecto_id || '');
@@ -1067,10 +998,14 @@ $(document).ready(function() {
             jurisdiccion_sede_id: $('#select_jurisdiccion_sede_id').val(),
             ingresos_brutos_nro: $('#ingresos_brutos_nro').val(),
             inicio_actividades: $('#inicio_actividades').val(),
+            mes_cierre_ejercicio: $('#mes_cierre_ejercicio').val(),
             leyenda_fiscal: $('#leyenda_fiscal').val(),
             arca_habilitado: $('#arca_habilitado').is(':checked') ? 1 : 0,
+            arca_integracion_empresa_id: $('#arca_integracion_empresa_id').val(),
             compra_actualiza_lista_proveedor: $('#compra_actualiza_lista_proveedor').val(),
             compra_actualiza_listas_venta: $('#compra_actualiza_listas_venta').val(),
+            ia_lectura_tope_diario: $('#ia_lectura_tope_diario').val(),
+            ia_asistente_tope_diario: $('#ia_asistente_tope_diario').val(),
             punto_venta_defecto_id: $('#punto_venta_defecto_id').val(),
             lista_precio_defecto_id: $('#lista_precio_defecto_id').val(),
             condicion_pago_defecto_id: $('#condicion_pago_defecto_id').val(),
@@ -1151,9 +1086,9 @@ $(document).ready(function() {
                     '<td><small>' + (muestra.join(', ') || '-') + '</small></td>' +
                     '<td><small>' + pie + '</small></td>' +
                     '<td class="text-center"><span class="badge ' + (activo ? 'bg-success' : 'bg-secondary') + '">' + (activo ? 'Activo' : 'Inactivo') + '</span></td>' +
-                    '<td class="text-center"><div class="btn-group">' +
-                        '<button type="button" class="btn btn-xs btn-outline-primary btn-editar-impresion" data-id="' + r.empresa_impresion_id + '" title="Editar"><i class="fas fa-edit"></i></button>' +
-                        '<button type="button" class="btn btn-xs ' + (activo ? 'btn-outline-danger' : 'btn-outline-success') + ' btn-estado-impresion" data-id="' + r.empresa_impresion_id + '" data-estado="' + (activo ? 2 : 1) + '" title="' + (activo ? 'Inhabilitar' : 'Habilitar') + '"><i class="fas ' + (activo ? 'fa-ban' : 'fa-check') + '"></i></button>' +
+                    '<td class="ui-acciones"><div class="btn-group">' +
+                        '<button type="button" class="btn btn-xs btn-outline-primary btn-editar-impresion" data-funcion="editar" data-id="' + r.empresa_impresion_id + '" title="Editar"><i class="fas fa-edit"></i></button>' +
+                        '<button type="button" class="btn btn-xs ' + (activo ? 'btn-outline-danger' : 'btn-outline-success') + ' btn-estado-impresion" data-funcion="editar" data-id="' + r.empresa_impresion_id + '" data-estado="' + (activo ? 2 : 1) + '" title="' + (activo ? 'Inhabilitar' : 'Habilitar') + '"><i class="fas ' + (activo ? 'fa-ban' : 'fa-check') + '"></i></button>' +
                     '</div></td></tr>';
             });
             $('#tbodyImpresion').html(html);

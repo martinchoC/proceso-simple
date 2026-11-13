@@ -8,10 +8,10 @@ $(function () {
 
     const AJAX_URL = 'stock_dashboard_ajax.php';
     const empresaIdx = typeof SDB_EMPRESA_ID !== 'undefined' ? SDB_EMPRESA_ID : 0;
-    const fmtCant = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
-    const fmtMoneda = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
-    const fmtCosto = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const DT_IDIOMA = { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' };
+    const fmtCant = Fmt.numberFormat({ maximumFractionDigits: 4 });
+    const fmtMoneda = { format: (v) => Fmt.moneda(v, 0) };
+    const fmtCosto = Fmt.numberFormat({ minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const DT_IDIOMA = { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' };
     const COL_PRIMERA_BOCA = 3; // Código, Producto, Categoría, [una por boca], Total, ...
 
     let bocas = [];
@@ -41,11 +41,7 @@ $(function () {
 
     function fecha(v, conHora) {
         if (!v) return '';
-        const d = new Date(String(v).replace(' ', 'T'));
-        if (isNaN(d)) return esc(v);
-        return conHora === false
-            ? d.toLocaleDateString('es-AR')
-            : d.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        return esc(conHora === false ? Fmt.fecha(v) : Fmt.fechaHora(v));
     }
 
     function isoFecha(d) {

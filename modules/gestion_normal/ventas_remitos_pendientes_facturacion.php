@@ -11,31 +11,14 @@ $venta_remito_id_inicial = isset($_GET['venta_remito_id']) ? intval($_GET['venta
 
 $pageTitle = "Cola de Facturación - Remitos Pendientes";
 $currentPage = 'ventas_remitos_pendientes_facturacion';
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-tasks me-2 text-warning"></i>Cola de Facturación
-                    </h3>
-                    <small class="text-muted">Remitos Pendientes de Facturación y Facturación Parcial</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Ventas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Cola de Facturación</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Remitos para facturar','fas fa-tasks', 'Remitos Pendientes de Facturación y Facturación Parcial', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -321,7 +304,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <div class="detalles-vacio text-center p-4 border rounded bg-light">
                                                             <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
                                                             <p class="mb-0 fw-bold">No hay productos agregados al remito</p>
-                                                            <small class="text-muted">Agregá líneas desde los pedidos pendientes o cargá un producto sin pedido</small>
+                                                            <?= ui_ayuda('Agregá líneas desde los pedidos pendientes o cargá un producto sin pedido') ?>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -630,15 +613,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
     <script>
         const PAGINA_ID = <?= $pagina_id ?>;
@@ -646,6 +629,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         const VENTA_REMITO_ID_INICIAL = <?= $venta_remito_id_inicial ?>;
         const MODULO_ID = <?= $modulo_id ?>;
     </script>
+    <script src="<?= asset_local('js/cobro-contado.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/cobro-contado.js') ?>"></script>
     <script src="ventas_remitos_pendientes_facturacion.js?v=<?= filemtime(__DIR__.'/ventas_remitos_pendientes_facturacion.js') ?>"></script>
 </main>
 

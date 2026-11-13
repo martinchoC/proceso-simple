@@ -45,7 +45,7 @@ $(document).ready(function () {
     }
 
     function formatMiles(n) {
-        return (n || 0).toLocaleString('es-AR');
+        return Fmt.numero((n || 0));
     }
 
     // Misma fila de KPIs en los dos lugares que la muestran (Listado y
@@ -182,7 +182,11 @@ $(document).ready(function () {
         }
         var html = '';
         vinculos.forEach(function (v) {
-            html += '<span class="chip-vinculo">' +
+            // Estrella = proveedor principal (se elige en Productos > Proveedores)
+            var estrella = parseInt(v.es_principal) === 1
+                ? '<i class="fas fa-star text-warning" title="Proveedor principal: su lista actualiza el costo del producto"></i>'
+                : '';
+            html += '<span class="chip-vinculo">' + estrella +
                 '<span>' + escapeHtml(v.entidad_nombre) + ':</span>' +
                 '<span class="chip-codigo">' + escapeHtml(v.codigo_proveedor || '(sin código)') + '</span>' +
                 '<i class="fas fa-pen chip-accion chip-editar" title="Editar código" ' +
@@ -271,7 +275,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'
             },
             responsive: true,
             initComplete: function () {

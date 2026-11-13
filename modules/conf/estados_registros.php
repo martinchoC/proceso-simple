@@ -3,6 +3,8 @@
 $pageTitle = "Gestión de Estados de Registros";
 $currentPage = 'estados_registros';
 $modudo_idx = 1;
+$pagina_idx = 13; // conf__paginas
+$ui_simple = true;
 
 // Definir constante para rutas
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -46,25 +48,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <main class="app-main">
     <!--begin::App Content Header-->
-    <div class="app-content-header">
-        <!--begin::Container-->
-        <div class="container-fluid">
-        <!--begin::Row-->
-        <div class="row">
-            <div class="col-sm-6"><h3 class="mb-0">Estados de Registros</h3></div>
-            <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-end">
-                <li class="breadcrumb-item"><a href="#">Home</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Estados de Registros</li>
-            </ol>
-            </div>
-        </div>
-        <!--end::Row-->
-        </div>
-        <!--end::Container-->
-    </div>
-    <!--end::App Content Header-->
-    <!--begin::App Content-->
+    <?php ui_encabezado('Estados de registro', 'bi bi-flag', 'Catálogo genérico de estados (Activo, Borrador, Confirmado, Anulado...). Cada tabla usa los suyos con su propia etiqueta en Estados por tabla.', ['Estructura del sistema']); ?>
+
     <div class="app-content">
         <!--begin::Container-->
         <div class="container-fluid">
@@ -485,7 +470,7 @@ $(document).ready(function(){
     });
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

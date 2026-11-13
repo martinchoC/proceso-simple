@@ -16,21 +16,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
+    <div class="app-content-header py-2 border-bottom bg-white">
         <div class="container-fluid">
             <div class="row align-items-center">
                 <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-file-contract me-2 text-primary"></i>Bandeja de Evidencias
-                    </h3>
-                    <small class="text-muted">Custodia de archivos probatorios, hash SHA-256, comprobantes y validez legal</small>
+                    <h4 class="mb-0 fw-bold text-dark">
+                        <i class="fas fa-file-contract text-primary me-2"></i>Bandeja de Evidencias y Custodia Legal
+                    </h4>
                 </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Matriz Legal</a></li>
-                        <li class="breadcrumb-item">Ejecución y Seguimiento</li>
-                        <li class="breadcrumb-item active" aria-current="page">Bandeja de Evidencias</li>
-                    </ol>
+                <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
+                    <a href="index.php" class="btn btn-sm btn-outline-secondary me-1">
+                        <i class="fas fa-arrow-left me-1"></i>Tablero
+                    </a>
+                    <a href="ciclos_tareas.php" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-tasks me-1"></i>Tareas
+                    </a>
                 </div>
             </div>
         </div>

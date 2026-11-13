@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de usuario — Reglas Bancarias</title>
+<style>
+    :root { --azul: #0d6efd; --gris-borde: #dee2e6; --gris-fondo: #f8f9fa; --texto: #212529; --texto-muted: #6c757d; --verde: #198754; --amarillo: #ffc107; --rojo: #dc3545; --naranja: #fd7e14; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--texto); background: #fff; margin: 0 auto; padding: 24px; line-height: 1.55; max-width: 900px; }
+    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h2 { font-size: 1.3rem; margin-top: 2.5rem; border-bottom: 2px solid var(--gris-borde); padding-bottom: 6px; }
+    h3 { font-size: 1.05rem; margin-top: 1.5rem; color: #0a58ca; }
+    .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 1.5rem; }
+    .volver { display: inline-block; margin-bottom: 12px; color: var(--azul); text-decoration: none; font-size: 0.9rem; }
+    .volver:hover { text-decoration: underline; }
+    .alert { border-radius: 6px; padding: 12px 16px; margin: 14px 0; font-size: 0.95rem; }
+    .alert-info { background: #cfe2ff; color: #084298; }
+    .alert-warning { background: #fff3cd; color: #664d03; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; color: #fff; }
+    .badge-success { background: var(--verde); }
+    .badge-secondary { background: #6c757d; }
+    .badge-warning { background: var(--amarillo); color: #212529; }
+    table.tabla-referencia { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+    table.tabla-referencia th, table.tabla-referencia td { border: 1px solid var(--gris-borde); padding: 8px 10px; text-align: left; vertical-align: top; }
+    table.tabla-referencia th { background: var(--gris-fondo); }
+    .toc { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 16px 20px; margin: 20px 0 30px; }
+    .toc ul { margin: 6px 0 0; padding-left: 20px; }
+    .toc a { color: var(--azul); text-decoration: none; }
+    .boton-ejemplo { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 500; border: 1px solid; margin: 2px 4px 2px 0; }
+    .boton-primario { background: var(--azul); border-color: var(--azul); color: #fff; }
+    .boton-outline { background: #fff; border-color: var(--azul); color: var(--azul); }
+    .flujo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+    .flujo-caja { border: 2px solid var(--azul); border-radius: 8px; padding: 10px 16px; background: #eef4ff; font-weight: 600; font-size: 0.9rem; text-align: center; }
+    .flujo-caja a { color: inherit; text-decoration: none; }
+    .flujo-caja.actual { border-color: var(--naranja); background: #fff4e6; box-shadow: 0 0 0 3px #ffe0c2; }
+    .flujo-caja.final { border-color: var(--verde); background: #e9f7ef; }
+    .flujo-caja small { display: block; font-weight: 400; color: var(--texto-muted); }
+    .flujo-flecha { font-size: 1.3rem; color: var(--texto-muted); }
+    .nota-lateral { border-left: 3px solid var(--azul); padding-left: 12px; color: var(--texto-muted); font-size: 0.92rem; margin: 10px 0; }
+    .relacionados { background: var(--gris-fondo); border: 1px solid var(--gris-borde); border-radius: 8px; padding: 12px 20px; margin-top: 2rem; }
+    .relacionados ul { margin: 6px 0 0; padding-left: 20px; }
+    .relacionados a { color: var(--azul); text-decoration: none; }
+    code { background: var(--gris-fondo); padding: 1px 5px; border-radius: 4px; font-size: 0.88rem; }
+    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--gris-borde); color: var(--texto-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<a class="volver" href="index.html#tesoreria">← Volver al índice</a>
+
+<h1><i class="bi bi-funnel"></i> Manual de usuario: Reglas Bancarias</h1>
+<p class="subtitulo">Le dice al sistema cómo reconocer cada línea del extracto por su texto, para que el concepto se asigne solo al importar.</p>
+
+<div class="toc">
+    <strong>Contenido</strong>
+    <ul>
+        <li><a href="#que-es">¿Qué es esta pantalla?</a></li>
+        <li><a href="#circuito">El circuito de la conciliación bancaria</a></li>
+        <li><a href="#como-funciona">Cómo se elige la regla (prioridad)</a></li>
+        <li><a href="#pantalla-principal">La pantalla principal</a></li>
+        <li><a href="#probar-texto">Probar una descripción</a></li>
+        <li><a href="#nueva">Crear o editar una regla</a></li>
+        <li><a href="#aplicar">Aplicar reglas a las líneas sin conciliar</a></li>
+        <li><a href="#acciones">Visualizar, Editar, Inactivar y Habilitar</a></li>
+        <li><a href="#ejemplo">Ejemplo de reglas para un banco</a></li>
+        <li><a href="#mensajes">Mensajes que podés ver</a></li>
+        <li><a href="#preguntas-frecuentes">Preguntas frecuentes</a></li>
+    </ul>
+</div>
+
+<h2 id="que-es">¿Qué es esta pantalla?</h2>
+<p>Una regla dice, por ejemplo: <em>"en el Banco X, si la descripción empieza con COMISION y es un débito, el concepto es Comisiones"</em>. Cuando importás un extracto, el sistema revisa cada línea contra las reglas de ese banco y le pone el concepto. Las líneas que ninguna regla reconoce quedan <strong>Sin concepto</strong> y hay que clasificarlas a mano en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a>.</p>
+<p>Cuantas más líneas reconozcan las reglas, menos trabajo a mano tenés cada mes.</p>
+
+<h2 id="circuito">El circuito de la conciliación bancaria</h2>
+<p>Esta pantalla es el paso 3. Los pasos 1 a 3 se configuran una vez; los pasos 4 a 6 se hacen todos los meses.</p>
+<div class="flujo">
+    <div class="flujo-caja"><a href="bancos_formatos.html">1. Formatos<small>cómo viene el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conceptos.html">2. Conceptos<small>qué es cada línea</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja actual">3. Reglas<small>cómo reconocerla</small></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_importar.html">4. Extractos<small>importar el archivo</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja"><a href="bancos_conciliacion.html">5. Conciliación<small>banco contra tesorería</small></a></div>
+    <div class="flujo-flecha">→</div>
+    <div class="flujo-caja final"><a href="bancos_gastos.html">6. Gastos Bancarios<small>comisiones e impuestos</small></a></div>
+</div>
+
+<h2 id="como-funciona">Cómo se elige la regla (prioridad)</h2>
+<ol>
+    <li>Solo se usan las reglas <strong>activas</strong> del <strong>banco de la cuenta</strong>.</li>
+    <li>Se revisan en orden de <strong>prioridad</strong>: primero el número más bajo.</li>
+    <li><strong>Gana la primera que coincide</strong>; las demás ya no se miran.</li>
+    <li>No importan las mayúsculas ni los espacios repetidos.</li>
+</ol>
+<div class="nota-lateral">Poné las reglas más específicas con número más bajo. Por ejemplo, "COMISION TRANSFERENCIA" (prioridad 5) antes que "TRANSF" (prioridad 70), para que la comisión no se confunda con una transferencia.</div>
+
+<h2 id="pantalla-principal">La pantalla principal</h2>
+<p>Se abre desde <strong>Tesorería &gt; Reglas Bancarias</strong>. En la barra de arriba están:</p>
+<ul>
+    <li><span class="boton-ejemplo boton-primario">+ Agregar</span> — crea una regla.</li>
+    <li><span class="boton-ejemplo boton-outline">Aplicar reglas a las líneas sin conciliar</span> — ver <a href="#aplicar">más abajo</a>.</li>
+    <li>El filtro de banco ("Todos los bancos") y el botón de recargar.</li>
+</ul>
+<table class="tabla-referencia">
+    <tr><th>Columna</th><th>Qué muestra</th></tr>
+    <tr><td>Banco</td><td>El banco de la regla.</td></tr>
+    <tr><td>Prioridad</td><td>El orden en que se revisa (menor = antes).</td></tr>
+    <tr><td>Si la descripción...</td><td>"contiene", "empieza con" o "cumple" y el texto buscado.</td></tr>
+    <tr><td>Aplica a</td><td>Débitos, Créditos o Ambos.</td></tr>
+    <tr><td>Concepto</td><td>El concepto que asigna. Los gastos del banco llevan la etiqueta <span class="badge badge-warning">Gasto</span>.</td></tr>
+    <tr><td>Estado</td><td>Activo o Inactivo.</td></tr>
+</table>
+<p>En el detalle de la fila (▸) se ve cuántas <strong>líneas</strong> del extracto clasificó esa regla.</p>
+
+<h2 id="probar-texto">Probar una descripción</h2>
+<p>Encima del listado está la barra <strong>Probar una descripción</strong>. Sirve para saber qué regla reconocería un texto antes de importar:</p>
+<ol>
+    <li>Elegí el banco en el filtro de arriba (es obligatorio para probar).</li>
+    <li>Escribí la descripción tal como viene en el extracto, por ejemplo <code>COMISION DATANET</code>.</li>
+    <li>Elegí si es <strong>Débito</strong> o <strong>Crédito</strong> y apretá <span class="boton-ejemplo boton-outline">Probar</span>.</li>
+</ol>
+<p>Vas a ver en verde "La clasifica la regla de prioridad N (...)" o en rojo "Ninguna regla activa del banco la clasifica: quedaría sin concepto."</p>
+
+<h2 id="nueva">Crear o editar una regla</h2>
+<p>Con <span class="boton-ejemplo boton-primario">+ Agregar</span> se abre <strong>Nueva regla</strong>. Si tenías un banco elegido en el filtro, ya viene cargado.</p>
+<table class="tabla-referencia">
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td>Banco <em>(obligatorio)</em></td><td>El banco cuyo extracto se va a leer con esta regla.</td></tr>
+    <tr><td>Prioridad</td><td>Número de orden (por defecto 100). Menor = se revisa antes.</td></tr>
+    <tr><td>Aplica a</td><td>"Débitos y créditos", "Solo débitos" (lo que sale de la cuenta) o "Solo créditos" (lo que entra).</td></tr>
+    <tr><td>Si la descripción</td><td><strong>contiene</strong> el texto en cualquier parte; <strong>empieza con</strong> el texto; o <strong>cumple la expresión regular</strong> (un patrón avanzado, para cuando el texto cambia un poco; pedí ayuda al administrador).</td></tr>
+    <tr><td>Texto <em>(obligatorio)</em></td><td>Lo que hay que buscar, hasta 200 caracteres.</td></tr>
+    <tr><td>Concepto que asigna <em>(obligatorio)</em></td><td>Un concepto activo de <a href="bancos_conceptos.html">Conceptos Bancarios</a>. La lista indica si es "gasto del banco" o "movimiento propio".</td></tr>
+</table>
+<p>Apretá <span class="boton-ejemplo boton-primario">Guardar</span>: "Regla creada." o "Regla actualizada."</p>
+<div class="alert alert-info">Crear o cambiar una regla no reclasifica solas las líneas ya importadas. Para eso usá <a href="#aplicar">Aplicar reglas</a>.</div>
+
+<h2 id="aplicar">Aplicar reglas a las líneas sin conciliar</h2>
+<p>Este botón vuelve a pasar las reglas por las líneas del extracto que todavía <strong>no están conciliadas</strong>. Es útil después de crear o corregir reglas. Si en el filtro hay un banco elegido, solo toca las líneas de ese banco.</p>
+<ul>
+    <li>Las líneas a las que les pusiste el concepto <strong>a mano</strong> no se tocan.</li>
+    <li>Las líneas conciliadas o ignoradas tampoco.</li>
+</ul>
+<p>El sistema pregunta "¿Aplicar las reglas?" y al terminar informa, por ejemplo: "Se revisaron 49 líneas sin conciliar: cambiaron 12, quedan 2 sin concepto."</p>
+
+<h2 id="acciones">Visualizar, Editar, Inactivar y Habilitar</h2>
+<table class="tabla-referencia">
+    <tr><th>Botón</th><th>Cuándo aparece</th><th>Qué hace</th></tr>
+    <tr><td>Visualizar</td><td>Regla activa</td><td>Abre la regla solo para mirarla.</td></tr>
+    <tr><td>Editar</td><td>Regla activa</td><td>Permite cambiarla.</td></tr>
+    <tr><td>Inactivar</td><td>Regla activa</td><td>Pide confirmación. La regla deja de usarse en las próximas importaciones. Las líneas que ya clasificó no cambian.</td></tr>
+    <tr><td>Habilitar</td><td>Regla inactiva</td><td>La vuelve a usar.</td></tr>
+</table>
+
+<h2 id="ejemplo">Ejemplo de reglas para un banco</h2>
+<table class="tabla-referencia">
+    <tr><th>Prioridad</th><th>Si la descripción</th><th>Texto</th><th>Aplica a</th><th>Concepto</th></tr>
+    <tr><td>10</td><td>empieza con</td><td><code>COMISION</code></td><td>Débitos</td><td>Comisiones y gastos bancarios</td></tr>
+    <tr><td>20</td><td>cumple</td><td><code>^IMPUESTO (DEBITO|CREDITO)\s*-\s*LEY 25413</code></td><td>Débitos</td><td>Impuesto s/ débitos y créditos (ley 25.413)</td></tr>
+    <tr><td>30</td><td>contiene</td><td><code>SIRCREB</code></td><td>Débitos</td><td>Ingresos Brutos SIRCREB</td></tr>
+    <tr><td>40</td><td>empieza con</td><td><code>DB.DEBIN</code></td><td>Débitos</td><td>Débito inmediato (DEBIN)</td></tr>
+    <tr><td>50</td><td>empieza con</td><td><code>P.SERV</code></td><td>Débitos</td><td>Pago de servicios</td></tr>
+    <tr><td>70</td><td>empieza con</td><td><code>TRANSF</code></td><td>Ambos</td><td>Transferencias</td></tr>
+</table>
+
+<h2 id="mensajes">Mensajes que podés ver</h2>
+<table class="tabla-referencia">
+    <tr><th>Mensaje</th><th>Qué significa / qué hacer</th></tr>
+    <tr><td>Elegí un banco en el filtro.</td><td>Para probar una descripción tenés que elegir el banco arriba.</td></tr>
+    <tr><td>Ingresá el texto a buscar.</td><td>El campo Texto está vacío.</td></tr>
+    <tr><td>Elegí un concepto activo.</td><td>El concepto elegido está inactivo o falta.</td></tr>
+    <tr><td>Un mensaje sobre la expresión regular</td><td>El patrón tiene un error de escritura. Probá con "contiene" o "empieza con", o pedí ayuda.</td></tr>
+</table>
+
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<table class="tabla-referencia">
+    <tr><th>Pregunta</th><th>Respuesta</th></tr>
+    <tr><td>Una línea quedó con un concepto equivocado.</td><td>Corregí la regla y usá <a href="#aplicar">Aplicar reglas</a>, o cambiá esa línea a mano en <a href="bancos_conciliacion.html#clasificar">Conciliación Bancaria</a>.</td></tr>
+    <tr><td>Tengo dos cuentas en el mismo banco, ¿cargo las reglas dos veces?</td><td>No. Las reglas son por banco y valen para todas sus cuentas.</td></tr>
+    <tr><td>¿Qué pasa con las líneas que ninguna regla reconoce?</td><td>Quedan "Sin concepto": no se pueden conciliar ni entran a Gastos Bancarios hasta que les asignes un concepto.</td></tr>
+</table>
+
+<div class="relacionados">
+    <strong>Manuales relacionados</strong>
+    <ul>
+        <li><a href="bancos_conceptos.html">Conceptos Bancarios</a> (paso 2)</li>
+        <li><a href="bancos_importar.html">Extractos Bancarios</a> (paso 4)</li>
+        <li><a href="bancos_conciliacion.html">Conciliación Bancaria</a> (paso 5)</li>
+    </ul>
+</div>
+
+<footer>
+    Manual de usuario — Módulos Gestión y Gestión Normal / Tesorería / Reglas Bancarias. Describe la pantalla tal como funciona hoy en el sistema. Ante cualquier duda que no esté cubierta acá, consultá con el equipo.
+</footer>
+
+</body>
+</html>

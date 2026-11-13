@@ -17,6 +17,17 @@ header('Content-Type: application/json; charset=utf-8');
 // asegura que, pase lo que pase, la respuesta siempre sea JSON válido.
 try {
 
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+// (Productos guarda precios por este endpoint: también vale su función 'editar')
+if (!in_array((string)$accion, ['agregar', 'editar'], true)
+    || !permisos_puede($conn, pagina_id_por_url($conn, 2, 'productos.php'), 'editar')) {
+    permisos_exigir_accion($conn, pagina_id_por_url($conn, 2, 'listas_precios_productos.php'), (string)$accion, [
+        'agregar' => 'agregar',
+        'editar' => 'editar',
+        'eliminar' => 'inactivar',
+        'importar' => 'agregar',
+    ]);
+}
 switch ($accion) {
     case 'listar':
         // VERSION 2026-09-05: server-side real para DataTables (antes carga
@@ -49,6 +60,7 @@ switch ($accion) {
         $order_column = $mapa_orden[$order_col_data] ?? 'p.producto_codigo';
 
         $resultado = obtenerListasPreciosProductos($conexion, [
+            'empresa_id' => (int)$ctx['empresa_id'],
             'filtro_lista' => $filtro_lista,
             'filtro_marca' => $filtro_marca,
             'filtro_modelo' => $filtro_modelo,
@@ -104,6 +116,7 @@ switch ($accion) {
             break;
         }
         
+        $data['empresa_id'] = (int)$ctx['empresa_id'];
         $resultado = editarListaPrecioProducto($conexion, $id, $data);
         if (!$resultado) {
             echo json_encode(['resultado' => false, 'error' => 'Ya existe un precio para este producto en la lista seleccionada']);
@@ -114,7 +127,7 @@ switch ($accion) {
 
     case 'eliminar':
         $id = intval($_GET['lista_precio_producto_id']);
-        $resultado = eliminarListaPrecioProducto($conexion, $id);
+        $resultado = eliminarListaPrecioProducto($conexion, $id, (int)$ctx['empresa_id']);
         if (!$resultado) {
             echo json_encode(['resultado' => false, 'error' => 'No se puede eliminar el precio del producto']);
             break;
@@ -124,12 +137,12 @@ switch ($accion) {
 
     case 'obtener':
         $id = intval($_GET['lista_precio_producto_id']);
-        $precio_producto = obtenerListaPrecioProductoPorId($conexion, $id);
+        $precio_producto = obtenerListaPrecioProductoPorId($conexion, $id, (int)$ctx['empresa_id']);
         echo json_encode($precio_producto);
         break;
 
     case 'obtener_listas':
-        $listas = obtenerListasPrecios($conexion, $ctx['empresa_id']);
+        $listas = obtenerListasPrecios($conexion, (int)$ctx['empresa_id']);
         echo json_encode($listas);
         break;
 
@@ -142,12 +155,12 @@ switch ($accion) {
             echo json_encode([]);
             break;
         }
-        $precios = obtenerPreciosPorProducto($conexion, $producto_id);
+        $precios = obtenerPreciosPorProducto($conexion, $producto_id, (int)$ctx['empresa_id']);
         echo json_encode($precios);
         break;
 
     case 'obtener_productos':
-        $productos = obtenerProductos($conexion);
+        $productos = obtenerProductos($conexion, (int)$ctx['empresa_id']);
         echo json_encode($productos);
         break;
         // listas_precios_productos_ajax.php
@@ -192,11 +205,7 @@ switch ($accion) {
     case 'dashboard':
         // Pestaña "Dashboard": KPIs, gráfico por mes de actualización,
         // antigüedad y cobertura por lista.
-        $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
-        if ($empresa_idx <= 0) {
-            echo json_encode(['success' => false, 'data' => null, 'message' => 'Empresa no informada']);
-            break;
-        }
+        $empresa_idx = (int)$ctx['empresa_id'];
         $lista_id = intval($_GET['lista_id'] ?? 0);
         $data = obtenerDashboardPrecios($conexion, $empresa_idx, $lista_id);
         echo json_encode(['success' => true, 'data' => $data, 'message' => ''], JSON_UNESCAPED_UNICODE);
@@ -205,11 +214,7 @@ switch ($accion) {
     case 'dashboard_detalle':
         // Listado del modal que se abre al hacer click en un KPI, una barra
         // de los gráficos o una fila de cobertura por lista.
-        $empresa_idx = intval($_GET['empresa_idx'] ?? 0);
-        if ($empresa_idx <= 0) {
-            echo json_encode(['success' => false, 'data' => null, 'message' => 'Empresa no informada']);
-            break;
-        }
+        $empresa_idx = (int)$ctx['empresa_id'];
         $tipo = (string) ($_GET['tipo'] ?? '');
         $valor = (string) ($_GET['valor'] ?? '');
         $lista_id = intval($_GET['lista_id'] ?? 0);

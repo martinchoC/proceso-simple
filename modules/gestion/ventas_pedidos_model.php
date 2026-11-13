@@ -1,6 +1,8 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -75,7 +77,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -105,7 +107,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     // Buscar función con origen_id = 0 (creación)
     foreach ($funciones as $funcion) {
@@ -571,6 +576,9 @@ function agregarPedidoVenta($conexion, $data)
         $punto_venta_id = (!empty($data['punto_venta_id']) && $data['punto_venta_id'] > 0) ? intval($data['punto_venta_id']) : null;
         
         $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
+        if ($direccion_entrega === '' && $entidad_sucursal_id) {
+            $direccion_entrega = vpDireccionSucursalEntidad($conexion, $entidad_sucursal_id, intval($data['entidad_id'] ?? 0), intval($data['empresa_idx'] ?? 0));
+        }
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
 
         $sql = "INSERT INTO gestion__ventas_pedidos 
@@ -699,6 +707,104 @@ function agregarPedidoVenta($conexion, $data)
     }
 }
 
+// Copia un pedido en un pedido nuevo en Borrador (función "Copiar"): misma cabecera y líneas activas con sus
+// cantidades y precios, fecha de emisión de hoy y sin fecha de entrega. El original no se toca. El alta pasa por
+// agregarPedidoVenta() (accesos por sucursal, estado inicial, espejo en gestion__comprobantes).
+function copiarPedidoVenta($conexion, $venta_pedido_id, $empresa_idx, $pagina_idx)
+{
+    $venta_pedido_id = intval($venta_pedido_id);
+    $empresa_idx = intval($empresa_idx);
+    error_log("=== INICIO copiarPedidoVenta ID: $venta_pedido_id ===");
+
+    $stmt = mysqli_prepare($conexion, "SELECT * FROM gestion__ventas_pedidos WHERE venta_pedido_id = ? AND empresa_id = ?");
+    mysqli_stmt_bind_param($stmt, "ii", $venta_pedido_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $p = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$p) {
+        return ['resultado' => false, 'error' => 'Pedido no encontrado.'];
+    }
+
+    // La función "Copiar" tiene que existir para el estado actual del pedido
+    $estado = intval($p['tabla_estado_registro_id']);
+    $stmt = mysqli_prepare($conexion, "SELECT 1 FROM conf__paginas_funciones
+                                       WHERE pagina_id = ? AND tabla_estado_registro_origen_id = ? AND accion_js = 'copiar' AND tabla_estado_registro_id = 1
+                                       LIMIT 1");
+    mysqli_stmt_bind_param($stmt, "ii", $pagina_idx, $estado);
+    mysqli_stmt_execute($stmt);
+    $permitido = (bool) mysqli_fetch_row(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$permitido) {
+        return ['resultado' => false, 'error' => 'El pedido no se puede copiar en su estado actual.'];
+    }
+
+    $stmt = mysqli_prepare($conexion, "SELECT * FROM gestion__ventas_pedidos_detalles
+                                       WHERE venta_pedido_id = ? AND tabla_estado_registro_id NOT IN (2, 6) AND cantidad > 0
+                                       ORDER BY venta_pedido_detalle_id");
+    mysqli_stmt_bind_param($stmt, "i", $venta_pedido_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $detalles = [];
+    while ($d = mysqli_fetch_assoc($res)) {
+        $detalles[] = [
+            'producto_id' => intval($d['producto_id']),
+            'cantidad' => floatval($d['cantidad']),
+            'precio_unitario' => floatval($d['precio_unitario']),
+            'descuento_general_pct' => floatval($d['descuento_general_pct']),
+            'descuento_general' => floatval($d['descuento_general']),
+            'precio_unitario_neto' => floatval($d['precio_unitario_neto']),
+            'neto_gravado' => floatval($d['neto_gravado']),
+            'iva_alicuota_id' => intval($d['iva_alicuota_id']),
+            'iva_porcentaje' => floatval($d['iva_porcentaje']),
+            'iva_importe' => floatval($d['iva_importe']),
+            'no_gravado' => floatval($d['no_gravado']),
+            'exento' => floatval($d['exento']),
+            'total_linea' => floatval($d['total_linea'])
+        ];
+    }
+    mysqli_stmt_close($stmt);
+    if (!$detalles) {
+        return ['resultado' => false, 'error' => 'El pedido no tiene líneas para copiar.'];
+    }
+
+    // Totales de cabecera desde las líneas copiadas (misma fórmula que el ajuste de cantidades de
+    // ventas_pedidos_gestion_model.php)
+    $subtotal = $descuentos = $impuestos = $total = 0.0;
+    foreach ($detalles as $d) {
+        $subtotal += $d['neto_gravado'] + $d['no_gravado'] + $d['exento'];
+        $descuentos += $d['descuento_general'] * $d['cantidad'];
+        $impuestos += $d['iva_importe'];
+        $total += $d['total_linea'];
+    }
+
+    $resultado = agregarPedidoVenta($conexion, [
+        'comprobante_tipo_id' => intval($p['comprobante_tipo_id']),
+        'sucursal_id' => intval($p['sucursal_id']),
+        'punto_venta_id' => intval($p['punto_venta_id']),
+        'entidad_id' => intval($p['entidad_id']),
+        'entidad_sucursal_id' => intval($p['entidad_sucursal_id']),
+        'f_emision' => date('Y-m-d'),
+        'f_entrega_estimada' => null,
+        'condicion_pago_id' => intval($p['condicion_pago_id']),
+        'moneda_id' => intval($p['moneda_id']),
+        'tipo_cambio' => floatval($p['tipo_cambio']),
+        'direccion_entrega' => (string) $p['direccion_entrega'],
+        'subtotal' => round($subtotal, 2),
+        'descuento_general_pct' => floatval($p['descuento_general_pct']),
+        'descuentos' => round($descuentos, 2),
+        'impuestos' => round($impuestos, 2),
+        'total' => round($total, 2),
+        'observaciones' => (string) $p['observaciones'],
+        'detalles' => $detalles,
+        'empresa_idx' => $empresa_idx,
+        'pagina_idx' => $pagina_idx
+    ]);
+    if (!empty($resultado['resultado'])) {
+        error_log("=== FIN copiarPedidoVenta ID: $venta_pedido_id -> " . $resultado['venta_pedido_id'] . " ===");
+    }
+    return $resultado;
+}
+
 function editarPedidoVenta($conexion, $id, $data)
 {
     $id = intval($id);
@@ -713,6 +819,9 @@ function editarPedidoVenta($conexion, $id, $data)
         $sucursal_id = (!empty($data['sucursal_id']) && $data['sucursal_id'] > 0) ? intval($data['sucursal_id']) : null;
         $punto_venta_id = (!empty($data['punto_venta_id']) && $data['punto_venta_id'] > 0) ? intval($data['punto_venta_id']) : null;
         $direccion_entrega = isset($data['direccion_entrega']) ? trim($data['direccion_entrega']) : '';
+        if ($direccion_entrega === '' && $entidad_sucursal_id) {
+            $direccion_entrega = vpDireccionSucursalEntidad($conexion, $entidad_sucursal_id, intval($data['entidad_id'] ?? 0), intval($data['empresa_idx'] ?? 0));
+        }
         $observaciones = isset($data['observaciones']) ? trim($data['observaciones']) : '';
         
         $comprobante_nro = intval($data['comprobante_nro'] ?? 0);
@@ -885,7 +994,7 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
             FROM gestion__ventas_pedidos vp
             LEFT JOIN conf__tablas_estados_registros ter
                 ON vp.tabla_estado_registro_id = ter.estado_registro_id AND ter.tabla_id = ?
-            LEFT JOIN conf__estados_registros er ON ter.estado_registro_id = er.estado_registro_id
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = vp.tabla_estado_registro_id
             LEFT JOIN gestion__comprobantes_tipos ct ON vp.comprobante_tipo_id = ct.comprobante_tipo_id
             LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
             LEFT JOIN gestion__sucursales s ON vp.sucursal_id = s.sucursal_id AND s.empresa_id = vp.empresa_id
@@ -1101,7 +1210,7 @@ function obtenerClientes($conexion, $empresa_idx)
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia 
             FROM gestion__entidades 
             WHERE empresa_id = ? 
-            AND es_cliente = 1
+            AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI') . "
             AND tabla_estado_registro_id = 1 
             ORDER BY entidad_nombre";
     
@@ -1120,6 +1229,36 @@ function obtenerClientes($conexion, $empresa_idx)
     
     mysqli_stmt_close($stmt);
     return $clientes;
+}
+
+// Dirección de entrega por defecto: calle, localidad y provincia de la sucursal del cliente, como texto.
+function vpDireccionSucursalEntidad($conexion, $entidad_sucursal_id, $entidad_id, $empresa_idx)
+{
+    $sql = "SELECT es.sucursal_direccion, l.localidad, p.provincia
+            FROM gestion__entidades_sucursales es
+            LEFT JOIN conf__localidades l ON l.localidad_id = es.localidad_id
+            LEFT JOIN conf__provincias p ON p.provincia_id = l.provincia_id
+            WHERE es.sucursal_id = ? AND es.entidad_id = ? AND es.empresa_id = ?";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error preparando dirección de sucursal: " . mysqli_error($conexion));
+        return '';
+    }
+    mysqli_stmt_bind_param($stmt, "iii", $entidad_sucursal_id, $entidad_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $fila = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    if (!$fila) {
+        return '';
+    }
+
+    $partes = array_filter(array_map('trim', [
+        (string) $fila['sucursal_direccion'],
+        (string) $fila['localidad'],
+        (string) $fila['provincia'],
+    ]), 'strlen');
+    return mb_substr(implode(', ', $partes), 0, 255);
 }
 
 function obtenerSucursales($conexion, $entidad_id, $empresa_idx)

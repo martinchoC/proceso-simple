@@ -11,6 +11,8 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 38);
+// Solo una página de este módulo (si no, la de sucursales_ubicaciones.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'sucursales_ubicaciones.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -50,6 +52,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
                 'boca_id' => intval($_POST['boca_id'] ?? 0),
@@ -66,6 +70,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $data = [
                 'sucursal_id' => intval($_POST['sucursal_id'] ?? 0),
                 'boca_id' => intval($_POST['boca_id'] ?? 0),
@@ -81,6 +87,8 @@ try {
             break;
 
         case 'ejecutar_accion':
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($_POST['accion_js'] ?? ''));
             $resultado = ejecutarTransicionEstado(
                 $conexion,
                 intval($_POST['sucursal_ubicacion_id'] ?? 0),

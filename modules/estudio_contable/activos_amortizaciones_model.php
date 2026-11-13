@@ -7,6 +7,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../core/cont_periodos.php';
+require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../gestion/tesoreria_core_model.php';
+
 /**
  * Carga de combos para activos fijos
  */
@@ -154,7 +158,7 @@ function activo_guardar(mysqli $conexion, int $empresa_id, array $datos): array
                         metodo_amortizacion, cuenta_activo_id, cuenta_amort_acum_id, cuenta_gasto_amort_id,
                         tabla_estado_registro_id, created_at, updated_at
                     ) VALUES (
-                        ?, 1, 0, 0,
+                        ?, 0, 0, 0,
                         0, NULL, 0, CURDATE(),
                         ?, ?, ?, ?,
                         ?, ?, ?, 0,
@@ -228,6 +232,12 @@ function activos_generar_amortizacion_mensual(mysqli $conexion, int $empresa_id,
     $mes = intval(substr((string)$periodo, 4, 2));
     $f_asiento = date("Y-m-t", strtotime("{$anio}-{$mes}-01")); // Último día del mes
 
+    try {
+        cont_periodo_exigir_abierto($conexion, $empresa_id, $f_asiento, 'generar el asiento de amortizaciones');
+    } catch (RuntimeException $e) {
+        return ['success' => false, 'message' => $e->getMessage(), 'data' => null, 'error' => 'PERIODO_CERRADO'];
+    }
+
     mysqli_begin_transaction($conexion);
 
     try {
@@ -268,7 +278,13 @@ function activos_generar_amortizacion_mensual(mysqli $conexion, int $empresa_id,
         $detalles_amortizar = [];
 
         foreach ($activos as $act) {
-            $cuota = round((floatval($act['valor_origen']) - floatval($act['valor_residual'])) / intval($act['vida_util_meses']), 2);
+            $amortizable = floatval($act['valor_origen']) - floatval($act['valor_residual']);
+            $vida = intval($act['vida_util_meses']);
+            $cuota = round($amortizable / $vida, 2);
+            // La última cuota absorbe el redondeo, así el activo queda amortizado hasta el valor residual
+            if (intval($act['meses_amortizados']) + 1 === $vida) {
+                $cuota = round($amortizable - $cuota * ($vida - 1), 2);
+            }
             if ($cuota > 0) {
                 $detalles_amortizar[] = [
                     'activo' => $act,
@@ -289,24 +305,28 @@ function activos_generar_amortizacion_mensual(mysqli $conexion, int $empresa_id,
             ];
         }
 
-        // 3. Crear Asiento Contable Automático en gestion__cont_asientos
-        $descripcion_asiento = "Amortizaciones Activos Fijos - Período {$periodo} (AUTO)";
-        $sql_asiento = "INSERT INTO gestion__cont_asientos (
-                            empresa_id, sucursal_id, deposito_id, comprobante_id, entidad_id, entidad_sucursal_id,
-                            cont_tipo_asiento_id, f_asiento, anio, mes, descripcion,
-                            moneda_id, tipo_cambio, usuario_creacion_id, fecha_creacion, tabla_estado_registro_id
-                        ) VALUES (
-                            ?, 1, 1, 0, 0, 0,
-                            1, ?, ?, ?, ?,
-                            1, 1.000000, ?, NOW(), 1
-                        )";
-        $stmt_as = mysqli_prepare($conexion, $sql_asiento);
-        mysqli_stmt_bind_param($stmt_as, "isiisi", $empresa_id, $f_asiento, $anio, $mes, $descripcion_asiento, $usuario_id);
-        mysqli_stmt_execute($stmt_as);
-        $asiento_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_as);
+        // 3. Asiento automático por el generador común de gestión (tesoreriaGenerarAsiento, sin comprobante): tipo de
+        // asiento AUT y moneda base de la empresa, cuentas del plan de la empresa, período abierto y Debe = Haber.
+        // Cada cuota: Debe gasto de amortización, Haber amortización acumulada (importe con signo).
+        $lineas = [];
+        foreach ($detalles_amortizar as $det) {
+            $act = $det['activo'];
+            if (intval($act['cuenta_gasto_amort_id']) <= 0 || intval($act['cuenta_amort_acum_id']) <= 0) {
+                throw new RuntimeException("El activo {$act['codigo']} no tiene cargadas las cuentas de gasto y de amortización acumulada.");
+            }
+            $desc_linea = "Amort. " . $act['codigo'] . " Cuota {$det['cuota_nro']}";
+            $lineas[] = ['cuenta_id' => intval($act['cuenta_gasto_amort_id']), 'debe' => $det['cuota'], 'haber' => 0, 'descripcion' => $desc_linea];
+            $lineas[] = ['cuenta_id' => intval($act['cuenta_amort_acum_id']), 'debe' => 0, 'haber' => $det['cuota'], 'descripcion' => $desc_linea];
+        }
+        $asiento_id = tesoreriaGenerarAsiento($conexion, [
+            'empresa_id' => $empresa_id,
+            'sin_comprobante' => true,
+            'f_asiento' => $f_asiento,
+            'descripcion' => "Amortizaciones Activos Fijos - Período {$periodo} (AUTO)",
+            'usuario_id' => $usuario_id,
+        ], $lineas);
 
-        // 4. Insertar detalles contables y cuotas en gestion__activos_fijos_amortizaciones
+        // 4. Cuotas en gestion__activos_fijos_amortizaciones
         foreach ($detalles_amortizar as $det) {
             $act = $det['activo'];
             $cuota = $det['cuota'];
@@ -320,13 +340,13 @@ function activos_generar_amortizacion_mensual(mysqli $conexion, int $empresa_id,
                            activo_id, periodo, cuota_nro, importe_amortizacion, asiento_id, f_asiento,
                            tabla_estado_registro_id, created_at
                        ) VALUES (
-                           ?, 1, 0, 0, 0,
+                           ?, 0, 0, 0, 0,
                            NULL, 0, ?,
                            ?, ?, ?, ?, ?, ?,
                            1, NOW()
                        )";
             $stmt_am = mysqli_prepare($conexion, $sql_am);
-            mysqli_stmt_bind_param($stmt_am, "isiiidisi", $empresa_id, $f_asiento, $activo_id, $periodo, $cuota_nro, $cuota, $asiento_id, $f_asiento);
+            mysqli_stmt_bind_param($stmt_am, "isiiidis", $empresa_id, $f_asiento, $activo_id, $periodo, $cuota_nro, $cuota, $asiento_id, $f_asiento);
             mysqli_stmt_execute($stmt_am);
             mysqli_stmt_close($stmt_am);
 
@@ -336,56 +356,13 @@ function activos_generar_amortizacion_mensual(mysqli $conexion, int $empresa_id,
             mysqli_stmt_bind_param($stmt_act_up, "ii", $empresa_id, $activo_id);
             mysqli_stmt_execute($stmt_act_up);
             mysqli_stmt_close($stmt_act_up);
-
-            // 4.3 Líneas del Asiento Contable (Débito Gasto, Crédito Acumulada)
-            $cuenta_gasto = intval($act['cuenta_gasto_amort_id']);
-            $cuenta_acum = intval($act['cuenta_amort_acum_id']);
-            $desc_linea = "Amort. " . $act['codigo'] . " Cuota {$cuota_nro}";
-
-            // Débito a Gasto
-            if ($cuenta_gasto > 0) {
-                $sql_d = "INSERT INTO gestion__cont_asientos_detalles (
-                              cont_asiento_id, cuenta_id, area_id, departamento_id, centro_costo_id,
-                              proyecto_id, entidad_id, producto_id, comprobante_id, comprobante_id_destino,
-                              tipo, importe_local, importe_ifrs, importe_impositivo, moneda_id, tipo_cambio,
-                              descripcion, estado
-                          ) VALUES (
-                              ?, ?, 0, 0, 0,
-                              0, 0, 0, 0, 0,
-                              'D', ?, ?, ?, 1, 1.000000,
-                              ?, 'activo'
-                          )";
-                $stmt_d = mysqli_prepare($conexion, $sql_d);
-                mysqli_stmt_bind_param($stmt_d, "iiddds", $asiento_id, $cuenta_gasto, $cuota, $cuota, $cuota, $desc_linea);
-                mysqli_stmt_execute($stmt_d);
-                mysqli_stmt_close($stmt_d);
-            }
-
-            // Crédito a Amortización Acumulada
-            if ($cuenta_acum > 0) {
-                $sql_h = "INSERT INTO gestion__cont_asientos_detalles (
-                              cont_asiento_id, cuenta_id, area_id, departamento_id, centro_costo_id,
-                              proyecto_id, entidad_id, producto_id, comprobante_id, comprobante_id_destino,
-                              tipo, importe_local, importe_ifrs, importe_impositivo, moneda_id, tipo_cambio,
-                              descripcion, estado
-                          ) VALUES (
-                              ?, ?, 0, 0, 0,
-                              0, 0, 0, 0, 0,
-                              'H', ?, ?, ?, 1, 1.000000,
-                              ?, 'activo'
-                          )";
-                $stmt_h = mysqli_prepare($conexion, $sql_h);
-                mysqli_stmt_bind_param($stmt_h, "iiddds", $asiento_id, $cuenta_acum, $cuota, $cuota, $cuota, $desc_linea);
-                mysqli_stmt_execute($stmt_h);
-                mysqli_stmt_close($stmt_h);
-            }
         }
 
         mysqli_commit($conexion);
 
         return [
             'success' => true,
-            'message' => "Proceso exitoso: Se amortizaron " . count($detalles_amortizar) . " activos fijos por un total de $" . number_format($total_mes, 2, ',', '.') . ". Asiento contable N° {$asiento_id} generado.",
+            'message' => "Proceso exitoso: Se amortizaron " . count($detalles_amortizar) . " activos fijos por un total de " . fmt_moneda($total_mes) . ". Asiento contable N° {$asiento_id} generado.",
             'data' => [
                 'procesados' => count($detalles_amortizar),
                 'total_amortizado' => $total_mes,

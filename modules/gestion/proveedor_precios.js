@@ -16,6 +16,8 @@ $(function () {
     var tablaArmarLista = null; // DataTable de la vista previa de "Armar lista desde precios"
     var armarListaExcluidos = {}; // producto_proveedor_id destildados en la vista previa
     var armarListaBaseCalculada = null; // base con la que se calculó la vista previa vigente
+    var tablaImportaciones = null; // DataTable de la solapa Importaciones (historial de archivos cargados)
+    var tablaDetalleImportacion = null; // DataTable del detalle fila por fila de una importación
 
     var TAMANIO_LOTE = 300; // mismo tamaño de lote que listas_precios_productos.php
 
@@ -37,6 +39,7 @@ $(function () {
             listasPreciosActivas = [];
             intentarCargarTabla();
             cargarControl();
+            cargarImportaciones();
         });
 
         $('#btnAgregarPrecio').on('click', abrirModalAgregar);
@@ -110,6 +113,24 @@ $(function () {
             if (tablaControl) tablaControl.columns.adjust();
         });
 
+        $('#tab-importaciones-btn').on('shown.bs.tab', cargarImportaciones);
+        $(document).on('click', '.btn-ver-importacion', function (e) {
+            e.preventDefault();
+            var id = parseInt($(this).data('id'), 10);
+            // Desde el modal de importación o el de historial: se cierra ese
+            // primero (Bootstrap no apila bien dos modales).
+            var $modal = $(this).closest('.modal');
+            if ($modal.length) {
+                $modal.one('hidden.bs.modal', function () { abrirDetalleImportacion(id); }).modal('hide');
+            } else {
+                abrirDetalleImportacion(id);
+            }
+        });
+        $('#filtroResultadoImportacion').on('change', filtrarDetalleImportacion);
+        $('#btnExportarDetalleImportacion').on('click', function () {
+            if (tablaDetalleImportacion) tablaDetalleImportacion.button('.buttons-excel').trigger();
+        });
+
         $(document).on('click', '.btn-cargar-precio-control', function () {
             abrirModalAgregarConProducto(JSON.parse(decodeURIComponent($(this).data('row'))));
         });
@@ -131,7 +152,7 @@ $(function () {
 
             if (!data.length) {
                 console.warn('obtener_proveedores devolvió 0 proveedores para empresa_idx=' + empresa_idx +
-                    '. Revisar que existan filas en gestion__entidades con es_proveedor=1, tabla_estado_registro_id=1 y ese empresa_id.');
+                    '. Revisar que existan entidades activas de esa empresa con el rol Proveedor (gestion__entidades_roles).');
             }
         }, 'json').fail(function (xhr) {
             console.error('Error HTTP cargando proveedores:', xhr.status, xhr.responseText);
@@ -294,7 +315,7 @@ $(function () {
 
         var theadFila1 = '<tr>' +
             '<th rowspan="2">Proveedor</th>' +
-            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2" width="280">Producto</th>' +
+            '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2" class="col-producto">Producto</th>' +
             '<th rowspan="2" class="text-end">Precio Lista</th><th rowspan="2" class="text-end">Desc. %</th>' +
             '<th rowspan="2" class="text-end">Costo Neto Compra</th><th rowspan="2" class="text-end">Último Costo</th>' +
             '<th rowspan="2" class="text-end">% Var. Costo</th>' +
@@ -318,8 +339,18 @@ $(function () {
                 // en la vista sin proveedor elegido, donde una búsqueda por
                 // código/marca/modelo puede traer el mismo producto ofrecido
                 // por varios proveedores distintos.
+                // La estrella marca al proveedor principal del producto: el
+                // único cuya lista actualiza el costo y los precios de venta.
                 data: 'entidad_nombre',
-                defaultContent: '<span class="text-muted">-</span>'
+                render: function (nombre, type, row) {
+                    if (type === 'export') return nombre || '';
+                    if (!nombre) return '<span class="text-muted">-</span>';
+                    var html = escapeHtml(nombre);
+                    if (parseInt(row.es_principal) === 1) {
+                        html = '<i class="fas fa-star text-warning me-1" title="Proveedor principal del producto"></i>' + html;
+                    }
+                    return html;
+                }
             },
             { data: 'codigo_proveedor', defaultContent: '' },
             { data: 'producto_codigo', defaultContent: '' },
@@ -329,14 +360,18 @@ $(function () {
                 // (mismo criterio que productos.php: nunca se mezclan campos
                 // sueltos, cada línea es una fila real de
                 // gestion__productos_compatibilidad).
+                // Columna ancha (min-width en proveedor_precios.php) y de las
+                // últimas en ocultarse cuando la pantalla no alcanza.
                 data: 'producto_nombre',
+                className: 'col-producto',
+                responsivePriority: 1,
                 render: function (nombre, type, row) {
                     if (type === 'export') return nombre;
                     return renderNombreConCompatibilidad(nombre, row.compatibilidades_detalle);
                 }
             },
             { data: 'precio_lista', className: 'text-end', render: function (d) { return formatearMoneda(d); } },
-            { data: 'descuento_general_pct', className: 'text-end', render: function (d) { return (parseFloat(d) || 0).toFixed(2) + ' %'; } },
+            { data: 'descuento_general_pct', className: 'text-end', render: function (d) { return Fmt.numero((parseFloat(d) || 0), 2) + ' %'; } },
             {
                 // Costo neto de compra "debería ser" (según el precio de lista
                 // actual del proveedor). Coloreado igual que "Último Costo
@@ -431,11 +466,15 @@ $(function () {
             orderable: false,
             render: function (row) {
                 var rowJson = encodeURIComponent(JSON.stringify(row));
+                // Solo la lista del proveedor principal actualiza costo y precios de venta.
+                var esPrincipal = parseInt(row.es_principal) === 1;
+                var attrCosto = esPrincipal ? '' : ' disabled';
+                var tituloNoPrincipal = 'No es el proveedor principal del producto (se cambia en Productos > Proveedores)';
                 var filaFija = '<div class="btn-group btn-group-sm">' +
                     '<button class="btn btn-outline-info btn-ver-historial" data-id="' + row.producto_proveedor_id + '" title="Ver historial"><i class="fas fa-history"></i></button>' +
-                    '<button class="btn btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="Actualizar costo"><i class="fas fa-sync-alt"></i></button>' +
-                    '<button class="btn btn-outline-primary btn-actualizar-precio-venta" data-row="' + rowJson + '" title="Actualizar precio de venta (con el costo actual)"><i class="fas fa-tags"></i></button>' +
-                    '<button class="btn btn-outline-warning btn-actualizar-costo-y-precio" data-row="' + rowJson + '" title="Actualizar costo y precio de venta"><i class="fas fa-bolt"></i></button>' +
+                    '<button class="btn btn-outline-success btn-actualizar-costo" data-row="' + rowJson + '" title="' + (esPrincipal ? 'Actualizar costo' : tituloNoPrincipal) + '"' + attrCosto + '><i class="fas fa-sync-alt"></i></button>' +
+                    '<button class="btn btn-outline-primary btn-actualizar-precio-venta" data-row="' + rowJson + '" title="' + (esPrincipal ? 'Actualizar precio de venta (con el costo actual)' : tituloNoPrincipal) + '"' + attrCosto + '><i class="fas fa-tags"></i></button>' +
+                    '<button class="btn btn-outline-warning btn-actualizar-costo-y-precio" data-row="' + rowJson + '" title="' + (esPrincipal ? 'Actualizar costo y precio de venta' : tituloNoPrincipal) + '"' + attrCosto + '><i class="fas fa-bolt"></i></button>' +
                     '</div>';
 
                 // Botones que vienen del motor de estados (conf__paginas_funciones,
@@ -488,7 +527,7 @@ $(function () {
                 });
             },
             columns: columnasBase,
-            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' }
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' }
         });
 
         inicializarToolbarTabla();
@@ -702,7 +741,9 @@ $(function () {
                         '<td>' + formatearMoneda(h.precio_lista) + '</td>' +
                         '<td>' + (h.simbolo || '') + '</td>' +
                         '<td>' + h.origen_carga + '</td>' +
-                        '<td>' + (h.archivo_importacion || '-') + '</td>' +
+                        '<td>' + (h.importacion_id
+                            ? '<a href="#" class="btn-ver-importacion" data-id="' + h.importacion_id + '">' + escapeHtml(h.archivo_importacion || ('Importación N° ' + h.importacion_id)) + '</a>'
+                            : escapeHtml(h.archivo_importacion || '-')) + '</td>' +
                         '</tr>'
                     );
                 });
@@ -779,7 +820,7 @@ $(function () {
 
         Swal.fire({
             title: titulo,
-            html: descripcionHtml,
+            html: descripcionHtml + '<br><small class="text-muted">Se saltean los productos donde este no es el proveedor principal.</small>',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, actualizar'
@@ -813,7 +854,8 @@ $(function () {
             title: 'Actualizar costos y listas de precios de TODOS los productos',
             html: 'Se va a recalcular y fijar el costo (precio de lista menos el descuento de compra vigente) de <strong>todos los productos activos</strong> de <strong>' + escapeHtml(proveedorActualNombre) + '</strong>, ' +
                   'y actualizar el precio de venta en cada lista de precios con regla aplicable.' +
-                  '<br><small class="text-muted">Los productos cuyo costo ya está al día se saltean (no se tocan ni costo ni precios).</small>',
+                  '<br><small class="text-muted">Los productos cuyo costo ya está al día se saltean (no se tocan ni costo ni precios), ' +
+                  'y también los productos donde este no es el proveedor principal.</small>',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonText: 'Sí, actualizar todos'
@@ -909,22 +951,62 @@ $(function () {
             // esto, f_vigencia_desde llegaría como "45932" en vez de una fecha.
             var workbook = XLSX.read(new Uint8Array(ev.target.result), { type: 'array', cellDates: true });
             var hoja = workbook.Sheets[workbook.SheetNames[0]];
-            var filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
+            // blankrows:false + __rowNum__ (fila real de la hoja, base 0): el
+            // historial de la importación guarda el número de fila tal como lo
+            // ve el usuario en Excel, para poder ir a corregirla.
+            var filas = XLSX.utils.sheet_to_json(hoja, { defval: '', blankrows: false });
 
+            // Se mandan TODAS las filas con algún dato (también las que no se
+            // pueden cargar: sin código, precio inválido, código repetido) para
+            // que queden en el historial y se vean los errores del archivo.
             loteImportacion = filas.map(function (f) {
+                var precioCrudo = f.precio ?? f.PRECIO ?? '';
                 return {
+                    fila_nro: (f.__rowNum__ !== undefined ? f.__rowNum__ + 1 : null),
                     codigo_proveedor: String(f.codigo_proveedor ?? f.CODIGO_PROVEEDOR ?? '').trim(),
                     descripcion: String(f.descripcion ?? f.DESCRIPCION ?? '').trim(),
-                    precio: parseFloat(f.precio ?? f.PRECIO ?? 0) || 0,
+                    precio_texto: String(precioCrudo).trim(),
+                    precio: leerPrecioExcel(precioCrudo),
                     f_vigencia_desde: normalizarFechaExcel(f.f_vigencia_desde ?? f.F_VIGENCIA_DESDE ?? f.vigencia_desde ?? f.VIGENCIA_DESDE ?? '')
                 };
-            }).filter(function (f) { return f.codigo_proveedor !== ''; });
+            }).filter(function (f) { return f.codigo_proveedor !== '' || f.descripcion !== '' || f.precio_texto !== ''; });
 
-            var sinFecha = loteImportacion.filter(function (f) { return !f.f_vigencia_desde; }).length;
-            var aviso = sinFecha
-                ? ' <span class="text-warning">' + sinFecha + ' fila(s) sin fecha de vigencia válida — se van a cargar con la fecha de hoy.</span>'
-                : '';
-            $('#resumenImportacion').html('<div class="alert alert-info">Se detectaron <strong>' + loteImportacion.length + '</strong> filas con código válido.' + aviso + '</div>');
+            // Código repetido en el archivo: vale la última fila (como antes);
+            // las anteriores se marcan y quedan en el historial como DUPLICADO.
+            var ultimaPorCodigo = {};
+            loteImportacion.forEach(function (f, i) {
+                if (f.codigo_proveedor !== '') ultimaPorCodigo[normalizarCodigo(f.codigo_proveedor)] = i;
+            });
+            var duplicadas = 0;
+            loteImportacion.forEach(function (f, i) {
+                if (f.codigo_proveedor === '') return;
+                var ultima = ultimaPorCodigo[normalizarCodigo(f.codigo_proveedor)];
+                if (ultima !== i) {
+                    f.duplicado = 1;
+                    f.fila_vale = loteImportacion[ultima].fila_nro;
+                    duplicadas++;
+                }
+            });
+
+            var esValida = function (f) { return f.codigo_proveedor !== '' && !f.duplicado && f.precio !== null && f.precio > 0; };
+            var validas = loteImportacion.filter(esValida);
+            var sinCodigo = loteImportacion.filter(function (f) { return f.codigo_proveedor === ''; }).length;
+            var precioInvalido = loteImportacion.filter(function (f) { return f.codigo_proveedor !== '' && !f.duplicado && !esValida(f); }).length;
+            var sinFecha = validas.filter(function (f) { return !f.f_vigencia_desde; }).length;
+
+            var avisos = [];
+            if (sinCodigo) avisos.push(sinCodigo + ' sin código');
+            if (precioInvalido) avisos.push(precioInvalido + ' con precio vacío, no numérico o en cero');
+            if (duplicadas) avisos.push(duplicadas + ' con el código repetido (vale la última)');
+            var html = '<div class="alert alert-info mb-2">Se detectaron <strong>' + loteImportacion.length + '</strong> filas, <strong>' +
+                validas.length + '</strong> para cargar.' +
+                (sinFecha ? ' <span class="text-warning">' + sinFecha + ' sin fecha de vigencia válida: se cargan con la fecha de hoy.</span>' : '') +
+                '</div>';
+            if (avisos.length) {
+                html += '<div class="alert alert-warning mb-0">No se van a cargar: ' + avisos.join(', ') +
+                    '. Quedan en el historial de la importación con su número de fila.</div>';
+            }
+            $('#resumenImportacion').html(html);
         };
         reader.readAsArrayBuffer(file);
     }
@@ -937,16 +1019,48 @@ $(function () {
             return Swal.fire('Atención', 'Seleccione un proveedor.', 'warning');
         }
 
-        var archivoNombre = $('#inputArchivoExcel')[0].files[0].name;
+        var archivo = $('#inputArchivoExcel')[0].files[0];
+        var archivoNombre = archivo.name;
         var totalLotes = Math.ceil(loteImportacion.length / TAMANIO_LOTE);
         var loteActual = 0;
+        var importacionId = 0;
+        var lotesFallidos = 0;
+        var avisoPrevia = '';
 
-        var acumulado = { procesados: 0, sin_cambios: 0, errores_count: 0, codigos_multiples: 0, no_vinculados: [] };
+        var acumulado = { procesados: 0, sin_cambios: 0, errores_count: 0, filas_error: 0, codigos_multiples: 0, no_vinculados: [] };
 
         $('#progressImportacion').removeClass('d-none');
         $('#btnProcesarImportacion').prop('disabled', true);
 
-        procesarSiguienteLote();
+        // Primero se sube el archivo original y se abre la importación en el
+        // historial; si eso falla no se carga nada.
+        var fd = new FormData();
+        fd.append('accion', 'importacion_iniciar');
+        fd.append('empresa_idx', empresa_idx);
+        fd.append('entidad_id', proveedorActualId);
+        fd.append('archivo_nombre', archivoNombre);
+        fd.append('filas_archivo', loteImportacion.length);
+        fd.append('archivo', archivo);
+        $.ajax({ url: 'proveedor_precios_ajax.php', type: 'POST', data: fd, processData: false, contentType: false, dataType: 'json' })
+            .done(function (res) {
+                if (!res || !res.success) {
+                    $('#btnProcesarImportacion').prop('disabled', false);
+                    $('#progressImportacion').addClass('d-none');
+                    return Swal.fire('No se pudo importar', (res && res.message) || 'No se pudo registrar la importación.', 'error');
+                }
+                importacionId = res.data.importacion_id;
+                if (res.data.previa) {
+                    avisoPrevia = '<div class="alert alert-secondary mb-2"><i class="fas fa-info-circle me-1"></i>Este mismo archivo ya se había importado para este proveedor el ' +
+                        escapeHtml(Fmt.fechaHora(res.data.previa.fecha_inicio)) + ' (importación N° ' + res.data.previa.importacion_id + ').</div>';
+                }
+                procesarSiguienteLote();
+            })
+            .fail(function (xhr) {
+                console.error('Error HTTP en importacion_iniciar:', xhr.status, xhr.responseText);
+                $('#btnProcesarImportacion').prop('disabled', false);
+                $('#progressImportacion').addClass('d-none');
+                Swal.fire('No se pudo importar', 'No se pudo subir el archivo.', 'error');
+            });
 
         function procesarSiguienteLote() {
             var desde = loteActual * TAMANIO_LOTE;
@@ -962,16 +1076,19 @@ $(function () {
                 pagina_idx: pagina_idx,
                 entidad_id: proveedorActualId,
                 archivo_nombre: archivoNombre,
+                importacion_id: importacionId,
                 items: JSON.stringify(items)
             }, function (res) {
                 if (res.success) {
                     acumulado.procesados += res.procesados;
                     acumulado.sin_cambios += res.sin_cambios;
                     acumulado.errores_count += res.errores_count;
+                    acumulado.filas_error += res.filas_error || 0;
                     acumulado.codigos_multiples += res.codigos_multiples || 0;
                     acumulado.no_vinculados = acumulado.no_vinculados.concat(res.no_vinculados || []);
                 } else {
                     acumulado.errores_count += items.length;
+                    lotesFallidos++;
                 }
 
                 loteActual++;
@@ -981,6 +1098,7 @@ $(function () {
                 procesarSiguienteLote();
             }, 'json').fail(function () {
                 acumulado.errores_count += items.length;
+                lotesFallidos++;
                 loteActual++;
                 procesarSiguienteLote();
             });
@@ -993,7 +1111,8 @@ $(function () {
             // proveedor que aplica a 2 productos suma 2.
             var html = '<div class="alert alert-success">Productos actualizados: ' + acumulado.procesados +
                 ' — Sin cambios: ' + acumulado.sin_cambios +
-                ' — Errores: ' + acumulado.errores_count +
+                ' — Errores al grabar: ' + acumulado.errores_count +
+                (acumulado.filas_error > acumulado.errores_count ? ' — Filas del archivo con error: ' + (acumulado.filas_error - acumulado.errores_count) : '') +
                 (acumulado.codigos_multiples ? '<br><small>' + acumulado.codigos_multiples + ' código(s) del archivo aplicado(s) a más de un producto.</small>' : '') +
                 '</div>';
 
@@ -1007,11 +1126,13 @@ $(function () {
             }
 
             html += '<div id="resumenControlImportacion" class="mt-3 text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Controlando productos vinculados que no vinieron en el archivo…</div>';
+            html += '<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-secondary btn-ver-importacion" data-id="' + importacionId + '">' +
+                '<i class="fas fa-history me-1"></i>Ver el detalle fila por fila</button></div>';
 
-            $('#resumenImportacion').html(html);
+            $('#resumenImportacion').html(avisoPrevia + html);
             cargarYMostrarTabla();
             cargarControl();
-            controlarImportacion(acumulado.no_vinculados);
+            controlarImportacion(acumulado.no_vinculados, importacionId, lotesFallidos);
         }
     }
 
@@ -1020,15 +1141,19 @@ $(function () {
     // el código a un producto, aparece acá (código viejo) y también en "no
     // vinculados" (código nuevo) — se sugiere el par por similitud de
     // descripción/código para que el usuario lo corrija en Productos-Proveedores.
-    function controlarImportacion(noVinculados) {
-        var codigos = loteImportacion.map(function (f) { return f.codigo_proveedor; });
+    function controlarImportacion(noVinculados, importacionId, lotesFallidos) {
+        var codigos = loteImportacion.filter(function (f) { return f.codigo_proveedor !== ''; })
+            .map(function (f) { return f.codigo_proveedor; });
 
         $.post('proveedor_precios_ajax.php', {
             accion: 'controlar_importacion',
             empresa_idx: empresa_idx,
             entidad_id: proveedorActualId,
+            importacion_id: importacionId || 0,
+            lotes_fallidos: lotesFallidos || 0,
             codigos: JSON.stringify(codigos)
         }, function (res) {
+            cargarImportaciones();
             if (!res || !res.success) {
                 $('#resumenControlImportacion').html('<div class="alert alert-danger">No se pudo hacer el control: ' + escapeHtml((res && res.message) || 'respuesta inesperada') + '</div>');
                 return;
@@ -1242,7 +1367,7 @@ $(function () {
         $('#armarListaResumen').html(
             (datos.total || 0) + ' sin precio · ' + (datos.calculables || 0) + ' calculables · ' +
             '<strong>' + seleccionados + ' a cargar</strong>' +
-            '<br><span class="text-muted">Descuento de compra vigente: ' + (parseFloat(datos.descuento_pct) || 0).toFixed(2) + ' %</span>'
+            '<br><span class="text-muted">Descuento de compra vigente: ' + Fmt.numero((parseFloat(datos.descuento_pct) || 0), 2) + ' %</span>'
         );
         $('#btnArmarListaGenerar').prop('disabled', !seleccionados || armarListaBaseCalculada === null);
     }
@@ -1344,7 +1469,7 @@ $(function () {
                     }
                 }
             ],
-            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' }
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' }
         });
     }
 
@@ -1487,6 +1612,233 @@ $(function () {
 
     /* ============================ Utilidades ============================ */
 
+    /* ============================ Historial de importaciones ============================ */
+
+    // Precio de una celda del Excel: número si la celda es numérica; si es
+    // texto, "1234.56" se toma con punto decimal (como antes) y cualquier otro
+    // texto ("1.234,56", "$ 1.234,56") con el formato de números de la
+    // empresa. Vacío o no numérico → null (queda como PRECIO_INVALIDO).
+    function leerPrecioExcel(valor) {
+        if (typeof valor === 'number') return isFinite(valor) ? valor : null;
+        var texto = String(valor ?? '').trim();
+        if (texto === '') return null;
+        var n = /^-?\d+(\.\d+)?$/.test(texto) ? parseFloat(texto) : Fmt.parseNumero(texto);
+        return isFinite(n) ? n : null;
+    }
+
+    var RESULTADOS_IMPORTACION = {
+        NUEVO: { texto: 'Precio nuevo', color: 'success' },
+        ACTUALIZADO: { texto: 'Actualizado', color: 'primary' },
+        SIN_CAMBIOS: { texto: 'Sin cambios', color: 'secondary' },
+        NO_VINCULADO: { texto: 'Código no vinculado', color: 'warning' },
+        SIN_CODIGO: { texto: 'Sin código', color: 'danger' },
+        PRECIO_INVALIDO: { texto: 'Precio inválido', color: 'danger' },
+        DUPLICADO: { texto: 'Código repetido', color: 'danger' },
+        ERROR: { texto: 'Error al grabar', color: 'danger' },
+        FALTANTE: { texto: 'No vino en el archivo', color: 'info' }
+    };
+
+    function badgeResultado(codigo) {
+        var r = RESULTADOS_IMPORTACION[codigo] || { texto: codigo, color: 'secondary' };
+        var texto = r.color === 'warning' || r.color === 'info' ? ' text-dark' : '';
+        return '<span class="badge bg-' + r.color + texto + '">' + escapeHtml(r.texto) + '</span>';
+    }
+
+    function urlArchivoImportacion(id) {
+        return 'proveedor_precios_ajax.php?accion=importacion_archivo&empresa_idx=' + encodeURIComponent(empresa_idx) + '&importacion_id=' + encodeURIComponent(id);
+    }
+
+    // Solapa Importaciones: del proveedor elegido o, sin proveedor, de todos.
+    function cargarImportaciones() {
+        if (!$('#tab-importaciones').hasClass('active') && !tablaImportaciones) return;
+        var entidadPedida = proveedorActualId;
+        $.get({
+            url: 'proveedor_precios_ajax.php',
+            dataType: 'json',
+            data: { accion: 'importaciones_listar', empresa_idx: empresa_idx, entidad_id: entidadPedida || 0 }
+        }).done(function (res) {
+            if (entidadPedida !== proveedorActualId) return;
+            if (!res || !res.success) {
+                Swal.fire('Error', (res && res.message) || 'No se pudo cargar el historial de importaciones.', 'error');
+                return;
+            }
+            pintarTablaImportaciones(res.data || []);
+        }).fail(function (xhr) {
+            console.error('Error cargando importaciones:', xhr.status, xhr.responseText);
+            Swal.fire('Error', 'No se pudo cargar el historial de importaciones.', 'error');
+        });
+    }
+
+    function pintarTablaImportaciones(filas) {
+        if (tablaImportaciones) {
+            tablaImportaciones.clear().rows.add(filas).draw();
+            return;
+        }
+        var numero = function (d) { return parseInt(d, 10) || 0; };
+        var celdaContador = function (color) {
+            return function (d, type) {
+                var n = numero(d);
+                if (type !== 'display') return n;
+                return n ? '<span class="text-' + color + ' fw-semibold">' + n + '</span>' : '<span class="text-muted">0</span>';
+            };
+        };
+        tablaImportaciones = $('#tablaImportaciones').DataTable({
+            data: filas,
+            pageLength: 10,
+            order: [[0, 'desc']],
+            columns: [
+                { data: 'fecha_inicio', render: function (d, type) { return type === 'display' ? escapeHtml(Fmt.fechaHora(d)) : d; } },
+                { data: 'entidad_nombre', defaultContent: '' },
+                {
+                    data: 'archivo_nombre',
+                    render: function (d, type, row) {
+                        if (type !== 'display') return d || '';
+                        var nombre = escapeHtml(d || '(sin nombre)');
+                        return parseInt(row.tiene_archivo, 10)
+                            ? '<a href="' + urlArchivoImportacion(row.importacion_id) + '" title="Descargar el archivo tal como se cargó"><i class="fas fa-download me-1"></i>' + nombre + '</a>'
+                            : nombre;
+                    }
+                },
+                { data: 'usuario_nombre', defaultContent: '', className: 'ui-detalle' },
+                { data: 'filas_archivo', className: 'text-end', render: function (d) { return numero(d); } },
+                {
+                    data: null, className: 'text-end',
+                    render: function (row, type) {
+                        var n = numero(row.nuevos) + numero(row.actualizados);
+                        if (type !== 'display') return n;
+                        return '<span title="Nuevos: ' + numero(row.nuevos) + ' — Actualizados: ' + numero(row.actualizados) + '">' + n + '</span>';
+                    }
+                },
+                { data: 'sin_cambios', className: 'text-end', render: function (d) { return numero(d); } },
+                { data: 'no_vinculados', className: 'text-end', render: celdaContador('warning') },
+                { data: 'filas_error', className: 'text-end', render: celdaContador('danger') },
+                { data: 'faltantes', className: 'text-end', render: celdaContador('info') },
+                {
+                    data: 'estado',
+                    render: function (d, type, row) {
+                        var interrumpida = d === 'EN_CURSO' && parseInt(row.interrumpida, 10) === 1;
+                        var texto = interrumpida ? 'Interrumpida' : (d === 'EN_CURSO' ? 'En curso' : (d === 'CON_ERRORES' ? 'Con errores' : 'Finalizada'));
+                        if (type !== 'display') return texto;
+                        var color = interrumpida || d === 'CON_ERRORES' ? 'danger' : (d === 'EN_CURSO' ? 'warning text-dark' : 'success');
+                        var extra = parseInt(row.lotes_fallidos, 10) ? ' title="' + numero(row.lotes_fallidos) + ' lote(s) no llegaron al servidor"' : '';
+                        return '<span class="badge bg-' + color + '"' + extra + '>' + texto + '</span>';
+                    }
+                },
+                {
+                    data: null, orderable: false, className: 'text-center',
+                    render: function (row) {
+                        return '<button type="button" class="btn btn-sm btn-outline-secondary btn-ver-importacion" data-id="' + row.importacion_id + '" title="Ver el resultado fila por fila"><i class="fas fa-list"></i></button>';
+                    }
+                }
+            ],
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' }
+        });
+    }
+
+    function abrirDetalleImportacion(importacionId) {
+        if (!importacionId) return;
+        var cab = tablaImportaciones ? tablaImportaciones.rows().data().toArray().filter(function (r) { return parseInt(r.importacion_id, 10) === importacionId; })[0] : null;
+        $.get({
+            url: 'proveedor_precios_ajax.php',
+            dataType: 'json',
+            data: { accion: 'importacion_detalle', empresa_idx: empresa_idx, importacion_id: importacionId }
+        }).done(function (res) {
+            if (!res || !res.success) {
+                Swal.fire('Error', (res && res.message) || 'No se pudo cargar el detalle.', 'error');
+                return;
+            }
+            var filas = res.data || [];
+            var titulo = 'Importación N° ' + importacionId;
+            if (cab) titulo += ' — ' + (cab.archivo_nombre || '') + ' (' + Fmt.fechaHora(cab.fecha_inicio) + ')';
+            $('#modalDetalleImportacionTitulo').text(titulo);
+            $('#linkArchivoImportacion').attr('href', urlArchivoImportacion(importacionId)).toggleClass('d-none', !!cab && !parseInt(cab.tiene_archivo, 10));
+
+            // Resumen por resultado (y opciones del filtro con su cantidad).
+            var cuenta = {};
+            filas.forEach(function (f) { cuenta[f.resultado] = (cuenta[f.resultado] || 0) + 1; });
+            var $filtro = $('#filtroResultadoImportacion').empty()
+                .append('<option value="">Todos (' + filas.length + ')</option>')
+                .append('<option value="__errores">Solo errores del archivo (' + ['SIN_CODIGO', 'PRECIO_INVALIDO', 'DUPLICADO', 'ERROR', 'NO_VINCULADO'].reduce(function (t, k) { return t + (cuenta[k] || 0); }, 0) + ')</option>');
+            Object.keys(RESULTADOS_IMPORTACION).forEach(function (k) {
+                if (cuenta[k]) $filtro.append('<option value="' + k + '">' + RESULTADOS_IMPORTACION[k].texto + ' (' + cuenta[k] + ')</option>');
+            });
+            $('#resumenDetalleImportacion').html(Object.keys(RESULTADOS_IMPORTACION).filter(function (k) { return cuenta[k]; })
+                .map(function (k) { return badgeResultado(k) + ' ' + cuenta[k]; }).join('<span class="mx-2"></span>'));
+
+            pintarDetalleImportacion(filas);
+            $('#modalDetalleImportacion').modal('show');
+        }).fail(function (xhr) {
+            console.error('Error en importacion_detalle:', xhr.status, xhr.responseText);
+            Swal.fire('Error', 'No se pudo cargar el detalle de la importación.', 'error');
+        });
+    }
+
+    function pintarDetalleImportacion(filas) {
+        if (tablaDetalleImportacion) {
+            tablaDetalleImportacion.search('').columns().search('');
+            tablaDetalleImportacion.clear().rows.add(filas).draw();
+            return;
+        }
+        var importe = function (d, type) {
+            if (d === null || d === undefined || d === '') return type === 'display' ? '<span class="text-muted">-</span>' : '';
+            return type === 'display' ? formatearMoneda(d) : parseFloat(d);
+        };
+        tablaDetalleImportacion = $('#tablaDetalleImportacion').DataTable({
+            data: filas,
+            pageLength: 25,
+            order: [],
+            autoWidth: false,
+            columns: [
+                { data: 'fila_nro', className: 'text-end', render: function (d, type) { return d === null ? (type === 'display' ? '<span class="text-muted">-</span>' : 999999999) : parseInt(d, 10); } },
+                { data: 'codigo_proveedor', render: function (d, type) { return type === 'display' ? (d ? escapeHtml(d) : '<span class="text-muted">(vacío)</span>') : (d || ''); } },
+                { data: 'descripcion', render: function (d, type) { return type === 'display' ? escapeHtml(d) : (d || ''); } },
+                {
+                    data: 'producto_nombre',
+                    render: function (d, type, row) {
+                        if (!d) return type === 'display' ? '<span class="text-muted">-</span>' : '';
+                        var txt = (row.producto_codigo ? row.producto_codigo + ' — ' : '') + d;
+                        return type === 'display' ? escapeHtml(txt) : txt;
+                    }
+                },
+                {
+                    data: 'precio_texto', className: 'text-end',
+                    render: function (d, type, row) {
+                        if (row.precio !== null && row.precio !== undefined) return importe(row.precio, type);
+                        return type === 'display' ? (d ? '<span class="text-danger">' + escapeHtml(d) + '</span>' : '<span class="text-muted">(vacío)</span>') : (d || '');
+                    }
+                },
+                { data: 'precio_anterior', className: 'text-end', render: importe },
+                { data: 'f_vigencia_desde', render: function (d, type) { return d ? (type === 'display' ? escapeHtml(Fmt.fecha(d)) : d) : ''; } },
+                {
+                    data: 'resultado',
+                    render: function (d, type) { return type === 'display' ? badgeResultado(d) : ((RESULTADOS_IMPORTACION[d] || {}).texto || d); }
+                },
+                { data: 'mensaje', render: function (d, type) { return type === 'display' ? '<small>' + escapeHtml(d) + '</small>' : (d || ''); } },
+                { data: 'resultado', visible: false, searchable: true }
+            ],
+            initComplete: function () {
+                new $.fn.dataTable.Buttons(tablaDetalleImportacion, {
+                    buttons: [{ extend: 'excelHtml5', title: function () { return $('#modalDetalleImportacionTitulo').text(); }, exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }]
+                });
+            },
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' }
+        });
+    }
+
+    function filtrarDetalleImportacion() {
+        if (!tablaDetalleImportacion) return;
+        var v = $('#filtroResultadoImportacion').val();
+        var col = tablaDetalleImportacion.column(9);
+        if (v === '__errores') {
+            col.search('^(SIN_CODIGO|PRECIO_INVALIDO|DUPLICADO|ERROR|NO_VINCULADO)$', true, false);
+        } else if (v) {
+            col.search('^' + v + '$', true, false);
+        } else {
+            col.search('');
+        }
+        tablaDetalleImportacion.draw();
+    }
+
     function normalizarFechaExcel(valor) {
         if (!valor) return '';
         if (valor instanceof Date && !isNaN(valor)) {
@@ -1502,13 +1854,11 @@ $(function () {
     }
 
     function formatearFecha(valor) {
-        if (!valor) return '';
-        var partes = String(valor).split('-'); // 'YYYY-MM-DD' -> 'DD/MM/YYYY'
-        return partes.length === 3 ? (partes[2] + '/' + partes[1] + '/' + partes[0]) : valor;
+        return Fmt.fecha(valor);
     }
 
     function formatearMoneda(valor) {
-        return (parseFloat(valor) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return Fmt.numero((parseFloat(valor) || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function escapeHtml(str) {

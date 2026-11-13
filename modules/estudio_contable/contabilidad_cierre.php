@@ -16,10 +16,31 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 require_once __DIR__ . '/../../db.php';
 $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numero FROM conf__empresas WHERE tabla_estado_registro_id = 1 ORDER BY empresa ASC");
+
+// Cliente activo del estudio (?cliente_id= o el último elegido): preselecciona su empresa en el ERP. Cada empresa lleva
+// el cliente que la tiene vinculada (data-cliente) para que al cambiar de empresa quede como cliente activo.
+require_once __DIR__ . '/estudio_cliente_activo.php';
+$cliente_activo = intval($_GET['cliente_id'] ?? 0) ?: estudio_cliente_activo_get($empresa_id);
+$cliente_por_empresa = [];
+$empresa_sel = $empresa_id;
+$st = mysqli_prepare($conn, "SELECT cliente_id, empresa_vinculada_id FROM estudio__clientes
+                             WHERE empresa_id = ? AND tabla_estado_registro_id = 1 AND empresa_vinculada_id > 0
+                             ORDER BY cliente_id");
+mysqli_stmt_bind_param($st, "i", $empresa_id);
+mysqli_stmt_execute($st);
+foreach (mysqli_fetch_all(mysqli_stmt_get_result($st), MYSQLI_ASSOC) as $cl) {
+    $erp = (int) $cl['empresa_vinculada_id'];
+    $cliente_por_empresa[$erp] = $cliente_por_empresa[$erp] ?? (int) $cl['cliente_id'];
+    if ((int) $cl['cliente_id'] === $cliente_activo) {
+        $empresa_sel = $erp;
+        $cliente_por_empresa[$erp] = $cliente_activo;
+    }
+}
+mysqli_stmt_close($st);
 ?>
 
 <main class="app-main">
@@ -54,23 +75,23 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                             </label>
                             <select id="selEmpresaCierre" class="form-select form-select-sm">
                                 <?php while ($e = mysqli_fetch_assoc($empresas_res)): ?>
-                                    <option value="<?= $e['empresa_id'] ?>" <?= ($e['empresa_id'] == $empresa_id) ? 'selected' : '' ?>>
+                                    <option value="<?= $e['empresa_id'] ?>" data-cliente="<?= (int) ($cliente_por_empresa[(int) $e['empresa_id']] ?? 0) ?>" <?= ($e['empresa_id'] == $empresa_sel) ? 'selected' : '' ?>>
                                         <?= htmlspecialchars($e['empresa']) ?> (CUIT: <?= $e['documento_numero'] ?>)
                                     </option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label form-label-sm mb-1 fw-bold">Año a Cerrar</label>
+                            <label class="form-label form-label-sm mb-1 fw-bold" title="El ejercicio se nombra por el año en que termina; el mes de cierre sale de Parámetros de Empresa">Ejercicio a Cerrar</label>
                             <input type="number" id="txtAnioCierre" class="form-control form-control-sm text-center fw-bold" value="<?= date('Y') - 1 ?>" min="2000" max="2099">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label form-label-sm mb-1 fw-bold">Fecha Inicio</label>
-                            <input type="date" id="txtFechaInicio" class="form-control form-control-sm" value="<?= (date('Y') - 1) . '-01-01' ?>">
+                            <input type="date" id="txtFechaInicio" class="form-control form-control-sm" readonly title="Sale del mes de cierre del ejercicio (Parámetros de Empresa)">
                         </div>
                         <div class="col-md-2">
                             <label class="form-label form-label-sm mb-1 fw-bold">Fecha Cierre</label>
-                            <input type="date" id="txtFechaCierre" class="form-control form-control-sm" value="<?= (date('Y') - 1) . '-12-31' ?>">
+                            <input type="date" id="txtFechaCierre" class="form-control form-control-sm" readonly title="Sale del mes de cierre del ejercicio (Parámetros de Empresa)">
                         </div>
                         <div class="col-md-2 text-md-end mt-auto pb-1">
                             <button class="btn btn-outline-primary btn-sm w-100 shadow-sm" id="btnDiagnosticar">
@@ -118,7 +139,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
                     </div>
 
                     <div class="text-end mt-3">
-                        <button class="btn btn-danger btn-sm px-4 shadow-sm" id="btnEjecutarCierre" disabled>
+                        <button class="btn btn-danger btn-sm px-4 shadow-sm" id="btnEjecutarCierre" data-funcion="agregar" disabled>
                             <i class="fas fa-lock me-1"></i>Ejecutar Cierre y Refundición Contable
                         </button>
                     </div>
@@ -177,5 +198,6 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
     </div>
 </main>
 
-<script src="contabilidad_cierre.js"></script>
+<?php estudio_cliente_activo_script($empresa_id); ?>
+<script src="contabilidad_cierre.js?v=<?= (int) @filemtime(__DIR__ . '/contabilidad_cierre.js') ?>"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

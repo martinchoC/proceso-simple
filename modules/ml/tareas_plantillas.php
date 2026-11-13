@@ -84,8 +84,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <th>Procedimiento de Soporte</th>
                                     <th class="text-center">Ventana (Inicio / Vencimiento)</th>
                                     <th>Dependencias Predecesoras</th>
+                                    <th>Matriz RACI (Cargos)</th>
                                     <th class="text-center" style="width: 80px;">Estado</th>
-                                    <th class="text-center" style="width: 110px;">Acciones</th>
+                                    <th class="text-center" style="width: 140px;">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -242,6 +243,92 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </tr>
                         </thead>
                         <tbody id="tbodyDependencias">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Matriz RACI por Posición / Cargos Tipo -->
+<div class="modal fade" id="modalPlantillaRaci" tabindex="-1" aria-labelledby="modalPlantillaRaciLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white py-2">
+                <h5 class="modal-title" id="modalPlantillaRaciLabel">
+                    <i class="fas fa-users-cog me-2"></i>Matriz RACI por Cargos Tipo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-light border py-2 mb-3">
+                    <div class="fw-bold" id="raci_tarea_info">Tarea seleccionada</div>
+                    <small class="text-muted" id="raci_obligacion_info">Obligación</small>
+                </div>
+
+                <!-- Formulario Agregar Rol RACI -->
+                <div class="card card-outline card-primary mb-3">
+                    <div class="card-header py-1 bg-light">
+                        <h6 class="card-title mb-0 small text-primary fw-bold">
+                            <i class="fas fa-plus-circle me-1"></i>Vincular Cargo a la Matriz RACI
+                        </h6>
+                    </div>
+                    <div class="card-body py-2">
+                        <form id="formNuevoRaci" class="row g-2 align-items-end">
+                            <input type="hidden" name="tarea_plantilla_id" id="raci_modal_tarea_id" value="0">
+                            
+                            <div class="col-md-5">
+                                <label class="form-label form-label-sm mb-1">Cargo / Posición Estructural *</label>
+                                <select class="form-select form-select-sm" name="posicion_id" id="tpl_raci_posicion_id" required>
+                                    <option value="">-- Seleccionar cargo --</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label form-label-sm mb-1">Rol RACI *</label>
+                                <select class="form-select form-select-sm" name="raci_rol_id" id="tpl_raci_rol_id" required>
+                                    <option value="1">R - Responsable (Ejecutor)</option>
+                                    <option value="2">A - Aprobador / Accountable</option>
+                                    <option value="3">C - Consultado</option>
+                                    <option value="4">I - Informado</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-2" id="boxTplUsarSup" style="display: none;">
+                                <div class="form-check form-switch mt-3">
+                                    <input class="form-check-input" type="checkbox" name="usar_supervisor_como_aprobador" id="tpl_usar_sup" value="1">
+                                    <label class="form-check-label form-label-sm" for="tpl_usar_sup" title="Asignar al supervisor del puesto ejecutor">Supervisor</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-1 text-end">
+                                <button type="submit" class="btn btn-sm btn-primary" id="btnAgregarRaci" title="Vincular Rol">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lista de Roles RACI Configurados -->
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered table-hover align-middle mb-0" id="tablaRolesRaci">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 140px;" class="text-center">Rol RACI</th>
+                                <th>Cargo / Posición</th>
+                                <th>Área</th>
+                                <th>Titular Actual</th>
+                                <th class="text-center" style="width: 120px;">Regla Especial</th>
+                                <th class="text-center" style="width: 60px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyRolesRaci">
                             <!-- Filas dinámicas -->
                         </tbody>
                     </table>

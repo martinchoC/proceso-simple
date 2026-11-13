@@ -9,6 +9,7 @@ $pageTitle = "Entidades - Roles y Cuentas Contables";
 $currentPage = 'empresas_roles_cuentas';
 $modulo_idx = 2;
 $pagina_idx = 119;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
@@ -21,25 +22,7 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
 
 <main class="app-main">
     <!-- Header -->
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0 fw-bold">
-                        <i class="fas fa-users-cog me-2 text-primary"></i>Roles de Entidades y Cuentas Contables
-                    </h3>
-                    <small class="text-muted">Definición de roles activos por empresa y su cuenta contable genérica por defecto para asientos</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Seteo Empresas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Roles y Cuentas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Roles y cuentas de entidades','fas fa-users-cog', 'Definición de roles activos por empresa y su cuenta contable genérica por defecto para asientos', ['Seteo Empresas']); ?>
 
     <!-- Contenido -->
     <div class="app-content">
@@ -63,7 +46,7 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargarTabla" title="Recargar tabla">
                                 <i class="fas fa-sync-alt me-1"></i>Actualizar
                             </button>
-                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevoRolEmpresa">
+                            <button type="button" class="btn btn-sm btn-primary" id="btnNuevoRolEmpresa" data-funcion="agregar">
                                 <i class="fas fa-plus-circle me-1"></i>Dar de Alta Rol para la Empresa
                             </button>
                         </div>
@@ -256,6 +239,7 @@ $empresa_id_activa = intval($_SESSION['empresa_id'] ?? 0);
     </div>
 </main>
 
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script>
 $(document).ready(function () {
     var tablaRoles;
@@ -369,19 +353,19 @@ $(document).ready(function () {
                     className: 'text-center',
                     render: function (data, type, row) {
                         var id = row.empresa_rol_cuenta_id;
-                        var btnEditar = `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-rol me-1" data-id="${id}" title="Editar cuenta"><i class="fas fa-edit"></i></button>`;
+                        var btnEditar = `<button type="button" class="btn btn-xs btn-outline-primary btn-editar-rol me-1" data-funcion="editar" data-id="${id}" title="Editar cuenta"><i class="fas fa-edit"></i></button>`;
                         var btnToggle = '';
                         if (parseInt(row.tabla_estado_registro_id) === 1) {
-                            btnToggle = `<button type="button" class="btn btn-xs btn-outline-danger btn-cambiar-estado" data-id="${id}" data-estado="2" title="Inhabilitar"><i class="fas fa-ban"></i></button>`;
+                            btnToggle = `<button type="button" class="btn btn-xs btn-outline-danger btn-cambiar-estado" data-funcion="inactivar" data-id="${id}" data-estado="2" title="Inhabilitar"><i class="fas fa-ban"></i></button>`;
                         } else {
-                            btnToggle = `<button type="button" class="btn btn-xs btn-outline-success btn-cambiar-estado" data-id="${id}" data-estado="1" title="Habilitar"><i class="fas fa-check"></i></button>`;
+                            btnToggle = `<button type="button" class="btn btn-xs btn-outline-success btn-cambiar-estado" data-funcion="inactivar" data-id="${id}" data-estado="1" title="Habilitar"><i class="fas fa-check"></i></button>`;
                         }
                         return `<div class="btn-group">${btnEditar}${btnToggle}</div>`;
                     }
                 }
             ],
             language: {
-                url: "https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                url: "<?= asset_local('js/datatables-i18n-1.13.6/es-ES.json') ?>"
             },
             responsive: true,
             pageLength: 25,

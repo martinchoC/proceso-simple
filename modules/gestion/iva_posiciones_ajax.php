@@ -6,7 +6,8 @@ $ctx = ajax_guard(['pagina_idx' => 117]);
 
 /**
  * iva_posiciones_ajax.php — IVA - Posición Mensual (página 117).
- * Respuesta: {success: bool, data: ..., message: string}; 'exportar_libro' devuelve un CSV.
+ * Respuesta: {success: bool, data: ..., message: string}; 'exportar_libro' devuelve un CSV (con libro=VENTAS / COMPRAS,
+ * el Libro IVA con columnas por alícuota y por percepción; sin libro, el listado combinado de comprobantes).
  */
 
 require_once __DIR__ . '/../../db.php';
@@ -72,8 +73,36 @@ try {
             ivaResponder(true, ivaComprobantesPeriodo($conexion, $empresa_id, (string)($req['periodo'] ?? '')));
             break;
 
+        case 'libro':
+            ivaResponder(true, ivaLibro($conexion, $empresa_id, ivaValidarPeriodo((string)($req['periodo'] ?? '')), (string)($req['libro'] ?? '')));
+            break;
+
         case 'exportar_libro':
             $periodo = ivaValidarPeriodo((string)($req['periodo'] ?? ''));
+            $libro = (string)($req['libro'] ?? '');
+            if ($libro !== '') {
+                $l = ivaLibro($conexion, $empresa_id, $periodo, $libro);
+                $csv = fopen('php://temp', 'r+');
+                fputcsv($csv, array_merge(['Fecha', 'Tipo', 'Letra', 'Cod. ARCA', 'PV', 'Número', $libro === 'VENTAS' ? 'Cliente' : 'Proveedor', 'CUIT'],
+                                          array_column($l['columnas'], 'titulo')), ';');
+                $n = function ($v) { return number_format(floatval($v), 2, ',', ''); };
+                foreach ($l['filas'] as $f) {
+                    $fila = [$f['fecha'], $f['comprobante_tipo'], $f['letra'], $f['codigo_arca'], str_pad((string)$f['pv'], 4, '0', STR_PAD_LEFT),
+                             str_pad((string)$f['numero'], 8, '0', STR_PAD_LEFT), $f['entidad'], $f['cuit']];
+                    foreach ($l['columnas'] as $c) $fila[] = $n($f['valores'][$c['clave']] ?? 0);
+                    fputcsv($csv, $fila, ';');
+                }
+                $tot = ['Totales', '', '', '', '', '', '', ''];
+                foreach ($l['columnas'] as $c) $tot[] = $n($l['totales'][$c['clave']] ?? 0);
+                fputcsv($csv, $tot, ';');
+                rewind($csv);
+                $contenido = "\xEF\xBB\xBF" . stream_get_contents($csv);
+                if (ob_get_length()) ob_clean();
+                header('Content-Type: text/csv; charset=utf-8');
+                header('Content-Disposition: attachment; filename="libro_iva_' . strtolower($libro) . '_' . $periodo . '.csv"');
+                echo $contenido;
+                exit;
+            }
             $filas = ivaComprobantesPeriodo($conexion, $empresa_id, $periodo);
             $csv = fopen('php://temp', 'r+');
             fputcsv($csv, ['Libro', 'Fecha', 'Tipo', 'Letra', 'Cod. ARCA', 'PV', 'Número', 'Entidad', 'CUIT',

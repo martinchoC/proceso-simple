@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/core/contexto.php';
 
 if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
     header("Location: " . url('login.php'));
@@ -7,7 +8,7 @@ if (!isset($_SESSION['logueado']) || $_SESSION['logueado'] !== true) {
 }
 
 // Si el usuario solo tiene una combinación posible de empresa+módulo según sus perfiles
-// asignados, nos salteamos el panel de selección y vamos directo a esa pantalla.
+// asignados, fijamos el contexto seguro en sesión y vamos directo a esa pantalla sin parámetros en la URL.
 $empresas_modulos_usuario = usuario_obtener_empresas_modulos($conexion, (int) $_SESSION['usuario_id']);
 $combos_disponibles = [];
 foreach ($empresas_modulos_usuario as $empresa_id_disp => $empresa_disp) {
@@ -18,11 +19,9 @@ foreach ($empresas_modulos_usuario as $empresa_id_disp => $empresa_disp) {
 
 if (count($combos_disponibles) === 1) {
     $unico_combo = $combos_disponibles[0];
-    $ruta_modulo = $unico_combo['modulo']['url'];
-    if (strpos($ruta_modulo, 'modules/') === false) {
-        $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-    }
-    header("Location: " . url($ruta_modulo) . "?empresa_id=" . $unico_combo['empresa_id'] . "&modulo_id=" . $unico_combo['modulo']['id']);
+    contexto_fijar((int) $unico_combo['empresa_id'], (int) $unico_combo['modulo']['id']);
+    $ruta_modulo = contexto_normalizar_url_modulo($unico_combo['modulo']['url']);
+    header("Location: " . url($ruta_modulo), true, 303);
     exit;
 }
 
@@ -65,11 +64,7 @@ require_once 'templates/adminlte/header1.php';
                 foreach ($empresa['modulos'] as $mod):
                     ?>
                         <?php
-                        $ruta_modulo = $mod['url'];
-                        if (strpos($ruta_modulo, 'modules/') === false) {
-                            $ruta_modulo = 'modules/' . ltrim($ruta_modulo, '/');
-                        }
-                        $target_url = url($ruta_modulo) . "?empresa_id=" . $eid . "&modulo_id=" . $mod['id'];
+                        $target_url = url('core/contexto.php') . '?empresa_id=' . (int)$eid . '&modulo_id=' . (int)$mod['id'] . '&token=' . csrf_token();
                         ?>
                         <div class="col-6 col-md-4 col-lg-3 col-xl-2">
                             <a href="<?= $target_url ?>" class="modulo-card">

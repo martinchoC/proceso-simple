@@ -4,8 +4,8 @@
 Script de sincronización de modules/gestion a modules/gestion_normal.
 Reglas:
 1. gestion_normal NO utiliza compatibilidad de productos (marcas, modelos, submodelos, productos_generales).
-2. productos.php, productos_model.php, productos_ajax.php, productos.js en gestion_normal
-   mantienen su arquitectura propia sin compatibilidad (no se sobreescriben ciegamente).
+2. productos.php, productos_model.php, productos_ajax.php, productos.js y listas_precios_productos*
+   en gestion_normal mantienen su arquitectura propia sin compatibilidad (no se sobreescriben ciegamente).
 3. Transforma identificadores de módulo:
    - modulo_id = 2 -> modulo_id = 5
    - $modudo_idx = 2 -> $modudo_idx = 5
@@ -34,7 +34,9 @@ COMPATIBILIDAD_FILES = {
 
 # Archivos de productos con implementación desacoplada sin compatibilidad en gestion_normal
 PRODUCTOS_SPECIAL_FILES = {
-    'productos.php', 'productos_model.php', 'productos_ajax.php', 'productos.js'
+    'productos.php', 'productos_model.php', 'productos_ajax.php', 'productos.js',
+    # Lista de precios sin marca/modelo/submodelo y con filtro producto / servicio (2026-10-25)
+    'listas_precios_productos.php', 'listas_precios_productos_model.php', 'listas_precios_productos_ajax.php'
 }
 
 # Mapeo conocido de IDs de páginas (conf__paginas Módulo 2 -> Módulo 5)
@@ -48,9 +50,18 @@ def transform_content(content: str, rel_path: str) -> str:
     text = re.sub(r'(\$modudo_idx\s*=\s*)2(\s*;)', r'\g<1>5\2', text)
     text = re.sub(r'(\$modulo_idx\s*=\s*)2(\s*;)', r'\g<1>5\2', text)
     text = re.sub(r'(\$modulo_id\s*=\s*isset\([^)]+\)\s*\?[^:]+:\s*)2(\s*;)', r'\g<1>5\2', text)
+    text = re.sub(r'(\$modulo_id\s*=\s*)2(\s*;)', r'\g<1>5\2', text)
+    text = re.sub(r'(\$modulo_id\s*=\s*)2(\s*[,)])', r'\g<1>5\2', text)
     text = re.sub(r"('modulo_id'\s*=>\s*)2", r"\g<1>5", text)
     text = re.sub(r'("modulo_id"\s*=>\s*)2', r'\g<1>5', text)
     text = re.sub(r'(ep\.modulo_id\s*=\s*)2\b', r'\g<1>5', text)
+    # SQL (p.modulo_id=2, modulo_id = 2), links JS (&modulo_id=2) y pagina_id_por_url($conexion, 2, ...)
+    text = re.sub(r'(\bmodulo_id\s*=\s*)2\b', r'\g<1>5', text)
+    text = re.sub(r'(\bpagina_id_por_url\(\s*\$\w+\s*,\s*)2(\s*,)', r'\g<1>5\2', text)
+    # permisos_pagina_modulo($conn, 2, $pagina, 'url.php') (core/permisos.php, 2026-11-05)
+    text = re.sub(r'(\bpermisos_pagina_modulo\(\s*\$\w+\s*,\s*)2(\s*,)', r'\g<1>5\2', text)
+    # Constantes de módulo (const COB_MODULO_ID = 2;)
+    text = re.sub(r'(\bconst\s+\w*MODULO_ID\s*=\s*)2(\s*;)', r'\g<1>5\2', text)
 
     # 2. Rutas a módulos
     text = text.replace('modules/gestion/', 'modules/gestion_normal/')
@@ -73,7 +84,8 @@ def transform_content(content: str, rel_path: str) -> str:
         prefix = m.group(1)
         val = int(m.group(2))
         suffix = m.group(3) if len(m.groups()) >= 3 else ''
-        if val < 500:
+        # 0 = "sin página" (p. ej. el default de pagina_id_por_url): no se desplaza
+        if 0 < val < 500:
             val += PAGINAS_OFFSET
         return f"{prefix}{val}{suffix}"
 

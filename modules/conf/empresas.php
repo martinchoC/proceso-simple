@@ -2,7 +2,9 @@
 // Configuración de la página
 $pageTitle = "Empresas - Configuración";
 $currentPage = 'empresas';
-$modulo_idx = 1;
+$modudo_idx = 1;
+$pagina_idx = 27; // conf__paginas
+$ui_simple = true;
 
 if (!defined('ROOT_PATH')) {
     define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -10,29 +12,9 @@ if (!defined('ROOT_PATH')) {
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
-<main class="app-main">
     <!-- Header de la Aplicación -->
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0 fw-bold">
-                        <i class="fas fa-building text-primary me-2"></i>Empresas
-                    </h3>
-                    <small class="text-muted">Configuración de empresas emisoras, datos fiscales y parámetros generales</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Empresas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Empresas', 'bi bi-building', 'Empresas del sistema (cada una es un cliente): datos fiscales, formato de fechas e importes y parámetros generales.', ['Empresas y accesos']); ?>
 
-    <!-- Contenido Principal -->
     <div class="app-content">
         <div class="container-fluid">
 
@@ -104,6 +86,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <a href="../gestion/empresas_parametros.php" class="btn btn-sm btn-outline-secondary me-2">
                             <i class="fas fa-sliders-h me-1"></i>Historial de Parámetros
                         </a>
+                        <button type="button" class="btn btn-sm btn-outline-primary shadow-sm me-1" id="btnNuevoConstancia" title="Nueva empresa con los datos de la constancia de inscripción de ARCA, leída con IA">
+                            <i class="fas fa-robot me-1"></i>Desde constancia de CUIT
+                        </button>
                         <button type="button" class="btn btn-sm btn-primary shadow-sm" id="btnNuevo">
                             <i class="fas fa-plus-circle me-1"></i>Nueva Empresa
                         </button>
@@ -144,7 +129,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
         </div>
     </div>
-</main>
 
 <!-- Modal Empresa (Formulario Completo y Organizado) -->
 <div class="modal fade" id="modalempresa" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -159,6 +143,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             <div class="modal-body p-4">
                 <form id="formempresa" novalidate>
                     <input type="hidden" id="empresa_id" name="empresa_id" />
+
+                    <!-- Alta desde la constancia de inscripción de ARCA (solo empresa nueva) -->
+                    <div id="bloqueConstancia" class="d-flex align-items-center gap-2 mb-3 p-2 border rounded bg-light">
+                        <i class="fas fa-file-pdf text-danger fs-5"></i>
+                        <span class="small flex-grow-1">¿Tenés la constancia de CUIT de ARCA? Subila y se completan los datos.
+                            <?= ui_ayuda('Se lee con la IA de la empresa (Configuración > Empresas: su clave o la de la principal). Acepta PDF, también escaneado, o una foto de hasta 5 MB. No graba nada: revisá los datos y guardá.') ?></span>
+                        <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" id="btnLeerConstancia">
+                            <i class="fas fa-robot me-1"></i>Leer constancia
+                        </button>
+                    </div>
 
                     <!-- Pestañas de Navegación del Modal -->
                     <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded" id="empresaTabs" role="tablist">
@@ -221,6 +215,66 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input type="email" class="form-control" id="email" name="email" placeholder="contacto@empresa.com" />
                                     </div>
                                 </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="tipo_operacion">Tipo de Operación</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-briefcase text-muted"></i></span>
+                                        <select class="form-select" id="tipo_operacion" name="tipo_operacion">
+                                            <option value="MIXTA">Bienes y servicios</option>
+                                            <option value="BIENES">Venta de bienes</option>
+                                            <option value="SERVICIOS">Servicios</option>
+                                        </select>
+                                    </div>
+                                    <small class="text-muted">Define los perfiles predefinidos: en Servicios no se ofrecen pedidos, remitos ni stock.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="nivel_gestion">Nivel de Gestión</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-sliders-h text-muted"></i></span>
+                                        <select class="form-select" id="nivel_gestion" name="nivel_gestion">
+                                            <option value="COMPLETA">Gestión completa</option>
+                                            <option value="SIMPLIFICADA">Gestión simplificada (cliente de estudio contable)</option>
+                                        </select>
+                                    </div>
+                                    <small class="text-muted">En la simplificada los perfiles nuevos no incluyen las páginas marcadas como "solo gestión completa". No modifica perfiles ya creados.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="formato_fecha">Formato de fechas y números <?= ui_ayuda('Cómo se muestran las fechas y los importes en todas las pantallas y tablas de la empresa. Los datos se guardan siempre igual: cambiarlo no modifica nada cargado.') ?></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-calendar-alt text-muted"></i></span>
+                                        <select class="form-select" id="formato_fecha" name="formato_fecha" title="Formato de fecha">
+                                            <?php foreach (FORMATOS_FECHA as $fmt_cod => $fmt_txt): ?>
+                                                <option value="<?= htmlspecialchars($fmt_cod) ?>"><?= htmlspecialchars($fmt_txt) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <select class="form-select" id="formato_numero" name="formato_numero" title="Separador de miles y decimales">
+                                            <option value="PUNTO|COMA">1.234,56</option>
+                                            <option value="COMA|PUNTO">1,234.56</option>
+                                            <option value="ESPACIO|COMA">1 234,56</option>
+                                            <option value="ESPACIO|PUNTO">1 234.56</option>
+                                            <option value="NINGUNO|COMA">1234,56</option>
+                                            <option value="NINGUNO|PUNTO">1234.56</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="decimales_stock">Decimales en cantidades de stock <?= ui_ayuda('Cuántos decimales se muestran y se cargan en las cantidades de stock (ajustes de stock y las pantallas que lo usen). Para productos que se venden por unidad conviene 0 o 2; para kilos o metros, 2 o 3.') ?></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="fas fa-boxes text-muted"></i></span>
+                                        <select class="form-select" id="decimales_stock" name="decimales_stock">
+                                            <?php for ($dec_i = 0; $dec_i <= DECIMALES_STOCK_MAX; $dec_i++): ?>
+                                                <option value="<?= $dec_i ?>"<?= $dec_i === FORMATO_DEFAULT['stock'] ? ' selected' : '' ?>><?= $dec_i ?> (<?= htmlspecialchars(number_format(12, $dec_i, ',', '.')) ?>)</option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold d-block">Productos <?= ui_ayuda('Con presentaciones, cada producto puede tener además de la unidad sus formas de empaque (caja, pack, pallet) con cuántas unidades contiene y su propio código de barras. Útil en distribuidoras y mayoristas.') ?></label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="usa_presentaciones" name="usa_presentaciones" value="1" />
+                                        <label class="form-check-label" for="usa_presentaciones">Usa presentaciones (caja, pack, pallet)</label>
+                                    </div>
+                                </div>
 
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold" for="domicilio">Domicilio Fiscal / Comercial</label>
@@ -230,13 +284,56 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
                                 <div class="col-md-6">
+                                    <label class="form-label fw-bold" for="provincia_id">
+                                        Provincia <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" id="provincia_id" name="provincia_id">
+                                        <option value="">Cargando provincias...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
                                     <label class="form-label fw-bold" for="localidad_id">
                                         Localidad <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-select" id="localidad_id" name="localidad_id" required>
-                                        <option value="">Cargando localidades...</option>
+                                        <option value="">Elegí primero la provincia</option>
                                     </select>
                                     <div class="invalid-feedback">Por favor seleccione la localidad.</div>
+                                </div>
+
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold" for="logo">Logo de la empresa
+                                        <?= ui_ayuda('PNG, JPG, GIF o WEBP, hasta 1 MB. Sale en los comprobantes impresos y de sus colores se arma el encabezado de las ventanas de la empresa. Es el mismo logo de Parámetros de Empresa: cambiarlo en una de las dos páginas lo cambia en la otra.') ?></label>
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div class="border rounded d-flex align-items-center justify-content-center bg-white" style="width:180px;height:70px;">
+                                            <img id="logoPreview" src="" alt="Logo" style="max-width:170px;max-height:62px;object-fit:contain;" class="d-none">
+                                            <small id="logoSinImagen" class="text-muted">Sin logo</small>
+                                        </div>
+                                        <div class="flex-grow-1" style="min-width:220px;">
+                                            <input type="file" class="form-control" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp">
+                                            <input type="hidden" id="quitar_logo" name="quitar_logo" value="0">
+                                            <div class="d-flex align-items-center gap-2 mt-1">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" id="btnQuitarLogo"><i class="fas fa-times me-1"></i>Quitar logo</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Colores del encabezado (core/empresa_logo.php): IA / calculados / a mano -->
+                                    <div id="logoColores" class="d-none mt-2 p-2 border rounded bg-light">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap small">
+                                            <span class="fw-bold">Colores del encabezado
+                                                <?= ui_ayuda('Fondo de la barra superior, el menú lateral y las ventanas de la empresa, con texto blanco. Al cambiar el logo los elige la IA de la empresa (o se calculan del logo si no hay IA). Podés ajustarlos acá: si un color no deja leer el texto blanco, se oscurece al guardar.') ?></span>
+                                            <span id="logoMuestraColores" class="d-inline-flex align-items-center px-3 rounded text-white fw-semibold" style="height:26px;min-width:130px;">Encabezado</span>
+                                            <label class="d-inline-flex align-items-center gap-1 mb-0" for="color_logo_oscuro">Oscuro
+                                                <input type="color" class="form-control form-control-color form-control-sm" id="color_logo_oscuro" title="Color oscuro (inicio del degradé)"></label>
+                                            <label class="d-inline-flex align-items-center gap-1 mb-0" for="color_logo_claro">Claro
+                                                <input type="color" class="form-control form-control-color form-control-sm" id="color_logo_claro" title="Color claro (fin del degradé)"></label>
+                                            <span id="logoColoresOrigen" class="badge text-bg-secondary"></span>
+                                            <button type="button" class="btn btn-sm btn-outline-primary ms-auto" id="btnRecalcularColores" title="Volver a elegirlos a partir del logo (con la IA, si la empresa la tiene)">
+                                                <i class="fas fa-magic me-1"></i>Recalcular</button>
+                                            <input type="hidden" id="colores_manual" value="0">
+                                        </div>
+                                    </div>
+                                    <div id="logoColoresNuevo" class="d-none small text-muted mt-1"><i class="fas fa-info-circle me-1"></i>Los colores del encabezado se eligen al guardar, a partir del logo nuevo.</div>
                                 </div>
 
                                 <div class="col-md-6">
@@ -249,6 +346,44 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold" for="base_conf">Identificador de Configuración</label>
                                     <input type="number" class="form-control" id="base_conf" name="base_conf" placeholder="Opcional" />
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-check form-switch p-3 bg-light rounded border">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" id="es_principal" name="es_principal" value="1">
+                                        <label class="form-check-label fw-bold text-dark" for="es_principal">
+                                            <i class="fas fa-star text-warning me-1"></i>Empresa Principal del Sistema
+                                        </label>
+                                        <div class="text-muted small mt-1">
+                                            El logo de esta empresa se utilizará como logo inicial en la pantalla de inicio de sesión y en la barra superior cuando no haya otra empresa seleccionada. Solo una empresa puede ser la principal.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Uso de la IA en todos los módulos (core/ia_empresa.php) -->
+                                <div class="col-md-12">
+                                    <div class="p-3 bg-light rounded border">
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" id="ia_habilitada" name="ia_habilitada" value="1" checked>
+                                            <label class="form-check-label fw-bold text-dark" for="ia_habilitada">
+                                                <i class="fas fa-robot text-primary me-1"></i>Usar inteligencia artificial
+                                                <?= ui_ayuda('Vale para todos los módulos de la empresa: lectura de facturas y de extractos bancarios, Asistente IA, alta desde la constancia de CUIT y colores del logo. Los archivos y textos se envían al servicio de IA (Google Gemini o Anthropic Claude). Deshabilitada, nada sale del servidor. Los topes diarios siguen en Parámetros de Empresa.') ?>
+                                            </label>
+                                        </div>
+                                        <div id="iaClaveBox" class="row g-2 mt-1">
+                                            <div class="col-md-8">
+                                                <label for="ia_api_key" class="form-label small mb-1">Clave de la API (Gemini / Claude)
+                                                    <?= ui_ayuda('Clave de Google Gemini (aistudio.google.com > Get API key, empieza con AIza...) o de Anthropic Claude (empieza con sk-ant-). Se guarda cifrada y no se vuelve a mostrar. Si la empresa no tiene clave propia, usa la de la empresa principal.') ?></label>
+                                                <input type="password" class="form-control form-control-sm" id="ia_api_key" autocomplete="new-password" spellcheck="false" placeholder="AIzaSy... (Gemini) o sk-ant-... (Claude)">
+                                                <div class="form-text" id="ia_api_key_estado"></div>
+                                            </div>
+                                            <div class="col-md-4 d-none align-self-center" id="ia_api_key_quitar_box">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="ia_api_key_quitar" value="1">
+                                                    <label class="form-check-label small" for="ia_api_key_quitar">Quitar la clave propia</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -370,22 +505,48 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 <script>
 // Funciones de carga de catálogos
-function cargarLocalidades(selectedId = null, callback = null) {
+function cargarProvincias(selectedId = null, callback = null) {
     $.ajax({
         url: 'empresas_ajax.php',
         type: 'GET',
-        data: {accion: 'obtener_localidades'},
+        data: {accion: 'obtener_provincias'},
         dataType: 'json',
         success: function(res) {
-            if(res && res.length > 0) {
-                var options = '<option value="">Seleccionar localidad...</option>';
-                $.each(res, function(index, localidad) {
-                    var selected = (selectedId == localidad.localidad_id) ? 'selected' : '';
-                    options += `<option value="${localidad.localidad_id}" ${selected}>${localidad.localidad}</option>`;
-                });
-                $('#localidad_id').html(options);
-                if (typeof callback === 'function') callback();
-            }
+            var options = '<option value="">Seleccionar provincia...</option>';
+            $.each(res || [], function(index, provincia) {
+                var selected = (selectedId == provincia.provincia_id) ? 'selected' : '';
+                options += `<option value="${provincia.provincia_id}" ${selected}>${provincia.provincia}</option>`;
+            });
+            $('#provincia_id').html(options);
+            if (typeof callback === 'function') callback();
+        },
+        error: function() {
+            $('#provincia_id').html('<option value="">Error al cargar provincias</option>');
+        }
+    });
+}
+
+// Las localidades se piden por provincia (el catálogo completo tiene ~23.000).
+function cargarLocalidades(provinciaId = null, selectedId = null, callback = null) {
+    if (!provinciaId) {
+        $('#localidad_id').html('<option value="">Elegí primero la provincia</option>');
+        return;
+    }
+    $('#localidad_id').html('<option value="">Cargando localidades...</option>');
+    $.ajax({
+        url: 'empresas_ajax.php',
+        type: 'GET',
+        data: {accion: 'obtener_localidades', provincia_id: provinciaId},
+        dataType: 'json',
+        success: function(res) {
+            var options = '<option value="">Seleccionar localidad...</option>';
+            $.each(res || [], function(index, localidad) {
+                var selected = (selectedId == localidad.localidad_id) ? 'selected' : '';
+                var cp = localidad.cp ? ` (${localidad.cp})` : '';
+                options += `<option value="${localidad.localidad_id}" ${selected}>${localidad.localidad}${cp}</option>`;
+            });
+            $('#localidad_id').html(options);
+            if (typeof callback === 'function') callback();
         },
         error: function() {
             $('#localidad_id').html('<option value="">Error al cargar localidades</option>');
@@ -496,8 +657,12 @@ function formatoFechaDMA(str) {
     return (p.length === 3) ? (p[2] + '/' + p[1] + '/' + p[0]) : str;
 }
 
+$('#provincia_id').on('change', function() {
+    cargarLocalidades($(this).val());
+});
+
 $(document).ready(function(){
-    cargarLocalidades();
+    cargarProvincias();
     cargarDocumentosTipos();
     cargarCondicionesFiscales();
     cargarIibbRegimenes();
@@ -575,7 +740,12 @@ $(document).ready(function(){
                 data: 'empresa',
                 className: 'fw-bold',
                 render: function(data, type, row) {
-                    return `<i class="fas fa-building text-primary me-2"></i>${data || '-'}`;
+                    var tipos = { BIENES: 'Bienes', SERVICIOS: 'Servicios', MIXTA: 'Bienes y servicios' };
+                    var tipo = tipos[row.tipo_operacion] || tipos.MIXTA;
+                    var principalBadge = (parseInt(row.es_principal, 10) === 1)
+                        ? ' <span class="badge bg-warning text-dark"><i class="fas fa-star me-1"></i>Principal</span>'
+                        : '';
+                    return `<i class="fas fa-building text-primary me-2"></i>${data || '-'}${principalBadge}<br><span class="badge bg-light text-secondary border fw-normal">${tipo}</span>`;
                 }
             },
             { 
@@ -612,7 +782,8 @@ $(document).ready(function(){
             { 
                 data: 'domicilio',
                 render: function(data, type, row) {
-                    var loc = row.localidad ? `<br><small class="text-muted"><i class="fas fa-map-pin me-1 text-danger"></i>${row.localidad}</small>` : '';
+                    var prov = row.provincia ? ` (${row.provincia})` : '';
+                    var loc = row.localidad ? `<br><small class="text-muted"><i class="fas fa-map-pin me-1 text-danger"></i>${row.localidad}${prov}</small>` : '';
                     return `<div>${data || '-'}${loc}</div>`;
                 }
             },
@@ -641,17 +812,26 @@ $(document).ready(function(){
                 searchable: false,
                 className: "text-center",
                 render: function(data, type, row) {
+                    var esPrincipal = parseInt(row.es_principal, 10) === 1;
+                    var btnPrincipal = esPrincipal
+                        ? `<button class="btn btn-sm btn-warning text-dark" disabled title="Empresa Principal del Sistema (define logo inicial y branding)"><i class="fas fa-star"></i></button>`
+                        : `<button class="btn btn-sm btn-outline-warning btnMarcarPrincipal" data-id="${row.empresa_id}" data-nombre="${row.empresa}" title="Marcar como Empresa Principal del Sistema"><i class="far fa-star"></i></button>`;
                     return `
                         <div class="btn-group" role="group">
+                            ${btnPrincipal}
                             <button class="btn btn-sm btn-outline-primary btnEditar" data-id="${row.empresa_id}" title="Editar Empresa y Datos Fiscales">
                                 <i class="fas fa-pencil-alt"></i>
                             </button>
-                            <a href="../gestion/empresas_parametros.php?empresa_id=${row.empresa_id}" class="btn btn-sm btn-outline-warning" title="Gestionar Parámetros y Vigencias">
+                            <a href="../gestion/empresas_parametros.php" class="btn btn-sm btn-outline-warning" title="Gestionar Parámetros y Vigencias">
                                 <i class="fas fa-sliders-h"></i>
                             </a>
-                            <button class="btn btn-sm btn-outline-danger btnEliminar" data-id="${row.empresa_id}" data-nombre="${row.empresa}" title="Eliminar">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            ${row.tabla_estado_registro_id == 1
+                                ? `<button class="btn btn-sm btn-outline-danger btnCambiarEstado" data-id="${row.empresa_id}" data-nombre="${row.empresa}" data-accion="inhabilitar" title="Inhabilitar">
+                                       <i class="fas fa-ban"></i>
+                                   </button>`
+                                : `<button class="btn btn-sm btn-outline-success btnCambiarEstado" data-id="${row.empresa_id}" data-nombre="${row.empresa}" data-accion="activar" title="Activar">
+                                       <i class="fas fa-check"></i>
+                                   </button>`}
                         </div>
                     `;
                 }
@@ -676,22 +856,204 @@ $(document).ready(function(){
         }
     });
 
+    // Logo: vista previa del actual (logo_data viene como data URI) o del archivo elegido
+    var logoActual = '';
+    function pintarLogo(src) {
+        if (src) {
+            $('#logoPreview').attr('src', src).removeClass('d-none');
+            $('#logoSinImagen').addClass('d-none');
+        } else {
+            $('#logoPreview').attr('src', '').addClass('d-none');
+            $('#logoSinImagen').removeClass('d-none');
+        }
+    }
+    // Colores del encabezado: los mismos valores por defecto que core/empresa_logo.php
+    var COLORES_DEFECTO = { oscuro: '#03112f', claro: '#054a96' };
+    var ORIGEN_COLORES = { IA: 'Elegidos por la IA', AUTO: 'Calculados del logo', MANUAL: 'Ajustados a mano' };
+    var colorValido = function(c) { return /^#[0-9a-f]{6}$/i.test(c || ''); };
+
+    function pintarColores(oscuro, claro) {
+        $('#logoMuestraColores').css('background', 'linear-gradient(90deg, ' + oscuro + ', ' + claro + ')');
+    }
+    function mostrarColores(oscuro, claro, origen) {
+        var hay = colorValido(oscuro) && colorValido(claro);
+        oscuro = hay ? oscuro : COLORES_DEFECTO.oscuro;
+        claro = hay ? claro : COLORES_DEFECTO.claro;
+        $('#color_logo_oscuro').val(oscuro);
+        $('#color_logo_claro').val(claro);
+        $('#colores_manual').val('0');
+        $('#logoColoresOrigen').text(hay ? (ORIGEN_COLORES[origen] || 'Calculados del logo') : 'Por defecto');
+        pintarColores(oscuro, claro);
+    }
+    // Mezcla de los dos colores (el --ui-logo-medio que arma emp_logo_css)
+    function mezclarColores(a, b, t) {
+        var ca = [1, 3, 5].map(function(i) { return parseInt(a.substr(i, 2), 16); });
+        var cb = [1, 3, 5].map(function(i) { return parseInt(b.substr(i, 2), 16); });
+        return '#' + ca.map(function(v, i) { return ('0' + Math.round(v + (cb[i] - v) * t).toString(16)).slice(-2); }).join('');
+    }
+    // Si se editó la empresa activa, la pantalla toma los colores nuevos sin recargar
+    function aplicarTemaSiActiva(empresaId, oscuro, claro) {
+        if (parseInt(empresaId, 10) !== parseInt(window.EMPRESA_ID, 10) || !colorValido(oscuro) || !colorValido(claro)) return;
+        var raiz = document.documentElement.style;
+        raiz.setProperty('--ui-logo-marino', oscuro);
+        raiz.setProperty('--ui-logo-medio', mezclarColores(oscuro, claro, 0.45));
+        raiz.setProperty('--ui-logo-azul', claro);
+    }
+
+    function mostrarLogo(src, oscuro, claro, origen) {
+        logoActual = src || '';
+        $('#logo').val('');
+        $('#quitar_logo').val('0');
+        $('#logoColoresNuevo').addClass('d-none');
+        pintarLogo(logoActual);
+        mostrarColores(oscuro, claro, origen);
+        // Ajustar / recalcular solo con un logo ya guardado
+        $('#logoColores').toggleClass('d-none', !(logoActual && $('#empresa_id').val()));
+    }
+    $('#logo').on('change', function() {
+        var archivo = this.files[0];
+        if (!archivo) {
+            pintarLogo($('#quitar_logo').val() === '1' ? '' : logoActual);
+            $('#logoColoresNuevo').addClass('d-none');
+            $('#logoColores').toggleClass('d-none', !(logoActual && $('#empresa_id').val() && $('#quitar_logo').val() !== '1'));
+            return;
+        }
+        if (archivo.size > 1048576) {
+            Swal.fire('Logo demasiado grande', 'El logo no puede superar 1 MB.', 'warning');
+            $(this).val('');
+            return;
+        }
+        $('#quitar_logo').val('0');
+        $('#logoColores').addClass('d-none'); // un logo nuevo: los colores se eligen al guardar
+        $('#logoColoresNuevo').removeClass('d-none');
+        var lector = new FileReader();
+        lector.onload = function(e) { pintarLogo(e.target.result); };
+        lector.readAsDataURL(archivo);
+    });
+    $('#btnQuitarLogo').on('click', function() {
+        $('#logo').val('');
+        $('#quitar_logo').val('1');
+        $('#logoColores, #logoColoresNuevo').addClass('d-none');
+        pintarLogo('');
+    });
+    $('#color_logo_oscuro, #color_logo_claro').on('input', function() {
+        $('#colores_manual').val('1');
+        $('#logoColoresOrigen').text('Ajustados a mano (sin guardar)');
+        pintarColores($('#color_logo_oscuro').val(), $('#color_logo_claro').val());
+    });
+    $('#btnRecalcularColores').on('click', function() {
+        var empresaId = $('#empresa_id').val();
+        var $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Eligiendo...');
+        $.post('empresas_ajax.php', { accion: 'recalcular_colores', empresa_id: empresaId }, function(res) {
+            if (res && res.success) {
+                mostrarColores(res.data.oscuro, res.data.claro, res.data.origen);
+                aplicarTemaSiActiva(empresaId, res.data.oscuro, res.data.claro);
+                Swal.fire({ icon: 'success', title: res.message, timer: 1600, showConfirmButton: false });
+            } else {
+                Swal.fire('No se pudo recalcular', (res && res.message) || 'Probá de nuevo en unos minutos.', 'warning');
+            }
+        }, 'json').fail(function() {
+            Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
+        }).always(function() {
+            $btn.prop('disabled', false).html('<i class="fas fa-magic me-1"></i>Recalcular');
+        });
+    });
+
     // Botón Nueva Empresa
+    // Uso de la IA (core/ia_empresa.php): la clave nunca viene del servidor, solo si está y sus últimos 4 caracteres
+    var iaEstado = null;
+    function mostrarIa(estado) {
+        iaEstado = estado || { ia_habilitada: 1, clave_propia: 0, mascara: '', origen: 'servidor', es_principal: 0, principal: '' };
+        $('#ia_habilitada').prop('checked', parseInt(iaEstado.ia_habilitada, 10) === 1);
+        $('#ia_api_key').val('');
+        $('#ia_api_key_quitar').prop('checked', false);
+        $('#ia_api_key_quitar_box').toggleClass('d-none', parseInt(iaEstado.clave_propia, 10) !== 1);
+        pintarEstadoIa();
+    }
+    function pintarEstadoIa() {
+        var e = iaEstado || {};
+        var propia = parseInt(e.clave_propia, 10) === 1 && !$('#ia_api_key_quitar').is(':checked');
+        var esPrincipal = $('#es_principal').is(':checked');
+        var txt;
+        if ($('#ia_api_key').val().trim() !== '') {
+            txt = 'Se guarda la clave nueva.';
+        } else if (propia) {
+            txt = 'Clave propia cargada: ' + (e.mascara || '') + '. Dejá el campo vacío para conservarla.';
+        } else if (esPrincipal) {
+            txt = 'Sin clave propia: las empresas sin clave usan la de la principal, así que conviene cargarla acá.';
+        } else if (e.principal) {
+            txt = 'Sin clave propia: usa la de la empresa principal (' + e.principal + ').';
+        } else {
+            txt = 'Sin clave propia: usa la del servidor, si hay.';
+        }
+        $('#ia_api_key_estado').text(txt);
+        $('#iaClaveBox').toggleClass('opacity-50', !$('#ia_habilitada').is(':checked'));
+        $('#ia_api_key, #ia_api_key_quitar').prop('disabled', !$('#ia_habilitada').is(':checked'));
+    }
+    $('#ia_habilitada, #ia_api_key_quitar, #es_principal').on('change', pintarEstadoIa);
+    $('#ia_api_key').on('input', pintarEstadoIa);
+
     $('#btnNuevo').click(function(){
         $('#formempresa')[0].reset();
         $('#empresa_id').val('');
+        $('#es_principal').prop('checked', false);
+        mostrarLogo('');
+        // Nueva: IA habilitada; sin clave propia usa la de la principal
+        var principal = '';
+        if (tabla) {
+            tabla.rows().data().each(function(r) { if (parseInt(r.es_principal, 10) === 1) principal = r.empresa || ''; });
+        }
+        mostrarIa({ ia_habilitada: 1, clave_propia: 0, mascara: '', origen: principal ? 'principal' : 'servidor', es_principal: 0, principal: principal });
         $('#formempresa').removeClass('was-validated');
         $('#tab-generales-tab').tab('show');
 
         cargarDocumentosTipos(1);
+        cargarProvincias(null);
         cargarLocalidades(null);
         cargarCondicionesFiscales(null);
         cargarIibbRegimenes(1);
         cargarJurisdiccionesSedes(2);
 
+        $('#bloqueConstancia').removeClass('d-none').addClass('d-flex');
         $('#modalLabel').html('<i class="fas fa-plus-circle me-2"></i>Nueva Empresa');
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalempresa'));
         modal.show();
+    });
+
+    // Alta desde la constancia de inscripción de ARCA, leída con IA (assets/js/constancia-cuit-ia.js)
+    function leerConstanciaEmpresa() {
+        ConstanciaCuitIa.leer({
+            url: 'empresas_ajax.php',
+            extraHtml: function(d) {
+                if (!d.empresa_existente) return '';
+                return '<div class="alert alert-warning py-2 small text-start">Ya existe la empresa <strong>'
+                    + $('<div>').text(d.empresa_existente.empresa).html() + '</strong> (#' + d.empresa_existente.empresa_id + ') con este CUIT.</div>';
+            },
+            completar: function(d) {
+                $('#tab-generales-tab').tab('show');
+                if (d.razon_social) $('#empresa').val(d.razon_social);
+                if (d.cuit) $('#documento_numero').val(d.cuit);
+                if (d.domicilio) $('#domicilio').val(d.domicilio);
+                // Tipo de documento CUIT por nombre (no por id)
+                var $cuit = $('#documento_tipo_id option').filter(function() { return $(this).text().trim().toUpperCase() === 'CUIT'; }).first();
+                if ($cuit.length) $('#documento_tipo_id').val($cuit.val());
+                if (d.provincia_id) {
+                    cargarProvincias(d.provincia_id);
+                    cargarLocalidades(d.provincia_id, d.localidad_id);
+                }
+                if (d.condicion_fiscal_id) cargarCondicionesFiscales(d.condicion_fiscal_id);
+                if (d.jurisdiccion_sede_id) $('#jurisdiccion_sede_id').val(String(d.jurisdiccion_sede_id));
+                if (d.inicio_actividades) $('#inicio_actividades').val(d.inicio_actividades);
+                if (d.leyenda_fiscal) $('#leyenda_fiscal').val(d.leyenda_fiscal);
+                if (window.UiSimple) UiSimple.ok('Datos de la constancia cargados: revisalos y guardá.');
+            }
+        });
+    }
+    $('#btnLeerConstancia').on('click', leerConstanciaEmpresa);
+    $('#btnNuevoConstancia').on('click', function() {
+        $('#btnNuevo').trigger('click');
+        leerConstanciaEmpresa();
     });
 
     // Botón Editar Empresa
@@ -709,8 +1071,18 @@ $(document).ready(function(){
                 $('#telefono').val(res.telefono || '');
                 $('#domicilio').val(res.domicilio || '');
                 $('#email').val(res.email || '');
+                $('#tipo_operacion').val(res.tipo_operacion || 'MIXTA');
+                $('#nivel_gestion').val(res.nivel_gestion || 'COMPLETA');
+                $('#formato_fecha').val(res.formato_fecha || 'd/m/Y');
+                $('#formato_numero').val((res.separador_miles || 'PUNTO') + '|' + (res.separador_decimal || 'COMA'));
+                if (!$('#formato_numero').val()) $('#formato_numero').val('PUNTO|COMA');
+                $('#decimales_stock').val(res.decimales_stock !== undefined && res.decimales_stock !== null ? String(res.decimales_stock) : '2');
+                $('#usa_presentaciones').prop('checked', parseInt(res.usa_presentaciones, 10) === 1);
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
+                $('#es_principal').prop('checked', parseInt(res.es_principal, 10) === 1);
+                mostrarLogo(res.logo_data || '', res.color_logo_oscuro, res.color_logo_claro, res.color_logo_origen);
+                mostrarIa(res.ia);
 
                 // Campos fiscales principales
                 $('#ingresos_brutos_nro').val(res.ingresos_brutos_nro || '');
@@ -718,11 +1090,13 @@ $(document).ready(function(){
                 $('#leyenda_fiscal').val(res.leyenda_fiscal || '');
 
                 cargarDocumentosTipos((res.documento_tipo_id && parseInt(res.documento_tipo_id) > 0) ? res.documento_tipo_id : 1);
-                cargarLocalidades(res.localidad_id);
+                cargarProvincias(res.provincia_id);
+                cargarLocalidades(res.provincia_id, res.localidad_id);
                 cargarCondicionesFiscales(res.condicion_fiscal_id);
                 cargarIibbRegimenes(res.iibb_regimen_id || 1);
                 cargarJurisdiccionesSedes(res.jurisdiccion_sede_id || 2);
 
+                $('#bloqueConstancia').removeClass('d-flex').addClass('d-none');
                 $('#modalLabel').html('<i class="fas fa-edit me-2"></i>Editar Empresa: ' + (res.empresa || ''));
                 var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalempresa'));
                 modal.show();
@@ -732,33 +1106,72 @@ $(document).ready(function(){
         }, 'json');
     });
 
-    // Botón Eliminar Empresa
-    $('#tablaempresas tbody').on('click', '.btnEliminar', function(){
+    // Botón Marcar Empresa Principal del Sistema
+    $('#tablaempresas tbody').on('click', '.btnMarcarPrincipal', function(){
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
-        
+
         Swal.fire({
-            title: "¿Eliminar Empresa?",
-            text: `¿Confirma que desea eliminar "${nombre}"? Esta acción no se puede deshacer.`,
-            icon: "warning",
+            title: "¿Establecer como Empresa Principal?",
+            text: `El logo de "${nombre}" se utilizará como logo inicial en el inicio de sesión y la cabecera general del sistema.`,
+            icon: "question",
             showCancelButton: true,
-            confirmButtonColor: "#d33",
+            confirmButtonColor: "#ffc107",
+            confirmButtonText: '<span class="text-dark fw-bold"><i class="fas fa-star me-1"></i>Sí, marcar como principal</span>',
             cancelButtonColor: "#6c757d",
-            confirmButtonText: "Sí, eliminar",
             cancelButtonText: "Cancelar"
         }).then((result) => {
             if (result.isConfirmed) {
-                $.get('empresas_ajax.php', {accion: 'eliminar', empresa_id: id}, function(res){
-                    if(res.resultado){
-                        tabla.ajax.reload();
+                $.post('empresas_ajax.php', {accion: 'marcar_principal', empresa_id: id}, function(res){
+                    if (res && res.success) {
+                        tabla.ajax.reload(null, false);
                         Swal.fire({
                             icon: "success",
-                            title: "Empresa eliminada",
+                            title: res.message,
+                            timer: 1600,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        Swal.fire('Error', (res && res.message) || 'No se pudo establecer la empresa como principal.', 'error');
+                    }
+                }, 'json').fail(function() {
+                    Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
+                });
+            }
+        });
+    });
+
+    // Botón Inhabilitar / Activar Empresa (nunca se borra: tiene datos vinculados)
+    $('#tablaempresas tbody').on('click', '.btnCambiarEstado', function(){
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var accion = $(this).data('accion');
+        var inhabilitar = accion === 'inhabilitar';
+
+        Swal.fire({
+            title: inhabilitar ? "¿Inhabilitar Empresa?" : "¿Activar Empresa?",
+            text: inhabilitar
+                ? `"${nombre}" dejará de aparecer en el selector de empresas. Se puede volver a activar.`
+                : `"${nombre}" volverá a estar disponible para sus usuarios.`,
+            icon: inhabilitar ? "warning" : "question",
+            showCancelButton: true,
+            confirmButtonColor: inhabilitar ? "#d33" : "#198754",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: inhabilitar ? "Sí, inhabilitar" : "Sí, activar",
+            cancelButtonText: "Cancelar"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.post('empresas_ajax.php', {accion: accion, empresa_id: id}, function(res){
+                    if (res.success) {
+                        tabla.ajax.reload(null, false);
+                        Swal.fire({
+                            icon: "success",
+                            title: res.message,
                             timer: 1500,
                             showConfirmButton: false
                         });
                     } else {
-                        Swal.fire('Error', 'No se pudo eliminar la empresa. Es posible que tenga comprobantes vinculados.', 'error');
+                        Swal.fire('Error', res.message || 'No se pudo actualizar la empresa.', 'error');
                     }
                 }, 'json');
             }
@@ -796,16 +1209,37 @@ $(document).ready(function(){
             inicio_actividades: $('#inicio_actividades').val(),
             leyenda_fiscal: $('#leyenda_fiscal').val(),
             email: $('#email').val(),
+            tipo_operacion: $('#tipo_operacion').val(),
+            nivel_gestion: $('#nivel_gestion').val(),
+            formato_fecha: $('#formato_fecha').val(),
+            separador_miles: String($('#formato_numero').val() || '').split('|')[0],
+            separador_decimal: String($('#formato_numero').val() || '').split('|')[1],
+            decimales_stock: $('#decimales_stock').val(),
+            usa_presentaciones: $('#usa_presentaciones').is(':checked') ? 1 : 0,
             base_conf: $('#base_conf').val(),
-            tabla_estado_registro_id: $('#estado_registro_id').val()
+            es_principal: $('#es_principal').is(':checked') ? 1 : 0,
+            ia_habilitada: $('#ia_habilitada').is(':checked') ? 1 : 0,
+            ia_api_key: $('#ia_habilitada').is(':checked') ? $('#ia_api_key').val().trim() : '',
+            ia_api_key_quitar: $('#ia_habilitada').is(':checked') && $('#ia_api_key_quitar').is(':checked') ? 1 : 0,
+            tabla_estado_registro_id: $('#estado_registro_id').val(),
+            quitar_logo: $('#quitar_logo').val(),
+            colores_manual: $('#colores_manual').val(),
+            color_logo_oscuro: $('#color_logo_oscuro').val(),
+            color_logo_claro: $('#color_logo_claro').val()
         };
+        // multipart: viaja el archivo del logo junto con los datos
+        var datos = new FormData();
+        $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
+        var archivoLogo = $('#logo')[0].files[0];
+        if (archivoLogo) datos.append('logo', archivoLogo);
 
         var $btn = $(this);
         $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
 
-        $.post('empresas_ajax.php', formData, function(res){
+        $.ajax({ url: 'empresas_ajax.php', type: 'POST', data: datos, processData: false, contentType: false, dataType: 'json' }).done(function(res){
             $btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Empresa');
             if(res.resultado){
+                if (res.tema) aplicarTemaSiActiva(id, res.tema.oscuro, res.tema.claro);
                 tabla.ajax.reload();
                 var modal = bootstrap.Modal.getInstance(document.getElementById('modalempresa'));
                 if (modal) modal.hide();
@@ -818,7 +1252,7 @@ $(document).ready(function(){
             } else {
                 Swal.fire('Error', res.error || 'Ocurrió un error al guardar los datos.', 'error');
             }
-        }, 'json').fail(function(){
+        }).fail(function(){
             $btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Empresa');
             Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
         });
@@ -826,7 +1260,8 @@ $(document).ready(function(){
 });
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/constancia-cuit-ia.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/constancia-cuit-ia.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

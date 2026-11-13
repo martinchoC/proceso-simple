@@ -6,11 +6,7 @@
 $(document).ready(function() {
     let tablaCierres = null;
 
-    const formatoMoneda = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
-    });
+    const formatoMoneda = { format: v => Fmt.moneda(v) };
 
     function initTablaCierres() {
         const domConfig = '<"row align-items-center p-2 mb-0"<"col-12 col-md-6"l><"col-12 col-md-6 text-end"f>>' +
@@ -21,7 +17,7 @@ $(document).ready(function() {
             responsive: true,
             dom: domConfig,
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json',
                 emptyTable: 'No hay cierres de ejercicio registrados'
             },
             order: [[0, 'desc']],
@@ -43,11 +39,11 @@ $(document).ready(function() {
                 },
                 { 
                     data: 'asiento_refundicion_id',
-                    render: d => `<span class="badge bg-secondary">Asiento #${d}</span>`
+                    render: d => parseInt(d, 10) > 0 ? `<span class="badge bg-secondary">Asiento #${d}</span>` : '-'
                 },
                 { 
                     data: 'asiento_cierre_patrimonial_id',
-                    render: d => `<span class="badge bg-secondary">Asiento #${d}</span>`
+                    render: d => parseInt(d, 10) > 0 ? `<span class="badge bg-secondary">Asiento #${d}</span>` : '-'
                 },
                 { data: 'usuario_cierre_nombre' },
                 { data: 'created_at' },
@@ -98,17 +94,35 @@ $(document).ready(function() {
         });
     }
 
+    // Fechas del ejercicio: salen del mes de cierre de Parámetros de Empresa (ejercicio N = el que termina en el año N)
+    function cargarRangoEjercicio() {
+        $.ajax({
+            url: 'contabilidad_cierre_ajax.php',
+            type: 'GET',
+            data: { accion: 'rango_ejercicio', empresa_id: $('#selEmpresaCierre').val(), anio_ejercicio: $('#txtAnioCierre').val() },
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.success && resp.data) {
+                    $('#txtFechaInicio').val(resp.data.desde);
+                    $('#txtFechaCierre').val(resp.data.hasta);
+                }
+            }
+        });
+    }
+
     cargarHistorialCierres();
+    cargarRangoEjercicio();
 
     $('#selEmpresaCierre').on('change', function() {
+        // La empresa del cliente pasa a ser el cliente activo del estudio (estudio_cliente_activo.js)
+        if (window.EstudioCliente) { EstudioCliente.guardar($(this).find('option:selected').data('cliente')); }
         cargarHistorialCierres();
+        cargarRangoEjercicio();
         resetDiagnostico();
     });
 
     $('#txtAnioCierre').on('change', function() {
-        const anio = $(this).val();
-        $('#txtFechaInicio').val(`${anio}-01-01`);
-        $('#txtFechaCierre').val(`${anio}-12-31`);
+        cargarRangoEjercicio();
         resetDiagnostico();
     });
 
@@ -121,8 +135,7 @@ $(document).ready(function() {
     // Diagnosticar Pre-Balance
     $('#btnDiagnosticar').on('click', function() {
         const empresaId = $('#selEmpresaCierre').val();
-        const fInicio = $('#txtFechaInicio').val();
-        const fCierre = $('#txtFechaCierre').val();
+        const anio = $('#txtAnioCierre').val();
 
         Swal.fire({
             title: 'Analizando balance...',
@@ -137,8 +150,7 @@ $(document).ready(function() {
             data: {
                 accion: 'calcular_balance',
                 empresa_id: empresaId,
-                f_inicio: fInicio,
-                f_cierre: fCierre
+                anio_ejercicio: anio
             },
             dataType: 'json',
             success: function(resp) {
@@ -160,7 +172,7 @@ $(document).ready(function() {
                         Swal.fire('Atención', `Existe una diferencia de ${formatoMoneda.format(t.diferencia_cuadre)} entre el Debe y el Haber. Corrija los asientos previos antes de cerrar.`, 'warning');
                     }
                 } else {
-                    Swal.fire('Error', resp.message || 'No se pudo calcular el balance.', 'error');
+                    Swal.fire('Error', resp.error || resp.message || 'No se pudo calcular el balance.', 'error');
                 }
             },
             error: function() {
@@ -172,8 +184,6 @@ $(document).ready(function() {
     // Ejecutar Cierre
     $('#btnEjecutarCierre').on('click', function() {
         const anio = $('#txtAnioCierre').val();
-        const fInicio = $('#txtFechaInicio').val();
-        const fCierre = $('#txtFechaCierre').val();
         const empresaId = $('#selEmpresaCierre').val();
 
         Swal.fire({
@@ -199,9 +209,7 @@ $(document).ready(function() {
                     data: {
                         accion: 'ejecutar_cierre',
                         empresa_id: empresaId,
-                        anio_ejercicio: anio,
-                        f_inicio: fInicio,
-                        f_cierre: fCierre
+                        anio_ejercicio: anio
                     },
                     dataType: 'json',
                     success: function(resp) {
@@ -214,7 +222,7 @@ $(document).ready(function() {
                             cargarHistorialCierres();
                             resetDiagnostico();
                         } else {
-                            Swal.fire('Error al Cerrar', resp.message || 'No se pudo completar el cierre.', 'error');
+                            Swal.fire('Error al Cerrar', resp.error || resp.message || 'No se pudo completar el cierre.', 'error');
                         }
                     },
                     error: function() {

@@ -5,104 +5,63 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "Condiciones de Pago";
 $currentPage = 'condiciones_pago';
 $modudo_idx = 5;
-$pagina_idx = 566; // ID de página para condiciones de pago
+$pagina_idx = 567; // ID de página para condiciones de pago (conf__paginas)
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-credit-card me-2"></i>Condiciones de Pago
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Condiciones de Pago</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Condiciones de Pago', 'bi bi-credit-card',
+        'Formas de pago que se eligen en pedidos y facturas: contado o cuenta corriente.', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
-
-            <div class="content-wrapper">
-                <section class="content">
-                    <div class="container-fluid">
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <div id="contenedor-boton-agregar" class="d-inline"></div>
-                                        <div class="float-end">
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                    id="btnRecargar" title="Recargar tabla">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </button>
-                                                <button type="button"
-                                                    class="btn btn-sm btn-outline-success dropdown-toggle"
-                                                    data-bs-toggle="dropdown" aria-expanded="false"
-                                                    title="Exportar datos">
-                                                    <i class="fas fa-file-export"></i> Exportar
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i
-                                                                class="fas fa-file-excel text-success"></i> Excel</a>
-                                                    </li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i
-                                                                class="fas fa-file-pdf text-danger"></i> PDF</a></li>
-                                                    <li>
-                                                        <hr class="dropdown-divider">
-                                                    </li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i
-                                                                class="fas fa-file-csv text-primary"></i> CSV</a></li>
-                                                    <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i
-                                                                class="fas fa-print text-secondary"></i> Imprimir</a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="card-body">
-                                        <!-- DataTable -->
-                                        <table id="tablaCondicionesPago" class="table table-striped table-bordered"
-                                            style="width:100%">
-                                            <thead class="table-light">
-                                                <tr>
-                                                    <th width="80">ID</th>
-                                                    <th width="100">Código</th>
-                                                    <th width="200">Condición de Pago</th>
-                                                    <th width="120">Tipo</th>
-                                                    <th width="80">Orden</th>
-                                                    <th width="120">Estado</th>
-                                                    <th width="200" class="text-center">Acciones</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody></tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
+            <div class="card">
+                <div class="card-header ui-barra">
+                    <div id="contenedor-boton-agregar" class="d-inline"></div>
+                    <div class="ui-barra-fin">
+                        <button type="button" class="btn btn-sm btn-light" id="btnRecargar" title="Recargar">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm btn-light" data-bs-toggle="dropdown"
+                                aria-expanded="false" title="Exportar">
+                                <i class="bi bi-download"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" id="btnExportarExcel"><i class="bi bi-file-earmark-excel me-2"></i>Excel</a></li>
+                                <li><a class="dropdown-item" href="#" id="btnExportarPDF"><i class="bi bi-file-earmark-pdf me-2"></i>PDF</a></li>
+                                <li><a class="dropdown-item" href="#" id="btnExportarCSV"><i class="bi bi-filetype-csv me-2"></i>CSV</a></li>
+                                <li><a class="dropdown-item" href="#" id="btnExportarPrint"><i class="bi bi-printer me-2"></i>Imprimir</a></li>
+                            </ul>
                         </div>
                     </div>
-                </section>
+                </div>
+
+                <div class="card-body">
+                    <table id="tablaCondicionesPago" class="table table-hover align-middle" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Código</th>
+                                <th>Condición de Pago</th>
+                                <th>Tipo</th>
+                                <th>Orden</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Modal para crear/editar condición de pago -->
             <div class="modal fade" id="modalCondicionPago" tabindex="-1" aria-labelledby="modalLabel"
                 aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="modalLabel">Condición de Pago</h5>
@@ -112,45 +71,46 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         <div class="modal-body">
                             <form id="formCondicionPago" class="needs-validation" novalidate>
                                 <input type="hidden" id="condicion_pago_id" name="condicion_pago_id" />
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="codigo" class="form-label">Código *</label>
-                                        <input type="text" class="form-control" id="codigo" name="codigo" 
-                                            maxlength="20" required pattern="[A-Za-z0-9\-_\.]+">
-                                        <div class="invalid-feedback">El código es obligatorio (máx. 20 caracteres, solo letras, números, guiones y puntos)</div>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="tipo" class="form-label">Tipo *</label>
-                                        <select class="form-select" id="tipo" name="tipo" required>
-                                            <option value="">Seleccionar...</option>
-                                            <option value="CONTADO">CONTADO</option>
-                                            <option value="CUENTA_CORRIENTE">CUENTA CORRIENTE</option>
-                                        </select>
-                                        <div class="invalid-feedback">Debe seleccionar un tipo</div>
-                                    </div>
-                                </div>
-                                <div class="row">
-                                    <div class="col-md-8 mb-3">
-                                        <label for="condicion_pago" class="form-label">Condición de Pago *</label>
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label for="condicion_pago" class="form-label ui-requerido">Nombre</label>
                                         <input type="text" class="form-control" id="condicion_pago"
-                                            name="condicion_pago" maxlength="100" required>
-                                        <div class="invalid-feedback">El nombre de la condición de pago es obligatorio</div>
-                                        <div class="form-text">Máximo 100 caracteres</div>
+                                            name="condicion_pago" maxlength="100" required placeholder="Cuenta corriente 30 días">
+                                        <div class="invalid-feedback">Ingresá el nombre.</div>
                                     </div>
-                                    <div class="col-md-4 mb-3">
-                                        <label for="orden" class="form-label">Orden</label>
-                                        <input type="number" class="form-control" id="orden" name="orden" 
-                                            min="0" max="65535">
-                                        <div class="form-text">Valor opcional para ordenar</div>
+                                    <div class="col-sm-5">
+                                        <label for="codigo" class="form-label ui-requerido">Código
+                                            <?= ui_ayuda('Hasta 20 caracteres: letras, números, guiones y puntos.') ?></label>
+                                        <input type="text" class="form-control" id="codigo" name="codigo"
+                                            maxlength="20" required pattern="[A-Za-z0-9\-_\.]+" placeholder="30D">
+                                        <div class="invalid-feedback">Solo letras, números, guiones y puntos.</div>
+                                    </div>
+                                    <div class="col-sm-7">
+                                        <label for="tipo" class="form-label ui-requerido">Tipo</label>
+                                        <select class="form-select" id="tipo" name="tipo" required>
+                                            <option value="">Elegí…</option>
+                                            <option value="CONTADO">Contado</option>
+                                            <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+                                        </select>
+                                        <div class="invalid-feedback">Elegí el tipo.</div>
                                     </div>
                                 </div>
+                                <details class="ui-mas-opciones">
+                                    <summary>Más opciones</summary>
+                                    <div class="row g-3">
+                                        <div class="col-sm-5">
+                                            <label for="orden" class="form-label">Orden
+                                                <?= ui_ayuda('Posición en las listas. Opcional.') ?></label>
+                                            <input type="number" class="form-control" id="orden" name="orden"
+                                                min="0" max="65535">
+                                        </div>
+                                    </div>
+                                </details>
                             </form>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary" id="btnGuardar">
-                                <i class="fas fa-save me-1"></i>Guardar
-                            </button>
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" id="btnGuardar">Guardar</button>
                         </div>
                     </div>
                 </div>
@@ -317,16 +277,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'condicion_pago_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'codigo',
-                            className: 'text-center',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data;
                                 }
-                                return `<span class="badge bg-primary">${data}</span>`;
+                                return `<span class="font-monospace">${data}</span>`;
                             }
                         },
                         {
@@ -340,21 +299,17 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         },
                         {
                             data: 'tipo',
-                            className: 'text-center',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data;
                                 }
                                 
-                                var badgeClass = data === 'CONTADO' ? 'bg-success' : 'bg-info';
-                                var tipoTexto = data === 'CONTADO' ? 'CONTADO' : 'CUENTA CORRIENTE';
-                                
-                                return `<span class="badge ${badgeClass}">${tipoTexto}</span>`;
+                                return data === 'CONTADO' ? 'Contado' : 'Cuenta corriente';
                             }
                         },
                         {
                             data: 'orden',
-                            className: 'text-center',
+                            className: 'ui-detalle',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return data || '0';
@@ -364,7 +319,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         },
                         {
                             data: 'estado_info',
-                            className: 'text-center',
                             render: function (data, type, row) {
                                 if (!data || !data.estado_registro) {
                                     if (type === 'export') {
@@ -374,15 +328,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 }
 
                                 var estado = data.estado_registro;
-                                var badgeClass = 'bg-secondary';
+                                var badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
                                 
                                 // Asignar colores según estado
                                 if (data.codigo_estandar === 'ACTIVO') {
-                                    badgeClass = 'bg-success';
+                                    badgeClass = 'bg-success-subtle text-success-emphasis';
                                 } else if (data.codigo_estandar === 'INACTIVO') {
-                                    badgeClass = 'bg-danger';
+                                    badgeClass = 'bg-danger-subtle text-danger-emphasis';
                                 } else if (data.codigo_estandar === 'BLOQUEADO') {
-                                    badgeClass = 'bg-warning text-dark';
+                                    badgeClass = 'bg-warning-subtle text-warning-emphasis';
                                 }
 
                                 if (type === 'export') {
@@ -396,8 +350,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             data: 'botones',
                             orderable: false,
                             searchable: false,
-                            className: "text-center",
-                            width: '200px',
+                            className: 'ui-acciones',
                             render: function (data, type, row) {
                                 if (type === 'export') {
                                     return '';
@@ -450,7 +403,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json',
+                        url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>',
                         buttons: {
                             excel: 'Excel',
                             pdf: 'PDF',
@@ -471,7 +424,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         // Mover los botones de exportación al contenedor correcto
                         var buttons = new $.fn.dataTable.Buttons(tabla, {
                             buttons: ['excelHtml5', 'pdfHtml5', 'csvHtml5', 'print']
-                        }).container().appendTo($('#tablaCondicionesPago_wrapper .col-md-6:eq(1)'));
+                        }).container().appendTo($('<div class="d-none">').appendTo('#tablaCondicionesPago_wrapper'));
 
                         // Guardar estado actual al cambiar de página
                         $(tabla.table().container()).on('page.dt', function (e) {
@@ -570,13 +523,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             // Manejador para botón "Agregar"
             $(document).on('click', '#btnNuevo', function () {
                 resetModal();
-                $('#modalLabel').text('Nueva Condición de Pago');
+                $('#modalLabel').text('Nueva condición de pago');
                 
                 // Poner foco en el primer campo
                 var modal = new bootstrap.Modal(document.getElementById('modalCondicionPago'));
                 modal.show();
                 setTimeout(function() {
-                    $('#codigo').focus();
+                    $('#condicion_pago').focus();
                 }, 500);
             });
 
@@ -592,12 +545,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 } else if (confirmable == 1) {
                     Swal.fire({
                         title: `¿${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}?`,
-                        html: `¿Está seguro de <strong>${accionJs}</strong> la condición <strong>"${condicion}"</strong>?`,
+                        text: condicion,
                         icon: 'question',
                         showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: `Sí, ${accionJs}`,
+                        confirmButtonText: 'Sí',
                         cancelButtonText: 'Cancelar',
                         reverseButtons: true,
                         allowOutsideClick: false
@@ -648,8 +599,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                             Swal.fire({
                                 icon: "success",
-                                title: `¡${accionJs.charAt(0).toUpperCase() + accionJs.slice(1)}!`,
-                                text: res.message || `Condición "${condicion}" actualizada correctamente`,
+                                title: res.message || 'Listo',
                                 showConfirmButton: false,
                                 timer: 1500,
                                 toast: true,
@@ -659,9 +609,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     } else {
                         Swal.fire({
                             icon: "error",
-                            title: "Error",
-                            text: res.error || `Error al ${accionJs} la condición`,
-                            confirmButtonText: "Entendido"
+                            title: "No se pudo completar",
+                            text: res.error || "Probá de nuevo en unos segundos."
                         });
                     }
                 }, 'json');
@@ -681,7 +630,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#condicion_pago').val(res.condicion_pago);
                         $('#tipo').val(res.tipo);
                         $('#orden').val(res.orden || '');
-                        $('#modalLabel').text('Editar Condición de Pago');
+                        $('#modalLabel').text('Editar condición de pago');
 
                         var modal = new bootstrap.Modal(document.getElementById('modalCondicionPago'));
                         modal.show();
@@ -689,9 +638,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     } else {
                         Swal.fire({
                             icon: "error",
-                            title: "Error",
-                            text: "Error al obtener datos de la condición de pago",
-                            confirmButtonText: "Entendido"
+                            title: "No se pudo abrir la condición",
+                            text: "Probá de nuevo en unos segundos."
                         });
                     }
                 }, 'json');
@@ -745,7 +693,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                 var btnGuardar = $(this);
                 var originalText = btnGuardar.html();
-                btnGuardar.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+                btnGuardar.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando');
 
                 var savedState = {
                     page: tabla.page(),
@@ -792,8 +740,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 Swal.fire({
                                     icon: "success",
-                                    title: "¡Guardado!",
-                                    text: "Condición de pago guardada correctamente",
+                                    title: "Guardado",
                                     showConfirmButton: false,
                                     timer: 1500,
                                     toast: true,
@@ -808,9 +755,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             btnGuardar.prop('disabled', false).html(originalText);
                             Swal.fire({
                                 icon: "error",
-                                title: "Error",
-                                text: res.error || "Error al guardar los datos",
-                                confirmButtonText: "Entendido"
+                                title: "No se pudo guardar",
+                                text: res.error || "Revisá los datos y probá de nuevo."
                             });
                         }
                     },
@@ -818,9 +764,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         btnGuardar.prop('disabled', false).html(originalText);
                         Swal.fire({
                             icon: "error",
-                            title: "Error de conexión",
-                            text: "Error al comunicarse con el servidor",
-                            confirmButtonText: "Entendido"
+                            title: "Sin conexión",
+                            text: "No pudimos comunicarnos con el servidor. Probá de nuevo."
                         });
                     }
                 });
@@ -877,15 +822,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
     <!-- Librerías necesarias para DataTables Buttons -->
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

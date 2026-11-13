@@ -97,6 +97,19 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                         selEst.appendChild(opt);
                     });
+
+                    // Poblar Posiciones / Cargos para modal RACI
+                    const selPosRaci = document.getElementById('tpl_raci_posicion_id');
+                    if (selPosRaci) {
+                        selPosRaci.innerHTML = '<option value="">-- Seleccionar cargo --</option>';
+                        (res.data.posiciones || []).forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p.posicion_id;
+                            const supTxt = p.superior_nombre ? ` (Sup: ${p.superior_nombre})` : '';
+                            opt.textContent = `${p.nombre} [${p.codigo}] - ${p.area_departamento}${supTxt}`;
+                            selPosRaci.appendChild(opt);
+                        });
+                    }
                 }
             })
             .catch(err => console.error("Error al cargar combos:", err));
@@ -111,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
             order: [[0, 'asc']],
             dom: '<"row mb-2"<"col-12 col-md-6"><"col-12 col-md-6 text-end"f>>rt<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>',
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json'
             },
             ajax: {
                 url: `tareas_plantillas_ajax.php`,
@@ -186,6 +199,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 },
                 {
+                    data: null,
+                    render: function (data) {
+                        if (data.roles_raci_resumen) {
+                            return `<span class="badge bg-light text-primary border" title="${data.roles_raci_resumen}"><i class="fas fa-users-cog me-1"></i>${data.roles_raci_resumen}</span>`;
+                        }
+                        return `<span class="text-muted small"><em>Sin roles predefinidos</em></span>`;
+                    }
+                },
+                {
                     data: 'tabla_estado_registro_id',
                     className: 'text-center align-middle',
                     render: function (data) {
@@ -210,6 +232,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <i class="fas fa-edit"></i>
                                      </button>`;
                         }
+
+                        // Botón de Matriz RACI por Cargos
+                        btns += `<button type="button" class="btn btn-outline-success btn-raci" data-id="${data.tarea_plantilla_id}" data-titulo="${data.titulo}" data-orden="${data.orden}" data-oblcodigo="${data.obligacion_codigo}" title="Matriz RACI por Cargos">
+                                    <i class="fas fa-users-cog"></i>
+                                 </button>`;
 
                         if (canDep) {
                             btns += `<button type="button" class="btn btn-outline-info btn-dependencias" data-id="${data.tarea_plantilla_id}" data-obligacion="${data.obligacion_id}" data-titulo="${data.titulo}" data-orden="${data.orden}" data-oblcodigo="${data.obligacion_codigo}" title="Secuencia y Dependencias">
@@ -510,10 +537,176 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    // 5.2. Modal Matriz RACI por Cargos Tipo
+    function abrirModalRaci(id, titulo, orden, oblCodigo) {
+        document.getElementById('raci_modal_tarea_id').value = id;
+        document.getElementById('raci_tarea_info').innerHTML = `<i class="fas fa-tasks text-primary me-2"></i>#${orden} - ${titulo}`;
+        document.getElementById('raci_obligacion_info').innerHTML = `Obligación: <strong>${oblCodigo}</strong>`;
+
+        document.getElementById('formNuevoRaci').reset();
+        document.getElementById('tpl_raci_rol_id').value = '1';
+        document.getElementById('boxTplUsarSup').style.display = 'none';
+
+        cargarListaRaci(id);
+
+        const modal = new bootstrap.Modal(document.getElementById('modalPlantillaRaci'));
+        modal.show();
+    }
+
+    // Cambiar rol RACI en formulario de plantilla
+    $('#tpl_raci_rol_id').on('change', function () {
+        const rol = parseInt($(this).val(), 10);
+        if (rol === 2) {
+            $('#boxTplUsarSup').slideDown(150);
+        } else {
+            $('#boxTplUsarSup').slideUp(150);
+            $('#tpl_usar_sup').prop('checked', false);
+        }
+    });
+
+    // Cargar Lista de Roles RACI en la Plantilla
+    function cargarListaRaci(tareaId) {
+        const tbody = document.getElementById('tbodyRolesRaci');
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Cargando roles...</td></tr>';
+
+        fetch(`tareas_plantillas_ajax.php?accion=listar_raci&tarea_plantilla_id=${tareaId}&empresa_idx=${empresaIdx}&pagina_idx=${PAGINA_ID}`)
+            .then(res => res.json())
+            .then(res => {
+                tbody.innerHTML = '';
+                if (!res.success || !res.raci || res.raci.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No hay roles RACI predefinidos para esta tarea.</td></tr>';
+                    return;
+                }
+
+                res.raci.forEach(r => {
+                    const tr = document.createElement('tr');
+
+                    let badgeColor = 'secondary';
+                    switch (parseInt(r.raci_rol_id, 10)) {
+                        case 1: badgeColor = 'primary'; break;
+                        case 2: badgeColor = 'success'; break;
+                        case 3: badgeColor = 'warning text-dark'; break;
+                        case 4: badgeColor = 'info text-dark'; break;
+                    }
+
+                    const reglaEsp = parseInt(r.usar_supervisor_como_aprobador, 10) === 1
+                        ? '<span class="badge bg-primary"><i class="fas fa-sitemap me-1"></i>Supervisor</span>'
+                        : '<span class="text-muted small">Titular Cargo</span>';
+
+                    const titular = r.ocupante_titular_nombre 
+                        ? `<span class="fw-semibold text-dark">${r.ocupante_titular_nombre}</span>`
+                        : '<span class="text-muted small fst-italic">Vacante</span>';
+
+                    tr.innerHTML = `
+                        <td class="text-center">
+                            <span class="badge bg-${badgeColor} fw-bold">${r.rol_nombre}</span>
+                        </td>
+                        <td>
+                            <strong>${r.posicion_nombre}</strong>
+                            <div class="small text-muted">[${r.posicion_codigo}]</div>
+                        </td>
+                        <td class="small text-muted">${r.posicion_area || ''}</td>
+                        <td class="small">${titular}</td>
+                        <td class="text-center">${reglaEsp}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-quitar-raci" data-id="${r.tarea_plantilla_raci_id}" title="Desvincular Rol">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Asignar listeners a botones eliminar
+                tbody.querySelectorAll('.btn-quitar-raci').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const raciId = this.getAttribute('data-id');
+                        quitarRolRaci(raciId);
+                    });
+                });
+            })
+            .catch(err => {
+                console.error("Error al cargar RACI:", err);
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Error al cargar roles RACI.</td></tr>';
+            });
+    }
+
+    // Guardar Rol RACI en Plantilla
+    document.getElementById('formNuevoRaci').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        formData.append('accion', 'guardar_raci');
+        formData.append('empresa_idx', empresaIdx);
+        formData.append('pagina_idx', PAGINA_ID);
+
+        const btn = document.getElementById('btnAgregarRaci');
+        btn.disabled = true;
+
+        fetch('tareas_plantillas_ajax.php', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(res => {
+                btn.disabled = false;
+                if (res.success) {
+                    const tareaId = document.getElementById('raci_modal_tarea_id').value;
+                    cargarListaRaci(tareaId);
+                    tabla.ajax.reload(null, false);
+                    document.getElementById('tpl_raci_posicion_id').value = '';
+                } else {
+                    alert(res.message || "Error al vincular rol RACI");
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                console.error("Error al vincular RACI:", err);
+                alert("Error al comunicarse con el servidor.");
+            });
+    });
+
+    // Quitar Rol RACI de Plantilla
+    function quitarRolRaci(raciId) {
+        if (!confirm('¿Desea desvincular este cargo de la matriz RACI de la tarea?')) return;
+
+        const formData = new FormData();
+        formData.append('accion', 'eliminar_raci');
+        formData.append('tarea_plantilla_raci_id', raciId);
+        formData.append('empresa_idx', empresaIdx);
+        formData.append('pagina_idx', PAGINA_ID);
+
+        fetch('tareas_plantillas_ajax.php', {
+            method: 'POST',
+            body: formData
+        })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    const tareaId = document.getElementById('raci_modal_tarea_id').value;
+                    cargarListaRaci(tareaId);
+                    tabla.ajax.reload(null, false);
+                } else {
+                    alert(res.message || "Error al eliminar rol RACI");
+                }
+            })
+            .catch(err => {
+                console.error("Error al eliminar rol RACI:", err);
+                alert("Error al comunicarse con el servidor.");
+            });
+    }
+
     // 6. Listeners Globales en la Tabla
     $('#tablaTareasPlantillas tbody').on('click', '.btn-editar', function () {
         const id = $(this).data('id');
         abrirModalPlantilla(id);
+    });
+
+    $('#tablaTareasPlantillas tbody').on('click', '.btn-raci', function () {
+        const id = $(this).data('id');
+        const titulo = $(this).data('titulo');
+        const orden = $(this).data('orden');
+        const oblCodigo = $(this).data('oblcodigo');
+        abrirModalRaci(id, titulo, orden, oblCodigo);
     });
 
     $('#tablaTareasPlantillas tbody').on('click', '.btn-dependencias', function () {

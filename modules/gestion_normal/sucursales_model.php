@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
 
 /**
@@ -60,7 +61,7 @@ function obtenerInfoEstado($conexion, $estado_registro_id)
 // ✅ Obtener botones disponibles según el estado actual
 function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
     $botones = [];
 
     foreach ($funciones as $funcion) {
@@ -85,7 +86,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
 // ✅ Obtener botón "Agregar" específico para la página (pagina_id=36)
 function obtenerBotonAgregar($conexion, $pagina_id)
 {
-    $funciones = obtenerFuncionesPagina($conexion, $pagina_id);
+    $funciones = permisos_filtrar_funciones($conexion, obtenerFuncionesPagina($conexion, $pagina_id));
+    if (permisos_sin_funcion_creacion($funciones)) {
+        return null;
+    }
 
     foreach ($funciones as $funcion) {
         if ($funcion['tabla_estado_registro_origen_id'] == 0) {
@@ -230,24 +234,61 @@ function obtenerTiposSucursalesActivos($conexion, $empresa_idx)
     return $tipos;
 }
 
-// ✅ Obtener localidades activas para el select
-function obtenerLocalidadesActivas($conexion)
+// ✅ Obtener provincias activas para el select
+function obtenerProvincias($conexion)
 {
-    $sql = "SELECT localidad_id, localidad 
-            FROM conf__localidades 
-            WHERE tabla_estado_registro_id = 1  -- Solo localidades activas
-            ORDER BY localidad";
+    $sql = "SELECT provincia_id, provincia 
+            FROM conf__provincias 
+            WHERE tabla_estado_registro_id = 1 
+            ORDER BY provincia";
 
     $result = mysqli_query($conexion, $sql);
-    $localidades = [];
+    $provincias = [];
 
     if ($result) {
         while ($fila = mysqli_fetch_assoc($result)) {
-            $localidades[] = $fila;
+            $provincias[] = $fila;
         }
     }
 
+    return $provincias;
+}
+
+// ✅ Obtener localidades por provincia para el select
+function obtenerLocalidadesPorProvincia($conexion, $provincia_id)
+{
+    $provincia_id = intval($provincia_id);
+    if ($provincia_id <= 0) {
+        return [];
+    }
+
+    $sql = "SELECT localidad_id, localidad 
+            FROM conf__localidades 
+            WHERE provincia_id = ? 
+            AND tabla_estado_registro_id = 1 
+            ORDER BY localidad";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt)
+        return [];
+
+    mysqli_stmt_bind_param($stmt, "i", $provincia_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    $localidades = [];
+    while ($fila = mysqli_fetch_assoc($result)) {
+        $localidades[] = $fila;
+    }
+
+    mysqli_stmt_close($stmt);
     return $localidades;
+}
+
+// ✅ Obtener localidades activas para el select (filtradas por provincia)
+function obtenerLocalidadesActivas($conexion, $provincia_id = 0)
+{
+    return obtenerLocalidadesPorProvincia($conexion, $provincia_id);
 }
 
 // ✅ Obtener todas las sucursales (con filtro multiempresa y joins)
@@ -259,6 +300,7 @@ function obtenerSucursales($conexion, $empresa_idx, $pagina_id)
     $sql = "SELECT s.*, 
                    st.sucursal_tipo,
                    cl.localidad,
+                   cl.provincia_id,
                    er.estado_registro, er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase
             FROM gestion__sucursales s
@@ -587,8 +629,9 @@ function obtenerSucursalPorId($conexion, $id, $empresa_idx)
     $id = intval($id);
     $empresa_idx = intval($empresa_idx);
 
-    $sql = "SELECT s.*, er.estado_registro, er.codigo_estandar
+    $sql = "SELECT s.*, cl.provincia_id, er.estado_registro, er.codigo_estandar
             FROM gestion__sucursales s
+            LEFT JOIN conf__localidades cl ON s.localidad_id = cl.localidad_id
             LEFT JOIN conf__estados_registros er ON s.tabla_estado_registro_id = er.estado_registro_id
             WHERE s.sucursal_id = ? AND s.empresa_id = ?";
 

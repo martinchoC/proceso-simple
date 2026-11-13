@@ -319,6 +319,28 @@ function empresas_regiones_listar(mysqli $conexion, int $region_grupo_id = 0, in
 }
 
 /**
+ * Obtener asignación de empresa a región por ID.
+ */
+function empresas_regiones_obtener_por_id(mysqli $conexion, int $empresa_region_id): ?array
+{
+    $sql = "SELECT er.*, e.empresa AS empresa_nombre, CAST(e.documento_numero AS UNSIGNED) AS cuit,
+                   r.nombre AS region_nombre, r.grupo_id, g.nombre AS grupo_nombre
+            FROM ml__empresas_regiones er
+            INNER JOIN conf__empresas e ON e.empresa_id = er.empresa_id
+            INNER JOIN ml__regiones_grupo r ON r.region_grupo_id = er.region_grupo_id
+            INNER JOIN ml__grupos g ON g.grupo_id = r.grupo_id
+            WHERE er.empresa_region_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_region_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($res);
+    mysqli_stmt_close($stmt);
+
+    return $row ?: null;
+}
+
+/**
  * Asignar una empresa a una región con control de vigencia (Caso C01 / C03).
  */
 function empresas_regiones_asignar(mysqli $conexion, array $datos, int $usuario_id): array
@@ -330,6 +352,10 @@ function empresas_regiones_asignar(mysqli $conexion, array $datos, int $usuario_
 
     if ($empresa_id <= 0 || $region_grupo_id <= 0 || empty($vigente_desde)) {
         return ['success' => false, 'message' => 'Empresa, región y fecha vigente desde son obligatorios.'];
+    }
+
+    if ($vigente_hasta !== null && $vigente_hasta < $vigente_desde) {
+        return ['success' => false, 'message' => 'La fecha Vigente Hasta no puede ser anterior a Vigente Desde.'];
     }
 
     // Verificar si ya tiene asignación abierta en esta misma región
@@ -360,6 +386,52 @@ function empresas_regiones_asignar(mysqli $conexion, array $datos, int $usuario_
 }
 
 /**
+ * Actualizar asignación de empresa a región.
+ */
+function empresas_regiones_actualizar(mysqli $conexion, int $empresa_region_id, array $datos, int $usuario_id): array
+{
+    $empresa_id = intval($datos['empresa_id'] ?? 0);
+    $region_grupo_id = intval($datos['region_grupo_id'] ?? 0);
+    $vigente_desde = trim($datos['vigente_desde'] ?? '');
+    $vigente_hasta = !empty($datos['vigente_hasta']) ? trim($datos['vigente_hasta']) : null;
+
+    if ($empresa_region_id <= 0 || $empresa_id <= 0 || $region_grupo_id <= 0 || empty($vigente_desde)) {
+        return ['success' => false, 'message' => 'Empresa, región y fecha vigente desde son obligatorios.'];
+    }
+
+    if ($vigente_hasta !== null && $vigente_hasta < $vigente_desde) {
+        return ['success' => false, 'message' => 'La fecha Vigente Hasta no puede ser anterior a Vigente Desde.'];
+    }
+
+    // Verificar si ya tiene otra asignación activa o solapada en esta misma región (excluyendo la actual)
+    $sql_check = "SELECT empresa_region_id FROM ml__empresas_regiones 
+                  WHERE empresa_id = ? AND region_grupo_id = ? AND empresa_region_id != ? 
+                    AND (vigente_hasta IS NULL OR vigente_hasta >= ?)";
+    $stmt_c = mysqli_prepare($conexion, $sql_check);
+    mysqli_stmt_bind_param($stmt_c, "iiis", $empresa_id, $region_grupo_id, $empresa_region_id, $vigente_desde);
+    mysqli_stmt_execute($stmt_c);
+    $res_c = mysqli_stmt_get_result($stmt_c);
+    if (mysqli_num_rows($res_c) > 0) {
+        mysqli_stmt_close($stmt_c);
+        return ['success' => false, 'message' => 'La empresa ya posee otra asignación activa o solapada en esta región.'];
+    }
+    mysqli_stmt_close($stmt_c);
+
+    $sql = "UPDATE ml__empresas_regiones 
+            SET empresa_id = ?, region_grupo_id = ?, vigente_desde = ?, vigente_hasta = ?, actualizado_en = NOW(), actualizado_por = ?
+            WHERE empresa_region_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "iissii", $empresa_id, $region_grupo_id, $vigente_desde, $vigente_hasta, $usuario_id, $empresa_region_id);
+    $ok = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($ok) {
+        return ['success' => true, 'message' => 'Asignación de empresa a región actualizada correctamente.'];
+    }
+    return ['success' => false, 'message' => 'Error al actualizar asignación: ' . mysqli_error($conexion)];
+}
+
+/**
  * Cerrar vigencia de asignación de empresa a región (Caso C04).
  */
 function empresas_regiones_cerrar_vigencia(mysqli $conexion, int $empresa_region_id, string $fecha_cierre, int $usuario_id): array
@@ -380,6 +452,27 @@ function empresas_regiones_cerrar_vigencia(mysqli $conexion, int $empresa_region
         return ['success' => true, 'message' => 'Vigencia de la empresa en la región cerrada correctamente.'];
     }
     return ['success' => false, 'message' => 'Error al cerrar vigencia: ' . mysqli_error($conexion)];
+}
+
+/**
+ * Eliminar asignación de empresa a región.
+ */
+function empresas_regiones_eliminar(mysqli $conexion, int $empresa_region_id): array
+{
+    if ($empresa_region_id <= 0) {
+        return ['success' => false, 'message' => 'ID de asignación no válido.'];
+    }
+
+    $sql = "DELETE FROM ml__empresas_regiones WHERE empresa_region_id = ?";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_region_id);
+    $ok = mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    if ($ok) {
+        return ['success' => true, 'message' => 'Asignación eliminada correctamente.'];
+    }
+    return ['success' => false, 'message' => 'Error al eliminar asignación: ' . mysqli_error($conexion)];
 }
 
 /**

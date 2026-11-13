@@ -56,7 +56,7 @@ $(document).ready(function () {
     // Texto del destinatario de una fila del listado: el cliente o, si es un remito a
     // consumidor final (sin entidad_id), el nombre libre que se cargó.
     function destinatarioFila(row) {
-        if (row.entidad_id) return row.entidad_nombre || row.entidad_fantasia || '';
+        if (row.entidad_id) return row.entidad_fantasia || row.entidad_nombre || '';
         return 'Consumidor Final' + (row.consumidor_final_nombre ? ' - ' + row.consumidor_final_nombre : '');
     }
 
@@ -166,10 +166,10 @@ $(document).ready(function () {
                             return `<div>${escapeHtml(data.consumidor_final_nombre || '')}</div>
                                 <small class="text-muted"><i class="fas fa-user me-1"></i>Consumidor Final</small>`;
                         }
-                        var subInfo = data.entidad_fantasia ? escapeHtml(data.entidad_fantasia) : '';
-                        if (data.cuit) subInfo += (subInfo ? ' · ' : '') + '<span class="badge bg-light text-secondary border">CUIT ' + escapeHtml(data.cuit) + '</span>';
-                        return `<div><strong>${escapeHtml(data.entidad_nombre || '')}</strong></div>
-                                <small class="text-muted">${subInfo}</small>`;
+                        var nombreMostrar = data.entidad_fantasia || data.entidad_nombre || '';
+                        var subInfo = data.cuit ? '<span class="badge bg-light text-secondary border">CUIT ' + escapeHtml(data.cuit) + '</span>' : '';
+                        return `<div><strong>${escapeHtml(nombreMostrar)}</strong></div>` +
+                                (subInfo ? `<small class="text-muted">${subInfo}</small>` : '');
                     }
                 },
                 {
@@ -178,8 +178,7 @@ $(document).ready(function () {
                     render: function (data, type) {
                         if (type === 'sort' || type === 'filter') return data || '';
                         if (type === 'export' || !data) return data || '';
-                        var parts = data.split('-');
-                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : data;
+                        return Fmt.fecha(data);
                     }
                 },
                 {
@@ -189,7 +188,7 @@ $(document).ready(function () {
                         var valor = parseFloat(data) || 0;
                         if (type === 'export') return valor.toFixed(2);
                         if (type === 'sort' || type === 'filter') return valor;
-                        return `<span class="text-primary">$${valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
+                        return `<span class="text-primary">$${Fmt.numero(valor, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`;
                     }
                 },
                 {
@@ -282,7 +281,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json',
                 lengthMenu: 'Mostrar _MENU_ registros',
                 info: 'Página _PAGE_ de _PAGES_',
                 infoEmpty: 'Página 0 de 0',
@@ -561,7 +560,7 @@ $(document).ready(function () {
             success: function (res) {
                 if (res && res.success && res.data) {
                     var pct = parseFloat(res.data.cliente_descuento_general) || 0;
-                    info.html(`<i class="fas fa-tag me-1"></i>Descuento general del cliente: <strong>${pct.toFixed(2)}%</strong> (se aplica a todos los productos).`);
+                    info.html(`<i class="fas fa-tag me-1"></i>Descuento general del cliente: <strong>${Fmt.numero(pct, 2)}%</strong> (se aplica a todos los productos).`);
                 } else {
                     info.html('<i class="fas fa-triangle-exclamation me-1"></i>Este cliente no tiene una lista de precios vigente asignada.');
                 }
@@ -628,7 +627,7 @@ $(document).ready(function () {
                 <td>${linea.producto_codigo || ''}</td>
                 <td>${linea.producto_nombre || ''}</td>
                 <td>${renderUbicacionesPendiente(linea.ubicaciones_detalle)}</td>
-                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
                 <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
                 <td>
                     <input type="number" class="form-control form-control-sm no-spinner input-cantidad-pendiente"
@@ -799,7 +798,7 @@ $(document).ready(function () {
                 <td>${item.producto_nombre || ''}
                     ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
                 </td>
-                <td class="text-center">${ivaPorcentaje.toFixed(2)}%</td>
+                <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
                 <td class="text-end">$${formatMoneda(precio)}</td>
                 <td>
                     <input type="number" class="form-control form-control-sm no-spinner input-cantidad-libre"
@@ -1245,13 +1244,11 @@ $(document).ready(function () {
     });
 
     function formatMoneda(valor) {
-        return (parseFloat(valor) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return Fmt.numero((parseFloat(valor) || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     function formatFecha(fecha) {
-        if (!fecha) return '';
-        var parts = fecha.split('-');
-        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+        return Fmt.fecha(fecha);
     }
 
     function actualizarTotales() {
@@ -1416,7 +1413,7 @@ $(document).ready(function () {
         $.ajax({
             url: 'ventas_remitos_ajax.php',
             type: 'GET',
-            data: { accion: 'obtener', venta_remito_id: remitoId, empresa_idx: empresa_idx },
+            data: { accion: 'obtener', venta_remito_id: remitoId, empresa_idx: empresa_idx, pagina_idx: pagina_idx },
             dataType: 'json',
             success: function (res) {
                 if (!res || !res.venta_remito_id) {
@@ -1503,7 +1500,8 @@ $(document).ready(function () {
                     }
 
                     var estadoRemito = parseInt(res.tabla_estado_registro_id, 10);
-                    var puedeFacturar = estadoRemito === 13 || estadoRemito === 15; // Pend. de Facturación / Facturación Parcial
+                    // Pend. de Facturación / Facturación Parcial, y el perfil con la función Facturar
+                    var puedeFacturar = (estadoRemito === 13 || estadoRemito === 15) && res.puede_facturar === true;
                     $('#tab-item-facturar').toggle(puedeFacturar);
                     if (puedeFacturar) {
                         $('#facturar :input').prop('disabled', false);
@@ -1634,12 +1632,33 @@ $(document).ready(function () {
             return;
         }
         if (accionJs === 'imprimir') {
-            Swal.fire({ icon: 'info', title: 'Impresión pendiente', text: 'La emisión del comprobante impreso/PDF todavía no está implementada.' });
+            // Mismo comprobante imprimible que Facturas Emitidas (ventas_facturas_print.php), en otra pestaña
+            window.open('ventas_facturas_print.php?venta_factura_id=' + encodeURIComponent(id) + '&empresa_idx=' + empresa_idx, '_blank');
+            return;
+        }
+        if (accionJs === 'cobrar') {
+            // "Cobrar" (emitir recibo imputado a la factura) no es un cambio de estado: va por la solapa
+            // "Medios de Pago" de Facturas Emitidas (vfEmitirReciboFactura), en otra pestaña.
+            window.open('ventas_facturas.php?empresa_id=' + encodeURIComponent(empresa_idx) + '&factura_id=' + encodeURIComponent(id) + '&factura_accion=cobrar', '_blank');
             return;
         }
 
+        // Aprobar una factura a consumidor final emite su recibo de contado: antes se piden los medios
+        // (assets/js/cobro-contado.js). Sin medios, el servidor la cobraría toda en efectivo.
         function ejecutar() {
-            $.post('ventas_facturas_ajax.php', { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 56 }, function (res) {
+            if (accionJs !== 'aprobada' || !window.CobroContado) { enviar(null); return; }
+            CobroContado.pedirSiCorresponde({
+                facturaId: id, empresaIdx: empresa_idx, paginaIdx: 56,
+                comprobante: 'Factura #' + id, target: document.querySelector('.modal.show')
+            }).then(function (medios) {
+                if (medios !== false) enviar(medios);
+            }).catch(function (e) { Swal.fire('Error', e.message, 'error'); });
+        }
+
+        function enviar(mediosContado) {
+            var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 56 };
+            if (mediosContado) datos.medios_contado = JSON.stringify(mediosContado);
+            $.post('ventas_facturas_ajax.php', datos, function (res) {
                 if (res && res.success) {
                     Swal.fire({ icon: 'success', title: '¡Listo!', text: res.message || 'Factura actualizada.', toast: true, position: 'top-end', showConfirmButton: false, timer: 2500 });
                     // La factura confirmada puede haber cambiado el estado del remito (Facturado /
@@ -1793,9 +1812,9 @@ $(document).ready(function () {
                 ? preciosFacturaEnEdicion[r.venta_remito_detalle_id]
                 : (parseFloat(r.precio_unitario_bruto) || 0);
             html += '<tr><td>' + r.producto_codigo + '</td><td>' + r.producto_nombre + '</td>'
-                + '<td class="text-end">' + pendienteMax.toFixed(2) + '</td>'
+                + '<td class="text-end">' + Fmt.numero(pendienteMax, 2) + '</td>'
                 + '<td class="text-end" style="width: 100px;"><input type="number" class="form-control form-control-sm text-end factura-remito-cantidad" data-detalle-id="' + r.venta_remito_detalle_id + '" data-producto-id="' + r.producto_id + '" data-pedido-detalle-id="' + (r.venta_pedido_detalle_id || '') + '" data-descuento-pct="' + (r.descuento_general_pct || 0) + '" data-iva-id="' + (r.iva_alicuota_id || 1) + '" data-iva="' + (r.iva_porcentaje || 0) + '" value="' + valorInicial.toFixed(2) + '" min="0" max="' + pendienteMax + '" step="1"></td>'
-                + '<td class="text-end" style="width: 130px;"><div class="input-group input-group-sm"><span class="input-group-text">$</span><input type="number" class="form-control form-control-sm text-end factura-remito-precio" data-detalle-id="' + r.venta_remito_detalle_id + '" value="' + precio.toFixed(2) + '" min="0" step="0.01"></div></td>'
+                + '<td class="text-end" style="width: 150px; min-width: 150px;"><div class="input-group input-group-sm flex-nowrap"><span class="input-group-text">$</span><input type="number" class="form-control form-control-sm text-end factura-remito-precio" style="min-width: 0;" data-detalle-id="' + r.venta_remito_detalle_id + '" value="' + precio.toFixed(2) + '" min="0" step="0.01"></div></td>'
                 + '<td class="text-end">' + (parseFloat(r.descuento_general_pct) || 0) + '%</td>'
                 + '<td class="text-end fw-bold fila-total-neto">$0.00</td></tr>';
         });
@@ -1861,7 +1880,10 @@ $(document).ready(function () {
             bruto += b; descuento += desc; neto += n;
             iva += fiscal ? n * (d.iva_porcentaje || 0) / 100 : 0;
         });
-        var total = neto + iva;
+        // Igual que el servidor (vfCalcularDetallesFactura): neto e IVA en centavos y total = su suma
+        var r2 = function (v) { return Math.round((v + Number.EPSILON) * 100) / 100; };
+        bruto = r2(bruto); neto = r2(neto); descuento = r2(bruto - neto); iva = r2(iva);
+        var total = r2(neto + iva);
         $('#facturarTotales').html(
             '<div class="facturar-totales-box">' +
                 '<div class="facturar-totales-item"><span class="label">Bruto</span><span class="valor">$' + formatMoneda(bruto) + '</span></div>' +
@@ -1948,6 +1970,8 @@ $(document).ready(function () {
             cargarRemitoParaEditar(remitoId);
         } else if (accionJs === 'visualizar') {
             cargarRemitoParaVisualizar(remitoId);
+        } else if (accionJs === 'imprimir') {
+            imprimirRemito(remitoId);
         } else if (accionJs === 'facturar' || accionJs === 'facturado_parcial') {
             // Estos dos NO son una transición de estado genérica: si el remito queda Facturado
             // o en Facturación Parcial, tiene que ser porque hay una factura real detrás (lo
@@ -1976,6 +2000,12 @@ $(document).ready(function () {
             ejecutarAccion(remitoId, accionJs, comprobanteInfo);
         }
     });
+
+    // Remito imprimible (A4 o ticket según Parámetros de Empresa > Impresión) en otra pestaña, como las facturas.
+    // Imprimir no cambia el estado: no pasa por ejecutar_accion.
+    function imprimirRemito(id) {
+        window.open('ventas_remitos_print.php?venta_remito_id=' + encodeURIComponent(id) + '&empresa_idx=' + empresa_idx, '_blank');
+    }
 
     function ejecutarAccion(remitoId, accionJs, comprobanteInfo) {
         var savedState = { page: tabla.page(), order: tabla.order(), search: tabla.search() };

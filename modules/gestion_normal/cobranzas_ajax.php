@@ -2,6 +2,7 @@
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['cobranzas.php']]);
+const COB_MODULO_ID = 5;
 /**
  * cobranzas_ajax.php
  *
@@ -39,6 +40,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
 require_once __DIR__ . '/cobranzas_model.php';
 
@@ -48,7 +50,17 @@ if (empty($accion)) {
 }
 
 $empresa_idx = intval($ctx['empresa_id']);
-$pagina_idx  = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 105);
+// La página siempre es una de las configuradas con esta url en el módulo (el pedido solo elige entre ellas)
+$pagina_idx  = pagina_id_por_url($conexion, COB_MODULO_ID, 'cobranzas.php', intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0));
+
+// Cada acción exige la función de la página asignada al perfil del usuario (los botones se arman con el mismo criterio)
+function cobExigirFuncion($conexion, string $accion_js): void
+{
+    global $pagina_idx;
+    if (!permisos_puede($conexion, intval($pagina_idx), $accion_js)) {
+        manejarError('Tu perfil no tiene permiso para esta acción.', 403);
+    }
+}
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -129,6 +141,12 @@ try {
             ]);
             break;
 
+        case 'buscar_clientes':
+            $q = trim($_GET['q'] ?? $_POST['q'] ?? '');
+            $clientes = obtenerClientesCobranza($conexion, $empresa_idx, $q);
+            enviarRespuesta(['success' => true, 'data' => $clientes]);
+            break;
+
         case 'tipos_por_punto_venta':
             $punto_venta_id = intval($_GET['punto_venta_id'] ?? $_POST['punto_venta_id'] ?? 0);
             $tipos = obtenerTiposComprobanteCobranza($conexion, $empresa_idx, $punto_venta_id, $pagina_idx);
@@ -154,6 +172,7 @@ try {
 
             $data['empresa_id'] = $empresa_idx;
             $data['usuario_id'] = $usuario_id;
+            cobExigirFuncion($conexion, intval($data['cobranza_id'] ?? 0) > 0 ? 'editar' : 'agregar');
 
             $cobranza_id = guardarCobranzaBorrador($conexion, $data);
             enviarRespuesta([
@@ -172,6 +191,7 @@ try {
                 $id = intval($data_json['id'] ?? 0);
             }
             if ($id <= 0) manejarError('ID de cobranza inválido', 400);
+            cobExigirFuncion($conexion, 'confirmar');
 
             $resultado = confirmarCobranza($conexion, $id, $empresa_idx, $usuario_id);
             enviarRespuesta($resultado);
@@ -186,6 +206,7 @@ try {
 
             if ($id <= 0) manejarError('ID de cobranza inválido', 400);
             if (empty($motivo)) manejarError('Debe ingresar un motivo para anular', 400);
+            cobExigirFuncion($conexion, 'anular');
 
             $resultado = anularCobranza($conexion, $id, $empresa_idx, $usuario_id, $motivo);
             enviarRespuesta($resultado);
@@ -199,6 +220,7 @@ try {
                 $id = intval($data_json['id'] ?? 0);
             }
             if ($id <= 0) manejarError('ID de cobranza inválido', 400);
+            cobExigirFuncion($conexion, 'eliminar');
 
             $resultado = eliminarCobranzaBorrador($conexion, $id, $empresa_idx, $usuario_id);
             enviarRespuesta($resultado);

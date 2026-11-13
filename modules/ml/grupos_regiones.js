@@ -16,7 +16,7 @@ $(document).ready(function () {
                   '<"row align-items-center mt-3"<"col-12 col-md-4"l><"col-12 col-md-4 text-center"i><"col-12 col-md-4 d-flex justify-content-md-end justify-content-center"p>>';
 
     const dtLang = {
-        url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json',
+        url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json',
         lengthMenu: 'Mostrar _MENU_ registros',
         info: 'Página _PAGE_ de _PAGES_',
         infoEmpty: 'Página 0 de 0',
@@ -191,8 +191,8 @@ $(document).ready(function () {
                 {
                     data: 'total_empresas_activas',
                     className: 'text-center',
-                    render: function (data) {
-                        return `<span class="badge bg-primary">${data} empresas</span>`;
+                    render: function (data, type, row) {
+                        return `<a href="javascript:void(0)" class="badge bg-primary text-decoration-none btn-ver-empresas-region" data-region-id="${row.region_grupo_id}" title="Ver y editar empresas de esta región">${data} empresas <i class="fas fa-arrow-right ms-1"></i></a>`;
                     }
                 },
                 {
@@ -480,11 +480,25 @@ $(document).ready(function () {
     });
 
     // =========================================================================
-    // 6. ASIGNAR Y CERRAR VIGENCIA DE EMPRESA EN REGIÓN (C03 / C04)
+    // 6. ASIGNAR, EDITAR Y CERRAR VIGENCIA DE EMPRESA EN REGIÓN (C03 / C04)
     // =========================================================================
+    // Enlace directo desde la columna "Empresas" de la pestaña Regiones
+    $(document).on('click', '.btn-ver-empresas-region', function () {
+        const regId = $(this).data('region-id');
+        $('#filtroRegionEmpresas').val(regId);
+        const tabEl = document.querySelector('#tab-empresas-link');
+        const tab = bootstrap.Tab.getOrCreateInstance(tabEl);
+        tab.show();
+        tablaEmpresasRegiones.ajax.reload();
+    });
+
     $('#btnAsignarEmpresa').on('click', function () {
         $('#formAsignarEmpresa')[0].reset();
+        $('#empresa_region_id').val(0);
         $('#modal_asignar_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_asignar_vigente_hasta').val('');
+        $('#tituloModalAsignarEmpresa').text('Asignar Empresa a Región');
+        $('#textoBotonGuardarAsignacion').text('Asignar Empresa');
         $('#formAsignarEmpresa').removeClass('was-validated');
 
         const regSel = $('#filtroRegionEmpresas').val();
@@ -496,10 +510,44 @@ $(document).ready(function () {
     $(document).on('click', '.btn-asignar-empresa', function () {
         const regId = $(this).data('id');
         $('#formAsignarEmpresa')[0].reset();
+        $('#empresa_region_id').val(0);
         $('#modal_asignar_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_asignar_vigente_hasta').val('');
         $('#modal_asignar_region_id').val(regId);
+        $('#tituloModalAsignarEmpresa').text('Asignar Empresa a Región');
+        $('#textoBotonGuardarAsignacion').text('Asignar Empresa');
         $('#formAsignarEmpresa').removeClass('was-validated');
         $('#modalAsignarEmpresa').modal('show');
+    });
+
+    $(document).on('click', '.btn-editar-empresa-region', function () {
+        const id = $(this).data('id');
+        $.ajax({
+            url: 'grupos_regiones_ajax.php',
+            type: 'GET',
+            data: { accion: 'obtener_empresa_region', empresa_region_id: id, empresa_idx: empresa_idx, pagina_idx: pagina_idx },
+            dataType: 'json',
+            success: function (res) {
+                if (res.success && res.data) {
+                    const d = res.data;
+                    $('#formAsignarEmpresa')[0].reset();
+                    $('#empresa_region_id').val(d.empresa_region_id);
+                    $('#modal_asignar_region_id').val(d.region_grupo_id);
+                    $('#modal_asignar_empresa_id').val(d.empresa_id);
+                    $('#modal_asignar_vigente_desde').val(d.vigente_desde);
+                    $('#modal_asignar_vigente_hasta').val(d.vigente_hasta || '');
+                    $('#tituloModalAsignarEmpresa').text('Editar Empresa en Región #' + d.empresa_region_id);
+                    $('#textoBotonGuardarAsignacion').text('Guardar Cambios');
+                    $('#formAsignarEmpresa').removeClass('was-validated');
+                    $('#modalAsignarEmpresa').modal('show');
+                } else {
+                    Swal.fire('Error', res.message || 'No se pudo cargar la asignación.', 'error');
+                }
+            },
+            error: function () {
+                Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
+            }
+        });
     });
 
     $('#formAsignarEmpresa').on('submit', function (e) {
@@ -511,8 +559,10 @@ $(document).ready(function () {
             return;
         }
 
+        const isEdit = parseInt($('#empresa_region_id').val() || '0', 10) > 0;
+        const btnTexto = isEdit ? 'Guardar Cambios' : 'Asignar Empresa';
         const formData = $(form).serialize() + `&accion=asignar_empresa&empresa_idx=${empresa_idx}&pagina_idx=${pagina_idx}`;
-        $('#btnGuardarAsignacion').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Asignando...');
+        $('#btnGuardarAsignacion').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
 
         $.ajax({
             url: 'grupos_regiones_ajax.php',
@@ -520,18 +570,18 @@ $(document).ready(function () {
             data: formData,
             dataType: 'json',
             success: function (res) {
-                $('#btnGuardarAsignacion').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Asignar Empresa');
+                $('#btnGuardarAsignacion').prop('disabled', false).html(`<i class="fas fa-save me-1"></i><span id="textoBotonGuardarAsignacion">${btnTexto}</span>`);
                 if (res.success) {
                     $('#modalAsignarEmpresa').modal('hide');
                     Swal.fire({ icon: 'success', title: 'Éxito', text: res.message, timer: 1500, showConfirmButton: false });
                     tablaEmpresasRegiones.ajax.reload(null, false);
                     tablaRegiones.ajax.reload(null, false);
                 } else {
-                    Swal.fire('Error al asignar', res.message, 'error');
+                    Swal.fire('Error al guardar', res.message, 'error');
                 }
             },
             error: function () {
-                $('#btnGuardarAsignacion').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Asignar Empresa');
+                $('#btnGuardarAsignacion').prop('disabled', false).html(`<i class="fas fa-save me-1"></i><span id="textoBotonGuardarAsignacion">${btnTexto}</span>`);
                 Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
             }
         });
@@ -567,6 +617,42 @@ $(document).ready(function () {
                         } else {
                             Swal.fire('Error', res.message, 'error');
                         }
+                    }
+                });
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-eliminar-empresa-region', function () {
+        const id = $(this).data('id');
+        const empresaNombre = $(this).data('empresa');
+
+        Swal.fire({
+            title: '¿Eliminar asignación?',
+            html: `Se desvinculará a <strong>${empresaNombre}</strong> de esta región.<br><small class="text-muted">Esta acción no se puede deshacer.</small>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: 'grupos_regiones_ajax.php',
+                    type: 'POST',
+                    data: { accion: 'eliminar_empresa_region', empresa_region_id: id, empresa_idx: empresa_idx, pagina_idx: pagina_idx },
+                    dataType: 'json',
+                    success: function (res) {
+                        if (res.success) {
+                            Swal.fire({ icon: 'success', title: 'Eliminada', text: res.message, timer: 1500, showConfirmButton: false });
+                            tablaEmpresasRegiones.ajax.reload(null, false);
+                            tablaRegiones.ajax.reload(null, false);
+                        } else {
+                            Swal.fire('Error', res.message, 'error');
+                        }
+                    },
+                    error: function () {
+                        Swal.fire('Error de red', 'No se pudo comunicar con el servidor.', 'error');
                     }
                 });
             }

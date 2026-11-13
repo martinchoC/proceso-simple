@@ -8,7 +8,7 @@ function obtenerTablasEstadosRegistros($conexion)
             FROM conf__tablas_estados_registros ter
             LEFT JOIN conf__tablas t ON ter.tabla_id = t.tabla_id
             LEFT JOIN conf__colores c ON ter.color_id = c.color_id
-            WHERE t.modulo_id=2
+            WHERE t.modulo_id=5
             ORDER BY t.tabla_nombre ASC, ter.orden ASC";
     $res = mysqli_query($conexion, $sql);
     $data = [];

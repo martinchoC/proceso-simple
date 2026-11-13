@@ -1,5 +1,9 @@
 <?php
 require_once 'config.php';
+require_once __DIR__ . '/core/auditoria.php';
+require_once __DIR__ . '/core/empresa_logo.php';
+
+$logo_inicial = emp_logo_inicial($conexion);
 
 if (isset($_SESSION['logueado']) && $_SESSION['logueado'] === true) {
   header("Location: " . url('index.php'));
@@ -9,28 +13,44 @@ if (isset($_SESSION['logueado']) && $_SESSION['logueado'] === true) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $usuario = mysqli_real_escape_string($conexion, trim($_POST['usuario'] ?? ''));
-  $clave = $_POST['clave'] ?? '';
+  $usuario = trim((string)($_POST['usuario'] ?? ''));
+  $clave = (string)($_POST['clave'] ?? '');
 
-  $query = "SELECT * FROM conf__usuarios WHERE usuario = '$usuario' LIMIT 1";
-  $result = mysqli_query($conexion, $query);
+  if ($usuario !== '' && $clave !== '') {
+    $stmt = mysqli_prepare($conexion, "SELECT usuario_id, usuario, usuario_nombre, password, tabla_estado_registro_id FROM conf__usuarios WHERE usuario = ? LIMIT 1");
+    if ($stmt) {
+      mysqli_stmt_bind_param($stmt, "s", $usuario);
+      mysqli_stmt_execute($stmt);
+      $result = mysqli_stmt_get_result($stmt);
 
-  if ($result && mysqli_num_rows($result) === 1) {
-    $user = mysqli_fetch_assoc($result);
-    if (password_verify($clave, $user['password'])) {
-      session_regenerate_id(true);
-      $_SESSION['usuario_id'] = $user['usuario_id'];
-      $_SESSION['usuario'] = $user['usuario'];
-      $_SESSION['usuario_nombre'] = $user['usuario_nombre'];
-      $_SESSION['logueado'] = true;
-      session_write_close();
-      header("Location: " . url('index.php'));
-      exit;
+      if ($result && mysqli_num_rows($result) === 1) {
+        $user = mysqli_fetch_assoc($result);
+        if ((int)$user['tabla_estado_registro_id'] === 1 && password_verify($clave, $user['password'])) {
+          session_regenerate_id(true);
+          // Limpiar residuos contextuales anteriores
+          unset($_SESSION['empresa_id'], $_SESSION['modulo_id']);
+          $_SESSION['usuario_id'] = (int)$user['usuario_id'];
+          $_SESSION['usuario'] = $user['usuario'];
+          $_SESSION['usuario_nombre'] = $user['usuario_nombre'];
+          $_SESSION['logueado'] = true;
+          auditoria_login($conexion, (int)$user['usuario_id'], $user['usuario_nombre'], true);
+          session_write_close();
+          header("Location: " . url('index.php'));
+          exit;
+        } else {
+          auditoria_login($conexion, (int)$user['usuario_id'], $usuario, false, 'Contraseña incorrecta o usuario inhabilitado');
+          $error = "Usuario o contraseña incorrectos";
+        }
+      } else {
+        auditoria_login($conexion, 0, $usuario, false, 'Usuario no encontrado');
+        $error = "Usuario o contraseña incorrectos";
+      }
+      mysqli_stmt_close($stmt);
     } else {
-      $error = "Contraseña incorrecta";
+      $error = "Error interno del servidor. Por favor, reintente.";
     }
   } else {
-    $error = "Usuario no encontrado";
+    $error = "Por favor, complete todos los campos.";
   }
 }
 ?>
@@ -43,8 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="google" content="notranslate" />
   <title>Login</title>
 
-  <link rel="stylesheet" href="<?= asset_local('css/adminlte.min.css') ?>" />
-  <link rel="stylesheet" href="<?= asset_local('css/all.min.css') ?>" />
+  <link rel="icon" type="image/png" href="<?= htmlspecialchars($logo_inicial) ?>">
+  <link rel="shortcut icon" href="<?= htmlspecialchars($logo_inicial) ?>">
+
+  <link rel="stylesheet" href="<?= asset_local('css/admin-lte-4.0.0-beta2/adminlte.min.css') ?>" />
+  <link rel="stylesheet" href="<?= asset_local('css/fontawesome-5.15.4/css/all.min.css') ?>" />
 
   <style>
     /* --- PARCHE DE ESTILO PARA INPUTS --- */
@@ -109,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <b>Gestión</b>Multipyme
         </h1>
         <div class="mt-2">
-          <img src="<?= asset('img/logo.png') ?>" alt="Logo" class="brand-image opacity-75 shadow"
+          <img src="<?= htmlspecialchars($logo_inicial) ?>" alt="Logo" class="brand-image brand-image-empresa shadow"
             style="max-height: 80px; width: auto;" />
         </div>
       </div>
@@ -151,9 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </div>
 
-  <script src="<?= asset_local('js/jquery.min.js') ?>"></script>
-  <script src="<?= asset_local('js/bootstrap.bundle.min.js') ?>"></script>
-  <script src="<?= asset_local('js/adminlte.min.js') ?>"></script>
+  <script src="<?= asset_local('js/jquery-3.6.0/jquery.min.js') ?>"></script>
+  <script src="<?= asset_local('js/bootstrap-5.3.3/bootstrap.bundle.min.js') ?>"></script>
+  <script src="<?= asset_local('js/admin-lte-4.0.0-beta2/adminlte.min.js') ?>"></script>
   <script>
     document.getElementById('btnToggleClave')?.addEventListener('click', function () {
       const input = document.getElementById('inputClave');

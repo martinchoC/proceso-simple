@@ -1,0 +1,50 @@
+# ======================================================================
+# CASALUCHO GESTION - Configuracion de Seguridad y URLs Limpias (Apache)
+# ======================================================================
+RewriteEngine On
+
+# 1. CABECERAS DE SEGURIDAD (HTTP Security Headers)
+<IfModule mod_headers.c>
+    # Prevenir fuga de IDs o datos en URLs hacia recursos externos
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # Proteccion contra Clickjacking
+    Header set X-Frame-Options "SAMEORIGIN"
+    # Mitigar sniffing de tipos MIME
+    Header set X-Content-Type-Options "nosniff"
+    # Proteccion basica contra ataques XSS reflejados
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# 2. PROTECCION DE ARCHIVOS SENSIBLES Y SCRIPTS DE PRUEBA
+<FilesMatch "(\.(env|sql|log|git|md|json|docx)|test\.php)$">
+    Require all denied
+</FilesMatch>
+
+# 3. REESCRITURA DE URLS LIMPIAS (Ocultar extension .php)
+<IfModule mod_rewrite.c>
+    Options -MultiViews
+    RewriteEngine On
+
+    # A0. Correccion defensiva: Reparar duplicacion accidental de carpetas de modulos en la URL
+    RewriteCond %{REQUEST_URI} ^(.*)/modules/([^/]+)/modules/\2/(.*)$ [NC]
+    RewriteRule ^.*$ %1/modules/%2/%3 [R=301,L]
+
+    # A. Redireccionar externamente peticiones GET directas a archivos .php hacia su version limpia sin extension
+    # Excluye peticiones POST y scripts internos de API/AJAX/ARCA/CRON
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{THE_REQUEST} \s/+(.*?)\.php[\s?] [NC]
+    RewriteCond %{REQUEST_URI} !^.*/(_ajax\.php|arca/|cron/) [NC]
+    RewriteRule ^ /%1 [R=301,L]
+
+    # B. Si es un archivo o directorio fisico existente (ej. assets, css, js, imagenes), servirlo tal cual
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # C. Reescritura interna: si la ruta solicitada existe fisicamente como archivo .php en disco, despacharlo
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
+</IfModule>
+

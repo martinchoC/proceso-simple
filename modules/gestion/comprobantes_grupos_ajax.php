@@ -14,6 +14,8 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 46); // Página ID para grupos de comprobantes
+// Solo una página de este módulo (si no, la de comprobantes_grupos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conexion, 2, (int)$pagina_idx, 'comprobantes_grupos.php');
 $pagina_subgrupos_idx = 66; // Página para subgrupos
 
 header('Content-Type: application/json; charset=utf-8');
@@ -131,6 +133,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoGrupo($conexion, $comprobante_grupo_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -144,6 +148,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_subgrupos_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoSubgrupo($conexion, $comprobante_subgrupo_id, $accion_js, $empresa_idx, $pagina_subgrupos_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

@@ -57,9 +57,16 @@ function obtenerListasPreciosProductos($conexion, $params = [])
         $order_column = 'p.producto_codigo';
     }
 
-    $where = "lpp.tabla_estado_registro_id = 1";
-    $where_params = [];
-    $types = '';
+    // Multi-tenant: sin empresa no se lista nada (antes no se filtraba y
+    // cualquier empresa veía los precios de todas).
+    $empresa_id = intval($params['empresa_id'] ?? 0);
+    if ($empresa_id <= 0) {
+        return ['total' => 0, 'filtered' => 0, 'data' => []];
+    }
+
+    $where = "lpp.empresa_id = ? AND lpp.tabla_estado_registro_id = 1";
+    $where_params = [$empresa_id];
+    $types = 'i';
 
     if (!empty($filtro_lista)) {
         $where .= " AND lpp.lista_precio_id = ?";
@@ -102,9 +109,14 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     }
 
     // --- recordsTotal: total activo, sin ningún filtro (para el "X de Y" de DataTables) ---
-    $sql_total = "SELECT COUNT(*) AS total FROM gestion__listas_precios_productos lpp WHERE lpp.tabla_estado_registro_id = 1";
-    $res_total = mysqli_query($conexion, $sql_total);
+    $sql_total = "SELECT COUNT(*) AS total FROM gestion__listas_precios_productos lpp
+                  WHERE lpp.empresa_id = ? AND lpp.tabla_estado_registro_id = 1";
+    $stmt_total = mysqli_prepare($conexion, $sql_total);
+    mysqli_stmt_bind_param($stmt_total, "i", $empresa_id);
+    mysqli_stmt_execute($stmt_total);
+    $res_total = mysqli_stmt_get_result($stmt_total);
     $total_records = $res_total ? (int) mysqli_fetch_assoc($res_total)['total'] : 0;
+    mysqli_stmt_close($stmt_total);
 
     // --- recordsFiltered: con lista/marca/modelo/submodelo/búsqueda aplicados ---
     $sql_filtered = "SELECT COUNT(*) AS total
@@ -227,7 +239,7 @@ function obtenerListasPreciosProductos($conexion, $params = [])
     return ['total' => $total_records, 'filtered' => $filtered_records, 'data' => $filas];
 }
 
-function obtenerPreciosPorProducto($conexion, $producto_id)
+function obtenerPreciosPorProducto($conexion, $producto_id, int $empresa_id)
 {
     // VERSION 2026-09-05: usada desde la pestaña "Precios" del ABM de
     // productos (productos.php), para editar el precio de UN producto en
@@ -237,7 +249,7 @@ function obtenerPreciosPorProducto($conexion, $producto_id)
     // (normalmente unas pocas decenas como mucho), así que es un SELECT
     // simple, sin LIMIT.
     $producto_id = intval($producto_id);
-    if ($producto_id <= 0) {
+    if ($producto_id <= 0 || $empresa_id <= 0) {
         return [];
     }
 
@@ -252,13 +264,13 @@ function obtenerPreciosPorProducto($conexion, $producto_id)
             LEFT JOIN gestion__impuestos__iva_alicuotas iva
                    ON p.iva_alicuota_id = iva.iva_alicuota_id
                   AND iva.tabla_estado_registro_id = 1
-            WHERE lpp.producto_id = ? AND lpp.tabla_estado_registro_id = 1
+            WHERE lpp.producto_id = ? AND lpp.empresa_id = ? AND lpp.tabla_estado_registro_id = 1
             ORDER BY lp.lista_precio_nombre";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) {
         return [];
     }
-    mysqli_stmt_bind_param($stmt, "i", $producto_id);
+    mysqli_stmt_bind_param($stmt, "ii", $producto_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     $filas = [];
@@ -281,6 +293,9 @@ function agregarListaPrecioProducto($conexion, $data)
     $ajuste_id = !empty($data['ajuste_id']) ? intval($data['ajuste_id']) : null;
     $empresa_id = intval($data['empresa_id'] ?? 0);
     if ($empresa_id <= 0) {
+        return false;
+    }
+    if (!lppListaYProductoDeEmpresa($conexion, $lista_precio_id, $producto_id, $empresa_id)) {
         return false;
     }
 
@@ -306,6 +321,24 @@ function agregarListaPrecioProducto($conexion, $data)
     return mysqli_stmt_execute($stmt);
 }
 
+// Lista y producto tienen que ser de la empresa (multi-tenant): evita grabar
+// un precio de otra empresa pasando ids a mano.
+function lppListaYProductoDeEmpresa($conexion, int $lista_precio_id, int $producto_id, int $empresa_id): bool
+{
+    $sql = "SELECT
+                (SELECT COUNT(*) FROM gestion__listas_precios
+                  WHERE lista_precio_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1) AS lista_ok,
+                (SELECT COUNT(*) FROM gestion__productos
+                  WHERE producto_id = ? AND empresa_id = ?) AS producto_ok";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "iiii", $lista_precio_id, $empresa_id, $producto_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $lista_ok, $producto_ok);
+    mysqli_stmt_fetch($stmt);
+    mysqli_stmt_close($stmt);
+    return $lista_ok > 0 && $producto_ok > 0;
+}
+
 function editarListaPrecioProducto($conexion, $id, $data)
 {
     if (empty($data['lista_precio_id']) || empty($data['producto_id']) || empty($data['precio_unitario'])) {
@@ -317,6 +350,13 @@ function editarListaPrecioProducto($conexion, $id, $data)
     $producto_id = intval($data['producto_id']);
     $precio_final = floatval($data['precio_unitario']);
     $ajuste_id = !empty($data['ajuste_id']) ? intval($data['ajuste_id']) : null;
+    $empresa_id = intval($data['empresa_id'] ?? 0);
+    if ($empresa_id <= 0) {
+        return false;
+    }
+    if (!lppListaYProductoDeEmpresa($conexion, $lista_precio_id, $producto_id, $empresa_id)) {
+        return false;
+    }
 
     // Verificar duplicado excluyendo el actual
     $sql_check = "SELECT COUNT(*) as existe FROM gestion__listas_precios_productos 
@@ -333,59 +373,69 @@ function editarListaPrecioProducto($conexion, $id, $data)
 
     $sql = "UPDATE gestion__listas_precios_productos 
             SET lista_precio_id = ?, producto_id = ?, precio_final = ?, es_manual = 1, precio_manual = ?
-            WHERE lista_precio_producto_id = ?";
+            WHERE lista_precio_producto_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "iiddi", $lista_precio_id, $producto_id, $precio_final, $precio_final, $id);
+    mysqli_stmt_bind_param($stmt, "iiddii", $lista_precio_id, $producto_id, $precio_final, $precio_final, $id, $empresa_id);
     return mysqli_stmt_execute($stmt);
 }
 
-function eliminarListaPrecioProducto($conexion, $id)
+function eliminarListaPrecioProducto($conexion, $id, int $empresa_id)
 {
     $id = intval($id);
     // Desactivación lógica
-    $sql = "UPDATE gestion__listas_precios_productos SET tabla_estado_registro_id = 2 WHERE lista_precio_producto_id = ?";
+    $sql = "UPDATE gestion__listas_precios_productos SET tabla_estado_registro_id = 2
+            WHERE lista_precio_producto_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    return mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    return mysqli_stmt_affected_rows($stmt) > 0;
 }
 
-function obtenerListaPrecioProductoPorId($conexion, $id)
+function obtenerListaPrecioProductoPorId($conexion, $id, int $empresa_id)
 {
     $id = intval($id);
-    $sql = "SELECT *, precio_final as precio_unitario FROM gestion__listas_precios_productos WHERE lista_precio_producto_id = ?";
+    $sql = "SELECT *, precio_final as precio_unitario FROM gestion__listas_precios_productos
+            WHERE lista_precio_producto_id = ? AND empresa_id = ?";
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_bind_param($stmt, "ii", $id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     return mysqli_fetch_assoc($result);
 }
 
-function obtenerListasPrecios($conexion, $empresa_idx = null)
+function obtenerListasPrecios($conexion, int $empresa_idx)
 {
-    $empresa_idx = intval($empresa_idx ?? ($_SESSION['empresa_id'] ?? 0));
     $sql = "SELECT lista_precio_id, lista_precio_nombre as nombre
             FROM gestion__listas_precios
-            WHERE empresa_id = $empresa_idx AND tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1
             ORDER BY lista_precio_nombre";
-    $res = mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;
     }
+    mysqli_stmt_close($stmt);
     return $data;
 }
 
-function obtenerProductos($conexion)
+function obtenerProductos($conexion, int $empresa_id)
 {
     $sql = "SELECT producto_id, producto_codigo, producto_nombre 
             FROM gestion__productos 
-            WHERE tabla_estado_registro_id = 1
+            WHERE empresa_id = ? AND tabla_estado_registro_id = 1
             ORDER BY producto_codigo";
-    $res = mysqli_query($conexion, $sql);
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
         $data[] = $fila;
     }
+    mysqli_stmt_close($stmt);
     return $data;
 }
 // listas_precios_productos_model.php
@@ -417,9 +467,9 @@ function importarPreciosDesdeExcel($conexion, $lista_precio_id, $productos_preci
     $lista_precio_id = intval($lista_precio_id);
 
     // Validar que la lista de precios exista y esté activa
-    $sql_check_lista = "SELECT lista_precio_id FROM gestion__listas_precios WHERE lista_precio_id = ? AND tabla_estado_registro_id = 1";
+    $sql_check_lista = "SELECT lista_precio_id FROM gestion__listas_precios WHERE lista_precio_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1";
     $stmt_check = mysqli_prepare($conexion, $sql_check_lista);
-    mysqli_stmt_bind_param($stmt_check, "i", $lista_precio_id);
+    mysqli_stmt_bind_param($stmt_check, "ii", $lista_precio_id, $empresa_id);
     mysqli_stmt_execute($stmt_check);
     $result_check = mysqli_stmt_get_result($stmt_check);
     if (mysqli_num_rows($result_check) == 0) {

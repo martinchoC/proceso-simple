@@ -6,32 +6,14 @@ $pageTitle = "Orígenes de Costos";
 $currentPage = 'productos_costos_origenes';
 $modudo_idx = 2;
 $pagina_idx = 79;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-chart-line me-2"></i>Orígenes de Costos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Orígenes de Costos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Orígenes de costos','fas fa-chart-line', '', ['Productos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -122,10 +104,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="orden" class="form-label">Orden</label>
+                                        <label for="orden" class="form-label">Orden <?= ui_ayuda('Orden de visualización') ?></label>
                                         <input type="number" class="form-control" id="orden" 
                                             name="orden" value="1" min="1">
-                                        <div class="form-text">Orden de visualización</div>
                                     </div>
                                 </div>
 
@@ -137,10 +118,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="descripcion" class="form-label">Descripción</label>
+                                    <label for="descripcion" class="form-label">Descripción <?= ui_ayuda('Opcional - Máx. 255 caracteres') ?></label>
                                     <textarea class="form-control" id="descripcion" name="descripcion" 
                                         rows="3" maxlength="255"></textarea>
-                                    <div class="form-text">Opcional - Máx. 255 caracteres</div>
                                 </div>
                             </form>
                         </div>
@@ -245,7 +225,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'producto_costo_origen_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'producto_costo_origen_codigo',
@@ -363,7 +343,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         }
                     ],
                     language: {
-                        url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                        url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                     },
                     order: currentOrder,
                     responsive: true,
@@ -810,13 +790,13 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

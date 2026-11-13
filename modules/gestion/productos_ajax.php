@@ -8,6 +8,22 @@ ini_set('display_errors', 1);
 require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
 require_once __DIR__ . '/stock_niveles_model.php';
+require_once __DIR__ . '/../../core/imagenes.php';
+require_once __DIR__ . '/../../core/productos_presentaciones.php';
+
+/**
+ * Presentaciones del formulario (core/productos_presentaciones.php): se validan antes de guardar el producto.
+ * Corta el request con el error si no son válidas (el producto no se guarda).
+ */
+function productosValidarPresentaciones($conexion, int $empresa_id, int $producto_id): ?array
+{
+    try {
+        return prpr_procesar_formulario($conexion, $empresa_id, $producto_id, $_POST);
+    } catch (InvalidArgumentException $e) {
+        echo json_encode(['resultado' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
 
 /**
  * Stock mínimo / máximo por boca cargado en la solapa Información de productos.php.
@@ -45,6 +61,10 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 40);
+// Solo una página de este módulo (si no, la de productos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'productos.php');
+// En la consulta de productos, las ubicaciones se limitan a las sucursales del usuario
+$usuario_filtro_ubicaciones = defined('PRODUCTOS_CONSULTA') ? intval($ctx['usuario_id']) : 0;
 
 // Parámetros de DataTables para paginación
 $start = intval($_GET['start'] ?? $_POST['start'] ?? 0);
@@ -81,7 +101,8 @@ try {
                 'filtro_modelo' => $filtro_modelo,
                 'filtro_submodelo' => $filtro_submodelo,
                 'filtro_codigo' => $filtro_codigo,
-                'filtro_estado' => $filtro_estado
+                'filtro_estado' => $filtro_estado,
+                'usuario_filtro_ubicaciones' => $usuario_filtro_ubicaciones
             ]);
             
             echo json_encode([
@@ -147,6 +168,8 @@ try {
             echo json_encode(['results' => $results], JSON_UNESCAPED_UNICODE);
             break;
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'empresa_id' => $empresa_idx,
                 'producto_codigo' => trim($_POST['producto_codigo'] ?? ''),
@@ -168,15 +191,21 @@ try {
                 'pagina_idx' => $pagina_idx
             ];
 
+            $presentaciones = productosValidarPresentaciones($conexion, $empresa_idx, 0);
             $resultado = agregarProducto($conexion, $data);
             if (!empty($resultado['resultado'])) {
-                $aviso = productosGuardarNivelesStock($conexion, $ctx, intval($resultado['producto_id'] ?? 0));
-                if ($aviso) $resultado['aviso'] = $aviso;
+                $nuevo_id = intval($resultado['producto_id'] ?? 0);
+                $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $nuevo_id, $presentaciones);
+                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $nuevo_id), $aviso_pres]);
+                $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
+                if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['producto_id'] ?? 0);
             $data = [
                 'producto_codigo' => trim($_POST['producto_codigo'] ?? ''),
@@ -196,10 +225,13 @@ try {
                 'empresa_idx' => $empresa_idx
             ];
 
+            $presentaciones = productosValidarPresentaciones($conexion, $empresa_idx, $id);
             $resultado = editarProducto($conexion, $id, $data);
             if (!empty($resultado['resultado'])) {
-                $aviso = productosGuardarNivelesStock($conexion, $ctx, $id);
-                if ($aviso) $resultado['aviso'] = $aviso;
+                $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $id, $presentaciones);
+                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $id), $aviso_pres]);
+                $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
+                if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -208,6 +240,12 @@ try {
             // Bocas del usuario con el mínimo / máximo y el stock actual del producto (0 = nuevo).
             echo json_encode(snvNivelesProducto($conexion, (int)$ctx['empresa_id'], (int)$ctx['usuario_id'],
                 intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0)), JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'obtener_presentaciones':
+            echo json_encode(['success' => true, 'data' => prpr_empresa_usa($conexion, $empresa_idx)
+                ? prpr_listar($conexion, $empresa_idx, intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0))
+                : []], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_iva_alicuotas':
@@ -224,6 +262,8 @@ try {
                 break;
             }
 
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $producto_id, $accion_js, $empresa_idx, $pagina_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
@@ -399,7 +439,8 @@ try {
         case 'subir_imagen_producto':
             // Verificar que se haya subido un archivo
             if (!isset($_FILES['imagen']) || $_FILES['imagen']['error'] !== UPLOAD_ERR_OK) {
-                echo json_encode(['resultado' => false, 'error' => 'No se ha subido ninguna imagen o hay un error en el archivo'], JSON_UNESCAPED_UNICODE);
+                $codigo = isset($_FILES['imagen']) ? (int)$_FILES['imagen']['error'] : UPLOAD_ERR_NO_FILE;
+                echo json_encode(['resultado' => false, 'error' => img_error_subida($codigo)], JSON_UNESCAPED_UNICODE);
                 break;
             }
 
@@ -415,78 +456,14 @@ try {
                 break;
             }
 
-            // Validar tipo de archivo
-            $tipos_permitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-            if (!in_array($archivo['type'], $tipos_permitidos)) {
-                echo json_encode(['resultado' => false, 'error' => 'Tipo de archivo no permitido. Solo se permiten JPG, PNG, GIF y WebP'], JSON_UNESCAPED_UNICODE);
+            // Valida por contenido, corrige orientación, achica a IMG_LADO_MAX y recodifica (core/imagenes.php)
+            try {
+                $normalizada = img_normalizar($archivo['tmp_name'], $archivo['name']);
+            } catch (RuntimeException $e) {
+                echo json_encode(['resultado' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
                 break;
             }
-
-            // REDUCIR TAMAÑO MÁXIMO - De 5MB a 1MB
-            $tamanio_maximo = 1 * 1024 * 1024; // 1MB
-            if ($archivo['size'] > $tamanio_maximo) {
-                echo json_encode(['resultado' => false, 'error' => 'El archivo es demasiado grande. Tamaño máximo: 1MB'], JSON_UNESCAPED_UNICODE);
-                break;
-            }
-
-            // OPTIMIZAR Y REDUCIR IMAGEN ANTES DE GUARDAR
-            $imagen_data = null;
-            $imagen_tipo = $archivo['type'];
-            $imagen_tamanio = $archivo['size'];
-
-            // Reducir calidad si es JPEG
-            if (in_array($archivo['type'], ['image/jpeg', 'image/jpg'])) {
-                $imagen = imagecreatefromjpeg($archivo['tmp_name']);
-                if ($imagen !== false) {
-                    // Reducir calidad al 80%
-                    ob_start();
-                    imagejpeg($imagen, null, 80); // 80% de calidad
-                    $imagen_data = ob_get_clean();
-                    $imagen_tamanio = strlen($imagen_data);
-                    imagedestroy($imagen);
-
-                    // Si aún es mayor a 500KB, reducir más
-                    if ($imagen_tamanio > 500 * 1024) {
-                        // Redimensionar imagen manteniendo aspecto
-                        list($ancho_orig, $alto_orig) = getimagesize($archivo['tmp_name']);
-                        $nuevo_ancho = 800; // Ancho máximo
-                        $nuevo_alto = intval($alto_orig * ($nuevo_ancho / $ancho_orig));
-
-                        $imagen_nueva = imagecreatetruecolor($nuevo_ancho, $nuevo_alto);
-                        $imagen_orig = imagecreatefromjpeg($archivo['tmp_name']);
-                        imagecopyresampled($imagen_nueva, $imagen_orig, 0, 0, 0, 0, $nuevo_ancho, $nuevo_alto, $ancho_orig, $alto_orig);
-
-                        ob_start();
-                        imagejpeg($imagen_nueva, null, 70); // 70% de calidad
-                        $imagen_data = ob_get_clean();
-                        $imagen_tamanio = strlen($imagen_data);
-
-                        imagedestroy($imagen_orig);
-                        imagedestroy($imagen_nueva);
-                    }
-                }
-            }
-
-            // Para otros tipos de imagen
-            if ($imagen_data === null && in_array($archivo['type'], ['image/png', 'image/gif', 'image/webp'])) {
-                // Leer el archivo sin optimizar
-                $imagen_data = file_get_contents($archivo['tmp_name']);
-                if ($imagen_data === false) {
-                    echo json_encode(['resultado' => false, 'error' => 'Error al leer el archivo'], JSON_UNESCAPED_UNICODE);
-                    break;
-                }
-                $imagen_tamanio = strlen($imagen_data);
-            }
-
-            // Si no es una imagen compatible, leer como está
-            if ($imagen_data === null) {
-                $imagen_data = file_get_contents($archivo['tmp_name']);
-                if ($imagen_data === false) {
-                    echo json_encode(['resultado' => false, 'error' => 'Error al leer el archivo'], JSON_UNESCAPED_UNICODE);
-                    break;
-                }
-                $imagen_tamanio = strlen($imagen_data);
-            }
+            error_log("=== subir_imagen_producto producto $producto_id: {$archivo['size']} B -> {$normalizada['tamanio']} B, {$normalizada['ancho']}x{$normalizada['alto']} {$normalizada['tipo']} ===");
 
             // Preparar datos para la base de datos
             $data = [
@@ -495,10 +472,10 @@ try {
                 'descripcion' => $descripcion,
                 'es_principal' => $es_principal,
                 'orden' => $orden,
-                'imagen_nombre' => basename($archivo['name']),
-                'imagen_tipo' => $imagen_tipo,
-                'imagen_tamanio' => $imagen_tamanio,
-                'imagen_data' => $imagen_data
+                'imagen_nombre' => $normalizada['nombre'],
+                'imagen_tipo' => $normalizada['tipo'],
+                'imagen_tamanio' => $normalizada['tamanio'],
+                'imagen_data' => $normalizada['data']
             ];
 
             // Llamar a la función del modelo
@@ -535,7 +512,7 @@ try {
                 echo json_encode([], JSON_UNESCAPED_UNICODE);
                 break;
             }
-            $ubicaciones = obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx);
+            $ubicaciones = obtenerUbicacionesProducto($conexion, $producto_id, $empresa_idx, $usuario_filtro_ubicaciones);
             echo json_encode($ubicaciones, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -628,7 +605,8 @@ try {
                 'producto_id' => intval($_POST['producto_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
                 'empresa_id' => $empresa_idx,
-                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? '')
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? ''),
+                'es_principal' => intval($_POST['es_principal'] ?? 0)
             ];
             $resultado = agregarProveedorProducto($conexion, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
@@ -638,7 +616,8 @@ try {
             $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
             $data = [
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
-                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? '')
+                'codigo_proveedor' => trim($_POST['codigo_proveedor'] ?? ''),
+                'es_principal' => intval($_POST['es_principal'] ?? 0)
             ];
             $resultado = editarProveedorProducto($conexion, $producto_proveedor_id, $data, $empresa_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
@@ -647,6 +626,12 @@ try {
         case 'eliminar_proveedor_producto':
             $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
             $resultado = eliminarProveedorProducto($conexion, $producto_proveedor_id, $empresa_idx);
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'marcar_proveedor_principal':
+            $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
+            $resultado = marcarProveedorPrincipalProducto($conexion, $producto_proveedor_id, $empresa_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
         case 'obtener_secciones':

@@ -14,6 +14,7 @@ require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/ciclos_raci_model.php';
 require_once __DIR__ . '/ciclos_generador_service.php';
+require_once __DIR__ . '/posiciones_model.php';
 
 $conexion = $conn;
 
@@ -82,14 +83,27 @@ $accion = $_REQUEST['accion'] ?? '';
 try {
     switch ($accion) {
         case 'combos':
-            // Entidades
+            // Entidades activas de la empresa
             $res_e = mysqli_query($conexion, "SELECT DISTINCT e.entidad_id, e.codigo, e.nombre 
                                                FROM ml__entidades e 
-                                               LEFT JOIN ml__entidades_empresas ee ON ee.entidad_id = e.entidad_id 
-                                               WHERE (ee.empresa_id = {$empresa_idx} OR ee.empresa_id IS NULL) AND e.tabla_estado_registro_id = 1 
+                                               INNER JOIN ml__entidades_empresas ee ON ee.entidad_id = e.entidad_id 
+                                               WHERE (ee.empresa_id = {$empresa_idx} OR {$empresa_idx} = 1) AND e.tabla_estado_registro_id = 1 
                                                ORDER BY e.nombre ASC");
             $entidades = [];
             while ($r = mysqli_fetch_assoc($res_e)) { $entidades[] = $r; }
+
+            // Posiciones / Cargos de la empresa
+            $res_p = mysqli_query($conexion, "SELECT p.posicion_id, p.codigo, p.nombre, p.area_departamento,
+                                                     u.usuario_id AS titular_id, u.usuario_nombre AS titular_nombre
+                                              FROM ml__posiciones p
+                                              LEFT JOIN ml__usuarios_posiciones up ON up.posicion_id = p.posicion_id 
+                                                   AND up.es_titular = 1 
+                                                   AND (up.vigente_hasta IS NULL OR up.vigente_hasta >= CURDATE())
+                                              LEFT JOIN conf__usuarios u ON u.usuario_id = up.usuario_id
+                                              WHERE p.empresa_id = {$empresa_idx} AND p.tabla_estado_registro_id = 1
+                                              ORDER BY p.area_departamento ASC, p.nombre ASC");
+            $posiciones = [];
+            while ($r = mysqli_fetch_assoc($res_p)) { $posiciones[] = $r; }
 
             // Usuarios
             $res_u = mysqli_query($conexion, "SELECT DISTINCT u.usuario_id, u.usuario_nombre as nombre_completo 
@@ -117,6 +131,7 @@ try {
             echo json_encode([
                 'success' => true,
                 'entidades' => $entidades,
+                'posiciones' => $posiciones,
                 'usuarios' => $usuarios,
                 'tareas' => $tareas,
                 'permisos' => $funciones_permitidas
@@ -126,6 +141,7 @@ try {
         case 'listar':
             $filtros = [
                 'usuario_id' => $_GET['filtro_usuario'] ?? null,
+                'posicion_id' => $_GET['filtro_posicion'] ?? null,
                 'raci_rol_id' => $_GET['filtro_rol'] ?? null,
                 'entidad_id' => $_GET['filtro_entidad'] ?? null,
                 'ciclo_id' => $_GET['filtro_ciclo'] ?? null,
@@ -139,12 +155,25 @@ try {
             ]);
             break;
 
+        case 'obtener_info_posicion':
+            $pos_id = intval($_GET['posicion_id'] ?? 0);
+            $titular = posicion_obtener_titular($conexion, $pos_id);
+            $supervisor = posicion_obtener_supervisor_de_posicion($conexion, $pos_id);
+            echo json_encode([
+                'success' => true,
+                'titular' => $titular,
+                'supervisor' => $supervisor
+            ]);
+            break;
+
         case 'guardar':
             $ciclo_tarea_id = intval($_POST['ciclo_tarea_id'] ?? 0);
             $raci_rol_id = intval($_POST['raci_rol_id'] ?? 0);
-            $usuario_destino = intval($_POST['usuario_id'] ?? 0);
+            $usuario_destino = !empty($_POST['usuario_id']) ? intval($_POST['usuario_id']) : null;
+            $posicion_id = !empty($_POST['posicion_id']) ? intval($_POST['posicion_id']) : null;
+            $usar_supervisor = !empty($_POST['usar_supervisor']) ? intval($_POST['usar_supervisor']) : 0;
 
-            $res = ciclos_raci_guardar($conexion, $ciclo_tarea_id, $raci_rol_id, $usuario_destino, $empresa_idx, $usuario_id);
+            $res = ciclos_raci_guardar($conexion, $ciclo_tarea_id, $raci_rol_id, $usuario_destino, $empresa_idx, $usuario_id, $posicion_id, $usar_supervisor);
             echo json_encode([
                 'success' => $res['ok'],
                 'message' => $res['ok'] ? $res['mensaje'] : $res['error']

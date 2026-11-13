@@ -43,6 +43,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id'] ?? $_GET['empresa_idx'] ?? $_POST['empresa_idx'] ?? 0);
 $pagina_idx  = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 101);
+// Solo una página de este módulo (si no, la de empresas_cuentas_conceptos.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conexion, 2, (int)$pagina_idx, 'empresas_cuentas_conceptos.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);

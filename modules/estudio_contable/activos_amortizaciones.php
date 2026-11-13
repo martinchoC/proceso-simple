@@ -58,10 +58,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button class="btn btn-outline-dark btn-sm me-2" id="btnLimpiar">
                                 <i class="fas fa-undo me-1"></i>Limpiar
                             </button>
-                            <button class="btn btn-primary btn-sm me-1 shadow-sm" id="btnNuevoActivo">
+                            <button class="btn btn-primary btn-sm me-1 shadow-sm" id="btnNuevoActivo" data-funcion="agregar">
                                 <i class="fas fa-plus-circle me-1"></i>Nuevo Activo
                             </button>
-                            <button class="btn btn-success btn-sm shadow-sm" id="btnAmortizarMes">
+                            <button class="btn btn-success btn-sm shadow-sm" id="btnAmortizarMes" data-funcion="agregar">
                                 <i class="fas fa-calculator me-1"></i>Amortizar Período (AUTO)
                             </button>
                         </div>

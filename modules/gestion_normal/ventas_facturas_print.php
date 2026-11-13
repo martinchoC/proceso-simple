@@ -72,17 +72,7 @@ function h($v)
     return htmlspecialchars((string) ($v ?? ''), ENT_QUOTES, 'UTF-8');
 }
 
-// Logo de Parámetros de Empresa embebido como data URI (no depende de la URL base del sitio).
-function vfPrintLogo($ruta_relativa)
-{
-    if (empty($ruta_relativa)) return '';
-    $base = realpath(__DIR__ . '/../../uploads/empresas');
-    $archivo = realpath(__DIR__ . '/../../' . $ruta_relativa);
-    if (!$base || !$archivo || strpos($archivo, $base . DIRECTORY_SEPARATOR) !== 0 || !is_file($archivo)) return '';
-    $info = @getimagesize($archivo);
-    if (!$info || !in_array($info['mime'], ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true)) return '';
-    return 'data:' . $info['mime'] . ';base64,' . base64_encode(file_get_contents($archivo));
-}
+$f_emision = substr((string) $factura['f_emision'], 0, 10);
 
 // ---------- Emisor ----------
 $empresa = vfPrintFila($conexion, "SELECT e.empresa, e.documento_numero, e.domicilio, e.telefono, e.email,
@@ -94,22 +84,25 @@ $empresa = vfPrintFila($conexion, "SELECT e.empresa, e.documento_numero, e.domic
                                    WHERE e.empresa_id = ?", "i", $empresa_idx);
 $empresa_cuit = !empty($empresa['documento_numero']) ? number_format((float) $empresa['documento_numero'], 0, '', '') : '';
 
-$tiene_logo = false;
-$res_col = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__empresas_parametros LIKE 'logo_archivo'");
-if ($res_col && mysqli_num_rows($res_col) > 0) $tiene_logo = true;
-$parametros = vfPrintFila($conexion, "SELECT ingresos_brutos_nro, inicio_actividades, leyenda_fiscal" . ($tiene_logo ? ", logo_archivo" : "") . "
-                                      FROM gestion__empresas_parametros
-                                      WHERE empresa_id = ? AND f_hasta IS NULL AND tabla_estado_registro_id = 1
-                                      ORDER BY f_desde DESC, empresa_parametro_id DESC LIMIT 1", "i", $empresa_idx);
-$logo_archivo = $parametros['logo_archivo'] ?? '';
-if ($tiene_logo && empty($logo_archivo)) {
-    // La vigencia abierta no tiene logo: el último que se haya cargado
-    $ultimo = vfPrintFila($conexion, "SELECT logo_archivo FROM gestion__empresas_parametros
-                                      WHERE empresa_id = ? AND tabla_estado_registro_id = 1 AND logo_archivo IS NOT NULL AND logo_archivo <> ''
-                                      ORDER BY f_desde DESC, empresa_parametro_id DESC LIMIT 1", "i", $empresa_idx);
-    $logo_archivo = $ultimo['logo_archivo'] ?? '';
+// Datos fiscales del emisor: vigencia de Parámetros de Empresa a la fecha de emisión (si no hay, la abierta o la
+// última), así una reimpresión muestra lo que valía al emitir. Su condición frente al IVA pisa la de conf__empresas.
+$parametros = vfPrintFila($conexion, "SELECT p.ingresos_brutos_nro, p.inicio_actividades, p.leyenda_fiscal, cf.condicion_fiscal
+                                      FROM gestion__empresas_parametros p
+                                      LEFT JOIN gestion__condiciones_fiscales cf ON cf.condicion_fiscal_id = p.condicion_fiscal_id
+                                      WHERE p.empresa_id = ? AND p.tabla_estado_registro_id = 1
+                                      ORDER BY (p.f_desde <= ? AND (p.f_hasta IS NULL OR p.f_hasta >= ?)) DESC,
+                                               (p.f_hasta IS NULL) DESC, p.f_desde DESC, p.empresa_parametro_id DESC
+                                      LIMIT 1", "iss", $empresa_idx, $f_emision, $f_emision);
+if (!empty($parametros['condicion_fiscal'])) {
+    $empresa['condicion_fiscal'] = $parametros['condicion_fiscal'];
 }
-$logo_src = vfPrintLogo($logo_archivo);
+// "Leyenda en comprobantes": se imprime debajo de la condición frente al IVA, salvo que diga lo mismo
+$leyenda_emisor = trim((string) ($parametros['leyenda_fiscal'] ?? ''));
+$normalizar_leyenda = function ($t) { return preg_replace('/^iva\s+/u', '', mb_strtolower(trim((string) $t))); };
+if ($leyenda_emisor !== '' && $normalizar_leyenda($leyenda_emisor) === $normalizar_leyenda($empresa['condicion_fiscal'] ?? '')) {
+    $leyenda_emisor = '';
+}
+$logo_src = impresion_logo_empresa($conexion, $empresa_idx);
 
 $sucursal = !empty($factura['sucursal_id'])
     ? vfPrintFila($conexion, "SELECT sucursal_nombre, direccion, telefono FROM gestion__sucursales WHERE sucursal_id = ? AND empresa_id = ?", "ii", $factura['sucursal_id'], $empresa_idx)
@@ -131,7 +124,8 @@ $cliente_sucursal = !empty($factura['entidad_sucursal_id'])
                               LEFT JOIN conf__localidades l ON l.localidad_id = s.localidad_id
                               WHERE s.sucursal_id = ? AND s.empresa_id = ?", "ii", $factura['entidad_sucursal_id'], $empresa_idx)
     : [];
-$relacion = vfObtenerRelacionFiscal($conexion, $empresa_idx, $entidad_id ?: 'CF');
+// Condición del receptor vigente a la fecha de emisión, no a hoy
+$relacion = vfObtenerRelacionFiscal($conexion, $empresa_idx, $entidad_id ?: 'CF', $f_emision);
 $cliente_nombre = $entidad_id > 0
     ? ($cliente['entidad_nombre'] ?? $factura['entidad_nombre'])
     : (trim((string) ($factura['consumidor_final_nombre'] ?? '')) ?: 'Consumidor Final');
@@ -142,7 +136,7 @@ $cliente_domicilio = trim(implode(' - ', array_filter([
     $cliente['provincia'] ?? ''
 ])));
 
-$moneda = vfPrintFila($conexion, "SELECT codigo, moneda, simbolo, es_moneda_base FROM gestion__monedas WHERE moneda_id = ?", "i", $factura['moneda_id']);
+$moneda = vfPrintFila($conexion, "SELECT codigo, moneda, simbolo, es_moneda_base FROM gestion__monedas WHERE moneda_id = ? AND empresa_id = ?", "ii", $factura['moneda_id'], $empresa_idx);
 $simbolo = $moneda['simbolo'] ?? '$';
 
 // ---------- Comprobante ----------
@@ -150,14 +144,23 @@ $fiscal = intval($factura['comprobante_fiscal_id'] ?? 0) > 0
     ? vfComprobanteFiscalArca($conexion, intval($factura['comprobante_tipo_id']), $empresa_idx)
     : null;
 $arca_tipo = $fiscal ? intval($fiscal['arca_tipo']) : 0;
-$letra = strtoupper(trim((string) ($factura['letra'] ?? ''))) ?: ($fiscal ? '' : 'X');
-$discrimina_iva = $letra === 'A' || $letra === 'M';
+// Letra del tipo de comprobante o, si no la tiene, la del comprobante fiscal de ARCA; X solo en los no fiscales
+$letra = strtoupper(trim((string) ($factura['letra'] ?? '')))
+    ?: strtoupper(trim((string) ($fiscal['fiscal_letra'] ?? '')))
+    ?: ($fiscal ? '' : 'X');
+// Discrimina IVA según la relación fiscal emisor × receptor (gestion__comprobantes_relacion_fiscal) cuando es de la
+// letra del comprobante; si no coincide (p. ej. cambió la condición de alguna de las partes) o no está cargada, por la letra.
+$rel_fiscal = $relacion['relacion'] ?? null;
+$discrimina_iva = ($rel_fiscal && strtoupper(trim((string) ($rel_fiscal['letra'] ?? ''))) === $letra && $rel_fiscal['discrimina_iva'] !== null)
+    ? intval($rel_fiscal['discrimina_iva']) === 1
+    : in_array($letra, ['A', 'M'], true);
 $es_c = $letra === 'C';
 $pto_vta = intval($pv['codigo_fiscal'] ?? 0) ?: intval($factura['punto_venta_id']);
 $nro = intval($factura['comprobante_nro'] ?? 0);
 $numero = str_pad((string) $pto_vta, 5, '0', STR_PAD_LEFT) . '-' . str_pad((string) $nro, 8, '0', STR_PAD_LEFT);
-$estado_id = intval($factura['tabla_estado_registro_id']);
-$confirmada = in_array($estado_id, [5, 12, 13, 15, 39, 40], true);
+// Sin validez: los estados previos a la confirmación y los dados de baja; cualquier otro (confirmado y los derivados
+// por facturación o saldo) es un comprobante emitido
+$confirmada = !in_array(strtoupper((string) ($factura['codigo_estandar'] ?? '')), ['BORRADOR', 'PEND_APROB', 'ELIMINADO', 'ANULADO', 'INACTIVO'], true);
 $cae = trim((string) ($factura['CAE'] ?? ''));
 $con_cae = $fiscal && $cae !== '' && $nro > 0;
 
@@ -166,8 +169,12 @@ $detalles = array_values(array_filter($factura['detalles'], function ($d) {
     return intval($d['tabla_estado_registro_id'] ?? 1) !== 6;
 }));
 $alicuotas_cat = [];
-$res_al = mysqli_query($conexion, "SELECT iva_alicuota_id, es_exento, es_no_gravado FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = " . intval($empresa_idx));
+$stmt_al = mysqli_prepare($conexion, "SELECT iva_alicuota_id, es_exento, es_no_gravado FROM gestion__impuestos__iva_alicuotas WHERE empresa_id = ?");
+mysqli_stmt_bind_param($stmt_al, "i", $empresa_idx);
+mysqli_stmt_execute($stmt_al);
+$res_al = mysqli_stmt_get_result($stmt_al);
 while ($res_al && $a = mysqli_fetch_assoc($res_al)) $alicuotas_cat[intval($a['iva_alicuota_id'])] = $a;
+mysqli_stmt_close($stmt_al);
 $iva_por_alicuota = [];
 foreach ($detalles as $d) {
     $al = $alicuotas_cat[intval($d['iva_alicuota_id'] ?? 0)] ?? [];
@@ -190,7 +197,7 @@ $otros_nacionales = round($otros - $total_percepciones, 2);
 $leyendas_fiscales = [];
 foreach ($factura['percepciones'] ?? [] as $p) {
     if (!empty($p['numero_agente'])) {
-        $leyendas_fiscales['ag' . $p['jurisdiccion_id']] = 'Agente de Percepción IIBB ' . $p['jurisdiccion_nombre'] . ' N° ' . $p['numero_agente'];
+        $leyendas_fiscales['ag' . $p['impuesto_tipo_id'] . '_' . $p['jurisdiccion_id']] = 'Agente de ' . ($p['descripcion'] ?? ('Percepción IIBB ' . $p['jurisdiccion_nombre'])) . ' N° ' . $p['numero_agente'];
     }
 }
 if (intval($factura['destino_bien_uso'] ?? 0) === 1) {
@@ -207,7 +214,7 @@ if ($con_cae) {
     $mapa_monedas = ['ARS' => 'PES', 'USD' => 'DOL', 'EUR' => '060'];
     $qr = [
         'ver' => 1,
-        'fecha' => substr((string) $factura['f_emision'], 0, 10),
+        'fecha' => $f_emision,
         'cuit' => intval(preg_replace('/\D/', '', $empresa_cuit)),
         'ptoVta' => $pto_vta,
         'tipoCmp' => $arca_tipo,
@@ -234,7 +241,7 @@ $titulo_tipo = $fiscal
     : trim((string) $factura['comprobante_tipo']);
 
 // ---------- Configuración de impresión de la empresa (core/impresion.php) ----------
-$subgrupo = vfPrintFila($conexion, "SELECT comprobante_subgrupo_id FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ?", "i", $factura['comprobante_tipo_id']);
+$subgrupo = vfPrintFila($conexion, "SELECT comprobante_subgrupo_id FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? AND empresa_id IN (0, ?)", "ii", $factura['comprobante_tipo_id'], $empresa_idx);
 $cfg_impresion = impresion_config($conexion, $empresa_idx, intval($subgrupo['comprobante_subgrupo_id'] ?? 0));
 if (!isset($_GET['copias'])) $copias = $cfg_impresion['copias_defecto'];
 if (!$cfg_impresion['mostrar_logo']) $logo_src = '';

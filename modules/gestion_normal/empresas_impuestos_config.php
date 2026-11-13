@@ -6,32 +6,14 @@ $pageTitle = "Configuración de Impuestos por Empresa";
 $currentPage = 'empresas_impuestos_config';
 $modudo_idx = 5;
 $pagina_idx = 573; // ID de página para Empresas Impuestos Config
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-percent me-2"></i>Configuración de Impuestos por Empresa
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Configuración</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Impuestos por Empresa</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Impuestos de la empresa','fas fa-percent', '', ['Tablas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -139,6 +121,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <i class="fas fa-user-tie me-1"></i>Agente de Percepción
                                     </button>
                                 </li>
+                                <li class="nav-item d-none" role="presentation" id="retencionTabItem">
+                                    <button class="nav-link" id="retencion-tab" data-bs-toggle="tab"
+                                            data-bs-target="#retencionPanel" type="button" role="tab">
+                                        <i class="fas fa-hand-holding-usd me-1"></i>Agente de Retención
+                                    </button>
+                                </li>
                             </ul>
 
                             <div class="tab-content" id="modalTabsContent">
@@ -158,21 +146,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             
                                             <div class="col-md-6 mb-3">
-                                                <label for="jurisdiccion_id" class="form-label">Jurisdicción</label>
+                                                <label for="jurisdiccion_id" class="form-label">Jurisdicción <?= ui_ayuda('Opcional') ?></label>
                                                 <select class="form-select" id="jurisdiccion_id" name="jurisdiccion_id">
                                                     <option value="">Seleccione una jurisdicción...</option>
                                                 </select>
-                                                <div class="form-text">Opcional</div>
                                             </div>
                                         </div>
 
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
-                                                <label for="cont_cuenta_id" class="form-label">Cuenta Contable</label>
+                                                <label for="cont_cuenta_id" class="form-label">Cuenta Contable <?= ui_ayuda('Opcional') ?></label>
                                                 <select class="form-select" id="cont_cuenta_id" name="cont_cuenta_id">
                                                     <option value="">Seleccione una cuenta contable...</option>
                                                 </select>
-                                                <div class="form-text">Opcional</div>
                                             </div>
                                             
                                             <div class="col-md-6 mb-3">
@@ -189,10 +175,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                         <div class="row">
                                             <div class="col-md-4 mb-3">
-                                                <label for="prioridad" class="form-label">Prioridad</label>
+                                                <label for="prioridad" class="form-label">Prioridad <?= ui_ayuda('Orden de aplicación') ?></label>
                                                 <input type="number" class="form-control" id="prioridad" 
                                                     name="prioridad" value="1" min="1">
-                                                <div class="form-text">Orden de aplicación</div>
                                             </div>
                                             
                                             <div class="col-md-4 mb-3">
@@ -203,10 +188,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                             
                                             <div class="col-md-4 mb-3">
-                                                <label for="f_hasta" class="form-label">Vigencia Hasta</label>
+                                                <label for="f_hasta" class="form-label">Vigencia Hasta <?= ui_ayuda('Opcional') ?></label>
                                                 <input type="date" class="form-control" id="f_hasta" 
                                                     name="f_hasta">
-                                                <div class="form-text">Opcional</div>
                                             </div>
                                         </div>
 
@@ -302,12 +286,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                 </div>
 
-                                <!-- Panel Agente de Percepción (percepciones IIBB practicadas, docs/gestion/09_percepciones_iibb.md) -->
+                                <!-- Panel Agente de Percepción (percepciones IIBB practicadas, _local/docs/gestion/09_percepciones_iibb.md) -->
                                 <div class="tab-pane fade" id="agentePanel" role="tabpanel">
                                     <div id="agenteSinConfig" class="text-muted small"><i class="fas fa-info-circle me-1"></i>Guarde la configuración primero.</div>
                                     <div id="agenteContenido" class="d-none">
                                         <div class="alert alert-info py-2 small d-none" id="agenteNoPercepcion">
-                                            Estos datos los usa el cálculo automático de percepciones en ventas solo cuando el tipo de impuesto es <b>Percepción IIBB Efectuadas</b>.
+                                            Estos datos los usa el cálculo automático de percepciones en ventas solo cuando el tipo de impuesto es <b>Percepción IIBB Efectuadas</b> o <b>Percepción IVA Efectuada</b>.
                                         </div>
                                         <div class="row g-2">
                                             <div class="col-md-4"><label class="form-label small mb-0">N° de agente</label>
@@ -364,6 +348,54 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Panel Agente de Retención (retenciones practicadas en órdenes de pago, retenciones_practicadas_core_model.php) -->
+                                <div class="tab-pane fade" id="retencionPanel" role="tabpanel">
+                                    <div id="retencionSinConfig" class="text-muted small"><i class="fas fa-info-circle me-1"></i>Guarde la configuración primero.</div>
+                                    <div id="retencionContenido" class="d-none">
+                                        <div class="alert alert-info py-2 small">
+                                            Con esta configuración activa y vigente la empresa es agente de retención del impuesto: aparece en
+                                            <b>Pagos a Proveedores</b> y "Calcular Retenciones" la aplica sobre los comprobantes que cancela la orden de pago
+                                            (en proporción a lo pagado de cada uno). En IIBB se carga una configuración por jurisdicción.
+                                        </div>
+                                        <div class="alert alert-warning py-2 small d-none" id="retencionSinCuenta">
+                                            Falta la <b>cuenta contable</b> (solapa Configuración General): es el pasivo de retenciones a depositar del asiento de la orden de pago.
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><label class="form-label small mb-0">N° de agente</label>
+                                                <input type="text" class="form-control form-control-sm" id="ret_numero_agente" maxlength="30"></div>
+                                            <div class="col-md-8"><label class="form-label small mb-0">Régimen por defecto (si el proveedor no tiene uno habitual) <?= ui_ayuda('Con régimen, la base, las alícuotas por condición y los mínimos salen del régimen (página Regímenes de Retención); los campos de abajo quedan para los proveedores sin régimen.') ?></label>
+                                                <select class="form-select form-select-sm" id="ret_regimen_id"></select></div>
+                                            <div class="col-md-12"><label class="form-label small mb-0">Base de cálculo (de las facturas pagadas)</label>
+                                                <select class="form-select form-select-sm" id="ret_base_calculo"></select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Alícuota</label>
+                                                <select class="form-select form-select-sm" id="ret_tipo_calculo">
+                                                    <option value="manual">Genérica (la misma para todos)</option>
+                                                    <option value="padron">Padrón (alícuota de retención por CUIT)</option>
+                                                </select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Alícuota genérica %</label>
+                                                <input type="number" step="0.0001" min="0" max="100" class="form-control form-control-sm" id="ret_alicuota"></div>
+                                            <div class="col-md-4 ret-solo-padron"><label class="form-label small mb-0">Si no figura en el padrón</label>
+                                                <select class="form-select form-select-sm" id="ret_sin_dato_accion">
+                                                    <option value="GENERICA">Aplicar la alícuota genérica</option>
+                                                    <option value="NO_RETENER">No retener</option>
+                                                </select></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Base mínima del pago</label>
+                                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="ret_minimo_imponible"></div>
+                                            <div class="col-md-4"><label class="form-label small mb-0">Retención mínima</label>
+                                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="ret_importe_minimo"></div>
+                                            <div class="col-md-4 ret-solo-iibb"><label class="form-label small mb-0">Proveedores alcanzados (sin padrón)</label>
+                                                <select class="form-select form-select-sm" id="ret_aplica_siempre">
+                                                    <option value="1">Todos los proveedores</option>
+                                                    <option value="0">Solo con alta en la jurisdicción</option>
+                                                </select></div>
+                                        </div>
+                                        <div class="small text-muted mt-2">Los proveedores exentos de IIBB no se retienen. La alícuota del padrón sale de la columna de retención de los padrones IIBB importados.</div>
+                                        <div class="text-end mt-2">
+                                            <button type="button" class="btn btn-sm btn-primary" id="btnGuardarRetencion"><i class="fas fa-save me-1"></i>Guardar datos del agente de retención</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -391,27 +423,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="producto_tipo_id" class="form-label">Tipo de Bien *</label>
+                                        <label for="producto_tipo_id" class="form-label">Tipo de Bien * <?= ui_ayuda('Seleccione "Aplica a todos" para que esta regla aplique independientemente del tipo de bien') ?></label>
                                         <select class="form-select" id="producto_tipo_id" name="producto_tipo_id" required>
                                             <option value="">Seleccione un tipo de bien...</option>
                                             <option value="0">-- APLICA A TODOS LOS TIPOS DE BIEN --</option>
                                         </select>
                                         <div class="invalid-feedback">Seleccione un tipo de bien</div>
-                                        <div class="form-text">Seleccione "Aplica a todos" para que esta regla aplique independientemente del tipo de bien</div>
+                                        
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_condicion_fiscal_id" class="form-label">Condición Fiscal</label>
+                                        <label for="metodo_condicion_fiscal_id" class="form-label">Condición Fiscal <?= ui_ayuda('Opcional - Aplica para todas si se deja vacío') ?></label>
                                         <select class="form-select" id="metodo_condicion_fiscal_id" name="condicion_fiscal_id">
                                             <option value="">Seleccione una condición fiscal...</option>
                                         </select>
-                                        <div class="form-text">Opcional - Aplica para todas si se deja vacío</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_base_calculo" class="form-label">Base de Cálculo</label>
+                                        <label for="metodo_base_calculo" class="form-label">Base de Cálculo <?= ui_ayuda('Opcional - Sobrescribe la base general') ?></label>
                                         <select class="form-select" id="metodo_base_calculo" name="base_calculo">
                                             <option value="">Usar base por defecto</option>
                                             <option value="NETO_GRAVADO">NETO GRAVADO</option>
@@ -419,30 +450,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             <option value="IMPORTE_EXENTO">IMPORTE EXENTO</option>
                                             <option value="MONTO_FIJO">MONTO FIJO</option>
                                         </select>
-                                        <div class="form-text">Opcional - Sobrescribe la base general</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_alicuota" class="form-label">Alícuota (%)</label>
+                                        <label for="metodo_alicuota" class="form-label">Alícuota (%) <?= ui_ayuda('Opcional - Sobrescribe la alícuota general') ?></label>
                                         <input type="number" step="0.01" class="form-control" id="metodo_alicuota" 
                                             name="alicuota" value="0">
-                                        <div class="form-text">Opcional - Sobrescribe la alícuota general</div>
                                     </div>
                                 </div>
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_minimo_imponible" class="form-label">Mínimo Imponible</label>
+                                        <label for="metodo_minimo_imponible" class="form-label">Mínimo Imponible <?= ui_ayuda('Opcional') ?></label>
                                         <input type="number" step="0.01" class="form-control" id="metodo_minimo_imponible" 
                                             name="minimo_imponible" value="0">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_monto_fijo" class="form-label">Monto Fijo</label>
+                                        <label for="metodo_monto_fijo" class="form-label">Monto Fijo <?= ui_ayuda('Opcional') ?></label>
                                         <input type="number" step="0.01" class="form-control" id="metodo_monto_fijo" 
                                             name="monto_fijo" value="0">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
 
@@ -455,10 +482,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="metodo_f_hasta" class="form-label">Vigencia Hasta</label>
+                                        <label for="metodo_f_hasta" class="form-label">Vigencia Hasta <?= ui_ayuda('Opcional') ?></label>
                                         <input type="date" class="form-control" id="metodo_f_hasta" 
                                             name="f_hasta">
-                                        <div class="form-text">Opcional</div>
                                     </div>
                                 </div>
                             </form>
@@ -577,7 +603,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 var texto = tipo.impuesto_tipo;
                                 if (tipo.es_retencion) texto += ' (Retención)';
                                 if (tipo.es_percepcion) texto += ' (Percepción)';
-                                select.append('<option value="' + tipo.impuesto_tipo_id + '">' + escapeHtml(texto) + '</option>');
+                                var retCompra = (tipo.es_retencion == 1 && tipo.aplica_compra == 1) ? 1 : 0;
+                                select.append('<option value="' + tipo.impuesto_tipo_id + '" data-retencion-compra="' + retCompra + '">' + escapeHtml(texto) + '</option>');
                             });
                         }
                     },
@@ -627,7 +654,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     pageLength: 5,
                     lengthMenu: [[5, 10, 25, -1], [5, 10, 25, "Todos"]],
                     columns: [
-                        { data: 'empresa_impuesto_config_subgrupo_id', className: 'text-center fw-bold' },
+                        { data: 'empresa_impuesto_config_subgrupo_id', className: 'ui-detalle' },
                         { data: 'comprobante_grupo', render: function(data, type, row) {
                             if (type === 'export') return data || '';
                             return data ? escapeHtml(data) : '<span class="text-muted">-</span>';
@@ -650,7 +677,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </button>`;
                         } }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local("js/datatables-es-ES.json") ?>' },
                     responsive: true,
                     autoWidth: false
                 });
@@ -791,7 +818,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { className: 'text-center', targets: [0, 5, 6, 8, 9] }
                     ],
                     columns: [
-                        { data: 'empresa_impuesto_config_id', className: 'text-center fw-bold' },
+                        { data: 'empresa_impuesto_config_id', className: 'ui-detalle' },
                         { data: 'impuesto_tipo', render: function (data, type, row) {
                             if (type === 'export') return data || '';
                             var badgeClass = 'bg-secondary';
@@ -860,7 +887,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             return `<div class="btn-group" role="group" style="flex-wrap: wrap; gap: 4px;">${botones}</div>`;
                         } }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local("js/datatables-es-ES.json") ?>' },
                     responsive: true,
                     autoWidth: false
                 });
@@ -888,7 +915,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { className: 'text-end', targets: [4, 5, 6] }
                     ],
                     columns: [
-                        { data: 'empresa_impuesto_config_operacion_id', className: 'text-center fw-bold' },
+                        { data: 'empresa_impuesto_config_operacion_id', className: 'ui-detalle' },
                         { data: 'producto_tipo', render: function(data, type, row) {
                             if (type === 'export') return data || '';
                             if (!data) return '<span class="text-muted">-</span>';
@@ -908,15 +935,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         } },
                         { data: 'alicuota', render: function(data, type, row) {
                             if (type === 'export') return data || '0';
-                            return data && parseFloat(data) > 0 ? `${parseFloat(data).toFixed(2)}%` : '<span class="text-muted">-</span>';
+                            return data && parseFloat(data) > 0 ? `${Fmt.numero(parseFloat(data), 2)}%` : '<span class="text-muted">-</span>';
                         } },
                         { data: 'minimo_imponible', render: function(data, type, row) {
                             if (type === 'export') return data || '0';
-                            return parseFloat(data || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            return Fmt.numero(parseFloat(data || 0), {minimumFractionDigits: 2, maximumFractionDigits: 2});
                         } },
                         { data: 'monto_fijo', render: function(data, type, row) {
                             if (type === 'export') return data || '0';
-                            return parseFloat(data || 0).toLocaleString('es-AR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            return Fmt.numero(parseFloat(data || 0), {minimumFractionDigits: 2, maximumFractionDigits: 2});
                         } },
                         { data: 'f_desde', render: function(data, type, row) { return data ? escapeHtml(data) : '<span class="text-muted">-</span>'; } },
                         { data: 'f_hasta', render: function(data, type, row) { return data ? escapeHtml(data) : '<span class="text-muted">-</span>'; } },
@@ -928,7 +955,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             </div>`;
                         } }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local("js/datatables-es-ES.json") ?>' },
                     responsive: true,
                     autoWidth: false
                 });
@@ -1630,10 +1657,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
 
     <!-- Librerías necesarias -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     <script src="empresas_impuestos_config_agente.js?v=20261010"></script>
+    <script src="empresas_impuestos_config_retencion.js?v=20261016"></script>
 </main>
 
 <?php

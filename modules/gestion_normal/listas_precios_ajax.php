@@ -33,6 +33,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? 53);
+// Solo una página de este módulo (si no, la de listas_precios.php del módulo): contra ella se validan botones y acciones
+$pagina_id = permisos_pagina_modulo($conn, 5, (int)$pagina_id, 'listas_precios.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -62,6 +64,8 @@ try {
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
             $pagina_id = intval($_POST['pagina_id'] ?? 0);
             
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $lista_precio_id, $accion_js, $empresa_idx, $pagina_id);
             echo json_encode($resultado);
             break;
@@ -72,11 +76,15 @@ try {
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
             $pagina_id = intval($_POST['pagina_id'] ?? 0);
             
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoRegla($conexion, $regla_id, $accion_js, $empresa_idx, $pagina_id);
             echo json_encode($resultado);
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'agregar', true);
             $data = [
                 'lista_precio_codigo' => trim($_POST['lista_precio_codigo'] ?? ''),
                 'lista_precio_nombre' => trim($_POST['lista_precio_nombre'] ?? ''),
@@ -96,6 +104,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
             $id = intval($_POST['lista_precio_id'] ?? 0);
             
             $data = [

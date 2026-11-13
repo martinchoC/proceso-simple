@@ -15,6 +15,8 @@ header('Content-Type: application/json; charset=utf-8');
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 $empresa_id = intval($ctx['empresa_id']);
 $pagina_id = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 56);
+// Solo una página de este módulo (si no, la de ventas_facturas.php del módulo): contra ella se validan botones y acciones
+$pagina_id = permisos_pagina_modulo($conexion, 5, (int)$pagina_id, 'ventas_facturas.php');
 
 try {
     switch ($accion) {
@@ -67,6 +69,8 @@ try {
             }
             break;
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'agregar', true);
             $detalles = json_decode($_POST['detalles'] ?? '[]', true);
             if (!is_array($detalles)) throw new Exception('Detalle inválido.');
             $data = $_POST;
@@ -81,6 +85,8 @@ try {
             echo json_encode(vfPercepcionesPreview($conexion, $empresa_id, $data), JSON_UNESCAPED_UNICODE);
             break;
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
             $id = intval($_POST['venta_factura_id'] ?? 0);
             $detalles = json_decode($_POST['detalles'] ?? '[]', true);
             if (!is_array($detalles)) throw new Exception('Detalle inválido.');
@@ -92,7 +98,16 @@ try {
             $id = intval($_POST['venta_factura_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             if ($accion_js === 'aprobada') @set_time_limit(180);   // puede pedir el CAE a ARCA
-            echo json_encode(vfEjecutarTransicionEstado($conexion, $id, $accion_js, $empresa_id, $pagina_id), JSON_UNESCAPED_UNICODE);
+            // Cobro de contado a consumidor final: medios elegidos en la pantalla al aprobar (sin ellos, efectivo)
+            $medios_contado = isset($_POST['medios_contado']) ? json_decode($_POST['medios_contado'], true) : null;
+            if (isset($_POST['medios_contado']) && !is_array($medios_contado)) throw new Exception('Medios de pago inválidos.');
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
+            echo json_encode(vfEjecutarTransicionEstado($conexion, $id, $accion_js, $empresa_id, $pagina_id, $medios_contado), JSON_UNESCAPED_UNICODE);
+            break;
+        case 'cobro_contado_info':
+            $info = vfCobroContadoInfo($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id']);
+            echo json_encode($info ? ['success' => true, 'data' => $info] : ['success' => false, 'message' => 'Factura no encontrada.'], JSON_UNESCAPED_UNICODE);
             break;
         case 'generar_asiento_contable':
             $id = intval($_POST['venta_factura_id'] ?? $_GET['venta_factura_id'] ?? 0);
@@ -110,7 +125,7 @@ try {
         // Solapa "Medios de Pago": recibo (RCX) con punto de venta imputado a la factura. La función
         // 'cobrar' se valida contra la página de facturas, no contra el pagina_idx del request.
         case 'cobro_factura':
-            $cobro = vfCobroFactura($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 2, 'ventas_facturas.php'));
+            $cobro = vfCobroFactura($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 5, 'ventas_facturas.php'));
             echo json_encode($cobro ? ['success' => true, 'data' => $cobro] : ['success' => false, 'message' => 'Factura no encontrada.'], JSON_UNESCAPED_UNICODE);
             break;
         case 'cobro_maestros':
@@ -123,7 +138,13 @@ try {
         case 'comprobantes_asociables':
             $tipo_nota = intval($_GET['comprobante_tipo_id'] ?? 0);
             echo json_encode(['success' => true, 'es_nota' => vfTipoEsNota($conexion, $ctx['empresa_id'], $tipo_nota),
+                'es_credito' => vfTipoEsCredito($conexion, $ctx['empresa_id'], $tipo_nota),
                 'data' => vfComprobantesAsociables($conexion, $ctx['empresa_id'], intval($_GET['entidad_id'] ?? 0), $tipo_nota)], JSON_UNESCAPED_UNICODE);
+            break;
+        // Ítems del comprobante asociado a una NC, para elegir cuáles acreditar
+        case 'items_asociado':
+            echo json_encode(['success' => true, 'data' => vfItemsComprobanteAsociado($conexion, $ctx['empresa_id'], intval($_GET['entidad_id'] ?? 0),
+                intval($_GET['comprobante_id'] ?? 0), intval($_GET['excluir_factura_id'] ?? 0))], JSON_UNESCAPED_UNICODE);
             break;
         case 'notas_credito_disponibles':
             $disp = vfNotasCreditoDisponiblesFactura($conexion, intval($_GET['venta_factura_id'] ?? 0), $ctx['empresa_id']);
@@ -142,7 +163,34 @@ try {
         case 'emitir_recibo':
             $data = $_POST;
             $data['medios'] = json_decode($_POST['medios'] ?? '[]', true);
-            echo json_encode(vfEmitirReciboFactura($conexion, intval($_POST['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 2, 'ventas_facturas.php'), $ctx['usuario_id'], $data), JSON_UNESCAPED_UNICODE);
+            echo json_encode(vfEmitirReciboFactura($conexion, intval($_POST['venta_factura_id'] ?? 0), $ctx['empresa_id'], pagina_id_por_url($conexion, 5, 'ventas_facturas.php'), $ctx['usuario_id'], $data), JSON_UNESCAPED_UNICODE);
+            break;
+        // Importación de "Mis Comprobantes Emitidos" de ARCA (ventas_facturas_arca_import_model.php)
+        case 'arca_importar_opciones':
+        case 'arca_importar_analizar':
+        case 'arca_importar_ejecutar':
+            require_once __DIR__ . '/ventas_facturas_arca_import_model.php';
+            $pagina_import = pagina_id_por_url($conexion, 5, 'ventas_facturas.php');
+            if (!usuario_puede_funcion($conexion, intval($ctx['usuario_id']), $empresa_id, $pagina_import, 'importar_arca')) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'No tiene permiso para importar comprobantes de ARCA.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            if ($accion === 'arca_importar_opciones') {
+                echo json_encode(['success' => true, 'data' => ['productos' => vfiProductosConcepto($conexion, $empresa_id)]], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            $filas = json_decode($_POST['filas'] ?? '[]', true);
+            if (!is_array($filas) || !$filas) {
+                echo json_encode(['success' => false, 'message' => 'El archivo no trae comprobantes.'], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            if ($accion === 'arca_importar_analizar') {
+                echo json_encode(['success' => true, 'data' => vfiAnalizarArchivo($conexion, $empresa_id, $pagina_import, $filas)], JSON_UNESCAPED_UNICODE);
+                break;
+            }
+            echo json_encode(vfiImportar($conexion, $empresa_id, $pagina_import, intval($ctx['usuario_id']), $filas,
+                                         intval($_POST['producto_id'] ?? 0), !empty($_POST['crear_clientes'])), JSON_UNESCAPED_UNICODE);
             break;
         default:
             http_response_code(400);

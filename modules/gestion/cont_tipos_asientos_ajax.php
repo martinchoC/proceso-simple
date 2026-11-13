@@ -32,7 +32,9 @@ if (empty($accion)) {
 }
 
 $empresa_id = intval($ctx['empresa_id']);
-$pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? 78);
+$pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? 87);
+// Solo una página de este módulo (si no, la de cont_tipos_asientos.php del módulo): contra ella se validan botones y acciones
+$pagina_id = permisos_pagina_modulo($conn, 2, (int)$pagina_id, 'cont_tipos_asientos.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -56,11 +58,15 @@ try {
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_id_local = intval($_POST['empresa_id'] ?? $empresa_id);
             $pagina_id_local = intval($_POST['pagina_id'] ?? $pagina_id);
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id_local), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $cont_tipo_asiento_id, $accion_js, $empresa_id_local, $pagina_id_local);
             echo json_encode($resultado);
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'agregar', true);
             $data = [
                 'codigo' => trim($_POST['codigo'] ?? ''),
                 'cont_tipo_asiento' => trim($_POST['cont_tipo_asiento'] ?? ''),
@@ -76,6 +82,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
             $id = intval($_POST['cont_tipo_asiento_id'] ?? 0);
             $data = [
                 'codigo' => trim($_POST['codigo'] ?? ''),

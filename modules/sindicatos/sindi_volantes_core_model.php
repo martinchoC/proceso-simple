@@ -27,8 +27,15 @@ function sindi_obtener_deudas_pendientes_empleador(mysqli $conexion, int $empres
     $rE = mysqli_fetch_assoc(mysqli_stmt_get_result($stmtE));
     mysqli_stmt_close($stmtE);
     if (!$rE) return [];
-    $entidad_id = (int)$rE['entidad_id'];
+    return sindi_obtener_deudas_pendientes_entidad($conexion, $empresa_id, (int)$rE['entidad_id']);
+}
 
+/**
+ * Deudas del módulo con saldo de una entidad (empleador o afiliado con cuota directa) que no estén en un
+ * volante vigente.
+ */
+function sindi_obtener_deudas_pendientes_entidad(mysqli $conexion, int $empresa_id, int $entidad_id): array
+{
     // Comprobantes pendientes que NO estén en volantes vigentes (Borrador 3 o Emitido 31)
     $sqlDeudas = "SELECT c.comprobante_id, c.comprobante_codigo, c.comprobante_pv, c.comprobante_nro,
                          c.f_emision, c.f_vto, c.importe_total, c.importe_pendiente,
@@ -107,13 +114,15 @@ function sindi_emitir_volante(
     array $comprobante_ids
 ): array {
     $empleador_id = (int)($datosVolante['empleador_id'] ?? 0);
+    $persona_id = (int)($datosVolante['persona_id'] ?? 0);
     $f_pago_1 = (string)($datosVolante['f_pago_1'] ?? date('Y-m-d', strtotime('+10 days')));
     $f_pago_2 = (string)($datosVolante['f_pago_2'] ?? date('Y-m-d', strtotime('+20 days')));
     $observaciones = (string)($datosVolante['observaciones'] ?? '');
 
-    if ($empleador_id <= 0) {
-        return ['success' => false, 'message' => 'Debe indicar el empleador.'];
+    if (($empleador_id > 0) === ($persona_id > 0)) {
+        return ['success' => false, 'message' => 'Indique el empleador o el afiliado del volante (uno de los dos).'];
     }
+    $tipoVolante = $empleador_id > 0 ? 'EMPLEADOR' : 'AFILIADO';
 
     if (empty($comprobante_ids)) {
         return ['success' => false, 'message' => 'Debe seleccionar al menos una deuda para incluir en el volante.'];
@@ -124,7 +133,9 @@ function sindi_emitir_volante(
     }
 
     // Validar autorización multi-empleador
-    AccesosEmpleadoresHelper::exigirAcceso($conexion, $usuario_id, $empresa_id, $empleador_id);
+    if ($empleador_id > 0) {
+        AccesosEmpleadoresHelper::exigirAcceso($conexion, $usuario_id, $empresa_id, $empleador_id);
+    }
 
     // Tasas resarcitorias
     $tasas = sindi_obtener_tasas_interes($conexion, $empresa_id, 1);
@@ -145,15 +156,25 @@ function sindi_emitir_volante(
 
     mysqli_begin_transaction($conexion);
     try {
-        // Empleador bloqueado: dos volantes simultáneos no pueden incluir la misma deuda
-        $stmtLk = mysqli_prepare($conexion, "SELECT empleador_id FROM sindi__empleadores WHERE empleador_id = ? AND empresa_id = ? FOR UPDATE");
-        mysqli_stmt_bind_param($stmtLk, "ii", $empleador_id, $empresa_id);
-        mysqli_stmt_execute($stmtLk);
-        mysqli_stmt_get_result($stmtLk);
-        mysqli_stmt_close($stmtLk);
-
-        // Deudas pendientes seleccionadas, leídas con el empleador bloqueado
-        $deudasPendientes = sindi_obtener_deudas_pendientes_empleador($conexion, $empresa_id, $empleador_id);
+        // Titular bloqueado (empleador o afiliado): dos volantes simultáneos no pueden incluir la misma deuda
+        if ($empleador_id > 0) {
+            $stmtLk = mysqli_prepare($conexion, "SELECT empleador_id FROM sindi__empleadores WHERE empleador_id = ? AND empresa_id = ? FOR UPDATE");
+            mysqli_stmt_bind_param($stmtLk, "ii", $empleador_id, $empresa_id);
+            mysqli_stmt_execute($stmtLk);
+            mysqli_stmt_get_result($stmtLk);
+            mysqli_stmt_close($stmtLk);
+            $deudasPendientes = sindi_obtener_deudas_pendientes_empleador($conexion, $empresa_id, $empleador_id);
+        } else {
+            $stmtLk = mysqli_prepare($conexion, "SELECT entidad_id FROM sindi__personas WHERE persona_id = ? AND empresa_id = ? FOR UPDATE");
+            mysqli_stmt_bind_param($stmtLk, "ii", $persona_id, $empresa_id);
+            mysqli_stmt_execute($stmtLk);
+            $entidadPersona = (int)(mysqli_fetch_row(mysqli_stmt_get_result($stmtLk))[0] ?? 0);
+            mysqli_stmt_close($stmtLk);
+            if ($entidadPersona <= 0) {
+                throw new RuntimeException('El afiliado no tiene cuenta corriente: no tiene cuotas directas generadas.');
+            }
+            $deudasPendientes = sindi_obtener_deudas_pendientes_entidad($conexion, $empresa_id, $entidadPersona);
+        }
         $deudasAProcesar = [];
         $idsMap = array_flip(array_map('intval', $comprobante_ids));
         foreach ($deudasPendientes as $dp) {
@@ -174,12 +195,12 @@ function sindi_emitir_volante(
 
         // Insertar cabecera de volante (estado 31 Emitido)
         $sqlInsV = "INSERT INTO sindi__volantes (
-            empresa_id, empleador_id, tipo_volante, numero, f_emision,
+            empresa_id, empleador_id, persona_id, tipo_volante, numero, f_emision,
             f_pago_1, importe_capital_1, importe_interes_1, importe_1,
             f_pago_2, importe_capital_2, importe_interes_2, importe_2,
             codigo_barras, tabla_estado_registro_id, observaciones, usuario_creacion_id, fecha_creacion
         ) VALUES (
-            ?, ?, 'EMPLEADOR', ?, CURDATE(),
+            ?, ?, ?, ?, ?, CURDATE(),
             ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, 31, ?, ?, NOW()
@@ -192,10 +213,12 @@ function sindi_emitir_volante(
         $impInt2 = $calculoVolante['importe_interes_2'];
         $impTot2 = $calculoVolante['importe_total_2'];
 
+        $empleadorNullable = $empleador_id > 0 ? $empleador_id : null;
+        $personaNullable = $persona_id > 0 ? $persona_id : null;
         mysqli_stmt_bind_param(
             $stmtV,
-            "iissdddsdddssi",
-            $empresa_id, $empleador_id, $numeroVolante,
+            "iiisssdddsdddssi",
+            $empresa_id, $empleadorNullable, $personaNullable, $tipoVolante, $numeroVolante,
             $f_pago_1, $impCap1, $impInt1, $impTot1,
             $f_pago_2, $impCap2, $impInt2, $impTot2,
             $codBarras, $observaciones, $usuario_id
@@ -208,7 +231,7 @@ function sindi_emitir_volante(
         // empresa (sindi__medios_pago.barras_prefijo); sin ese medio, el código es el número del volante.
         $numeroVolanteDef = sprintf("VOL-%08d", $volante_id);
         $codBarrasDef = $prefijoBarras !== null
-            ? sindi_generar_codigo_barras_bna($empleador_id, $volante_id, $f_pago_1, $impTot1, $prefijoBarras)
+            ? sindi_generar_codigo_barras_bna($empleador_id > 0 ? $empleador_id : $persona_id, $volante_id, $f_pago_1, $impTot1, $prefijoBarras)
             : $numeroVolanteDef;
         $stmtNum = mysqli_prepare($conexion, "UPDATE sindi__volantes SET numero = ?, codigo_barras = ? WHERE volante_id = ? AND empresa_id = ?");
         mysqli_stmt_bind_param($stmtNum, "ssii", $numeroVolanteDef, $codBarrasDef, $volante_id, $empresa_id);
@@ -334,11 +357,12 @@ function sindi_emitir_volante(
  */
 function sindi_obtener_volante(mysqli $conexion, int $empresa_id, int $usuario_id, int $volante_id): ?array
 {
-    $sqlCab = "SELECT v.*, ent.entidad_nombre AS empleador_nombre, ent.cuit AS empleador_cuit,
+    $sqlCab = "SELECT v.*, COALESCE(ent.entidad_nombre, CONCAT(per.apellido, ' ', per.nombre)) AS empleador_nombre, COALESCE(ent.cuit, per.cuil) AS empleador_cuit,
                       er.tabla_estado_registro AS estado_nombre, er.color_id AS estado_color_id
                FROM sindi__volantes v
-               INNER JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id
-               INNER JOIN gestion__entidades ent ON ent.entidad_id = emp.entidad_id
+               LEFT JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id
+               LEFT JOIN gestion__entidades ent ON ent.entidad_id = emp.entidad_id
+               LEFT JOIN sindi__personas per ON per.persona_id = v.persona_id
                LEFT JOIN conf__tablas_estados_registros er ON er.tabla_id = 528 AND er.estado_registro_id = v.tabla_estado_registro_id
                WHERE v.volante_id = ? AND v.empresa_id = ? LIMIT 1";
     $stmt = mysqli_prepare($conexion, $sqlCab);
@@ -350,7 +374,11 @@ function sindi_obtener_volante(mysqli $conexion, int $empresa_id, int $usuario_i
 
     if (!$cabecera) return null;
 
-    AccesosEmpleadoresHelper::exigirAcceso($conexion, $usuario_id, $empresa_id, (int)$cabecera['empleador_id']);
+    if (!empty($cabecera['empleador_id'])) {
+        AccesosEmpleadoresHelper::exigirAcceso($conexion, $usuario_id, $empresa_id, (int)$cabecera['empleador_id']);
+    } elseif (!AccesosEmpleadoresHelper::obtenerAccesos($conexion, $usuario_id, $empresa_id)['tiene_acceso_total']) {
+        throw new RuntimeException('Acceso denegado al volante.');
+    }
 
     // Detalles
     $sqlDet = "SELECT vd.*, c.comprobante_codigo, ct.comprobante_tipo AS tipo_nombre,
@@ -396,11 +424,12 @@ function sindi_listar_volantes(
         $types .= "i";
     }
 
-    $sql = "SELECT v.*, ent.entidad_nombre AS empleador_nombre, ent.cuit AS empleador_cuit,
+    $sql = "SELECT v.*, COALESCE(ent.entidad_nombre, CONCAT(per.apellido, ' ', per.nombre)) AS empleador_nombre, COALESCE(ent.cuit, per.cuil) AS empleador_cuit,
                    er.tabla_estado_registro AS estado_nombre, er.color_id AS estado_color_id
             FROM sindi__volantes v
-            INNER JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id
-            INNER JOIN gestion__entidades ent ON ent.entidad_id = emp.entidad_id
+            LEFT JOIN sindi__empleadores emp ON emp.empleador_id = v.empleador_id
+            LEFT JOIN gestion__entidades ent ON ent.entidad_id = emp.entidad_id
+            LEFT JOIN sindi__personas per ON per.persona_id = v.persona_id
             LEFT JOIN conf__tablas_estados_registros er ON er.tabla_id = 528 AND er.estado_registro_id = v.tabla_estado_registro_id
             WHERE v.empresa_id = ? AND {$filtroAcceso} {$whereExtra}
             ORDER BY v.volante_id DESC";

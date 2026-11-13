@@ -3,24 +3,15 @@
 $pageTitle = "Gestión de Perfiles de Empresas";
 $currentPage = 'empresas_perfiles';
 $modudo_idx = 1;
+$pagina_idx = 61; // conf__paginas
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6"><h3 class="mb-0">Perfiles de Empresas</h3></div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Perfiles de Empresas</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Perfiles de empresa', 'bi bi-people', 'Perfiles de cada empresa y módulo, normalmente copiados de un perfil base.', ['Empresas y accesos']); ?>
+
     <div class="app-content">
         <div class="container-fluid">
             <div class="content-wrapper">
@@ -537,7 +528,7 @@ $(document).ready(function(){
     });
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';
 ?>

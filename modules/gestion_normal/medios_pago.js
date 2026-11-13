@@ -203,7 +203,7 @@ $(document).ready(function () {
             columns: [
                 {
                     data: 'medio_pago_id',
-                    className: 'text-center fw-bold text-muted',
+                    className: 'ui-detalle',
                     width: '60px'
                 },
                 {
@@ -350,7 +350,7 @@ $(document).ready(function () {
                 }
             ],
             language: {
-                url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json'
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json'
             },
             order: currentOrder,
             responsive: true,

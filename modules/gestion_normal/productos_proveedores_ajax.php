@@ -32,6 +32,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 95);
+// Solo una página de este módulo (si no, la de productos_proveedores.php del módulo): contra ella se validan botones y acciones
+$pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'productos_proveedores.php');
 $usuario_id = intval($_SESSION['usuario_id'] ?? 0);
 
 if (!$conexion) {
@@ -100,6 +102,8 @@ try {
             break;
 
         case 'agregar':
+            // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
             $data = [
                 'producto_id' => intval($_POST['producto_id'] ?? 0),
                 'entidad_id' => intval($_POST['entidad_id'] ?? 0),
@@ -111,6 +115,8 @@ try {
             break;
 
         case 'editar':
+            // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
             $codigo_proveedor = $_POST['codigo_proveedor'] ?? '';
             $resultado = editarVinculoProveedor($conexion, $producto_proveedor_id, $codigo_proveedor, $empresa_idx);
@@ -120,6 +126,8 @@ try {
         case 'ejecutar_accion':
             $producto_proveedor_id = intval($_POST['producto_proveedor_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_idx), (string)($accion_js));
             $resultado = ejecutarTransicionEstadoVinculo($conexion, $producto_proveedor_id, $accion_js, $pagina_idx, $empresa_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

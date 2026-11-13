@@ -3,7 +3,7 @@ require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
 function obtenerModulos($conexion)
 {
-    $sql = "SELECT * FROM conf__modulos WHERE modulo_id=2 ORDER BY modulo";
+    $sql = "SELECT * FROM conf__modulos WHERE modulo_id=5 ORDER BY modulo";
     $res = mysqli_query($conexion, $sql);
     $data = [];
     while ($fila = mysqli_fetch_assoc($res)) {
@@ -44,7 +44,7 @@ function obtenerIconos($conexion)
 
 function obtenerpaginas($conexion)
 {
-    $modulo_idx = 2;
+    $modulo_idx = 5;
     $sql = "SELECT p.*,  m.modulo,  padre.pagina as padre_nombre, conf__tablas.tabla_nombre, conf__iconos.icono_nombre, conf__iconos.icono_clase
             FROM conf__paginas p
             LEFT JOIN conf__modulos m ON p.modulo_id = m.modulo_id

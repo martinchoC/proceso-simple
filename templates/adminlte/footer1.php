@@ -9,10 +9,11 @@
   </strong>
 </footer>
 </div>
-<script src="<?= asset_local('js/overlayscrollbars.browser.es6.min.js') ?>"></script>
-<script src="<?= asset_local('js/popper.min.js') ?>"></script>
-<script src="<?= asset_local('js/bootstrap.min.js') ?>"></script>
+<script src="<?= asset_local('js/overlayscrollbars-2.11.0/overlayscrollbars.browser.es6.min.js') ?>"></script>
+<script src="<?= asset_local('js/popperjs-core-2.11.8/popper.min.js') ?>"></script>
+<script src="<?= asset_local('js/bootstrap-5.3.7/bootstrap.min.js') ?>"></script>
 <script src="<?= asset('js/adminlte.js') ?>"></script>
+<script src="<?= asset_local('js/ui-simple.js') ?>?v=<?= @filemtime(__DIR__ . '/../../assets/js/ui-simple.js') ?>"></script>
 <script>
   const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
   const Default = {
@@ -47,7 +48,7 @@
     });
   }
 </script>
-<script src="<?= asset_local('js/Sortable.min.js') ?>"></script>
+<script src="<?= asset_local('js/sortablejs-1.15.0/Sortable.min.js') ?>"></script>
 <script>
   const connectedSortable = document.querySelector('.connectedSortable');
   if (connectedSortable) {

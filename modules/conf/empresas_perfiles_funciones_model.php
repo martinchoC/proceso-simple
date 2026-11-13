@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/perfiles_predefinidos.php';
 $conexion = $conn;
 
 function obtenerModulos($conexion)
@@ -456,13 +457,15 @@ function heredarPaginasFuncionesDesdePerfilBase($conexion, $empresa_perfil_id, $
         return 0;
     }
 
-    // Obtener todas las páginas y funciones del módulo
-    $sql_funciones = "SELECT pf.pagina_funcion_id 
+    // Obtener todas las páginas y funciones del módulo (sin las de bienes si la empresa es de servicios
+    // ni las de "solo gestión completa" si es simplificada)
+    $sql_funciones = "SELECT pf.pagina_funcion_id
                      FROM conf__paginas_funciones pf
                      INNER JOIN conf__paginas p ON pf.pagina_id = p.pagina_id
-                     WHERE p.modulo_id = $modulo_id 
+                     WHERE p.modulo_id = $modulo_id
                      AND pf.tabla_estado_registro_id = 1
-                     AND p.tabla_estado_registro_id = 1";
+                     AND p.tabla_estado_registro_id = 1"
+                     . perfiles_sql_excluir_paginas($conexion, $empresa_id, 'p');
 
     $res_funciones = mysqli_query($conexion, $sql_funciones);
 
@@ -501,6 +504,176 @@ function heredarPaginasFuncionesDesdePerfilBase($conexion, $empresa_perfil_id, $
     error_log("Funciones heredadas: $contador de $total_funciones");
 
     return $contador;
+}
+
+/**
+ * Todo lo que necesita la pantalla en una sola respuesta: páginas del módulo (árbol), funciones de cada página con el
+ * nombre del estado en que aplican (origen) y al que llevan (destino), y las funciones asignadas a cada perfil.
+ *
+ * El nombre del estado sale del catálogo de la tabla de la página (conf__tablas_estados_registros por id genérico),
+ * si no de la PK de ese catálogo en la misma tabla (Matriz Legal guarda la PK) y si no del estado genérico.
+ * Origen 0 = no depende del estado de un registro (alta o función de la página).
+ *
+ * @param int[] $perfil_ids empresa_perfil_id de los perfiles a mostrar (solo se usan los del módulo)
+ */
+function epfMatriz(mysqli $conexion, int $modulo_id, array $perfil_ids): array
+{
+    $paginas = [];
+    $stmt = mysqli_prepare($conexion,
+        "SELECT p.pagina_id, p.pagina AS pagina_nombre, p.url AS ruta, p.padre_id, p.orden, p.pagina_descripcion,
+                COALESCE(i.icono_clase, '') AS icono
+           FROM conf__paginas p
+           LEFT JOIN conf__iconos i ON i.icono_id = p.icono_id
+          WHERE p.modulo_id = ? AND p.tabla_estado_registro_id = 1
+          ORDER BY p.padre_id, p.orden, p.pagina_id");
+    mysqli_stmt_bind_param($stmt, 'i', $modulo_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($fila = mysqli_fetch_assoc($res)) {
+        $fila['pagina_id'] = (int)$fila['pagina_id'];
+        $fila['padre_id'] = (int)$fila['padre_id'];
+        $fila['orden'] = (int)$fila['orden'];
+        $fila['funciones'] = [];
+        $paginas[$fila['pagina_id']] = $fila;
+    }
+    mysqli_stmt_close($stmt);
+
+    $stmt = mysqli_prepare($conexion,
+        "SELECT pf.pagina_funcion_id, pf.pagina_id, pf.nombre_funcion, pf.accion_js, COALESCE(pf.descripcion, '') AS descripcion,
+                pf.tabla_estado_registro_origen_id AS origen_id, pf.tabla_estado_registro_destino_id AS destino_id,
+                COALESCE(pf.orden, 0) AS orden,
+                COALESCE(i.icono_clase, '') AS icono, COALESCE(c.color_clase, '') AS color,
+                COALESCE(to1.tabla_estado_registro, tp1.tabla_estado_registro, eo.estado_registro) AS origen_nombre,
+                COALESCE(to1.orden, tp1.orden, eo.orden_estandar, pf.tabla_estado_registro_origen_id) AS origen_orden,
+                COALESCE(td1.tabla_estado_registro, tq1.tabla_estado_registro, ed.estado_registro) AS destino_nombre
+           FROM conf__paginas_funciones pf
+           JOIN conf__paginas p ON p.pagina_id = pf.pagina_id
+           LEFT JOIN conf__iconos i ON i.icono_id = pf.icono_id
+           LEFT JOIN conf__colores c ON c.color_id = pf.color_id
+           LEFT JOIN conf__tablas_estados_registros to1
+                  ON to1.tabla_id = p.tabla_id AND to1.estado_registro_id = pf.tabla_estado_registro_origen_id
+           LEFT JOIN conf__tablas_estados_registros tp1
+                  ON tp1.tabla_id = p.tabla_id AND tp1.tabla_estado_registro_id = pf.tabla_estado_registro_origen_id
+           LEFT JOIN conf__estados_registros eo ON eo.estado_registro_id = pf.tabla_estado_registro_origen_id
+           LEFT JOIN conf__tablas_estados_registros td1
+                  ON td1.tabla_id = p.tabla_id AND td1.estado_registro_id = pf.tabla_estado_registro_destino_id
+           LEFT JOIN conf__tablas_estados_registros tq1
+                  ON tq1.tabla_id = p.tabla_id AND tq1.tabla_estado_registro_id = pf.tabla_estado_registro_destino_id
+           LEFT JOIN conf__estados_registros ed ON ed.estado_registro_id = pf.tabla_estado_registro_destino_id
+          WHERE p.modulo_id = ? AND p.tabla_estado_registro_id = 1 AND pf.tabla_estado_registro_id = 1
+          ORDER BY pf.pagina_id, pf.orden, pf.pagina_funcion_id");
+    mysqli_stmt_bind_param($stmt, 'i', $modulo_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $vistos = [];
+    while ($f = mysqli_fetch_assoc($res)) {
+        $pid = (int)$f['pagina_id'];
+        $id = (int)$f['pagina_funcion_id'];
+        // Un JOIN de catálogo con filas repetidas no debe duplicar la función
+        if (!isset($paginas[$pid]) || isset($vistos[$id])) {
+            continue;
+        }
+        $vistos[$id] = true;
+        foreach (['pagina_funcion_id', 'pagina_id', 'origen_id', 'destino_id', 'orden', 'origen_orden'] as $k) {
+            $f[$k] = (int)$f[$k];
+        }
+        $paginas[$pid]['funciones'][] = $f;
+    }
+    mysqli_stmt_close($stmt);
+
+    $asignaciones = [];
+    $perfil_ids = array_values(array_unique(array_filter(array_map('intval', $perfil_ids))));
+    if ($perfil_ids) {
+        $marcas = implode(',', array_fill(0, count($perfil_ids), '?'));
+        $stmt = mysqli_prepare($conexion,
+            "SELECT epf.empresa_perfil_id, epf.pagina_funcion_id
+               FROM conf__empresas_perfiles_funciones epf
+               JOIN conf__empresas_perfiles ep ON ep.empresa_perfil_id = epf.empresa_perfil_id AND ep.modulo_id = ?
+              WHERE epf.asignado = 1 AND epf.empresa_perfil_id IN ($marcas)");
+        $tipos = 'i' . str_repeat('i', count($perfil_ids));
+        $params = array_merge([$modulo_id], $perfil_ids);
+        mysqli_stmt_bind_param($stmt, $tipos, ...$params);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        foreach ($perfil_ids as $p) {
+            $asignaciones[$p] = [];
+        }
+        while ($a = mysqli_fetch_assoc($res)) {
+            $asignaciones[(int)$a['empresa_perfil_id']][] = (int)$a['pagina_funcion_id'];
+        }
+        mysqli_stmt_close($stmt);
+    }
+
+    return ['paginas' => array_values($paginas), 'asignaciones' => $asignaciones];
+}
+
+/**
+ * Guarda los cambios de la pantalla en una transacción: $cambios = [empresa_perfil_id => ['asignar' => [ids], 'quitar' => [ids]]].
+ * Asignar = fila con asignado = 1 (la crea si falta); quitar = borra la fila (core/permisos.php solo lee asignado = 1).
+ * Solo funciones de páginas del módulo del perfil; la empresa sale del perfil, no del request.
+ */
+function epfGuardarCambios(mysqli $conexion, array $cambios): array
+{
+    $asignadas = 0;
+    $quitadas = 0;
+    mysqli_begin_transaction($conexion);
+    try {
+        $stPerfil = mysqli_prepare($conexion, "SELECT empresa_id, modulo_id FROM conf__empresas_perfiles WHERE empresa_perfil_id = ?");
+        $stValida = mysqli_prepare($conexion,
+            "SELECT 1 FROM conf__paginas_funciones pf JOIN conf__paginas p ON p.pagina_id = pf.pagina_id
+              WHERE pf.pagina_funcion_id = ? AND p.modulo_id = ?");
+        $stUpd = mysqli_prepare($conexion,
+            "UPDATE conf__empresas_perfiles_funciones SET asignado = 1, fecha_asignacion = NOW()
+              WHERE empresa_perfil_id = ? AND pagina_funcion_id = ?");
+        $stExiste = mysqli_prepare($conexion,
+            "SELECT 1 FROM conf__empresas_perfiles_funciones WHERE empresa_perfil_id = ? AND pagina_funcion_id = ?");
+        $stIns = mysqli_prepare($conexion,
+            "INSERT INTO conf__empresas_perfiles_funciones (empresa_id, empresa_perfil_id, pagina_funcion_id, asignado) VALUES (?, ?, ?, 1)");
+        $stDel = mysqli_prepare($conexion,
+            "DELETE FROM conf__empresas_perfiles_funciones WHERE empresa_perfil_id = ? AND pagina_funcion_id = ?");
+
+        foreach ($cambios as $perfil_id => $c) {
+            $perfil_id = (int)$perfil_id;
+            mysqli_stmt_bind_param($stPerfil, 'i', $perfil_id);
+            mysqli_stmt_execute($stPerfil);
+            $perfil = mysqli_fetch_assoc(mysqli_stmt_get_result($stPerfil));
+            if (!$perfil) {
+                throw new RuntimeException("El perfil $perfil_id no existe.");
+            }
+            $empresa_id = (int)$perfil['empresa_id'];
+            $modulo_id = (int)$perfil['modulo_id'];
+
+            foreach (array_unique(array_map('intval', (array)($c['asignar'] ?? []))) as $fid) {
+                mysqli_stmt_bind_param($stValida, 'ii', $fid, $modulo_id);
+                mysqli_stmt_execute($stValida);
+                if (!mysqli_fetch_row(mysqli_stmt_get_result($stValida))) {
+                    throw new RuntimeException("La función $fid no es del módulo del perfil.");
+                }
+                mysqli_stmt_bind_param($stExiste, 'ii', $perfil_id, $fid);
+                mysqli_stmt_execute($stExiste);
+                if (mysqli_fetch_row(mysqli_stmt_get_result($stExiste))) {
+                    mysqli_stmt_bind_param($stUpd, 'ii', $perfil_id, $fid);
+                    mysqli_stmt_execute($stUpd);
+                } else {
+                    mysqli_stmt_bind_param($stIns, 'iii', $empresa_id, $perfil_id, $fid);
+                    mysqli_stmt_execute($stIns);
+                }
+                $asignadas++;
+            }
+            foreach (array_unique(array_map('intval', (array)($c['quitar'] ?? []))) as $fid) {
+                mysqli_stmt_bind_param($stDel, 'ii', $perfil_id, $fid);
+                mysqli_stmt_execute($stDel);
+                $quitadas += mysqli_stmt_affected_rows($stDel) > 0 ? 1 : 0;
+            }
+        }
+        mysqli_commit($conexion);
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        error_log('=== epfGuardarCambios: ' . $e->getMessage());
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+    return ['success' => true, 'data' => ['asignadas' => $asignadas, 'quitadas' => $quitadas],
+            'message' => "Guardado: $asignadas asignadas, $quitadas quitadas."];
 }
 
 function obtenerEmpresaIdPorPerfil($conexion, $empresa_perfil_id)

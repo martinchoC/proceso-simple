@@ -7,39 +7,29 @@
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 
 $pageTitle = "Órdenes de Pago a Proveedores (OP)";
 $currentPage = 'pagos';
 $modudo_idx = 5; // Typo intencional y consistente con todo el ERP
 $pagina_idx = 606;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-money-check-alt text-primary me-2"></i>Órdenes de Pago a Proveedores
-                    </h3>
-                    <small class="text-muted">Emisión de OP, Cancelación de Facturas de Compra, Emisión y Endoso de Cheques</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="index.php">Inicio</a></li>
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Órdenes de Pago</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Órdenes de pago','fas fa-money-check-alt', 'Pago de facturas de compra y de obligaciones (sueldos, impuestos, anticipos), con emisión y endoso de cheques. Si la empresa exige aprobación de OP (Reglas de Aprobación), la OP se emite cuando la aprueban.', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
+            <ul class="nav nav-tabs ui-solapas mb-3" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#solapaOrdenesPago" type="button">Órdenes de pago</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#solapaPendientesPago" type="button">Pendientes de pago</button></li>
+            </ul>
+            <div class="tab-content">
+            <div class="tab-pane fade show active" id="solapaOrdenesPago">
             <!-- Barra de Filtros y Acciones -->
             <div class="card card-outline card-primary shadow-sm mb-4">
                 <div class="card-header bg-light py-3">
@@ -51,9 +41,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="btnRecargar" title="Recargar listado">
                                 <i class="fas fa-sync-alt me-1"></i> Actualizar
                             </button>
+                            <?php if (permisos_puede($conexion, $pagina_idx, 'agregar')): ?>
                             <button type="button" class="btn btn-sm btn-primary" id="btnNuevoPago">
                                 <i class="fas fa-plus me-1"></i> Nueva Orden de Pago
                             </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -68,9 +60,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <input type="date" class="form-control form-control-sm" id="filtroHasta" name="hasta">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-bold mb-1">Proveedor</label>
+                            <label class="form-label small fw-bold mb-1">Beneficiario</label>
                             <select class="form-select form-control-sm select2" id="filtroProveedor" name="entidad_id">
-                                <option value="">-- Todos los Proveedores --</option>
+                                <option value="">-- Todos los beneficiarios --</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -78,6 +70,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <select class="form-select form-control-sm" id="filtroEstado" name="estado_id">
                                 <option value="">-- Todos --</option>
                                 <option value="3">Borrador</option>
+                                <option value="4">Pend. aprobación</option>
                                 <option value="5">Confirmado</option>
                                 <option value="38">Anulado</option>
                             </select>
@@ -99,7 +92,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <tr>
                                     <th style="width: 80px;">Emisión</th>
                                     <th style="width: 140px;">Orden N°</th>
-                                    <th>Proveedor</th>
+                                    <th>Beneficiario</th>
                                     <th style="width: 120px;">Sucursal</th>
                                     <th class="text-end" style="width: 130px;">Total Pagado</th>
                                     <th style="width: 160px;">Aplicación</th>
@@ -111,6 +104,40 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         </table>
                     </div>
                 </div>
+            </div>
+            </div>
+
+            <div class="tab-pane fade" id="solapaPendientesPago">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3 border-bottom ui-barra">
+                        <div class="ui-filtros d-flex flex-wrap gap-2 align-items-end">
+                            <div><label class="form-label small mb-1">Mostrar</label>
+                                <select class="form-select form-select-sm ui-f-media" id="filtroPendientesClase">
+                                    <option value="">Todo lo pendiente</option><option value="FACTURAS">Facturas y notas de compra</option><option value="OBLIGACIONES">Obligaciones (sueldos, impuestos, anticipos)</option>
+                                </select></div>
+                            <div><label class="form-label small mb-1">Medio <?= ui_ayuda('Pago en lote: una orden de pago por beneficiario, por el saldo completo de lo elegido.') ?></label>
+                                <select class="form-select form-select-sm ui-f-media" id="loteMedio"></select></div>
+                            <div><label class="form-label small mb-1">Cuenta</label>
+                                <select class="form-select form-select-sm ui-f-media" id="loteCuenta"></select></div>
+                            <div><label class="form-label small mb-1">Fecha</label>
+                                <input type="date" class="form-control form-control-sm ui-f-fecha" id="loteFecha"></div>
+                            <?php if (permisos_puede($conexion, $pagina_idx, 'agregar') && permisos_puede($conexion, $pagina_idx, 'confirmar')): ?>
+                            <button type="button" class="btn btn-sm btn-success" id="btnPagarLote" disabled><i class="fas fa-money-check-alt me-1"></i>Pagar seleccionados</button>
+                            <?php endif; ?>
+                            <span class="small text-muted align-self-center" id="totalLote"></span>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <table id="tablaPendientesPago" class="table table-sm table-striped table-hover align-middle w-100">
+                            <thead class="table-light"><tr>
+                                <th class="text-center"><input class="form-check-input" type="checkbox" id="checkTodosLote" title="Todos los visibles"></th>
+                                <th>Beneficiario</th><th>Tipo</th><th>Comprobante</th><th class="ui-detalle">Emisión</th><th>Vence</th><th class="text-end">Pendiente</th><th class="text-center">Acciones</th>
+                            </tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -134,20 +161,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <div class="card border mb-3 shadow-none">
                         <div class="card-header bg-light py-2">
                             <h6 class="mb-0 fw-bold text-primary small text-uppercase">
-                                <i class="fas fa-truck me-1"></i> 1. Datos del Proveedor y Emisión
+                                <i class="fas fa-truck me-1"></i> 1. Beneficiario y emisión
                             </h6>
                         </div>
                         <div class="card-body py-2">
                             <div class="row g-2">
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-bold mb-1">Proveedor <span class="text-danger">*</span></label>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold mb-1">Beneficiario <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="selectProveedor" name="entidad_id" required>
-                                        <option value="">-- Seleccionar Proveedor --</option>
+                                        <option value="">-- Seleccionar beneficiario --</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1">Sucursal <span class="text-danger">*</span></label>
                                     <select class="form-select form-select-sm" id="selectSucursal" name="sucursal_id" required>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Punto de venta
+                                        <?= ui_ayuda('Punto de venta con el que se numera la orden de pago. Se ofrecen los que tienen habilitada la Orden de Pago en Puntos de Venta; si no hay ninguno, se asigna solo.') ?></label>
+                                    <select class="form-select form-select-sm" id="selectPuntoVenta" name="comprobante_pv">
                                     </select>
                                 </div>
                                 <div class="col-md-2">
@@ -172,9 +205,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <h6 class="mb-0 fw-bold text-primary small text-uppercase">
                                 <i class="fas fa-wallet me-1"></i> 2. Medios de Pago Salientes
                             </h6>
-                            <button type="button" class="btn btn-xs btn-primary" id="btnAgregarMedio">
-                                <i class="fas fa-plus me-1"></i> Agregar Medio
-                            </button>
+                            <div>
+                                <button type="button" class="btn btn-xs btn-outline-secondary d-none" id="btnCalcularRetenciones"
+                                        title="Calcula las retenciones que practica la empresa sobre los comprobantes imputados">
+                                    <i class="fas fa-percent me-1"></i> Calcular Retenciones
+                                </button>
+                                <button type="button" class="btn btn-xs btn-primary" id="btnAgregarMedio">
+                                    <i class="fas fa-plus me-1"></i> Agregar Medio
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body p-2">
                             <div class="table-responsive">
@@ -205,7 +244,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <div class="card border mb-3 shadow-none">
                         <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
                             <h6 class="mb-0 fw-bold text-primary small text-uppercase">
-                                <i class="fas fa-receipt me-1"></i> 3. Facturas y Comprobantes a Cancelar
+                                <i class="fas fa-receipt me-1"></i> 3. Facturas y obligaciones a cancelar
                             </h6>
                             <div class="btn-group btn-group-sm" role="group">
                                 <button type="button" class="btn btn-xs btn-outline-secondary" id="btnAutoImputar" title="Imputar automáticamente por fecha de vencimiento más antigua">
@@ -222,7 +261,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 <span class="ms-2 small text-muted">Cargando comprobantes pendientes del proveedor...</span>
                             </div>
                             <div id="vacioPendientes" class="alert alert-light border small text-muted text-center py-2 mb-1">
-                                Seleccione un proveedor para ver sus facturas pendientes de pago.
+                                Elegí el beneficiario para ver sus facturas y obligaciones pendientes de pago.
                             </div>
                             <div class="table-responsive d-none" id="contenedorTablaPendientes">
                                 <table class="table table-sm table-bordered align-middle mb-1" id="tablaPendientes">
@@ -333,8 +372,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     <input type="hidden" id="anular_pago_id" value="0">
                     <div class="alert alert-warning py-2 small">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        Esta acción anulará la Orden de Pago, revertirá las salidas en el libro de tesorería,
-                        reabrirá las facturas de proveedores canceladas, devolverá los cheques de terceros a cartera y anulará el asiento contable.
+                        Se revierten los pagos de tesorería y el asiento, las facturas vuelven a quedar pendientes y los cheques de terceros vuelven a cartera.
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-bold small">Motivo de Anulación <span class="text-danger">*</span></label>
@@ -353,12 +391,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 </div>
 
 <!-- SweetAlert2 -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    if (typeof Swal === 'undefined') {
-        document.write('<script src="<?= asset_local('js/sweetalert2.all.min.js') ?>"><\/script>');
-    }
-</script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
 <!-- Scripts específicos del módulo -->
 <script>

@@ -4,43 +4,28 @@
 // ubicaciones, proveedores o precios. Todas las llamadas van a
 // productos_consulta_ajax.php, que solo acepta acciones de lectura.
 // Configuración de la página
+require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
 
 $pageTitle = "Consulta de Productos";
 $currentPage = 'productos_consulta';
 $modudo_idx = 2;
-$pagina_idx = 98; // ID de página en conf__paginas (ver sql/mantenimiento/20260926_productos_consulta.sql)
-$empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
-
-// Las listas de precios se traen acá (en el render de la página) y no por AJAX
-// al cargar, para no sumar una vuelta de red extra antes de poder pedir los
-// productos: el DataTable arranca directo con esto ya resuelto.
-$listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
+$pagina_idx = 98; // ID de página en conf__paginas (ver _local/sql/mantenimiento/20260926_productos_consulta.sql)
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+
+// Las listas de precios se traen acá (después de header1.php para asegurar sesión
+// y empresa activa resueltas) y no por AJAX al cargar, para no sumar una vuelta de red:
+// el DataTable arranca directo con esto ya resuelto.
+$empresa_idx = intval($current_empresa_id ?? $_SESSION['empresa_id'] ?? $_GET['empresa_id'] ?? 0);
+$listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-search me-2"></i>Consulta de Productos
-                    </h3>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Consulta de Productos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Consulta de productos','fas fa-search', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -1184,7 +1169,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         var gravado = selected.data('gravado');
                         var exento = selected.data('exento');
                         var noGravado = selected.data('no-gravado');
-                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + parseFloat(porcentaje).toFixed(2) + '%</span>' : '<span class="text-muted">0%</span>');
+                        $('#iva_porcentaje').html(porcentaje > 0 ? '<span class="text-primary">' + Fmt.numero(parseFloat(porcentaje), 2) + '%</span>' : '<span class="text-muted">0%</span>');
                         var infoHtml = '';
                         if (exento == 1) infoHtml = '<span class="badge bg-success">EXENTO</span>';
                         else if (noGravado == 1) infoHtml = '<span class="badge bg-warning">NO GRAVADO</span>';
@@ -1484,7 +1469,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
                     pageLength: 10,
                     searching: false,
@@ -1533,8 +1518,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     dom: 't',
                     buttons: [],
                     pageLength: 10,
@@ -1603,8 +1589,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { data: 'cuit', responsivePriority: 3, render: function(data) { return data || '-'; } },
                         { data: 'codigo_proveedor', responsivePriority: 2, render: function(data) { return data || '-'; } }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     pageLength: 10,
                     searching: false,
                     paging: false,
@@ -1633,19 +1620,20 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         { data: 'lista_nombre', responsivePriority: 1, render: function(data) { return data || '-'; } },
                         {
                             data: 'precio_unitario', className: 'text-end', responsivePriority: 2,
-                            render: data => '$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            render: data => '$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         },
                         {
                             data: 'precio_con_iva', className: 'text-end', responsivePriority: 3,
                             render: function(data, type, row) {
                                 var iva = row.iva_porcentaje ? parseFloat(row.iva_porcentaje) : 0;
-                                return '<span title="IVA ' + iva + '%">$ ' + parseFloat(data).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
+                                return '<span title="IVA ' + iva + '%">$ ' + Fmt.numero(parseFloat(data), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</span>';
                             }
                         },
-                        { data: 'f_actualizacion', responsivePriority: 4, render: data => data ? new Date(data).toLocaleString() : '-' }
+                        { data: 'f_actualizacion', responsivePriority: 4, render: data => data ? Fmt.fechaHora(data) : '-' }
                     ],
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     responsive: true,
+                    autoWidth: false,
                     pageLength: 10,
                     searching: false,
                     paging: false,
@@ -1780,7 +1768,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         data: null, width: '150px', className: 'text-end', orderable: false, searchable: false, responsivePriority: 5,
                         render: function(data, type, row) {
                             var fmt = function(n) {
-                                return parseFloat(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return Fmt.numero(parseFloat(n), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                             };
                             var entry = (row.precios_listas || []).find(function(p) {
                                 return String(p.lista_precio_id) === String(lista.lista_precio_id);
@@ -2053,8 +2041,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         {
                             data: 'botones', orderable: false, searchable: false, className: "text-center", width: '120px', responsivePriority: 1,
                             render: function(data, type, row) {
-                                if (type === 'export' || !data) return '';
-                                return data.map(function(boton) {
+                                if (type === 'export') return '';
+                                // Remito rápido: botón "+" en cada fila (ver productos_consulta_remito.js)
+                                var btnRemito = '<button type="button" class="btn btn-xs btn-success me-1 btn-remito-add" title="Agregar al remito" data-id="' + row.producto_id + '" data-codigo="' + $('<div>').text(row.producto_codigo || '').html() + '" data-nombre="' + $('<div>').text(row.producto_nombre || '').html().replace(/"/g, '&quot;') + '"><i class="fas fa-plus"></i></button>';
+                                if (!data) return btnRemito;
+                                return btnRemito + data.map(function(boton) {
                                     var clase = 'btn-xs me-1 ';
                                     var nombre = boton.accion_js || boton.nombre_funcion.toLowerCase();
                                     clase += nombre === 'editar' ? 'btn-outline-primary' :
@@ -2066,7 +2057,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             }
                         }
                     ]),
-                    language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                    language: { url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>' },
                     order: currentOrder,
                     responsive: true,
                     createdRow: function(row, data) {
@@ -2199,20 +2190,21 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
 
     <!-- Librerías necesarias -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
 
     <!-- Extensión Responsive de DataTables (necesaria para que responsive:true funcione) -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-    <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+
+    <!-- Remito rápido: carrito + generación de remito pendiente de facturar -->
+    <script>window.REMITO_RAPIDO_USUARIO_ID = <?= (int)($_SESSION['usuario_id'] ?? 0) ?>;</script>
+    <script src="productos_consulta_remito.js?v=<?= @filemtime(__DIR__ . '/productos_consulta_remito.js') ?: 1 ?>"></script>
 
 </main>
 

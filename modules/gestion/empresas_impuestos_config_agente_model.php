@@ -2,7 +2,7 @@
 /**
  * Impuestos Adic. - Conf (página 73), solapa "Agente de Percepción": datos del agente de recaudación y
  * alícuotas por situación del cliente (gestion__empresas_impuestos_config_situaciones).
- * Diseño: docs/gestion/09_percepciones_iibb.md §4.1 / §4.2.
+ * Diseño: _local/docs/gestion/09_percepciones_iibb.md §4.1 / §4.2.
  */
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
 
@@ -34,21 +34,22 @@ function eicObtenerAgente($conexion, $config_id, $empresa_id) {
     mysqli_stmt_close($stmt);
 
     $filas = [];
-    foreach (perIibbSituaciones() as $codigo => $nombre) {
+    foreach (perSituacionesImpuesto($cfg['impuesto_tipo_id']) as $codigo => $nombre) {
         $s = $situaciones[$codigo] ?? null;
         $filas[] = [
             'situacion' => $codigo,
             'nombre' => $nombre,
             'activa' => $s && intval($s['tabla_estado_registro_id']) === 1 ? 1 : 0,
             'alicuota' => $s ? floatval($s['alicuota']) : 0,
-            'requiere_territorio' => $s ? intval($s['requiere_territorio']) : ($codigo === 'PADRON' ? 0 : 1),
+            'requiere_territorio' => $s ? intval($s['requiere_territorio']) : (($codigo === 'PADRON' || intval($cfg['impuesto_tipo_id']) === PER_IVA_IMPUESTO_TIPO_ID) ? 0 : 1),
             'tipo_registro_ddjj' => $s ? $s['tipo_registro_ddjj'] : null,
             'declarar_si_cero' => $s ? intval($s['declarar_si_cero']) : 0,
             'leyenda' => $s ? $s['leyenda'] : null,
         ];
     }
     return ['success' => true, 'data' => [
-        'es_percepcion_iibb' => intval($cfg['impuesto_tipo_id']) === PER_IIBB_IMPUESTO_TIPO_ID,
+        'es_percepcion_iibb' => in_array(intval($cfg['impuesto_tipo_id']), PER_TIPOS_PRACTICADOS, true),   // usa el cálculo automático
+        'es_percepcion_iva' => intval($cfg['impuesto_tipo_id']) === PER_IVA_IMPUESTO_TIPO_ID,
         'numero_agente' => $cfg['numero_agente'],
         'criterio_territorial' => $cfg['criterio_territorial'] ?: 'ENTREGA',
         'base_calculo' => $cfg['base_calculo'],
@@ -93,7 +94,7 @@ function eicGuardarAgente($conexion, $config_id, $empresa_id, $data) {
     $situaciones = $data['situaciones'] ?? [];
     if (is_string($situaciones)) $situaciones = json_decode($situaciones, true);
     if (!is_array($situaciones)) return ['success' => false, 'message' => 'Situaciones inválidas.'];
-    $validas = perIibbSituaciones();
+    $validas = perSituacionesImpuesto($cfg['impuesto_tipo_id']);
 
     mysqli_begin_transaction($conexion);
     try {

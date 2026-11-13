@@ -12,7 +12,11 @@ require_once __DIR__ . '/ciclos_generador_service.php';
  * Listar tareas operativas con filtros avanzados
  */
 function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros = []): array {
-    $where = ["ct.empresa_id = {$empresa_id}"];
+    if ($empresa_id === 1) {
+        $where = ["(ct.empresa_id IN (1, 2, 3))"];
+    } else {
+        $where = ["ct.empresa_id = {$empresa_id}"];
+    }
 
     if (!empty($filtros['ciclo_id'])) {
         $ciclo_id = (int)$filtros['ciclo_id'];
@@ -22,6 +26,17 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
     if (!empty($filtros['entidad_id'])) {
         $entidad_id = (int)$filtros['entidad_id'];
         $where[] = "c.entidad_id = {$entidad_id}";
+    }
+
+    if (!empty($filtros['territorio_id'])) {
+        $territorio_id = (int)$filtros['territorio_id'];
+        $where[] = "EXISTS (
+            SELECT 1 FROM ml__entidades_ubicaciones eu2 
+            WHERE eu2.entidad_id = c.entidad_id 
+              AND (eu2.territorio_id = {$territorio_id} OR eu2.territorio_id IN (
+                  SELECT territorio_id FROM ml__territorios_pertenencias WHERE territorio_superior_id = {$territorio_id}
+              ))
+        )";
     }
 
     if (!empty($filtros['estado_id'])) {
@@ -72,6 +87,11 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
                 DATE_FORMAT(c.periodo_desde, '%d/%m/%Y') as ciclo_periodo_desde_fmt,
                 DATE_FORMAT(c.periodo_hasta, '%d/%m/%Y') as ciclo_periodo_hasta_fmt,
                 o.codigo as obligacion_codigo,
+                COALESCE(o.sigla, o.codigo) as obligacion_sigla,
+                COALESCE(o.icono, 'fas fa-balance-scale') as obligacion_icono,
+                COALESCE(o.color_hex, '#0d6efd') as obligacion_color,
+                o.imagen_ref as obligacion_imagen,
+                (SELECT COUNT(*) FROM ml__ciclos_tareas_mensajes tm WHERE tm.ciclo_tarea_id = ct.ciclo_tarea_id AND tm.tabla_estado_registro_id = 1) as total_mensajes,
                 o.descripcion as obligacion_titulo,
                 e.nombre as entidad_nombre,
                 et.nombre as entidad_tipo_nombre,
@@ -85,12 +105,15 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
                  FROM ml__ciclos_tareas_raci ctr 
                  WHERE ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1 
                  LIMIT 1) as responsable_usuario_id,
-                (SELECT COUNT(*) FROM ml__evidencias ev WHERE ev.ciclo_tarea_id = ct.ciclo_tarea_id AND ev.tabla_estado_registro_id = 1) as total_evidencias,
+                (SELECT COUNT(*) FROM ml__evidencias ev WHERE ev.ciclo_tarea_id = ct.ciclo_tarea_id AND ev.tabla_estado_registro_id IN (1, 2039)) as total_evidencias,
                 COALESCE(crit.nombre, 'Media') as criticidad_nombre,
                 COALESCE(crit.peso, 2) as criticidad_peso,
                 e.entidad_id,
                 o.obligacion_id,
-                (SELECT COUNT(*) FROM ml__ciclos_tareas_dependencias dep WHERE dep.ciclo_tarea_id = ct.ciclo_tarea_id) as total_predecesoras
+                (SELECT COUNT(*) FROM ml__ciclos_tareas_dependencias dep WHERE dep.ciclo_tarea_id = ct.ciclo_tarea_id) as total_predecesoras,
+                COALESCE(t.nombre, 'Argentina') as pais_nombre,
+                COALESCE(t.codigo, 'ARG') as pais_codigo,
+                COALESCE(t.territorio_id, 2) as pais_id
             FROM ml__ciclos_tareas ct
             INNER JOIN ml__ciclos c ON c.ciclo_id = ct.ciclo_id
             INNER JOIN ml__obligaciones_asignadas oa ON oa.obligacion_asignada_id = c.obligacion_asignada_id
@@ -98,9 +121,12 @@ function ciclos_tareas_listar(mysqli $conexion, int $empresa_id, array $filtros 
             LEFT JOIN ml__criticidades crit ON crit.criticidad_id = o.criticidad_id
             INNER JOIN ml__entidades e ON e.entidad_id = c.entidad_id
             INNER JOIN ml__entidades_tipos et ON et.entidad_tipo_id = e.entidad_tipo_id
+            LEFT JOIN ml__entidades_ubicaciones eu ON eu.entidad_id = e.entidad_id
+            LEFT JOIN ml__territorios t ON t.territorio_id = eu.territorio_id
             INNER JOIN conf__tablas_estados_registros est ON est.tabla_estado_registro_id = ct.tabla_estado_registro_id
             LEFT JOIN ml__tareas_plantillas tp ON tp.tarea_plantilla_id = ct.tarea_plantilla_id
             WHERE {$where_sql}
+            GROUP BY ct.ciclo_tarea_id
             ORDER BY ct.fecha_vencimiento ASC, ct.ciclo_tarea_id ASC";
 
     $res = mysqli_query($conexion, $sql);
@@ -131,12 +157,29 @@ function ciclos_tareas_obtener_por_id(mysqli $conexion, int $ciclo_tarea_id, int
                 DATE_FORMAT(c.periodo_hasta, '%d/%m/%Y') as periodo_hasta_fmt,
                 DATE_FORMAT(c.fecha_vencimiento, '%d/%m/%Y %H:%i') as ciclo_vencimiento_fmt,
                 o.codigo as obligacion_codigo,
+                COALESCE(o.sigla, o.codigo) as obligacion_sigla,
+                COALESCE(o.icono, 'fas fa-balance-scale') as obligacion_icono,
+                COALESCE(o.color_hex, '#0d6efd') as obligacion_color,
+                o.imagen_ref as obligacion_imagen,
                 o.descripcion as obligacion_titulo,
                 e.nombre as entidad_nombre,
                 et.nombre as entidad_tipo_nombre,
-                pv.contenido_markdown as instructivo_contenido,
+                pv.version as procedimiento_version,
+                pv.archivo_ref as procedimiento_archivo_ref,
+                pv.archivo_nombre_original as procedimiento_archivo_nombre,
+                COALESCE(p.descripcion, '') as instructivo_contenido,
+                COALESCE(p.descripcion, '') as instructivo,
                 p.nombre as procedimiento_nombre,
-                p.codigo as procedimiento_codigo
+                p.codigo as procedimiento_codigo,
+                (SELECT u.usuario_nombre 
+                 FROM ml__ciclos_tareas_raci ctr 
+                 INNER JOIN conf__usuarios u ON u.usuario_id = ctr.usuario_id 
+                 WHERE ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1 
+                 LIMIT 1) as responsable_nombre,
+                (SELECT ctr.usuario_id 
+                 FROM ml__ciclos_tareas_raci ctr 
+                 WHERE ctr.ciclo_tarea_id = ct.ciclo_tarea_id AND ctr.raci_rol_id = 1 
+                 LIMIT 1) as responsable_usuario_id
             FROM ml__ciclos_tareas ct
             INNER JOIN ml__ciclos c ON c.ciclo_id = ct.ciclo_id
             INNER JOIN ml__obligaciones_asignadas oa ON oa.obligacion_asignada_id = c.obligacion_asignada_id
@@ -146,11 +189,11 @@ function ciclos_tareas_obtener_por_id(mysqli $conexion, int $ciclo_tarea_id, int
             INNER JOIN conf__tablas_estados_registros est ON est.tabla_estado_registro_id = ct.tabla_estado_registro_id
             LEFT JOIN ml__procedimientos_versiones pv ON pv.procedimiento_version_id = ct.procedimiento_version_id
             LEFT JOIN ml__procedimientos p ON p.procedimiento_id = pv.procedimiento_id
-            WHERE ct.ciclo_tarea_id = ? AND ct.empresa_id = ?
+            WHERE ct.ciclo_tarea_id = ? AND (ct.empresa_id = ? OR ? = 1)
             LIMIT 1";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "ii", $ciclo_tarea_id, $empresa_id);
+    mysqli_stmt_bind_param($stmt, "iii", $ciclo_tarea_id, $empresa_id, $empresa_id);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $tarea = mysqli_fetch_assoc($res);
@@ -209,6 +252,33 @@ function ciclos_tareas_obtener_por_id(mysqli $conexion, int $ciclo_tarea_id, int
     }
     $tarea['raci'] = $raci;
 
+    // Evidencias adjuntas
+    $sql_evi = "SELECT 
+                    evidencia_id,
+                    titulo,
+                    descripcion,
+                    archivo_ref,
+                    hash,
+                    es_comprobante,
+                    DATE_FORMAT(valida_hasta, '%d/%m/%Y') as valida_hasta_fmt,
+                    DATE_FORMAT(creado_en, '%d/%m/%Y %H:%i') as creado_en_fmt
+                FROM ml__evidencias
+                WHERE ciclo_tarea_id = ? AND tabla_estado_registro_id IN (1, 2039)
+                ORDER BY evidencia_id DESC";
+    $stmt_evi = mysqli_prepare($conexion, $sql_evi);
+    mysqli_stmt_bind_param($stmt_evi, "i", $ciclo_tarea_id);
+    mysqli_stmt_execute($stmt_evi);
+    $res_evi = mysqli_stmt_get_result($stmt_evi);
+    $evidencias = [];
+    while ($ev = mysqli_fetch_assoc($res_evi)) {
+        $evidencias[] = $ev;
+    }
+    $tarea['evidencias'] = $evidencias;
+    mysqli_stmt_close($stmt_evi);
+
+    // Hilo de mensajes / conversación
+    $tarea['mensajes'] = ciclos_tareas_mensajes_listar($conexion, $ciclo_tarea_id);
+
     return $tarea;
 }
 
@@ -255,4 +325,63 @@ function ciclos_tareas_ejecutar_transicion(
     }
 
     return ['ok' => true, 'mensaje' => $mensaje, 'nuevo_estado_id' => $nuevo_estado_id];
+}
+
+/**
+ * Listar mensajes / hilo de conversación de una tarea
+ */
+function ciclos_tareas_mensajes_listar(mysqli $conexion, int $ciclo_tarea_id): array {
+    $sql = "SELECT 
+                tm.tarea_mensaje_id,
+                tm.ciclo_tarea_id,
+                tm.usuario_id,
+                tm.mensaje,
+                tm.tipo,
+                DATE_FORMAT(tm.creado_en, '%d/%m/%Y %H:%i') as creado_en_fmt,
+                tm.creado_en,
+                u.usuario,
+                u.usuario_nombre,
+                COALESCE(u.usuario_nombre, u.usuario) as autor_nombre
+            FROM ml__ciclos_tareas_mensajes tm
+            INNER JOIN conf__usuarios u ON u.usuario_id = tm.usuario_id
+            WHERE tm.ciclo_tarea_id = ? AND tm.tabla_estado_registro_id = 1
+            ORDER BY tm.creado_en ASC, tm.tarea_mensaje_id ASC";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "i", $ciclo_tarea_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lista = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $lista[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+    return $lista;
+}
+
+/**
+ * Agregar mensaje al hilo de conversación de una tarea
+ */
+function ciclos_tareas_mensajes_agregar(mysqli $conexion, int $ciclo_tarea_id, int $usuario_id, string $mensaje, int $empresa_id): array {
+    $mensaje = trim($mensaje);
+    if (empty($mensaje)) {
+        return ['success' => false, 'message' => 'El mensaje no puede estar vacío.'];
+    }
+
+    $sql = "INSERT INTO ml__ciclos_tareas_mensajes (ciclo_tarea_id, usuario_id, mensaje, tipo, empresa_id, creado_en)
+            VALUES (?, ?, ?, 'COMENTARIO', ?, NOW())";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, "iisi", $ciclo_tarea_id, $usuario_id, $mensaje, $empresa_id);
+    $ok = mysqli_stmt_execute($stmt);
+    $id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($stmt);
+
+    if (!$ok) {
+        return ['success' => false, 'message' => 'Error al guardar el mensaje: ' . mysqli_error($conexion)];
+    }
+
+    return [
+        'success' => true,
+        'tarea_mensaje_id' => $id,
+        'mensaje' => 'Mensaje publicado correctamente.'
+    ];
 }

@@ -7,12 +7,12 @@
 
 declare(strict_types=1);
 
+// Sesión, empresa y acceso a la página validados antes de cualquier otra cosa (ver core/ajax_guard.php).
+require_once __DIR__ . '/../../core/ajax_guard.php';
+$ctx = ajax_guard(['pagina_idx' => 407]);
+
 ini_set('display_errors', '1');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
@@ -22,41 +22,17 @@ $conexion = $conn;
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (!isset($_SESSION['usuario_id'])) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Sesión expirada o no iniciada.',
-        'data' => null,
-        'error' => 'SESSION_EXPIRED'
-    ]);
-    exit;
-}
-
-$usuario_id = intval($_SESSION['usuario_id']);
-$empresa_idx = isset($_REQUEST['empresa_idx']) ? intval($_REQUEST['empresa_idx']) : (isset($_SESSION['empresa_id']) ? intval($_SESSION['empresa_id']) : 2);
+$usuario_id = $ctx['usuario_id'];
+$empresa_idx = $ctx['empresa_id'];
 $pagina_idx = 407;
 
-if ($empresa_idx <= 0) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Empresa no especificada o inválida.',
-        'data' => null,
-        'error' => 'INVALID_TENANT'
-    ]);
-    exit;
-}
-
-if (!usuario_tiene_acceso_pagina($conexion, $usuario_id, $empresa_idx, $pagina_idx)) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Acceso denegado a esta funcionalidad.',
-        'data' => null,
-        'error' => 'ACCESS_DENIED'
-    ]);
-    exit;
-}
-
 $accion = $_REQUEST['accion'] ?? '';
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php);
+// los botones de esas acciones están marcados data-funcion y header1.php oculta los que el perfil no tiene.
+permisos_exigir_accion($conn, 407, (string)$accion, [
+    'guardar' => (intval($_POST['norma_id'] ?? 0) > 0 ? 'editar' : 'agregar'),
+    'evaluar_impacto' => 'editar',
+]);
 
 switch ($accion) {
     case 'obtener_combos':

@@ -1,22 +1,22 @@
-// Percepciones IIBB practicadas (página 116). docs/gestion/09_percepciones_iibb.md §8
+// Percepciones IIBB practicadas (página 116). _local/docs/gestion/09_percepciones_iibb.md §8
 $(function () {
     var URL_AJAX = 'percepciones_iibb_ajax.php';
     var SITUACIONES = {
-        PADRON: 'Padrón', INSCRIPTO_JURISDICCION: 'Inscripto', SIMPLIFICADO_JURISDICCION: 'Simplificado',
+        PADRON: 'Padrón', INSCRIPTO_JURISDICCION: 'Inscripto', CONVENIO_JURISDICCION: 'Conv. Multilateral', SIMPLIFICADO_JURISDICCION: 'Simplificado',
         INSCRIPTO_OTRA_JURISDICCION: 'Sin alta en la jurisdicción', NO_INSCRIPTO: 'No inscripto', EXENTO: 'Exento', BIEN_DE_USO: 'Bien de uso'
     };
     var permisos = { exportar: false, liquidar: false };
     var resumenActual = null;
 
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
-    function moneda(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-    function fecha(d) { return d ? String(d).substr(0, 10).split('-').reverse().join('/') : ''; }
+    function moneda(v) { return Fmt.numero(Number(v || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fecha(d) { return d ? Fmt.fecha(d) : ''; }
 
     var tabla = $('#tablaPercepciones').DataTable({
         data: [],
         order: [[0, 'asc']],
         pageLength: 25,
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+        language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.6/es-ES.json' },
         columns: [
             { data: 'f_emision', render: function (d, t) { return t === 'display' ? fecha(d) : d; } },
             { data: null, render: function (r) { return esc(r.comprobante_tipo) + ' ' + esc(r.numero); } },

@@ -1,34 +1,20 @@
 <?php
 /**
  * Vista: Percepciones IIBB practicadas — DDJJ por jurisdicción y período, exportación y liquidación.
- * Módulo 2: Gestión de Empresas — Página ID 116. Diseño: docs/gestion/09_percepciones_iibb.md
+ * Módulo 2: Gestión de Empresas — Página ID 116. Diseño: _local/docs/gestion/09_percepciones_iibb.md
  */
 $pageTitle = "Percepciones IIBB";
 $currentPage = 'percepciones_iibb';
 $modudo_idx = 2;
 $pagina_idx = 116;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-sm-7">
-                    <h3 class="mb-0 fw-bold"><i class="fas fa-landmark me-2 text-primary"></i>Percepciones IIBB practicadas</h3>
-                    <small class="text-muted">Percepciones de los comprobantes de venta confirmados, por jurisdicción y período: archivo de la DDJJ y liquidación.</small>
-                </div>
-                <div class="col-sm-5">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Tesorería</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Percepciones IIBB</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Percepciones de IIBB','fas fa-landmark', 'Percepciones de los comprobantes de venta confirmados, por jurisdicción y período: archivo de la DDJJ y liquidación.', ['Tesorería']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -80,9 +66,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 <div class="modal-body">
                     <p class="small mb-2" id="perLiqTexto"></p>
                     <div class="mb-2">
-                        <label class="form-label small fw-bold mb-0" for="perLiqEntidad">Organismo recaudador *</label>
+                        <label class="form-label small fw-bold mb-0" for="perLiqEntidad">Organismo recaudador * <?= ui_ayuda('Entidad proveedora a la que se le debe (p. ej. la Agencia de Recaudación de la provincia).') ?></label>
                         <select class="form-select form-select-sm" id="perLiqEntidad" required></select>
-                        <div class="form-text">Entidad proveedora a la que se le debe (p. ej. la Agencia de Recaudación de la provincia).</div>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small fw-bold mb-0" for="perLiqSucursal">Sucursal *</label>
@@ -108,7 +93,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="percepciones_iibb.js?v=<?= filemtime(__DIR__ . '/percepciones_iibb.js') ?>"></script>
 
 <?php

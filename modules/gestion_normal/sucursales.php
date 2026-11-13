@@ -7,31 +7,14 @@ $pageTitle = "Gestión de Sucursales";
 $currentPage = 'sucursales';
 $modudo_idx = 5;
 $pagina_idx = 536; // ✅ CORREGIDO: ID de página para sucursales
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-store me-2"></i>Gestión de Sucursales
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Sucursales</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Sucursales','fas fa-store', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -92,11 +75,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="sucursal_nombre" class="form-label">Nombre de Sucursal *</label>
+                                        <label for="sucursal_nombre" class="form-label">Nombre de Sucursal * <?= ui_ayuda('Máximo 100 caracteres') ?></label>
                                         <input type="text" class="form-control" id="sucursal_nombre"
                                             name="sucursal_nombre" maxlength="100" required>
                                         <div class="invalid-feedback">El nombre es obligatorio</div>
-                                        <div class="form-text">Máximo 100 caracteres</div>
+                                        
                                     </div>
 
                                     <div class="col-md-6 mb-3">
@@ -109,39 +92,42 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     </div>
 
                                     <div class="col-md-12 mb-3">
-                                        <label for="descripcion" class="form-label">Descripción</label>
+                                        <label for="descripcion" class="form-label">Descripción <?= ui_ayuda('Máximo 255 caracteres') ?></label>
                                         <textarea class="form-control" id="descripcion" name="descripcion"
                                             maxlength="255" rows="2"></textarea>
-                                        <div class="form-text">Máximo 255 caracteres</div>
                                     </div>
 
                                     <div class="col-md-6 mb-3">
-                                        <label for="localidad_id" class="form-label">Localidad</label>
-                                        <select class="form-select" id="localidad_id" name="localidad_id">
-                                            <option value="">Seleccionar localidad...</option>
+                                        <label for="provincia_id" class="form-label">Provincia</label>
+                                        <select class="form-select" id="provincia_id" name="provincia_id">
+                                            <option value="">Seleccionar provincia...</option>
                                         </select>
                                     </div>
 
                                     <div class="col-md-6 mb-3">
-                                        <label for="telefono" class="form-label">Teléfono</label>
+                                        <label for="localidad_id" class="form-label">Localidad</label>
+                                        <select class="form-select" id="localidad_id" name="localidad_id" disabled>
+                                            <option value="">Seleccione una provincia primero</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                        <label for="telefono" class="form-label">Teléfono <?= ui_ayuda('Máximo 50 caracteres') ?></label>
                                         <input type="text" class="form-control" id="telefono" name="telefono"
                                             maxlength="50">
-                                        <div class="form-text">Máximo 50 caracteres</div>
                                     </div>
 
-                                    <div class="col-md-12 mb-3">
-                                        <label for="direccion" class="form-label">Dirección</label>
-                                        <textarea class="form-control" id="direccion" name="direccion" maxlength="255"
-                                            rows="2"></textarea>
-                                        <div class="form-text">Máximo 255 caracteres</div>
-                                    </div>
-
-                                    <div class="col-md-12 mb-3">
-                                        <label for="email" class="form-label">Email</label>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="email" class="form-label">Email <?= ui_ayuda('Máximo 100 caracteres') ?></label>
                                         <input type="email" class="form-control" id="email" name="email"
                                             maxlength="100">
                                         <div class="invalid-feedback">Formato de email inválido</div>
-                                        <div class="form-text">Máximo 100 caracteres</div>
+                                    </div>
+
+                                    <div class="col-md-12 mb-3">
+                                        <label for="direccion" class="form-label">Dirección <?= ui_ayuda('Máximo 255 caracteres') ?></label>
+                                        <textarea class="form-control" id="direccion" name="direccion" maxlength="255"
+                                            rows="2"></textarea>
                                     </div>
                                 </div>
                             </form>
@@ -181,21 +167,57 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 }, 'json');
             }
 
-            // Cargar localidades para el select
-            function cargarLocalidades(selectedId = null) {
+            // Cargar provincias y encadenar localidades por provincia
+            function cargarProvincias(selectedProvinciaId = null, selectedLocalidadId = null) {
                 $.get('sucursales_ajax.php', {
-                    accion: 'obtener_localidades_activas'
-                }, function (localidades) {
-                    var select = $('#localidad_id');
+                    accion: 'obtener_provincias'
+                }, function (provincias) {
+                    var select = $('#provincia_id');
                     select.empty();
-                    select.append('<option value="">Seleccionar localidad...</option>');
+                    select.append('<option value="">Seleccionar provincia...</option>');
 
-                    $.each(localidades, function (index, localidad) {
-                        var selected = (selectedId && localidad.localidad_id == selectedId) ? 'selected' : '';
-                        select.append(`<option value="${localidad.localidad_id}" ${selected}>${localidad.localidad}</option>`);
+                    $.each(provincias || [], function (index, prov) {
+                        var selected = (selectedProvinciaId && prov.provincia_id == selectedProvinciaId) ? 'selected' : '';
+                        select.append(`<option value="${prov.provincia_id}" ${selected}>${prov.provincia}</option>`);
                     });
+
+                    if (selectedProvinciaId) {
+                        cargarLocalidadesPorProvincia(selectedProvinciaId, selectedLocalidadId);
+                    } else {
+                        $('#localidad_id').html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
+                    }
                 }, 'json');
             }
+
+            // Cargar localidades filtradas por provincia
+            function cargarLocalidadesPorProvincia(provinciaId, selectedLocalidadId = null) {
+                var select = $('#localidad_id');
+                if (!provinciaId) {
+                    select.html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
+                    return;
+                }
+                select.prop('disabled', true).html('<option value="">Cargando...</option>');
+                $.get('sucursales_ajax.php', {
+                    accion: 'obtener_localidades_por_provincia',
+                    provincia_id: provinciaId
+                }, function (localidades) {
+                    select.empty();
+                    if (localidades && localidades.length > 0) {
+                        select.append('<option value="">Seleccionar localidad...</option>');
+                        $.each(localidades, function (index, localidad) {
+                            var selected = (selectedLocalidadId && localidad.localidad_id == selectedLocalidadId) ? 'selected' : '';
+                            select.append(`<option value="${localidad.localidad_id}" ${selected}>${localidad.localidad}</option>`);
+                        });
+                    } else {
+                        select.append('<option value="">Sin localidades para esta provincia</option>');
+                    }
+                    select.prop('disabled', false);
+                }, 'json');
+            }
+
+            $(document).on('change', '#provincia_id', function () {
+                cargarLocalidadesPorProvincia($(this).val(), null);
+            });
 
             // Configuración de DataTable
             var tabla = $('#tablaSucursales').DataTable({
@@ -332,7 +354,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     }
                 ],
                 language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+                    url: '<?= asset_local('js/datatables-i18n-1.13.4/es-ES.json') ?>'
                 },
                 order: [[1, 'asc']],
                 responsive: true,
@@ -386,7 +408,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 resetModal();
                 $('#modalLabel').text('Nueva Sucursal');
                 cargarTiposSucursales();
-                cargarLocalidades();
+                cargarProvincias();
 
                 var modal = new bootstrap.Modal(document.getElementById('modalSucursal'));
                 modal.show();
@@ -472,7 +494,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#email').val(res.email || '');
 
                         cargarTiposSucursales(res.sucursal_tipo_id);
-                        cargarLocalidades(res.localidad_id);
+                        cargarProvincias(res.provincia_id, res.localidad_id);
 
                         $('#modalLabel').text('Editar Sucursal');
 
@@ -494,6 +516,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function resetModal() {
                 $('#formSucursal')[0].reset();
                 $('#sucursal_id').val('');
+                $('#provincia_id').val('');
+                $('#localidad_id').html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
                 $('#formSucursal').removeClass('was-validated');
             }
 
@@ -608,7 +632,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             cargarBotonAgregar();
         });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 </main>
 
 <?php

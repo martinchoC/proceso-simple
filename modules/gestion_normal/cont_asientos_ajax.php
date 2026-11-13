@@ -33,6 +33,8 @@ if (empty($accion)) {
 
 $empresa_idx = intval($ctx['empresa_id']);
 $pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? $_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 84);
+// Solo una página de este módulo (si no, la de cont_asientos.php del módulo): contra ella se validan botones y acciones
+$pagina_id = permisos_pagina_modulo($conn, 5, (int)$pagina_id, 'cont_asientos.php');
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
@@ -55,6 +57,8 @@ try {
                 break;
             }
             
+            // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
+            permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, null, $registro_id, $accion_js, $pagina_id);
             enviarRespuesta($resultado);
             break;
@@ -101,7 +105,15 @@ try {
             enviarRespuesta($resultado);
             break;
             
+        case 'cambiar_cuenta_detalle':
+            // Cambia la cuenta de un renglón; en un asiento automático solo los de productos (core/cont_asientos_edicion.php)
+            permisos_exigir_funcion($conexion, (int) $pagina_id, 'editar', true);
+            enviarRespuesta(cambiarCuentaDetalleAsiento($conexion, $empresa_idx, intval($ctx['usuario_id'] ?? 0),
+                intval($_POST['cont_asiento_id'] ?? 0), (string) ($_POST['clave'] ?? ''), intval($_POST['cuenta_id'] ?? 0)));
+            break;
+
         case 'editar_asiento':
+            permisos_exigir_funcion($conexion, (int) $pagina_id, 'editar', true);
             $id = intval($_POST['id'] ?? 0);
             $fecha = $_POST['f_asiento'] ?? $_POST['fecha'] ?? '';
             error_log("Fecha recibida en editar_asiento: " . $fecha);
@@ -218,7 +230,7 @@ try {
             break;
         }
         
-        $resultado = eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empresa_idx_val);
+        $resultado = eliminarDetalleAsiento($conexion, $cuenta_id, $cont_asiento_id, $empresa_idx);
         error_log("Resultado eliminar_detalle: " . print_r($resultado, true));
         enviarRespuesta($resultado);
         break;

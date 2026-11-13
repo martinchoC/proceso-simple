@@ -1,9 +1,10 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
 /**
  * Padrones IIBB (página 115): importación y consulta del padrón de alícuotas de percepción por CUIT.
  * La importación es genérica: el formato del archivo lo resuelve el driver de formato_padron
  * (percepciones_iibb_drivers.php; hoy SIRCIP), que entrega filas normalizadas con vigencia y situación.
- * Diseño: docs/gestion/09_percepciones_iibb.md §7 y §12.
+ * Diseño: _local/docs/gestion/09_percepciones_iibb.md §7 y §12.
  */
 require_once __DIR__ . '/percepciones_iibb_core_model.php';
 require_once __DIR__ . '/percepciones_iibb_drivers.php';
@@ -228,7 +229,7 @@ function padConsultarCuit($conexion, $empresa_id, $jurisdiccion_id, $periodo, $c
 function padClientes($conexion, $empresa_id, $jurisdiccion_id, $periodo) {
     list($desde, $hasta) = padRangoPeriodo($periodo);
     return perIibbFilas($conexion,
-        "SELECT e.entidad_id, e.entidad_nombre, e.cuit, p.alicuota_percepcion, p.letra_alicuota, p.situacion_jurisdiccion,
+        "SELECT e.entidad_id, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad_nombre, e.entidad_fantasia, e.cuit, p.alicuota_percepcion, p.letra_alicuota, p.situacion_jurisdiccion,
                 p.situacion, p.codigo_origen, p.fuente, p.crc
          FROM gestion__entidades e
          LEFT JOIN gestion__padrones_iibb p ON p.padron_iibb_id = (
@@ -237,7 +238,7 @@ function padClientes($conexion, $empresa_id, $jurisdiccion_id, $periodo) {
                    AND p2.cuit = REPLACE(REPLACE(e.cuit, '-', ''), ' ', '')
                    AND p2.f_desde <= ? AND (p2.f_hasta IS NULL OR p2.f_hasta >= ?)
                  ORDER BY FIELD(p2.fuente, 'MANUAL', 'WS', 'ARCHIVO'), p2.f_desde DESC LIMIT 1)
-         WHERE e.empresa_id = ? AND e.es_cliente = 1 AND e.tabla_estado_registro_id = 1
+         WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . " AND e.tabla_estado_registro_id = 1
            AND LENGTH(REPLACE(REPLACE(e.cuit, '-', ''), ' ', '')) = 11
          ORDER BY p.padron_iibb_id IS NULL, e.entidad_nombre",
         'issi', intval($jurisdiccion_id), $hasta, $desde, intval($empresa_id));

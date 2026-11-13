@@ -1,7 +1,9 @@
 <?php
+require_once __DIR__ . '/../../core/entidades_roles.php';
+require_once __DIR__ . '/../../core/formato.php';
 /**
  * IVA - Posición Mensual (página 117 / 617 en gestion_normal): IVA Ventas, IVA Compras, percepciones y retenciones
- * por mes y liquidación de la posición del período. Script: sql/mantenimiento/20261011_iva_posiciones_01.sql.
+ * por mes y liquidación de la posición del período. Script: _local/sql/mantenimiento/20261011_iva_posiciones_01.sql.
  *
  * Fuentes (solo comprobantes fiscales, comprobante_fiscal_id > 0; el signo del tipo resta las NC):
  *   Débito fiscal       gestion__ventas_facturas(_detalles) por f_emision, estados confirmados / derivados
@@ -10,10 +12,11 @@
  *                       ventas (practicadas: IIBB 6)
  *   Retenciones         medios de tipo RETENCION de las cobranzas confirmadas (IVA 5, IIBB 4, Ganancias 21)
  * Posición: débito - crédito - percepciones IVA - retenciones IVA - saldo a favor anterior. A pagar: I_LIQ
- * (obligación 7 "IVA - Posición mensual", se paga desde Obligaciones y Rendiciones); a favor: pasa al período siguiente.
+ * (obligación 7 "IVA - Posición mensual", se paga desde Órdenes de Pago); a favor: pasa al período siguiente.
  */
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
+require_once __DIR__ . '/periodos_fiscales_core_model.php';
 require_once __DIR__ . '/obligaciones_rendiciones_model.php';   // registrarObligacionImpositiva (hace $conexion = $conn: incluir a nivel archivo)
 
 const IVA_TABLA_POSICIONES = 435;
@@ -140,10 +143,13 @@ function ivaPercepcionesPracticadas($conexion, $empresa_id, $periodo)
         'iiss', IVA_IMP_PERC_PRACTICADA, intval($empresa_id), $desde, $hasta);
 }
 
-/** Retenciones sufridas: medios de tipo RETENCION de las cobranzas confirmadas, con la cuenta del medio. */
+/**
+ * Retenciones sufridas: medios de tipo RETENCION de las cobranzas confirmadas, con la cuenta del medio, por su período
+ * de cómputo (retencion_periodo_computo; sin dato, el mes del recibo). Script 20261016_retenciones_sufridas_02_certificados.sql.
+ */
 function ivaRetencionesSufridas($conexion, $empresa_id, $periodo)
 {
-    [$desde, $hasta] = ivaRango($periodo);
+    ivaValidarPeriodo($periodo);
     return ivaFilas($conexion,
         "SELECT COALESCE(cm.impuesto_tipo_id, mp.impuesto_tipo_id) AS impuesto_tipo_id, it.impuesto_tipo, mp.medio_pago,
                 NULLIF(mp.cont_cuenta_id, 0) AS cuenta_id, COUNT(DISTINCT co.cobranza_id) AS comprobantes,
@@ -152,8 +158,9 @@ function ivaRetencionesSufridas($conexion, $empresa_id, $periodo)
          JOIN gestion__cobranzas_medios cm ON cm.cobranza_id = co.cobranza_id
          JOIN gestion__medios_pago mp ON mp.medio_pago_id = cm.medio_pago_id AND mp.medio_pago_tipo = 'RETENCION'
          LEFT JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = COALESCE(cm.impuesto_tipo_id, mp.impuesto_tipo_id)
-         WHERE co.empresa_id = ? AND COALESCE(co.f_contabilidad, co.f_emision) BETWEEN ? AND ? AND co.tabla_estado_registro_id = 5
-         GROUP BY 1, 2, 3, 4 ORDER BY 1", 'iss', intval($empresa_id), $desde, $hasta);
+         WHERE co.empresa_id = ? AND co.tabla_estado_registro_id = 5
+           AND COALESCE(cm.retencion_periodo_computo, DATE_FORMAT(COALESCE(co.f_contabilidad, co.f_emision), '%Y-%m')) = ?
+         GROUP BY 1, 2, 3, 4 ORDER BY 1", 'is', intval($empresa_id), $periodo);
 }
 
 // ------------------------------------------------------------------ posición
@@ -300,7 +307,7 @@ function ivaComprobantesPeriodo($conexion, $empresa_id, $periodo)
     $ventas = ivaFilas($conexion,
         "SELECT 'VENTA' AS libro, v.f_emision AS fecha, ct.comprobante_tipo, ct.letra, cf.codigo AS codigo_arca,
                 " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS pv, v.comprobante_nro AS numero,
-                COALESCE(e.entidad_nombre, v.consumidor_final_nombre, 'Consumidor final') AS entidad, e.cuit,
+                COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre, v.consumidor_final_nombre, 'Consumidor final') AS entidad, e.cuit,
                 IF(ct.signo = '-', -1, 1) AS signo, v.importe_neto AS neto, v.importe_iva AS iva, v.importe_no_gravado AS no_gravado,
                 v.importe_exento AS exento, v.importe_otros_impuestos AS otros, v.importe_total AS total
          FROM gestion__ventas_facturas v
@@ -312,7 +319,7 @@ function ivaComprobantesPeriodo($conexion, $empresa_id, $periodo)
          ORDER BY v.f_emision, v.comprobante_nro", 'iss', intval($empresa_id), $desde, $hasta);
     $compras = ivaFilas($conexion,
         "SELECT 'COMPRA' AS libro, COALESCE(f.f_contabilidad, f.f_emision) AS fecha, ct.comprobante_tipo, ct.letra, cf.codigo AS codigo_arca,
-                f.comprobante_pv AS pv, f.comprobante_nro AS numero, e.entidad_nombre AS entidad, e.cuit,
+                f.comprobante_pv AS pv, f.comprobante_nro AS numero, COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad, e.cuit,
                 IF(ct.signo = '-', -1, 1) AS signo, f.subtotal AS neto, f.impuestos AS iva, f.no_gravado, f.exento,
                 f.otros_impuestos AS otros, f.total
          FROM gestion__facturas_proveedores f
@@ -323,6 +330,137 @@ function ivaComprobantesPeriodo($conexion, $empresa_id, $periodo)
            AND ct.comprobante_fiscal_id > 0
          ORDER BY fecha, f.comprobante_pv, f.comprobante_nro", 'iss', intval($empresa_id), $desde, $hasta);
     return array_merge($ventas, $compras);
+}
+
+/**
+ * Libro IVA Ventas o Compras del período con columnas dinámicas: neto e IVA por alícuota (de las líneas) y una columna
+ * por percepción / impuesto adicional y jurisdicción (de gestion__comprobantes_impuestos). Importes firmados (las NC
+ * restan). Devuelve ['columnas' => [{clave, titulo, grupo}], 'filas' => [... + valores{clave: importe}], 'totales' => {clave: importe}].
+ * No gravado y exento salen de las líneas, como en la posición. La columna "control" es total - (componentes): distinta de
+ * cero señala un comprobante cuyo total no cierra con sus líneas y percepciones (unos centavos en las B por redondeo).
+ */
+function ivaLibro($conexion, $empresa_id, $periodo, $libro)
+{
+    [$desde, $hasta] = ivaRango($periodo);
+    $empresa_id = intval($empresa_id);
+    if ($libro === 'VENTAS') {
+        $estados = implode(',', IVA_ESTADOS_VENTAS);
+        $filas = ivaFilas($conexion,
+            "SELECT v.venta_factura_id AS id, v.comprobante_id, v.f_emision AS fecha, ct.codigo AS tipo, ct.comprobante_tipo, ct.letra,
+                    cf.codigo AS codigo_arca, " . emp_sql_pv_mostrar('v.punto_venta_id', 'v.empresa_id') . " AS pv, v.comprobante_nro AS numero,
+                    COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre, v.consumidor_final_nombre, 'Consumidor final') AS entidad, e.cuit,
+                    IF(ct.signo = '-', -1, 1) AS signo, v.importe_no_gravado AS no_gravado, v.importe_exento AS exento, v.importe_total AS total
+             FROM gestion__ventas_facturas v
+             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = v.comprobante_tipo_id
+             LEFT JOIN gestion__comprobantes_fiscales cf ON cf.comprobante_fiscal_id = ct.comprobante_fiscal_id
+             LEFT JOIN gestion__entidades e ON e.entidad_id = v.entidad_id
+             WHERE v.empresa_id = ? AND v.f_emision BETWEEN ? AND ? AND v.tabla_estado_registro_id IN ($estados) AND ct.comprobante_fiscal_id > 0
+             ORDER BY v.f_emision, v.punto_venta_id, v.comprobante_nro", 'iss', $empresa_id, $desde, $hasta);
+        $lineas = ivaFilas($conexion,
+            "SELECT d.venta_factura_id AS id, a.porcentaje, COALESCE(a.es_gravado, 1) AS es_gravado,
+                    SUM(IF(COALESCE(a.es_gravado, 1) = 1, d.importe_neto, 0)) AS neto, SUM(d.importe_iva) AS iva,
+                    SUM(d.importe_no_gravado + IF(a.es_no_gravado = 1 AND d.importe_no_gravado = 0, d.importe_neto, 0)) AS no_gravado,
+                    SUM(d.importe_exento + IF(a.es_exento = 1 AND d.importe_exento = 0, d.importe_neto, 0)) AS exento
+             FROM gestion__ventas_facturas v
+             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = v.comprobante_tipo_id
+             JOIN gestion__ventas_facturas_detalles d ON d.venta_factura_id = v.venta_factura_id AND COALESCE(d.tabla_estado_registro_id, 1) <> 6
+             LEFT JOIN gestion__impuestos__iva_alicuotas a ON a.iva_alicuota_id = d.iva_alicuota_id AND a.empresa_id = v.empresa_id
+             WHERE v.empresa_id = ? AND v.f_emision BETWEEN ? AND ? AND v.tabla_estado_registro_id IN ($estados) AND ct.comprobante_fiscal_id > 0
+             GROUP BY d.venta_factura_id, a.porcentaje, COALESCE(a.es_gravado, 1)", 'iss', $empresa_id, $desde, $hasta);
+    } elseif ($libro === 'COMPRAS') {
+        $filas = ivaFilas($conexion,
+            "SELECT f.factura_proveedor_id AS id, f.comprobante_id, COALESCE(f.f_contabilidad, f.f_emision) AS fecha, ct.codigo AS tipo,
+                    ct.comprobante_tipo, ct.letra, cf.codigo AS codigo_arca, f.comprobante_pv AS pv, f.comprobante_nro AS numero,
+                    COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS entidad, e.cuit, IF(ct.signo = '-', -1, 1) AS signo, f.no_gravado, f.exento, f.total
+             FROM gestion__facturas_proveedores f
+             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = f.comprobante_tipo_id
+             LEFT JOIN gestion__comprobantes_fiscales cf ON cf.comprobante_fiscal_id = ct.comprobante_fiscal_id
+             LEFT JOIN gestion__entidades e ON e.entidad_id = f.entidad_id
+             WHERE f.empresa_id = ? AND COALESCE(f.f_contabilidad, f.f_emision) BETWEEN ? AND ? AND f.tabla_estado_registro_id = 5
+               AND ct.comprobante_fiscal_id > 0
+             ORDER BY fecha, f.comprobante_pv, f.comprobante_nro", 'iss', $empresa_id, $desde, $hasta);
+        $lineas = ivaFilas($conexion,
+            "SELECT d.factura_proveedor_id AS id, a.porcentaje, COALESCE(a.es_gravado, 1) AS es_gravado,
+                    SUM(IF(COALESCE(a.es_gravado, 1) = 1, d.neto_gravado, 0)) AS neto, SUM(d.iva_importe) AS iva,
+                    SUM(d.no_gravado + IF(a.es_no_gravado = 1 AND d.no_gravado = 0, d.neto_gravado, 0)) AS no_gravado,
+                    SUM(d.exento + IF(a.es_exento = 1 AND d.exento = 0, d.neto_gravado, 0)) AS exento
+             FROM gestion__facturas_proveedores f
+             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = f.comprobante_tipo_id
+             JOIN gestion__facturas_proveedores_detalle d ON d.factura_proveedor_id = f.factura_proveedor_id
+             LEFT JOIN gestion__impuestos__iva_alicuotas a ON a.iva_alicuota_id = d.iva_alicuota_id AND a.empresa_id = f.empresa_id
+             WHERE f.empresa_id = ? AND COALESCE(f.f_contabilidad, f.f_emision) BETWEEN ? AND ? AND f.tabla_estado_registro_id = 5
+               AND ct.comprobante_fiscal_id > 0
+             GROUP BY d.factura_proveedor_id, a.porcentaje, COALESCE(a.es_gravado, 1)", 'iss', $empresa_id, $desde, $hasta);
+    } else {
+        throw new Exception('Libro inválido (VENTAS / COMPRAS).');
+    }
+
+    // Percepciones / impuestos adicionales de los comprobantes del libro
+    $comps = array_values(array_filter(array_map(function ($f) { return intval($f['comprobante_id']); }, $filas)));
+    $percs = [];
+    foreach (array_chunk($comps, 500) as $lote) {
+        $in = implode(',', array_fill(0, count($lote), '?'));
+        $percs = array_merge($percs, ivaFilas($conexion,
+            "SELECT ci.comprobante_id, ci.impuesto_tipo_id, COALESCE(ci.jurisdiccion_id, 0) AS jurisdiccion_id, it.impuesto_tipo,
+                    j.jurisdiccion_nombre, SUM(ci.importe) AS importe
+             FROM gestion__comprobantes_impuestos ci
+             LEFT JOIN gestion__impuestos_tipos it ON it.impuesto_tipo_id = ci.impuesto_tipo_id
+             LEFT JOIN gestion__jurisdicciones j ON j.jurisdiccion_id = ci.jurisdiccion_id
+             WHERE ci.tabla_estado_registro_id = 1 AND ci.comprobante_id IN ($in)
+             GROUP BY ci.comprobante_id, ci.impuesto_tipo_id, COALESCE(ci.jurisdiccion_id, 0), it.impuesto_tipo, j.jurisdiccion_nombre",
+            str_repeat('i', count($lote)), ...$lote));
+    }
+
+    $cols_alic = [];
+    $cols_perc = [];
+    $por_id = [];
+    foreach ($lineas as $l) {
+        // No gravado y exento salen de las líneas, igual que en la posición (ivaVentasAlicuotas / ivaComprasAlicuotas)
+        $por_id[$l['id']]['no_gravado'] = ($por_id[$l['id']]['no_gravado'] ?? 0) + floatval($l['no_gravado']);
+        $por_id[$l['id']]['exento'] = ($por_id[$l['id']]['exento'] ?? 0) + floatval($l['exento']);
+        if (intval($l['es_gravado']) !== 1 || $l['porcentaje'] === null) continue;
+        $p = rtrim(rtrim(number_format(floatval($l['porcentaje']), 2, '.', ''), '0'), '.');
+        $cols_alic[$p] = floatval($l['porcentaje']);
+        $por_id[$l['id']]["neto_$p"] = ($por_id[$l['id']]["neto_$p"] ?? 0) + floatval($l['neto']);
+        $por_id[$l['id']]["iva_$p"] = ($por_id[$l['id']]["iva_$p"] ?? 0) + floatval($l['iva']);
+    }
+    $perc_por_comp = [];
+    foreach ($percs as $p) {
+        $k = 'perc_' . intval($p['impuesto_tipo_id']) . '_' . intval($p['jurisdiccion_id']);
+        $cols_perc[$k] = trim(($p['impuesto_tipo'] ?: 'Impuesto ' . $p['impuesto_tipo_id'])
+                              . (intval($p['jurisdiccion_id']) > 0 && $p['jurisdiccion_nombre'] ? ' - ' . $p['jurisdiccion_nombre'] : ''));
+        $perc_por_comp[intval($p['comprobante_id'])][$k] = ($perc_por_comp[intval($p['comprobante_id'])][$k] ?? 0) + floatval($p['importe']);
+    }
+    arsort($cols_alic);
+    asort($cols_perc);
+
+    $columnas = [];
+    foreach ($cols_alic as $p => $v) $columnas[] = ['clave' => "neto_$p", 'titulo' => "Neto $p %", 'grupo' => 'neto'];
+    foreach ($cols_alic as $p => $v) $columnas[] = ['clave' => "iva_$p", 'titulo' => "IVA $p %", 'grupo' => 'iva'];
+    $columnas[] = ['clave' => 'no_gravado', 'titulo' => 'No gravado', 'grupo' => 'otros'];
+    $columnas[] = ['clave' => 'exento', 'titulo' => 'Exento', 'grupo' => 'otros'];
+    foreach ($cols_perc as $k => $t) $columnas[] = ['clave' => $k, 'titulo' => $t, 'grupo' => 'percepcion'];
+    $columnas[] = ['clave' => 'total', 'titulo' => 'Total', 'grupo' => 'total'];
+    $columnas[] = ['clave' => 'control', 'titulo' => 'Control', 'grupo' => 'control'];
+
+    $totales = array_fill_keys(array_column($columnas, 'clave'), 0.0);
+    $salida = [];
+    foreach ($filas as $f) {
+        $s = intval($f['signo']);
+        $val = array_fill_keys(array_column($columnas, 'clave'), 0.0);
+        foreach ($por_id[$f['id']] ?? [] as $k => $v) $val[$k] = ivaR($s * $v);
+        foreach ($perc_por_comp[intval($f['comprobante_id'])] ?? [] as $k => $v) $val[$k] = ivaR($s * $v);
+        $val['total'] = ivaR($s * floatval($f['total']));
+        $suma = 0.0;
+        foreach ($val as $k => $v) if ($k !== 'total' && $k !== 'control') $suma += $v;
+        $val['control'] = ivaR($val['total'] - $suma);
+        foreach ($val as $k => $v) $totales[$k] += $v;
+        $salida[] = ['fecha' => $f['fecha'], 'tipo' => $f['tipo'], 'comprobante_tipo' => $f['comprobante_tipo'], 'letra' => $f['letra'],
+                     'codigo_arca' => $f['codigo_arca'], 'pv' => intval($f['pv']), 'numero' => intval($f['numero']),
+                     'entidad' => $f['entidad'], 'cuit' => $f['cuit'], 'valores' => $val];
+    }
+    foreach ($totales as $k => $v) $totales[$k] = ivaR($v);
+    return ['libro' => $libro, 'periodo' => $periodo, 'columnas' => $columnas, 'filas' => $salida, 'totales' => $totales];
 }
 
 // ------------------------------------------------------------------ liquidación
@@ -460,12 +598,15 @@ function ivaLiquidar($conexion, $empresa_id, $usuario_id, $data)
         mysqli_stmt_execute($stmt);
         $posicion_id = mysqli_insert_id($conexion);
         mysqli_stmt_close($stmt);
+        // El período de IVA queda cerrado (Cierres Fiscales) hasta anular la liquidación
+        pfCerrarPorLiquidacion($conexion, $empresa_id, $usuario_id, IVA_IMP_POSICION, 0, $periodo, 'IVA_POSICION', $posicion_id,
+                               'Liquidación de IVA ' . $periodo);
 
         mysqli_commit($conexion);
         ivaFila($conexion, "SELECT RELEASE_LOCK(?) AS ok", 's', $lock);
         $msg = $calc['saldo_a_pagar'] > 0
-            ? "Período $periodo liquidado: a pagar $" . number_format($calc['saldo_a_pagar'], 2, ',', '.') . " (I_LIQ $numero). Se paga desde Obligaciones y Rendiciones."
-            : "Período $periodo liquidado: saldo a favor $" . number_format($calc['saldo_a_favor'], 2, ',', '.') . " (pasa al período siguiente).";
+            ? "Período $periodo liquidado: a pagar $" . fmt_numero($calc['saldo_a_pagar'], 2) . " (I_LIQ $numero). Se paga desde Órdenes de Pago."
+            : "Período $periodo liquidado: saldo a favor $" . fmt_numero($calc['saldo_a_favor'], 2) . " (pasa al período siguiente).";
         return $calc + ['iva_posicion_id' => $posicion_id, 'comprobante_id' => $comprobante_id, 'numero' => $numero,
                         'cont_asiento_id' => $asiento_id, 'message' => $msg];
     } catch (Exception $e) {
@@ -493,6 +634,7 @@ function ivaAnularLiquidacion($conexion, $empresa_id, $usuario_id, $data)
         $post = ivaFila($conexion, "SELECT periodo FROM gestion__iva_posiciones WHERE empresa_id = ? AND periodo > ? AND tabla_estado_registro_id = ? LIMIT 1",
                         'isi', $empresa_id, $periodo, IVA_POS_VIGENTE);
         if ($post) throw new Exception("Hay una liquidación posterior ({$post['periodo']}) que usa este saldo: anúlela primero.");
+        cont_periodo_exigir_asiento($conexion, $empresa_id, intval($pos['cont_asiento_id'] ?? 0), 'anular la liquidación');
 
         $comp_id = intval($pos['comprobante_id'] ?? 0);
         if ($comp_id > 0) {
@@ -501,13 +643,13 @@ function ivaAnularLiquidacion($conexion, $empresa_id, $usuario_id, $data)
             $imp = ivaFila($conexion, "SELECT COUNT(*) AS n FROM gestion__comprobantes_imputaciones WHERE comp_destino_id = ? AND tabla_estado_registro_id = 5",
                            'i', $comp_id);
             if (!$c || abs(floatval($c['importe_pendiente']) - floatval($c['importe_total'])) >= 0.01 || intval($imp['n']) > 0) {
-                throw new Exception('La liquidación (I_LIQ) ya tiene pagos: anule el pago en Obligaciones y Rendiciones antes.');
+                throw new Exception('La liquidación (I_LIQ) ya tiene pagos: anule antes la orden de pago que la cancela.');
             }
             $stmt = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = 38, importe_pendiente = 0 WHERE comprobante_id = ?");
             mysqli_stmt_bind_param($stmt, "i", $comp_id);
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
-            $stmt = mysqli_prepare($conexion, "UPDATE gestion__obligaciones_impositivas SET tabla_estado_registro_id = 38, motivo_anulacion = ?,
+            $stmt = mysqli_prepare($conexion, "UPDATE gestion__obligaciones_pago SET tabla_estado_registro_id = 38, motivo_anulacion = ?,
                                                       usuario_modificacion_id = ? WHERE comprobante_id = ? AND empresa_id = ?");
             mysqli_stmt_bind_param($stmt, "siii", $motivo, $usuario_id, $comp_id, $empresa_id);
             mysqli_stmt_execute($stmt);
@@ -528,6 +670,7 @@ function ivaAnularLiquidacion($conexion, $empresa_id, $usuario_id, $data)
         mysqli_stmt_bind_param($stmt, "isii", $estado, $motivo, $usuario_id, $pid);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
+        pfReabrirPorOrigen($conexion, $empresa_id, $usuario_id, 'IVA_POSICION', $pid, 'Liquidación anulada: ' . $motivo);
         mysqli_commit($conexion);
         return ['iva_posicion_id' => $pid, 'message' => "Liquidación de IVA $periodo anulada" . ($comp_id ? ' (I_LIQ y asiento anulados).' : ' (asiento anulado).')];
     } catch (Exception $e) {
@@ -557,6 +700,6 @@ function ivaSucursales($conexion, $empresa_id)
 function ivaOrganismos($conexion, $empresa_id)
 {
     return ivaFilas($conexion, "SELECT entidad_id, entidad_nombre FROM gestion__entidades
-                                WHERE empresa_id = ? AND es_proveedor = 1 AND tabla_estado_registro_id = 1
+                                WHERE empresa_id = ? AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . " AND tabla_estado_registro_id = 1
                                 ORDER BY (entidad_nombre LIKE '%ARCA%' OR entidad_nombre LIKE '%AFIP%') DESC, entidad_nombre", 'i', intval($empresa_id));
 }

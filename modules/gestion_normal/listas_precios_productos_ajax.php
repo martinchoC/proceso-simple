@@ -17,6 +17,17 @@ header('Content-Type: application/json; charset=utf-8');
 // asegura que, pase lo que pase, la respuesta siempre sea JSON válido.
 try {
 
+// Cada acción que escribe exige la función de la página asignada al perfil del usuario (core/permisos.php)
+// (Productos guarda precios por este endpoint: también vale su función 'editar')
+if (!in_array((string)$accion, ['agregar', 'editar'], true)
+    || !permisos_puede($conn, pagina_id_por_url($conn, 5, 'productos.php'), 'editar')) {
+    permisos_exigir_accion($conn, pagina_id_por_url($conn, 5, 'listas_precios_productos.php'), (string)$accion, [
+        'agregar' => 'agregar',
+        'editar' => 'editar',
+        'eliminar' => 'inactivar',
+        'importar' => 'agregar',
+    ]);
+}
 switch ($accion) {
     case 'listar':
         // VERSION 2026-09-05: server-side real para DataTables (antes carga
@@ -24,9 +35,7 @@ switch ($accion) {
         // por 'data' (no por índice) para mapear la columna de orden: así no
         // se rompe si el front reordena/oculta columnas más adelante.
         $filtro_lista = $_GET['filtro_lista'] ?? '';
-        $filtro_marca = $_GET['filtro_marca'] ?? '';
-        $filtro_modelo = $_GET['filtro_modelo'] ?? '';
-        $filtro_submodelo = $_GET['filtro_submodelo'] ?? '';
+        $filtro_tipo = $_GET['filtro_tipo'] ?? '';   // '' todos, 'P' productos, 'S' servicios
         $busqueda = $_GET['busqueda'] ?? '';
         $draw = intval($_GET['draw'] ?? 1);
         $start = intval($_GET['start'] ?? 0);
@@ -36,7 +45,7 @@ switch ($accion) {
             'lista_nombre'     => 'lp.lista_precio_nombre',
             'producto_codigo'  => 'p.producto_codigo',
             'producto_nombre'  => 'p.producto_nombre',
-            'compatibilidad'   => 'p.compatibilidad_texto',
+            'es_servicio'      => 'p.es_servicio',
             'precio_unitario'  => 'lpp.precio_final',
             'f_actualizacion'  => 'lpp.actualizado_en',
             // ubicaciones_info, imagen_id_principal y precio_con_iva no son
@@ -51,9 +60,7 @@ switch ($accion) {
         $resultado = obtenerListasPreciosProductos($conexion, [
             'empresa_id' => (int)$ctx['empresa_id'],
             'filtro_lista' => $filtro_lista,
-            'filtro_marca' => $filtro_marca,
-            'filtro_modelo' => $filtro_modelo,
-            'filtro_submodelo' => $filtro_submodelo,
+            'filtro_tipo' => $filtro_tipo,
             'busqueda' => $busqueda,
             'start' => $start,
             'length' => $length,

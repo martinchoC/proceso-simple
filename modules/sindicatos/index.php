@@ -18,7 +18,7 @@ define('ROOT_PATH', dirname(dirname(__DIR__)));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
 $empresa_id = (int)$current_empresa_id;
-$qs_mod = "?empresa_id={$empresa_id}&modulo_id=6";
+$qs_mod = "";
 
 // Métricas del gremio
 $qEmp = $conn->query("SELECT COUNT(*) AS total FROM sindi__empleadores WHERE empresa_id = $empresa_id AND tabla_estado_registro_id = 1");

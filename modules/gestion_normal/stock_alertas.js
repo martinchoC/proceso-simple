@@ -8,7 +8,7 @@ $(function () {
 
     const AJAX_URL = 'stock_alertas_ajax.php';
     const empresaIdx = typeof SAL_EMPRESA_ID !== 'undefined' ? SAL_EMPRESA_ID : 0;
-    const fmt = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
+    const fmt = Fmt.numberFormat({ maximumFractionDigits: 4 });
     const MOTIVOS = {
         REPOSICION: 'Repuesta',
         DESCARTADA: 'Descartada',
@@ -26,9 +26,7 @@ $(function () {
     }
 
     function fecha(v) {
-        if (!v) return '';
-        const d = new Date(v.replace(' ', 'T'));
-        return isNaN(d) ? esc(v) : d.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        return v ? esc(Fmt.fechaHora(v)) : '';
     }
 
     function vista() {
@@ -134,7 +132,7 @@ $(function () {
             ],
             order: [[0, 'desc']],
             pageLength: 25,
-            language: { url: '//cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json' }
+            language: { url: window.APP_ASSETS_URL + 'js/datatables-i18n-2.1.8/es-ES.json' }
         });
     }
 

@@ -219,8 +219,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="vencimientos_tablero.js"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<?php require_once __DIR__ . '/estudio_cliente_activo.php'; estudio_cliente_activo_script((int) $current_empresa_id); ?>
+<script src="vencimientos_tablero.js?v=<?= (int) @filemtime(__DIR__ . '/vencimientos_tablero.js') ?>"></script>
 
 <?php
 require_once ROOT_PATH . '/templates/adminlte/footer1.php';

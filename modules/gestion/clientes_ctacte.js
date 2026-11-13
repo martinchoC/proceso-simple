@@ -6,7 +6,7 @@ $(function () {
     'use strict';
 
     const UI = window.ComprobantesUI;
-    const detalle = CtacteCliente.crear('#detalleCtacte', { empresaId: EMPRESA_ID, mostrarCabecera: true });
+    const detalle = CtacteCliente.crear('#detalleCtacte', { empresaId: EMPRESA_ID, mostrarCabecera: true, csrfToken: CTACTE_CSRF });
     let tabla = null;
 
     function filtros() {
@@ -26,6 +26,19 @@ $(function () {
         };
     }
 
+    // Días desde el primer vencimiento impago (negativo = todavía no venció; null = sin vencimiento)
+    function diasAtraso(v) {
+        if (!v) return null;
+        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+        return Math.round((hoy - new Date(String(v).slice(0, 10) + 'T00:00:00')) / 86400000);
+    }
+    function atraso(v, t, r) {
+        const dias = diasAtraso(r.primer_vencimiento);
+        if (t !== 'display') return dias === null ? -99999 : dias;   // sin vencimiento: al final
+        if (dias === null || dias <= 0) return '<span class="text-muted">-</span>';
+        return '<span class="text-danger fw-semibold">' + (dias === 1 ? '1 día' : dias + ' días') + '</span>';
+    }
+
     function cargarSaldos() {
         $.getJSON('clientes_ctacte_ajax.php', filtros()).done(function (res) {
             $('#avisoSaldos').toggleClass('d-none', !res.message).text(res.message || '');
@@ -33,8 +46,9 @@ $(function () {
 
             let saldo = 0, vencido = 0;
             filas.forEach(function (f) { saldo += f.saldo; vencido += f.vencido; });
-            $('#totalesSaldos').html(filas.length + ' cliente(s) · Saldo total <strong>' + UI.moneda(saldo) +
-                '</strong> · Vencido <strong class="text-danger">' + UI.moneda(vencido) + '</strong>');
+            $('#kpiSaldoTotal').text(UI.moneda(saldo));
+            $('#kpiClientes').text(filas.length === 1 ? '1 cliente' : filas.length + ' clientes');
+            $('#kpiVencidoTotal').text(UI.moneda(vencido));
 
             if (tabla) {
                 tabla.clear().rows.add(filas).draw();
@@ -43,21 +57,23 @@ $(function () {
             tabla = $('#tablaSaldos').DataTable(UI.opcionesTabla({
                 data: filas,
                 searching: false,
-                order: [[2, 'desc']],
+                // Todo en el renglón: deuda - a favor = saldo
+                order: [[4, 'desc']],
                 columns: [
-                    { data: 'entidad_nombre', render: function (v, t, r) {
-                        return t === 'display' ? UI.esc(v) + (r.entidad_fantasia ? '<div class="text-muted">' + UI.esc(r.entidad_fantasia) + '</div>' : '') : v;
+                    { data: 'entidad_fantasia', render: function (v, t, r) {
+                        const nombre = r.entidad_fantasia || r.entidad_nombre || '';
+                        return t === 'display' ? '<span class="fw-medium">' + UI.esc(nombre) + '</span>' : nombre;
                     } },
-                    { data: 'cuit', defaultContent: '' },
-                    { data: 'saldo', className: 'text-end fw-semibold', render: function (v, t) {
+                    { data: 'cuit', defaultContent: '', className: 'text-nowrap' },
+                    { data: 'deuda', className: 'text-end ui-num', render: importe() },
+                    { data: 'a_favor', className: 'text-end ui-num', render: importe('text-success') },
+                    { data: 'saldo', className: 'text-end fw-semibold ui-num', render: function (v, t) {
                         if (t !== 'display') return v;
                         return '<span class="' + (v > 0.009 ? 'text-danger' : (v < -0.009 ? 'text-success' : 'text-muted')) + '">' + UI.moneda(v) + '</span>';
                     } },
-                    { data: 'deuda', className: 'text-end', render: importe() },
-                    { data: 'vencido', className: 'text-end', render: importe('text-danger fw-semibold') },
-                    { data: 'a_favor', className: 'text-end', render: importe('text-success') },
-                    { data: 'primer_vencimiento', render: function (v, t) { return t === 'display' ? UI.fecha(v) : (v || ''); } },
-                    { data: 'ultimo_movimiento', render: function (v, t) { return t === 'display' ? UI.fecha(v) : (v || ''); } }
+                    { data: 'vencido', className: 'text-end ui-num', render: importe('text-danger') },
+                    { data: 'primer_vencimiento', className: 'text-nowrap', render: function (v, t) { return t === 'display' ? (v ? UI.fecha(v) : '<span class="text-muted">-</span>') : (v || ''); } },
+                    { data: 'primer_vencimiento', className: 'text-end text-nowrap ui-num', render: atraso }
                 ]
             }));
         }).fail(function (xhr) {
@@ -72,8 +88,9 @@ $(function () {
         if (!fila) return;
         $('#tablaSaldos tbody tr').removeClass('table-active');
         $(this).addClass('table-active');
+        $('#cardDetalleCtacte').removeClass('d-none');
         detalle.cargar(fila.entidad_id);
-        document.getElementById('detalleCtacte').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('cardDetalleCtacte').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     let filtroTimeout = null;
@@ -95,7 +112,10 @@ $(function () {
 
     // Acceso directo desde otra pantalla: clientes_ctacte.php?entidad_id=N
     const entidadUrl = parseInt(new URLSearchParams(window.location.search).get('entidad_id'), 10);
-    if (entidadUrl > 0) detalle.cargar(entidadUrl);
+    if (entidadUrl > 0) {
+        $('#cardDetalleCtacte').removeClass('d-none');
+        detalle.cargar(entidadUrl);
+    }
 
     cargarSaldos();
 });

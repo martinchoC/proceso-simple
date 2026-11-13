@@ -9,31 +9,14 @@ $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 
 $pageTitle = "Gestión de Pedidos";
 $currentPage = 'ventas_pedidos_gestion';
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-dolly me-2"></i>Gestión de Pedidos
-                    </h3>
-                    <small class="text-muted">Preparación y entrega — pedidos pendientes y en curso</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Ventas</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Gestión de Pedidos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Pedidos de clientes','fas fa-dolly', 'Preparación y entrega — pedidos pendientes y en curso', ['Ventas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -97,7 +80,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                     <th width="140">Sucursal</th>
                                                     <th width="100">Emisión</th>
                                                     <th width="120">Estado</th>
-                                                    <th width="100" class="text-center">Preparar</th>
+                                                    <th width="100" class="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
                                             <tbody></tbody>
@@ -118,18 +101,27 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <div class="modal fade" id="modalPicking" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="fas fa-dolly me-2"></i>Preparar pedido</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <div class="modal-header">
+                    <!-- Datos del pedido (solo lectura) al lado del título, como el encabezado de entidad de clientes -->
+                    <h5 class="modal-title ui-titulo-entidad">
+                        <span><i class="fas fa-dolly me-2"></i>Preparar pedido</span>
+                        <span class="ui-entidad-datos">
+                            <span class="ui-entidad-nombre" id="picking_cliente_fantasia">-</span>
+                            <span class="ui-entidad-chip" style="font-variant-numeric: tabular-nums;">N° <span id="picking_comprobante_nro">-</span></span>
+                            <span class="ui-entidad-chip"><i class="fas fa-store"></i><span id="picking_sucursal">-</span></span>
+                            <span class="ui-entidad-chip"><i class="far fa-calendar"></i><span id="picking_f_emision">-</span></span>
+                            <span class="ui-entidad-chip ui-chip-claro" id="picking_estado_badge">-</span>
+                        </span>
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-light ms-auto me-2" id="btnImprimirPedidoPicking" title="Imprimir pedido"><i class="fas fa-print me-1"></i>Imprimir</button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">
 
-                    <!-- Cabecera del picking: dos recuadros con título de grupo (no por campo),
-                         cada uno con su color para distinguirlos de un vistazo. Primero el
-                         remito que se está armando (lo que hay que completar), después el
-                         pedido de referencia (solo lectura). -->
+                    <!-- Cabecera del picking: el remito que se está armando (lo que hay que completar).
+                         Los datos del pedido de referencia van en el encabezado del modal. -->
                     <div class="row g-2 mb-3">
-                        <div class="col-md-5">
+                        <div class="col-md-6 col-lg-5">
                             <div class="card card-outline card-primary mb-0 h-100">
                                 <div class="card-header py-1 bg-primary bg-opacity-10">
                                     <h6 class="mb-0 small">Datos del Remito</h6>
@@ -145,32 +137,6 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         </div>
                                         <div class="col-4">
                                             <input type="date" class="form-control form-control-sm" id="picking_remito_f_emision" aria-label="Fecha de emisión">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-7">
-                            <div class="card card-outline card-secondary mb-0 h-100">
-                                <div class="card-header py-1 bg-secondary bg-opacity-10">
-                                    <h6 class="mb-0 small">Datos Cabecera Pedido</h6>
-                                </div>
-                                <div class="card-body py-2 d-flex align-items-center">
-                                    <div class="row g-2 text-center small w-100">
-                                        <div class="col">
-                                            <div class="fw-bold" id="picking_sucursal">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="fw-bold" id="picking_comprobante_tipo">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="fw-bold" id="picking_comprobante_nro">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div class="fw-bold" id="picking_f_emision">-</div>
-                                        </div>
-                                        <div class="col">
-                                            <div id="picking_estado_badge">-</div>
                                         </div>
                                     </div>
                                 </div>
@@ -306,7 +272,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             font-size: 0.85rem;
             padding: 0.2rem 0;
         }
-        .cantidad-stepper-input:focus { outline: none; }
+        .cantidad-stepper-input:focus { outline: none; background: #fff8e1; }
+        .input-cantidad-picking::-webkit-outer-spin-button,
+        .input-cantidad-picking::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-cantidad-picking { -moz-appearance: textfield; appearance: textfield; width: 56px; }
         .badge-ubicacion { font-size: 0.7rem; padding: 0.2rem 0.4rem; margin-bottom: 0.1rem; border-radius: 0.25rem; }
         .badge-seccion { background-color: #dc3545 !important; color: #ffffff !important; }
         .badge-estanteria { background-color: #ffc107 !important; color: #000000 !important; }
@@ -356,15 +325,15 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </style>
 
     <link rel="stylesheet" type="text/css"
-        href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+        href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
 
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+    <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+    <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+    <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+    <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     <script>
         const PAGINA_ID = <?= $pagina_id ?>;
         const EMPRESA_ID = <?= $empresa_id ?>;

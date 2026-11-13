@@ -8,43 +8,25 @@ $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 2;
 $pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 72; // ID de página para Tipos de Impuestos
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $pagina_idx = $pagina_id;
+$ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <!-- Estilos y librerías requeridas (Select2 y DataTables Buttons) -->
-<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+<link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+<link rel="stylesheet" href="<?= asset_local('css/select2-4.1.0-rc.0/select2.min.css') ?>" />
+<link rel="stylesheet" href="<?= asset_local('css/select2-bootstrap-5-theme-1.3.0/select2-bootstrap-5-theme.min.css') ?>" />
 
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+<script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/select2.min.js') ?>"></script>
+<script src="<?= asset_local('js/select2-4.1.0-rc.0/i18n/es.js') ?>"></script>
 
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-tags me-2"></i>Tipos de Impuestos
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item"><a href="#">Impuestos</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Tipos de Impuestos</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Tipos de impuesto','fas fa-tags', '', ['Impuestos']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -141,18 +123,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <label for="codigo_afip" class="form-label">Código AFIP</label>
+                                        <label for="codigo_afip" class="form-label">Código AFIP <?= ui_ayuda('Código según nomenclador AFIP (opcional)') ?></label>
                                         <input type="text" class="form-control" id="codigo_afip" 
                                             name="codigo_afip" maxlength="20">
-                                        <div class="form-text">Código según nomenclador AFIP (opcional)</div>
                                     </div>
                                     
                                     <div class="col-md-6 mb-3">
-                                        <label for="cuenta_contable_id" class="form-label">Cuenta Contable</label>
+                                        <label for="cuenta_contable_id" class="form-label">Cuenta Contable <?= ui_ayuda('Cuenta contable asociada (opcional)') ?></label>
                                         <select class="form-select select2-cuenta" id="cuenta_contable_id" name="cuenta_contable_id">
                                             <option value="">Seleccione una cuenta contable...</option>
                                         </select>
-                                        <div class="form-text">Cuenta contable asociada (opcional)</div>
                                     </div>
                                 </div>
 
@@ -380,7 +360,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     columns: [
                         {
                             data: 'impuesto_tipo_id',
-                            className: 'text-center fw-bold'
+                            className: 'ui-detalle'
                         },
                         {
                             data: 'impuesto_tipo',

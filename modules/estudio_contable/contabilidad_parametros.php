@@ -16,7 +16,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
-$empresa_id = intval($_SESSION['empresa_id'] ?? 2);
+$empresa_id = (int) $current_empresa_id; // empresa validada por header1.php, sin default
 
 require_once __DIR__ . '/../../db.php';
 // Selector de empresas disponibles para configurar
@@ -200,7 +200,7 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
 
                 <div class="card border-0 shadow-sm mt-3">
                     <div class="card-body py-2 text-end">
-                        <button type="submit" class="btn btn-primary btn-sm px-4 shadow-sm" id="btnGuardarParam">
+                        <button type="submit" class="btn btn-primary btn-sm px-4 shadow-sm" id="btnGuardarParam" data-funcion="editar">
                             <i class="fas fa-save me-1"></i>Guardar Parámetros Contables
                         </button>
                     </div>
@@ -210,5 +210,6 @@ $empresas_res = mysqli_query($conn, "SELECT empresa_id, empresa, documento_numer
     </div>
 </main>
 
+<script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <script src="contabilidad_parametros.js"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

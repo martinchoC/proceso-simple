@@ -1,4 +1,4 @@
-// IVA - Posición Mensual (página 117 / 617). Script: sql/mantenimiento/20261011_iva_posiciones_01.sql
+// IVA - Posición Mensual (página 117 / 617). Script: _local/sql/mantenimiento/20261011_iva_posiciones_01.sql
 $(function () {
     var URL_AJAX = 'iva_posiciones_ajax.php';
     var permisos = { liquidar: false, anular: false };
@@ -6,8 +6,8 @@ $(function () {
     var detalleActual = null;
 
     function esc(t) { return $('<div>').text(t == null ? '' : t).html(); }
-    function moneda(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-    function fecha(d) { return d ? String(d).substr(0, 10).split('-').reverse().join('/') : ''; }
+    function moneda(v) { return Fmt.numero(Number(v || 0), { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fecha(d) { return d ? Fmt.fecha(d) : ''; }
     function nombreMes(p) {
         var m = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         return m[parseInt(p.substr(5, 2), 10) - 1] + ' ' + p.substr(0, 4);
@@ -17,25 +17,44 @@ $(function () {
     }
     function signo(v) { return Number(v) < 0 ? 'text-danger' : ''; }
 
-    var tablaLibro = $('#tablaIvaLibro').DataTable({
-        data: [], order: [[1, 'asc']], pageLength: 25,
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
-        columns: [
-            { data: 'libro', render: function (d) { return d === 'VENTA' ? '<span class="badge bg-primary">Ventas</span>' : '<span class="badge bg-secondary">Compras</span>'; } },
-            { data: 'fecha', render: function (d, t) { return t === 'display' ? fecha(d) : d; } },
-            { data: null, render: function (r) {
-                return esc(r.comprobante_tipo) + ' ' + String(r.pv || 0).padStart(4, '0') + '-' + String(r.numero || 0).padStart(8, '0')
-                     + (r.codigo_arca ? ' <small class="text-muted">(' + esc(r.codigo_arca) + ')</small>' : '');
-            } },
-            { data: 'entidad', render: esc },
-            { data: 'cuit', render: esc },
-            { data: null, className: 'text-end', render: function (r) { return moneda(r.signo * r.neto); } },
-            { data: null, className: 'text-end', render: function (r) { return moneda(r.signo * r.iva); } },
-            { data: null, className: 'text-end', render: function (r) { return moneda(r.signo * (Number(r.no_gravado) + Number(r.exento))); } },
-            { data: null, className: 'text-end', render: function (r) { return moneda(r.signo * r.otros); } },
-            { data: null, className: 'text-end fw-bold', render: function (r) { return moneda(r.signo * r.total); } }
-        ]
-    });
+    // Libro IVA con columnas dinámicas (alícuotas y percepciones del período): tabla HTML simple
+    function renderLibro(destino, l) {
+        var cols = l.columnas;
+        var cab = '<th>Fecha</th><th>Comprobante</th><th>' + (l.libro === 'VENTAS' ? 'Cliente' : 'Proveedor') + '</th><th>CUIT</th>'
+            + cols.map(function (c) {
+                return '<th class="text-end' + (c.grupo === 'percepcion' ? ' text-info' : '') + '" title="' + esc(c.titulo) + '">' + esc(c.titulo) + '</th>';
+            }).join('');
+        var cuerpo = l.filas.map(function (f) {
+            return '<tr><td class="text-nowrap">' + fecha(f.fecha) + '</td>'
+                + '<td class="text-nowrap">' + esc(f.comprobante_tipo) + ' ' + String(f.pv || 0).padStart(4, '0') + '-' + String(f.numero || 0).padStart(8, '0')
+                + (f.codigo_arca ? ' <small class="text-muted">(' + esc(f.codigo_arca) + ')</small>' : '') + '</td>'
+                + '<td>' + esc(f.entidad) + '</td><td class="text-nowrap">' + esc(f.cuit || '') + '</td>'
+                + cols.map(function (c) {
+                    var v = Number(f.valores[c.clave] || 0);
+                    if (c.grupo === 'control') {
+                        return '<td class="text-end ' + (Math.abs(v) > 0.05 ? 'text-danger fw-bold' : 'text-muted') + '">' + (Math.abs(v) >= 0.01 ? moneda(v) : '') + '</td>';
+                    }
+                    return '<td class="text-end' + (c.grupo === 'total' ? ' fw-bold' : '') + '">' + (v ? moneda(v) : '') + '</td>';
+                }).join('') + '</tr>';
+        }).join('') || '<tr><td colspan="' + (cols.length + 4) + '" class="text-muted small">Sin comprobantes fiscales en el período.</td></tr>';
+        var pie = '<tr class="fw-bold table-light"><td colspan="4">Totales (' + l.filas.length + ' comprobantes)</td>'
+            + cols.map(function (c) { return '<td class="text-end">' + moneda(l.totales[c.clave]) + '</td>'; }).join('') + '</tr>';
+        $(destino).html('<div class="table-responsive" style="max-height: 60vh;"><table class="table table-sm table-striped table-hover align-middle mb-0 small">'
+            + '<thead class="table-light" style="position: sticky; top: 0;"><tr>' + cab + '</tr></thead><tbody>' + cuerpo + '</tbody><tfoot>' + pie + '</tfoot></table></div>'
+            + '<small class="text-muted">Importes firmados (las notas de crédito restan). Control = total − (netos + IVA + no gravado + exento + percepciones): '
+            + 'en rojo, comprobantes cuyo total no cierra con sus líneas; unos centavos en las facturas B son redondeo.</small>');
+    }
+
+    function cargarLibros(periodo) {
+        $('#ivaTabLibroVentas, #ivaTabLibroCompras').each(function () {
+            var destino = this, libro = $(this).data('libro');
+            $(destino).html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i></div>');
+            $.getJSON(URL_AJAX, { accion: 'libro', periodo: periodo, libro: libro }, function (r) {
+                if (!r || !r.success) { $(destino).html('<div class="text-danger small">' + esc((r && r.message) || 'No se pudo cargar el libro.') + '</div>'); return; }
+                renderLibro(destino, r.data);
+            }).fail(function (x) { $(destino).html('<div class="text-danger small">No se pudo cargar el libro.</div>'); });
+        });
+    }
 
     // ---------------------------------------------------------------- resumen de 12 meses
     function cargarResumen() {
@@ -140,7 +159,7 @@ $(function () {
                  + (v.observaciones ? ' · ' + esc(v.observaciones) : '') + '</div>';
         } else {
             pos += '<div class="small text-muted">Sin liquidar. Al liquidar se genera el asiento de la posición'
-                 + (c.saldo_a_pagar > 0 ? ' y la obligación (I_LIQ), que se paga desde Obligaciones y Rendiciones.' : '; el saldo a favor pasa al período siguiente.') + '</div>';
+                 + (c.saldo_a_pagar > 0 ? ' y la obligación (I_LIQ), que se paga desde Órdenes de Pago.' : '; el saldo a favor pasa al período siguiente.') + '</div>';
         }
         $('#ivaTabPosicion').html(pos);
         $('#ivaTabVentas').html(tablaAlicuotas(d.ventas, false));
@@ -163,9 +182,7 @@ $(function () {
             detalleActual = r.data;
             renderDetalle(r.data);
         }).fail(function (x) { error(x, 'No se pudo cargar el período.'); });
-        $.getJSON(URL_AJAX, { accion: 'comprobantes', periodo: periodo }, function (r) {
-            tablaLibro.clear().rows.add((r && r.success) ? r.data : []).draw();
-        });
+        cargarLibros(periodo);
     }
 
     function recargarTodo() {
@@ -177,8 +194,9 @@ $(function () {
     $('#tablaIvaMeses').on('click', 'tr.fila-mes', function () { cargarDetalle($(this).data('periodo')); });
     $('#ivaHasta').on('change', cargarResumen);
     $('#btnIvaRecargar').on('click', recargarTodo);
-    $('#btnIvaLibro').on('click', function () {
-        if (periodoActual) window.location = URL_AJAX + '?accion=exportar_libro&periodo=' + encodeURIComponent(periodoActual);
+    $(document).on('click', '.btn-iva-csv', function (e) {
+        e.preventDefault();
+        if (periodoActual) window.location = URL_AJAX + '?' + $.param({ accion: 'exportar_libro', periodo: periodoActual, libro: $(this).data('libro') });
     });
 
     $('#btnIvaLiquidar').on('click', function () {

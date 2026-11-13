@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/formato.php';
 /**
  * obligaciones_rendiciones_model.php
  *
@@ -16,7 +17,9 @@ require_once __DIR__ . '/../../core/empresa_config.php';
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/tesoreria_core_model.php';
+require_once __DIR__ . '/../../core/obligaciones/obligaciones_service.php';
 
 $conexion = $conn;
 
@@ -25,7 +28,7 @@ $conexion = $conn;
 // Tablas ID
 // conf__tablas.tabla_id de cada tabla origen (gestion__comprobantes.tabla_origen_id).
 // recalcularEstadoDestino() reconoce I_LIQ y RG_REND por este id.
-if (!defined('TABLA_OBLIGACIONES_ID')) define('TABLA_OBLIGACIONES_ID', 286); // gestion__obligaciones_impositivas
+if (!defined('TABLA_OBLIGACIONES_ID')) define('TABLA_OBLIGACIONES_ID', 286); // gestion__obligaciones_pago (antes obligaciones_impositivas)
 if (!defined('TABLA_PAGOS_IMP_ID'))    define('TABLA_PAGOS_IMP_ID', 277);    // gestion__pagos_impuestos
 if (!defined('TABLA_RENDICIONES_ID'))  define('TABLA_RENDICIONES_ID', 287);  // gestion__rendiciones
 if (!defined('TABLA_ANTICIPOS_ID'))    define('TABLA_ANTICIPOS_ID', 281);    // gestion__rendiciones_anticipos
@@ -67,10 +70,10 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
     $empresa_id = intval($empresa_id);
 
     $sql = "SELECT oi.*, c.importe_pendiente, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
-                   e.entidad_nombre AS organismo,
+                   COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS organismo,
                    s.sucursal_nombre AS sucursal,
                    er.codigo_estandar AS estado_codigo, er.estado_registro
-            FROM gestion__obligaciones_impositivas oi
+            FROM gestion__obligaciones_pago oi
             JOIN gestion__comprobantes c ON c.comprobante_id = oi.comprobante_id
             JOIN gestion__sucursales s ON s.sucursal_id = oi.sucursal_id
             LEFT JOIN gestion__entidades e ON e.entidad_id = oi.entidad_id
@@ -104,7 +107,7 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
         $types .= "i";
     }
 
-    $sql .= " ORDER BY oi.f_vto ASC, oi.obligacion_impositiva_id DESC";
+    $sql .= " ORDER BY oi.f_vto ASC, oi.obligacion_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return ['data' => []];
@@ -115,7 +118,7 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
 
     $datos = [];
     while ($row = mysqli_fetch_assoc($res)) {
-        $id = intval($row['obligacion_impositiva_id']);
+        $id = intval($row['obligacion_id']);
         $comp_id = intval($row['comprobante_id']);
         $total = floatval($row['importe_total']);
         $pendiente = floatval($row['importe_pendiente']);
@@ -155,10 +158,10 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
             'periodo_fiscal'    => '<span class="badge bg-light text-dark border">' . htmlspecialchars($row['periodo_fiscal']) . '</span>',
             'descripcion'       => htmlspecialchars($row['descripcion']),
             'organismo'         => htmlspecialchars($row['organismo'] ?? 'ARCA / AFIP'),
-            'f_vto'             => date('d/m/Y', strtotime($row['f_vto'])),
+            'f_vto'             => fmt_fecha($row['f_vto']),
             'nro_vep'           => htmlspecialchars($row['nro_vep'] ?? '-'),
-            'importe_total'     => '<span class="fw-bold">$' . number_format($total, 2, ',', '.') . '</span>',
-            'importe_pendiente' => '<span class="fw-bold text-danger">$' . number_format($pendiente, 2, ',', '.') . '</span>',
+            'importe_total'     => '<span class="fw-bold">$' . fmt_numero($total, 2) . '</span>',
+            'importe_pendiente' => '<span class="fw-bold text-danger">$' . fmt_numero($pendiente, 2) . '</span>',
             'estado'            => $badge,
             'acciones'          => $botones
         ];
@@ -168,386 +171,66 @@ function obtenerObligacionesListado($conexion, $empresa_id, $filtros = [])
     return ['data' => $datos];
 }
 
-/**
- * Registra una Liquidación Impositiva (I_LIQ)
- * Opcionales en $datos:
- *  - cuenta_debe_id: cuenta del Debe del asiento de devengamiento (por defecto Otros Gastos Generales). Las
- *    percepciones IIBB practicadas ya están en el pasivo: se liquidan con Debe = Haber = la cuenta a depositar.
- *  - en_transaccion: true = corre dentro de la transacción del llamador (no abre ni confirma la suya).
- */
 function registrarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
 {
-    $propia = empty($datos['en_transaccion']);
-    $cuenta_debe_id = intval($datos['cuenta_debe_id'] ?? 0);
-    $empresa_id       = intval($empresa_id);
-    $usuario_id       = intval($usuario_id);
-    $sucursal_id      = intval($datos['sucursal_id'] ?? 0);
-    $entidad_id       = intval($datos['entidad_id'] ?? 3); // Organismo recaudador (AFIP, ARBA, etc)
-    $f_emision        = !empty($datos['f_emision']) ? $datos['f_emision'] : date('Y-m-d');
-    $f_vto            = !empty($datos['f_vto']) ? $datos['f_vto'] : date('Y-m-d', strtotime('+10 days'));
-    $periodo_fiscal   = trim($datos['periodo_fiscal'] ?? date('Y-m'));
-    $descripcion      = trim($datos['descripcion'] ?? 'Liquidación Impositiva');
-    $nro_ddjj         = trim($datos['nro_ddjj'] ?? '');
-    $nro_vep          = trim($datos['nro_vep'] ?? '');
-    $importe_total    = floatval($datos['importe_total'] ?? 0);
-    $moneda_id        = emp_moneda_id($conexion, $empresa_id, $datos['moneda_id'] ?? 0);
-    $cont_cuenta_id   = intval($datos['cont_cuenta_id'] ?? 0);
-    $impuesto_tipo_id = intval($datos['impuesto_tipo_id'] ?? 7);
-    if ($impuesto_tipo_id <= 0) {
-        $impuesto_tipo_id = 7;
+    // Desde 2026-10-30 toda obligación (impuestos, sueldos, anticipos) se registra en gestion__obligaciones_pago con
+    // core/obligaciones/obligaciones_service.php y se paga con Órdenes de Pago. Esta función queda como puerta de
+    // entrada de los generadores impositivos (IVA, percepciones IIBB, retenciones) y de la carga manual vieja.
+    // Opcionales en $datos:
+    //  - cuenta_debe_id: cuenta del Debe del devengamiento (por defecto la del tipo o Otros Gastos Generales). Las
+    //    percepciones IIBB practicadas ya están en el pasivo: se liquidan con Debe = Haber = la cuenta a depositar.
+    //  - sin_asiento: el llamador genera su propio asiento sobre esta I_LIQ (liquidación de la posición de IVA).
+    //  - en_transaccion: true = corre dentro de la transacción del llamador.
+    $impuesto = intval($datos['impuesto_tipo_id'] ?? 7) ?: 7;
+    if ($impuesto === 7) {
+        [$tipo, $origen] = ['IMP_IVA', 'IVA_POSICION'];
+    } elseif ($impuesto === 6) {
+        [$tipo, $origen] = ['IMP_PER_IIBB', 'PERCEPCIONES_IIBB'];
+    } elseif ($impuesto === 9) {
+        [$tipo, $origen] = ['IMP_IIBB', 'IIBB_POSICION'];
+    } elseif (in_array($impuesto, [14, 15, 16, 17, 22], true)) {
+        [$tipo, $origen] = ['IMP_RET', 'RETENCIONES_LIQ'];
+    } else {
+        [$tipo, $origen] = ['IMP_VARIOS', 'MANUAL'];
     }
-
-    if ($importe_total <= 0) {
-        throw new Exception("El importe de la obligación debe ser mayor a cero.");
-    }
-    if (empty($periodo_fiscal)) {
-        throw new Exception("Debe especificar el período fiscal (AAAA-MM).");
-    }
-
-    if ($propia) mysqli_begin_transaction($conexion);
-
-    try {
-        // Resolver cuenta contable del impuesto si no viene
-        if ($cont_cuenta_id <= 0) {
-            $res_c = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'IVA a Pagar', emp_cuenta_concepto_id($conexion, $empresa_id, 'IVA_A_PAGAR'));
-            $cont_cuenta_id = $res_c['cont_cuenta_id'];
-        }
-
-        // Correlativo
-        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
-        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
-        $tipo_i_liq = orTipoComprobanteId($conexion, $empresa_id, 'I_LIQ');
-        $numero = orProximoNumero($conexion, $empresa_id, $tipo_i_liq, $prefijo);
-
-        // 1. Insertar Cabecera en gestion__comprobantes
-        $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_OBLIGACIONES_ID);
-        $registro_origen_id = intval($res_reg->fetch_assoc()['prox_reg'] ?? 1);
-        $tabla_origen_id = TABLA_OBLIGACIONES_ID;
-        $modulo = 'TESORERIA';
-
-        $sql_comp = "INSERT INTO gestion__comprobantes (
-                        tabla_origen_id, registro_origen_id, modulo, entidad_id,
-                        empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
-                        f_emision, f_contabilidad, f_vto, moneda_id, tipo_cambio,
-                        importe_bruto, importe_neto, importe_total, importe_pendiente,
-                        observaciones, tabla_estado_registro_id, usuario_id
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, ?, ?, ?, ?, ?, ?, ?)";
-
-        $stmt_c = mysqli_prepare($conexion, $sql_comp);
-        $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_id = $tipo_i_liq;
-        mysqli_stmt_bind_param(
-            $stmt_c, "iisiiiiiisssiddddsii",
-            $tabla_origen_id, $registro_origen_id, $modulo, $entidad_id,
-            $empresa_id, $sucursal_id, $comp_tipo_id, $prefijo, $numero,
-            $f_emision, $f_emision, $f_vto, $moneda_id,
-            $importe_total, $importe_total, $importe_total, $importe_total,
-            $descripcion, $est_conf, $usuario_id
-        );
-        mysqli_stmt_execute($stmt_c);
-        $comprobante_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_c);
-
-        // 2. Insertar en gestion__obligaciones_impositivas
-        $sql_oi = "INSERT INTO gestion__obligaciones_impositivas (
-                        empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
-                        comprobante_id, entidad_id, f_emision, f_contabilidad, f_vto,
-                        impuesto_tipo_id, periodo_fiscal, descripcion, nro_ddjj, nro_vep, cont_cuenta_id,
-                        moneda_id, tipo_cambio, importe_total, tabla_estado_registro_id, usuario_id
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, ?, ?, ?)";
-        $stmt_oi = mysqli_prepare($conexion, $sql_oi);
-        mysqli_stmt_bind_param(
-            $stmt_oi, "iiiiiiisssissssiidii",
-            $empresa_id, $sucursal_id, $comp_tipo_id, $prefijo, $numero,
-            $comprobante_id, $entidad_id, $f_emision, $f_emision, $f_vto,
-            $impuesto_tipo_id, $periodo_fiscal, $descripcion, $nro_ddjj, $nro_vep, $cont_cuenta_id,
-            $moneda_id, $importe_total, $est_conf, $usuario_id
-        );
-        mysqli_stmt_execute($stmt_oi);
-        $obligacion_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_oi);
-
-        // Actualizar registro_origen_id con obligacion_id
-        $conexion->query("UPDATE gestion__comprobantes SET registro_origen_id = $obligacion_id WHERE comprobante_id = $comprobante_id");
-
-        // 3. Asiento Contable Automático de Devengamiento Impositivo (D27 / D36)
-        // DEBE: Otros Gastos Generales (GASTOS_GENERALES) / HABER: IVA a Pagar (IVA_A_PAGAR)
-        // sin_asiento: el llamador genera su propio asiento sobre esta I_LIQ (liquidación de la posición de IVA)
-        $asiento_id = null;
-        if (empty($datos['sin_asiento'])) {
-        $res_gasto = $cuenta_debe_id > 0
-            ? ['cont_cuenta_id' => $cuenta_debe_id]
-            : tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Otros Gastos Generales', emp_cuenta_concepto_id($conexion, $empresa_id, 'GASTOS_GENERALES'));
-
-        $asiento_id = tesoreriaGenerarAsiento($conexion, [
-            'empresa_id'           => $empresa_id,
-            'sucursal_id'          => $sucursal_id,
-            'comprobante_id'       => $comprobante_id,
-            'entidad_id'           => $entidad_id,
-            'f_asiento'            => $f_emision,
-            'descripcion'          => "Devengamiento {$descripcion} ({$periodo_fiscal}) VEP: {$nro_vep}",
-            'usuario_id'           => $usuario_id,
-        ], [
-            [
-                'cuenta_id'   => $res_gasto['cont_cuenta_id'],
-                'debe'        => $importe_total,
-                'haber'       => 0.0,
-                'descripcion' => "Gasto devengado {$descripcion}"
-            ],
-            [
-                'cuenta_id'   => $cont_cuenta_id,
-                'debe'        => 0.0,
-                'haber'       => $importe_total,
-                'descripcion' => "Obligación fiscal a pagar"
-            ]
-        ]);
-        }
-
-        if ($propia) mysqli_commit($conexion);
-
-        return [
-            'success'        => true,
-            'obligacion_id'  => $obligacion_id,
-            'comprobante_id' => $comprobante_id,
-            'numero'         => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
-            'asiento_id'     => $asiento_id,
-            'mensaje'        => "Obligación impositiva " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrada con éxito."
-        ];
-
-    } catch (Exception $e) {
-        if ($propia) mysqli_rollback($conexion);
-        error_log("Error en registrarObligacionImpositiva: " . $e->getMessage());
-        throw $e;
-    }
+    $res = obl_registrar($conexion, [
+        'tipo_codigo'           => $datos['tipo_codigo'] ?? $tipo,
+        'origen'                => $datos['origen'] ?? $origen,
+        'origen_registro_id'    => $datos['origen_registro_id'] ?? null,
+        'entidad_id'            => intval($datos['entidad_id'] ?? 0),
+        'sucursal_id'           => intval($datos['sucursal_id'] ?? 0),
+        'f_emision'             => $datos['f_emision'] ?? date('Y-m-d'),
+        'f_vto'                 => $datos['f_vto'] ?? date('Y-m-d', strtotime('+10 days')),
+        'periodo_fiscal'        => $datos['periodo_fiscal'] ?? date('Y-m'),
+        'descripcion'           => $datos['descripcion'] ?? 'Liquidación Impositiva',
+        'nro_ddjj'              => $datos['nro_ddjj'] ?? '',
+        'nro_vep'               => $datos['nro_vep'] ?? '',
+        'importe_total'         => floatval($datos['importe_total'] ?? 0),
+        'moneda_id'             => $datos['moneda_id'] ?? 0,
+        'impuesto_tipo_id'      => $impuesto,
+        'jurisdiccion_id'       => $datos['jurisdiccion_id'] ?? null,
+        'cont_cuenta_pasivo_id' => intval($datos['cont_cuenta_id'] ?? 0) ?: emp_cuenta_concepto_id($conexion, $empresa_id, 'IVA_A_PAGAR'),
+        'cont_cuenta_debe_id'   => intval($datos['cuenta_debe_id'] ?? 0),
+        'confirmar'             => 'FORZAR',
+        'sin_asiento'           => !empty($datos['sin_asiento']),
+    ], intval($empresa_id), intval($usuario_id), !empty($datos['en_transaccion']));
+    return [
+        'success'        => true,
+        'obligacion_id'  => $res['obligacion_id'],
+        'comprobante_id' => $res['comprobante_id'],
+        'numero'         => $res['numero'],
+        'asiento_id'     => $res['asiento_id'],
+        'mensaje'        => "Obligación impositiva {$res['numero']} registrada: se paga desde Órdenes de Pago.",
+    ];
 }
 
 /**
- * Paga una Obligación Impositiva con Comprobante I_PAG (D8, D15, D27/D36)
+ * Pago de obligaciones con I_PAG: reemplazado por Órdenes de Pago (2026-10-30). Las I_PAG históricas quedan como están.
  */
 function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
 {
-    $empresa_id             = intval($empresa_id);
-    $usuario_id             = intval($usuario_id);
-    $obligacion_id          = intval($datos['obligacion_id'] ?? 0);
-    $tesoreria_cuenta_id    = intval($datos['tesoreria_cuenta_id'] ?? 0);
-    $f_pago                 = !empty($datos['f_pago']) ? $datos['f_pago'] : date('Y-m-d');
-    $importe_pago           = floatval($datos['importe_pago'] ?? 0);
-    $nro_operacion          = trim($datos['nro_operacion'] ?? '');
-    $observaciones          = trim($datos['observaciones'] ?? '');
-
-    if ($obligacion_id <= 0 || $tesoreria_cuenta_id <= 0) {
-        throw new Exception("Debe especificar la obligación a pagar y la cuenta de tesorería bancaria/caja.");
-    }
-    if ($importe_pago <= 0) {
-        throw new Exception("El importe a pagar debe ser mayor a cero.");
-    }
-
-    mysqli_begin_transaction($conexion);
-
-    try {
-        // Bloquear obligación y comprobante
-        $sql_ob = "SELECT oi.*, c.comprobante_id AS comp_liq_id, c.importe_pendiente, c.comprobante_pv AS liq_pv, c.comprobante_nro AS liq_nro
-                   FROM gestion__obligaciones_impositivas oi
-                   JOIN gestion__comprobantes c ON c.comprobante_id = oi.comprobante_id
-                   WHERE oi.obligacion_impositiva_id = ? AND oi.empresa_id = ?
-                   FOR UPDATE";
-        $stmt_ob = mysqli_prepare($conexion, $sql_ob);
-        mysqli_stmt_bind_param($stmt_ob, "ii", $obligacion_id, $empresa_id);
-        mysqli_stmt_execute($stmt_ob);
-        $ob = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_ob));
-        mysqli_stmt_close($stmt_ob);
-
-        if (!$ob) throw new Exception("Obligación impositiva no encontrada.");
-        $pendiente = floatval($ob['importe_pendiente']);
-
-        if ($importe_pago > $pendiente + 0.01) {
-            throw new Exception("El importe a pagar ($" . number_format($importe_pago, 2) . ") supera el saldo pendiente ($" . number_format($pendiente, 2) . ").");
-        }
-
-        // Validar y bloquear cuenta de tesorería (Banco/Caja)
-        $sql_cta = "SELECT tesoreria_cuenta_id, tesoreria_cuenta, saldo_actual, cont_cuenta_id 
-                    FROM gestion__tesoreria_cuentas 
-                    WHERE tesoreria_cuenta_id = ? AND empresa_id = ?
-                    FOR UPDATE";
-        $stmt_cta = mysqli_prepare($conexion, $sql_cta);
-        mysqli_stmt_bind_param($stmt_cta, "ii", $tesoreria_cuenta_id, $empresa_id);
-        mysqli_stmt_execute($stmt_cta);
-        $cta = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cta));
-        mysqli_stmt_close($stmt_cta);
-
-        if (!$cta) throw new Exception("Cuenta de tesorería no válida.");
-        if (floatval($cta['saldo_actual']) < $importe_pago) {
-            throw new Exception("Saldo insuficiente en '{$cta['tesoreria_cuenta']}' para pagar la obligación.");
-        }
-
-        // Correlativo I_PAG
-        $prefijo = emp_punto_venta_id($conexion, $empresa_id);   // punto de venta de la empresa
-        if ($prefijo <= 0) throw new Exception('La empresa no tiene puntos de venta: no se puede numerar el comprobante.');
-        $tipo_i_pag = orTipoComprobanteId($conexion, $empresa_id, 'I_PAG');
-        $numero = orProximoNumero($conexion, $empresa_id, $tipo_i_pag, $prefijo);
-
-        // 1. Insertar Cabecera I_PAG en gestion__comprobantes
-        $res_reg = $conexion->query("SELECT COALESCE(MAX(registro_origen_id), 0) + 1 AS prox_reg FROM gestion__comprobantes WHERE tabla_origen_id = " . TABLA_PAGOS_IMP_ID);
-        $registro_origen_id = intval($res_reg->fetch_assoc()['prox_reg'] ?? 1);
-        $tabla_origen_id = TABLA_PAGOS_IMP_ID;
-        $modulo = 'TESORERIA';
-        $concepto_pag = "Pago VEP/Impuesto {$ob['descripcion']} ({$ob['periodo_fiscal']})";
-
-        $sql_comp = "INSERT INTO gestion__comprobantes (
-                        tabla_origen_id, registro_origen_id, modulo, entidad_id,
-                        empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
-                        f_emision, f_contabilidad, f_vto, moneda_id, tipo_cambio,
-                        importe_bruto, importe_neto, importe_total, importe_pendiente,
-                        observaciones, tabla_estado_registro_id, usuario_id
-                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, ?, ?, ?, ?, ?, ?, ?)";
-
-        $stmt_c = mysqli_prepare($conexion, $sql_comp);
-        $est_conf = ESTADO_CONFIRMADO;
-        $comp_tipo_pag = $tipo_i_pag;
-        $moneda_id = intval($ob['moneda_id']);
-        $ob_entidad_id = intval($ob['entidad_id']);
-        $ob_sucursal_id = intval($ob['sucursal_id']);
-        $ob_vep = strval($ob['nro_vep'] ?? '');
-        $pendiente_cero = 0.0;
-        mysqli_stmt_bind_param(
-            $stmt_c, "iisiiiiiisssiddddsii",
-            $tabla_origen_id, $registro_origen_id, $modulo, $ob_entidad_id,
-            $empresa_id, $ob_sucursal_id, $comp_tipo_pag, $prefijo, $numero,
-            $f_pago, $f_pago, $f_pago, $moneda_id,
-            $importe_pago, $importe_pago, $importe_pago, $pendiente_cero,
-            $concepto_pag, $est_conf, $usuario_id
-        );
-        mysqli_stmt_execute($stmt_c);
-        $comprobante_pag_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_c);
-
-        // 2. Insertar en gestion__pagos_impuestos
-        $sql_pi = "INSERT INTO gestion__pagos_impuestos (
-                        empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
-                        comprobante_id, entidad_id, f_emision, f_contabilidad, nro_vep,
-                        moneda_id, tipo_cambio, importe_total, observaciones,
-                        tabla_estado_registro_id, usuario_id
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1.0, ?, ?, ?, ?)";
-        $stmt_pi = mysqli_prepare($conexion, $sql_pi);
-        mysqli_stmt_bind_param(
-            $stmt_pi, "iiiiiiisssidsii",
-            $empresa_id, $ob_sucursal_id, $comp_tipo_pag, $prefijo, $numero,
-            $comprobante_pag_id, $ob_entidad_id, $f_pago, $f_pago, $ob_vep,
-            $moneda_id, $importe_pago, $concepto_pag, $est_conf, $usuario_id
-        );
-        mysqli_stmt_execute($stmt_pi);
-        $pago_impuesto_id = mysqli_insert_id($conexion);
-        mysqli_stmt_close($stmt_pi);
-
-        $conexion->query("UPDATE gestion__comprobantes SET registro_origen_id = $pago_impuesto_id WHERE comprobante_id = $comprobante_pag_id");
-
-        // 3. Insertar medio de pago en gestion__pagos_impuestos_medios
-        $sql_pim = "INSERT INTO gestion__pagos_impuestos_medios (
-                        pago_impuesto_id, empresa_id, medio_pago_id, tesoreria_cuenta_id,
-                        moneda_id, tipo_cambio, importe, importe_comprobante, nro_operacion,
-                        f_valor, usuario_id
-                    ) VALUES (?, ?, 3, ?, ?, 1.0, ?, ?, ?, ?, ?)"; // medio_pago_id 3 = Transferencia Bancaria
-        $stmt_pim = mysqli_prepare($conexion, $sql_pim);
-        mysqli_stmt_bind_param(
-            $stmt_pim, "iiiiddssi",
-            $pago_impuesto_id, $empresa_id, $tesoreria_cuenta_id,
-            $moneda_id, $importe_pago, $importe_pago, $nro_operacion, $f_pago, $usuario_id
-        );
-        mysqli_stmt_execute($stmt_pim);
-        mysqli_stmt_close($stmt_pim);
-
-        // 4. Registrar EGRESO en Libro de Tesorería (D15)
-        tesoreriaRegistrarMovimiento($conexion, [
-            'empresa_id'          => $empresa_id,
-            'sucursal_id'         => intval($ob['sucursal_id']),
-            'tesoreria_cuenta_id' => $tesoreria_cuenta_id,
-            'comprobante_id'      => $comprobante_pag_id,
-            'tipo_movimiento'     => 'EGRESO',
-            'importe'             => $importe_pago,
-            'f_movimiento'        => $f_pago,
-            'f_valor'             => $f_pago,
-            'moneda_id'           => $moneda_id,
-            'tipo_cambio'         => 1.0,
-            'medio_pago_id'       => 3,
-            'concepto'            => "Pago VEP {$ob['nro_vep']} - {$ob['descripcion']}",
-            'tabla_origen_id'     => TABLA_PAGOS_IMP_ID,
-            'registro_origen_id'  => $pago_impuesto_id,
-            'usuario_id'          => $usuario_id
-        ]);
-
-        // 5. Imputar comprobante I_PAG a comprobante I_LIQ y Recalcular Estado Derivado D8
-        $comp_liq_id = intval($ob['comp_liq_id']);
-        $sql_imp = "INSERT INTO gestion__comprobantes_imputaciones (
-                        empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
-                        importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
-                        tabla_estado_registro_id, usuario_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1.0, ?, 5, ?)";
-        $moneda_imp = emp_moneda_base_id($conexion, $empresa_id);
-        $stmt_imp = mysqli_prepare($conexion, $sql_imp);
-        mysqli_stmt_bind_param($stmt_imp, "iiisdidi", $empresa_id, $comprobante_pag_id, $comp_liq_id, $f_pago, $importe_pago, $moneda_imp, $importe_pago, $usuario_id);
-        mysqli_stmt_execute($stmt_imp);
-        mysqli_stmt_close($stmt_imp);
-
-        // Descontar saldo pendiente en comprobante liquidación
-        $conexion->query("UPDATE gestion__comprobantes 
-                          SET importe_pendiente = GREATEST(0.00, importe_pendiente - $importe_pago),
-                              usuario_modificacion_id = $usuario_id,
-                              fecha_modificacion = NOW()
-                          WHERE comprobante_id = $comp_liq_id");
-
-        // Recalcular saldo e impacto en estado D8
-        recalcularEstadoDestino($conexion, $comp_liq_id, $usuario_id);
-
-        // 6. Asiento Contable Automático (D27 / D36):
-        // DEBE: Obligaciones Fiscales a Pagar / HABER: Banco
-        $cta_cont_pasivo = intval($ob['cont_cuenta_id']);
-        $cta_cont_banco  = intval($cta['cont_cuenta_id']);
-        if ($cta_cont_banco <= 0) {
-            $r_cb = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Banco');
-            $cta_cont_banco = $r_cb['cont_cuenta_id'];
-        }
-
-        $asiento_id = tesoreriaGenerarAsiento($conexion, [
-            'empresa_id'           => $empresa_id,
-            'sucursal_id'          => intval($ob['sucursal_id']),
-            'comprobante_id'       => $comprobante_pag_id,
-            'entidad_id'           => intval($ob['entidad_id']),
-            'f_asiento'            => $f_pago,
-            'descripcion'          => "Cancelación VEP {$ob['nro_vep']} de {$ob['descripcion']}",
-            'usuario_id'           => $usuario_id,
-        ], [
-            [
-                'cuenta_id'   => $cta_cont_pasivo,
-                'debe'        => $importe_pago,
-                'haber'       => 0.0,
-                'descripcion' => "Cancelación pasivo fiscal"
-            ],
-            [
-                'cuenta_id'   => $cta_cont_banco,
-                'debe'        => 0.0,
-                'haber'       => $importe_pago,
-                'descripcion' => "Egreso de fondos banco {$cta['tesoreria_cuenta']}"
-            ]
-        ]);
-
-        mysqli_commit($conexion);
-
-        return [
-            'success'            => true,
-            'pago_impuesto_id'   => $pago_impuesto_id,
-            'comprobante_pag_id' => $comprobante_pag_id,
-            'numero'             => emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero),
-            'asiento_id'         => $asiento_id,
-            'mensaje'            => "Pago de obligación " . emp_numero_comprobante($conexion, $empresa_id, $prefijo, $numero) . " registrado con éxito."
-        ];
-
-    } catch (Exception $e) {
-        mysqli_rollback($conexion);
-        error_log("Error en pagarObligacionImpositiva: " . $e->getMessage());
-        throw $e;
-    }
+    throw new RuntimeException('Las obligaciones se pagan desde Tesorería > Órdenes de Pago.');
 }
-
 // =========================================================================
 // 2. RENDICIÓN DE GASTOS Y ANTICIPOS (RG_ANT / RG_REND / RG_REEM)
 // =========================================================================
@@ -555,12 +238,12 @@ function pagarObligacionImpositiva($conexion, $datos, $empresa_id, $usuario_id)
 /**
  * Listado de Rendiciones de Gastos
  */
-function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
+function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [], $pagina_id = 0)
 {
     $empresa_id = intval($empresa_id);
 
     $sql = "SELECT r.*, " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id') . " AS comprobante_pv, c.comprobante_nro,
-                   e.entidad_nombre AS responsable,
+                   COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre) AS responsable,
                    s.sucursal_nombre AS sucursal,
                    er.codigo_estandar AS estado_codigo, er.estado_registro
             FROM gestion__rendiciones r
@@ -612,7 +295,8 @@ function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
         }
 
         $botones = '<div class="btn-group btn-group-sm" role="group">';
-        if ($reembolsar > 0) {
+        // Solo si el perfil del usuario tiene la función Reembolsar (core/permisos.php)
+        if ($reembolsar > 0 && intval($pagina_id) > 0 && permisos_puede($conexion, intval($pagina_id), 'reembolsar')) {
             $botones .= '<button type="button" class="btn btn-primary btn-reembolsar-rend" 
                             data-id="' . $id . '" 
                             data-nro="' . $comprobante_nro . '" 
@@ -626,12 +310,12 @@ function obtenerRendicionesListado($conexion, $empresa_id, $filtros = [])
         $datos[] = [
             'id'                   => $id,
             'comprobante_nro'      => '<strong>' . $comprobante_nro . '</strong>',
-            'f_emision'            => date('d/m/Y', strtotime($row['f_emision'])),
+            'f_emision'            => fmt_fecha($row['f_emision']),
             'responsable'          => htmlspecialchars($row['responsable'] ?? 'Personal'),
             'descripcion'          => htmlspecialchars($row['descripcion']),
-            'importe_total'        => '<span class="fw-bold fs-6">$' . number_format($total, 2, ',', '.') . '</span>',
-            'importe_anticipos'    => '<span class="text-secondary">$' . number_format($anticipos, 2, ',', '.') . '</span>',
-            'importe_a_reembolsar' => ($reembolsar > 0) ? '<span class="fw-bold text-success">$' . number_format($reembolsar, 2, ',', '.') . '</span>' : '<span class="text-muted">$ 0,00</span>',
+            'importe_total'        => '<span class="fw-bold fs-6">$' . fmt_numero($total, 2) . '</span>',
+            'importe_anticipos'    => '<span class="text-secondary">$' . fmt_numero($anticipos, 2) . '</span>',
+            'importe_a_reembolsar' => ($reembolsar > 0) ? '<span class="fw-bold text-success">$' . fmt_numero($reembolsar, 2) . '</span>' : '<span class="text-muted">$ 0,00</span>',
             'estado'               => $badge,
             'acciones'             => $botones
         ];
@@ -661,7 +345,7 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
 
     try {
         // Validar saldo tesorería
-        $sql_cta = "SELECT tesoreria_cuenta, saldo_actual, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = ? AND empresa_id = ? FOR UPDATE";
+        $sql_cta = "SELECT tesoreria_cuenta, saldo_actual, permite_saldo_negativo, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = ? AND empresa_id = ? FOR UPDATE";
         $stmt_c = mysqli_prepare($conexion, $sql_cta);
         mysqli_stmt_bind_param($stmt_c, "ii", $tesoreria_cuenta_id, $empresa_id);
         mysqli_stmt_execute($stmt_c);
@@ -669,7 +353,7 @@ function registrarAnticipoRendir($conexion, $datos, $empresa_id, $usuario_id)
         mysqli_stmt_close($stmt_c);
 
         if (!$cta) throw new Exception("Cuenta de tesorería inválida.");
-        if (floatval($cta['saldo_actual']) < $importe_total) {
+        if (intval($cta['permite_saldo_negativo']) !== 1 && floatval($cta['saldo_actual']) < $importe_total) {
             throw new Exception("Saldo insuficiente en '{$cta['tesoreria_cuenta']}' para entregar el anticipo.");
         }
 
@@ -1059,11 +743,11 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
         $pendiente = floatval($rend['importe_pendiente']);
 
         if ($importe_reembolso > $pendiente + 0.01) {
-            throw new Exception("El importe a reembolsar supera el saldo pendiente de reembolso ($" . number_format($pendiente, 2) . ").");
+            throw new Exception("El importe a reembolsar supera el saldo pendiente de reembolso ($" . fmt_numero($pendiente, 2) . ").");
         }
 
         // Validar saldo tesorería
-        $sql_cta = "SELECT tesoreria_cuenta, saldo_actual, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = ? AND empresa_id = ? FOR UPDATE";
+        $sql_cta = "SELECT tesoreria_cuenta, saldo_actual, permite_saldo_negativo, cont_cuenta_id FROM gestion__tesoreria_cuentas WHERE tesoreria_cuenta_id = ? AND empresa_id = ? FOR UPDATE";
         $stmt_c = mysqli_prepare($conexion, $sql_cta);
         mysqli_stmt_bind_param($stmt_c, "ii", $tesoreria_cuenta_id, $empresa_id);
         mysqli_stmt_execute($stmt_c);
@@ -1071,7 +755,7 @@ function reembolsarRendicion($conexion, $datos, $empresa_id, $usuario_id)
         mysqli_stmt_close($stmt_c);
 
         if (!$cta) throw new Exception("Cuenta de tesorería inválida.");
-        if (floatval($cta['saldo_actual']) < $importe_reembolso) {
+        if (intval($cta['permite_saldo_negativo']) !== 1 && floatval($cta['saldo_actual']) < $importe_reembolso) {
             throw new Exception("Saldo insuficiente en '{$cta['tesoreria_cuenta']}' para realizar el reembolso.");
         }
 

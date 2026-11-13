@@ -16,7 +16,7 @@ $(document).ready(function() {
             responsive: true,
             dom: domConfig,
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json',
+                url: window.APP_ASSETS_URL + 'js/datatables-i18n-1.13.7/es-ES.json',
                 emptyTable: 'No hay cuentas registradas para esta empresa'
             },
             order: [[0, 'asc']],
@@ -59,10 +59,10 @@ $(document).ready(function() {
                     render: function(d) {
                         return `
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary btn-sm btn-editar" data-id="${d.cont_cuenta_id}" title="Editar">
+                                <button class="btn btn-outline-primary btn-sm btn-editar" data-funcion="editar" data-id="${d.cont_cuenta_id}" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm btn-anular" data-id="${d.cont_cuenta_id}" title="Eliminar">
+                                <button class="btn btn-outline-danger btn-sm btn-anular" data-funcion="inhabilitar" data-id="${d.cont_cuenta_id}" title="Eliminar">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </div>

@@ -7,6 +7,7 @@
 <style>
     :root {
         --azul: #0d6efd;
+        --azul-oscuro: #0a58ca;
         --gris-borde: #dee2e6;
         --gris-fondo: #f8f9fa;
         --texto: #212529;
@@ -14,6 +15,9 @@
         --verde: #198754;
         --amarillo: #ffc107;
         --rojo: #dc3545;
+        --morado: #6f42c1;
+        --naranja: #fd7e14;
+        --cian: #055160;
     }
     body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -22,10 +26,10 @@
         margin: 0;
         padding: 24px;
         line-height: 1.55;
-        max-width: 900px;
+        max-width: 960px;
         margin: 0 auto;
     }
-    h1 { font-size: 1.75rem; margin-bottom: 4px; }
+    h1 { font-size: 1.85rem; margin-bottom: 4px; color: #111827; }
     .subtitulo { color: var(--texto-muted); font-size: 1.05rem; margin-bottom: 2rem; }
     .destacado {
         border: 1px solid var(--gris-borde);
@@ -57,6 +61,81 @@
         white-space: nowrap;
     }
     .btn-destacado:hover { background: #146c43; }
+
+    /* Módulos Principales del Sistema */
+    .seccion-titulo-modulos {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 32px 0 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid var(--gris-borde);
+    }
+    .grid-modulos {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        margin-bottom: 36px;
+    }
+    .card-modulo {
+        border: 1px solid var(--gris-borde);
+        border-radius: 8px;
+        padding: 18px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card-modulo:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .card-modulo.mod-1 { border-top: 4px solid var(--morado); }
+    .card-modulo.mod-2 { border-top: 4px solid var(--azul); }
+    .card-modulo.mod-3 { border-top: 4px solid #6610f2; }
+    .card-modulo.mod-4 { border-top: 4px solid var(--cian); }
+    .card-modulo.mod-5 { border-top: 4px solid var(--naranja); }
+    .card-modulo.mod-6 { border-top: 4px solid #795548; }
+
+    .card-modulo .tag-mod {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--texto-muted);
+        margin-bottom: 4px;
+    }
+    .card-modulo h3 {
+        margin: 0 0 8px;
+        font-size: 1.15rem;
+        color: #1e293b;
+    }
+    .card-modulo p {
+        margin: 0 0 16px;
+        font-size: 0.9rem;
+        color: #475569;
+        line-height: 1.45;
+        flex-grow: 1;
+    }
+    .btn-abrir-modulo {
+        display: inline-block;
+        text-align: center;
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        text-decoration: none;
+        color: #fff;
+        background: var(--azul);
+    }
+    .btn-abrir-modulo:hover { background: var(--azul-oscuro); color: #fff; }
+    .card-modulo.mod-1 .btn-abrir-modulo { background: var(--morado); }
+    .card-modulo.mod-3 .btn-abrir-modulo { background: #6610f2; }
+    .card-modulo.mod-4 .btn-abrir-modulo { background: var(--cian); }
+    .card-modulo.mod-5 .btn-abrir-modulo { background: var(--naranja); }
+    .card-modulo.mod-6 .btn-abrir-modulo { background: #795548; }
+
     .toc {
         background: var(--gris-fondo);
         border: 1px solid var(--gris-borde);
@@ -162,8 +241,8 @@
 </head>
 <body>
 
-<h1>Manuales de usuario — Módulo Gestión</h1>
-<p class="subtitulo">Índice general, organizado por área y pantalla, tal como aparecen en el menú lateral del sistema.</p>
+<h1>Portal de Manuales de Usuario — Sistema Casalucho / ProcesoSimple</h1>
+<p class="subtitulo">Documentación oficial, manuales integrales por módulo y guías operativas pantalla por pantalla.</p>
 
 <div class="destacado">
     <div class="info">
@@ -173,8 +252,128 @@
     <a class="btn-destacado" href="introduccion.html">Leer introducción</a>
 </div>
 
+<!-- ============================== MANUALES POR MÓDULO ============================== -->
+<div class="seccion-titulo-modulos">Manuales Oficiales por Módulo del Sistema</div>
+<div class="grid-modulos">
+    <!-- Módulo 1 -->
+    <div class="card-modulo mod-1">
+        <div>
+            <div class="tag-mod">Módulo 1</div>
+            <h3>Configuración y Administración</h3>
+            <p>Control multi-tenant de empresas, usuarios, perfiles, asignación de permisos por función de pantalla y motor de transiciones de estados.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Pantallas clave:</strong><br>
+                • <a href="conf_empresas.html">Empresas y Tenencia</a><br>
+                • <a href="conf_usuarios_perfiles.html">Usuarios y Perfiles</a><br>
+                • <a href="conf_permisos_funciones.html">Permisos por Función</a><br>
+                • <a href="conf_paginas_menus.html">Páginas y Menús</a><br>
+                • <a href="conf_tablas_estados.html">Motor de Estados</a><br>
+                • <a href="conf_auditoria_diagnostico.html">Auditoría y Diagnóstico</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_conf.html">Ver manual del módulo →</a>
+    </div>
+
+    <!-- Módulo 2 -->
+    <div class="card-modulo mod-2">
+        <div>
+            <div class="tag-mod">Módulo 2</div>
+            <h3>Gestión Integral de Empresas (ERP)</h3>
+            <p>Circuito completo de ventas, compras, stock por depósito, tesorería, conciliación bancaria, facturación ARCA, libros societarios e IA integrada.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Áreas operativas:</strong><br>
+                • <a href="#stock">Stock y Depósitos</a><br>
+                • <a href="#ventas">Ventas y Facturación</a><br>
+                • <a href="#tesoreria">Tesorería y Bancos</a><br>
+                • <a href="#compras">Compras y Proveedores</a><br>
+                • <a href="#contabilidad">Contabilidad</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_gestion.html">Ver manual del módulo →</a>
+    </div>
+
+    <!-- Módulo 3 -->
+    <div class="card-modulo mod-3">
+        <div>
+            <div class="tag-mod">Módulo 3</div>
+            <h3>Matriz Legal y Normativas</h3>
+            <p>Catálogo de leyes, decretos y resoluciones, motor de aplicabilidad por territorio, ciclos de tareas RACI, evidencias de auditoría e incidencias.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Pantallas clave:</strong><br>
+                • <a href="ml_tablero_cumplimiento.html">Tablero de Cumplimiento</a><br>
+                • <a href="ml_normas.html">Normas Legales</a><br>
+                • <a href="ml_obligaciones.html">Obligaciones y Requisitos</a><br>
+                • <a href="ml_ciclos_tareas.html">Ciclos y Tareas RACI</a><br>
+                • <a href="ml_evidencias.html">Evidencias</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_ml.html">Ver manual del módulo →</a>
+    </div>
+
+    <!-- Módulo 4 -->
+    <div class="card-modulo mod-4">
+        <div>
+            <div class="tag-mod">Módulo 4</div>
+            <h3>Estudio Contable</h3>
+            <p>Administración de clientes del estudio, contratos y facturación de honorarios, calendario de vencimientos fiscales e importación ARCA.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Pantallas clave:</strong><br>
+                • <a href="estudio_clientes.html">Gestión de Clientes</a><br>
+                • <a href="estudio_contratos_honorarios.html">Honorarios y Facturación</a><br>
+                • <a href="estudio_vencimientos.html">Vencimientos Fiscales</a><br>
+                • <a href="estudio_inspecciones.html">Inspecciones</a><br>
+                • <a href="estudio_cliente_erp_remoto.html">ERP Remoto y Auditoría</a><br>
+                • <a href="estudio_importar_arca.html">Importar "Mis Comprobantes"</a><br>
+                • <a href="estudio_minigestion.html">Mini-Gestión</a><br>
+                • <a href="estudio_contabilidad_balances.html">Balances y Societario</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_estudio_contable.html">Ver manual del módulo →</a>
+    </div>
+
+    <!-- Módulo 5 -->
+    <div class="card-modulo mod-5">
+        <div>
+            <div class="tag-mod">Módulo 5</div>
+            <h3>Gestión Normal (Estándar)</h3>
+            <p>ERP ágil para empresas comerciales y de servicios sin catálogo de compatibilidades de marcas/modelos, con importador ARCA nativo.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Pantallas clave:</strong><br>
+                • <a href="gn_productos.html">Productos y Servicios</a><br>
+                • <a href="gn_ventas_facturas_arca.html">Facturación e Importador ARCA</a><br>
+                • <a href="gn_facturas_proveedores_lectura.html">Compras y Lectura OCR</a><br>
+                • <a href="gn_listas_precios.html">Listas de Precios Directas</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_gestion_normal.html">Ver manual del módulo →</a>
+    </div>
+
+    <!-- Módulo 6 -->
+    <div class="card-modulo mod-6">
+        <div>
+            <div class="tag-mod">Módulo 6</div>
+            <h3>Sindicatos y DDJJ</h3>
+            <p>Padrón de empleadores aportantes, afiliados, DDJJ mensuales con F.931, volantes de pago con cálculo dinámico de intereses y cobranza bancaria.</p>
+            <div style="font-size:0.8rem; margin-bottom:12px; color:var(--texto-muted);">
+                <strong>Pantallas clave:</strong><br>
+                • <a href="sindi_empleadores.html">Empleadores y Sucursales</a><br>
+                • <a href="sindi_afiliados.html">Afiliados y Carnet</a><br>
+                • <a href="sindi_ddjj.html">DDJJ Mensual y F.931</a><br>
+                • <a href="sindi_conceptos_escalas.html">Conceptos y Escalas CCT</a><br>
+                • <a href="sindi_volantes_intereses.html">Volantes e Intereses</a><br>
+                • <a href="sindi_rendiciones_ctacte.html">Rendiciones y Cta Cte</a><br>
+                • <a href="sindi_fiscalizacion_planes.html">Fiscalización y Planes</a>
+            </div>
+        </div>
+        <a class="btn-abrir-modulo" href="manual_modulo_sindicatos.html">Ver manual del módulo →</a>
+    </div>
+</div>
+
+<div class="seccion-titulo-modulos">Guías Detalladas por Pantalla — Módulo Gestión</div>
+<p class="subtitulo" style="margin-bottom: 1rem;">Manuales específicos de cada pantalla operativa individual, organizados por área temática tal como figuran en el menú lateral.</p>
+
 <div class="toc">
-    <strong>Áreas:</strong>
+    <strong>Áreas operativas:</strong>
     <a href="#stock">Stock</a>
     <a href="#ventas">Ventas</a>
     <a href="#tesoreria">Tesorería</a>
@@ -342,6 +541,48 @@
                 <p class="descripcion">Cuentas contables que Tesorería usa por defecto para cada concepto.</p>
             </div>
             <a class="btn-manual" href="empresas_cuentas_conceptos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_importar.html">Extractos Bancarios</a></p>
+                <p class="descripcion">Importar el extracto del banco (Excel o CSV) y ver los lotes importados.</p>
+            </div>
+            <a class="btn-manual" href="bancos_importar.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_conciliacion.html">Conciliación Bancaria</a></p>
+                <p class="descripcion">Extracto del banco contra los movimientos de tesorería.</p>
+            </div>
+            <a class="btn-manual" href="bancos_conciliacion.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_gastos.html">Gastos Bancarios</a></p>
+                <p class="descripcion">Comisiones e impuestos del banco: resumen bancario y débito en cuenta.</p>
+            </div>
+            <a class="btn-manual" href="bancos_gastos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_formatos.html">Formatos Bancarios</a></p>
+                <p class="descripcion">Cómo viene el extracto de cada banco: columnas, fechas e importes.</p>
+            </div>
+            <a class="btn-manual" href="bancos_formatos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_conceptos.html">Conceptos Bancarios</a></p>
+                <p class="descripcion">Qué es cada línea del extracto: gasto del banco o movimiento propio.</p>
+            </div>
+            <a class="btn-manual" href="bancos_conceptos.html">Ver manual</a>
+        </li>
+        <li>
+            <div class="info">
+                <p class="nombre-pagina"><a href="bancos_reglas.html">Reglas Bancarias</a></p>
+                <p class="descripcion">Textos del extracto que asignan cada concepto, por banco.</p>
+            </div>
+            <a class="btn-manual" href="bancos_reglas.html">Ver manual</a>
         </li>
     </ul>
 </div>

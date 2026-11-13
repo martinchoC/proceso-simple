@@ -5,7 +5,8 @@ require_once __DIR__ . '/../../db.php';
 $pageTitle = "Productos y Servicios";
 $currentPage = 'productos_generales';
 $modudo_idx = 2;
-$pagina_idx = 97; // ID de página en conf__paginas (ver sql/mantenimiento/20260925_productos_generales_abm.sql)
+$pagina_idx = 97; // ID de página en conf__paginas (ver _local/sql/mantenimiento/20260925_productos_generales_abm.sql)
+$ui_simple = true;
 $empresa_idx = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -13,25 +14,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <main class="app-main">
-    <div class="app-content-header">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-sm-6">
-                    <h3 class="mb-0">
-                        <i class="fas fa-cubes me-2"></i>Productos y Servicios
-                    </h3>
-                    <small class="text-muted">Sistema Declarativo Multiempresa</small>
-                </div>
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-end">
-                        <li class="breadcrumb-item"><a href="#">Home</a></li>
-                        <li class="breadcrumb-item"><a href="#">Gestión</a></li>
-                        <li class="breadcrumb-item active" aria-current="page">Productos y Servicios</li>
-                    </ol>
-                </div>
-            </div>
-        </div>
-    </div>
+    <?php ui_encabezado('Productos y servicios','fas fa-cubes', '', ['Seteo Empresas']); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -315,9 +298,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                 <select class="form-select form-select-sm select-cuenta" id="cont_cuenta_venta_id" name="cont_cuenta_venta_id"></select>
                                             </div>
                                             <div class="col-md-4">
-                                                <label for="cont_cuenta_cmv_id" class="form-label small mb-1">Cuenta de CMV</label>
+                                                <label for="cont_cuenta_cmv_id" class="form-label small mb-1">Cuenta de CMV <?= ui_ayuda('Solo para productos que controlan stock.') ?></label>
                                                 <select class="form-select form-select-sm select-cuenta" id="cont_cuenta_cmv_id" name="cont_cuenta_cmv_id"></select>
-                                                <small class="text-muted">Solo para productos que controlan stock.</small>
                                             </div>
                                         </div>
                                     </div>
@@ -373,19 +355,16 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             </style>
 
             <!-- Librerías necesarias -->
-            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-            <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+            <link rel="stylesheet" type="text/css" href="<?= asset_local('css/datatables-buttons-2.4.1/buttons.dataTables.min.css') ?>">
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/dataTables.buttons.min.js') ?>"></script>
+            <script src="<?= asset_local('js/jszip-3.10.1/jszip.min.js') ?>"></script>
+            <script src="<?= asset_local('js/pdfmake-0.1.53/pdfmake.min.js') ?>"></script>
+            <script src="<?= asset_local('js/pdfmake-0.1.53/vfs_fonts.js') ?>"></script>
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.html5.min.js') ?>"></script>
+            <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
 
-            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
-            <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
-            <script src="https://cdn.datatables.net/responsive/2.5.0/js/responsive.bootstrap5.min.js"></script>
 
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 
             <script>
                 const PAGINA_ID = <?= intval($pagina_idx) ?>;

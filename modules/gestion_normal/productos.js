@@ -1,7 +1,9 @@
 $(document).ready(function () {
     var empresa_idx = EMPRESA_ID;
     var pagina_idx = PAGINA_ID;
-    var AJAX_URL = 'productos_ajax.php';
+    // productos_consulta.php reutiliza esta pantalla en solo lectura con su propio endpoint
+    var AJAX_URL = window.PRODUCTOS_AJAX_URL || 'productos_ajax.php';
+    var SOLO_LECTURA = !!window.PRODUCTOS_SOLO_LECTURA;
 
     var tabla = null;
     var combos = null;       // {tipos, categorias, unidades, iva_alicuotas, cuentas}
@@ -10,6 +12,9 @@ $(document).ready(function () {
     var tagsInput = $('#buscadorTagsInput');
     var tagsContainer = $('#buscadorTagsContainer');
     var timeoutCodigo = null;
+    // Presentaciones (caja, pack, pallet): solo si la empresa las usa (la sección está en el modal)
+    var PRES = window.ProdPres && window.ProdPres.activo() ? window.ProdPres : null;
+    if (PRES) PRES.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx });
 
     // ========== UTILIDADES ==========
 
@@ -41,6 +46,7 @@ $(document).ready(function () {
     // ========== CARGAS INICIALES ==========
 
     function cargarBotonAgregar() {
+        if (SOLO_LECTURA) return;
         $.get(AJAX_URL, { accion: 'obtener_boton_agregar', pagina_idx: pagina_idx }, function (res) {
             var boton = res && res.data ? res.data : null;
             if (boton && boton.nombre_funcion) {
@@ -267,6 +273,7 @@ $(document).ready(function () {
         $('#aplica_venta').prop('checked', true);
         actualizarVisibilidadNiveles();
         cargarNivelesStock(0);
+        if (PRES) PRES.limpiar();
 
         $('#modalProductoTitulo').text('Nuevo Producto / Servicio');
     }
@@ -313,7 +320,7 @@ $(document).ready(function () {
     }
 
     // Etiqueta de stock según el mínimo que está escrito (se actualiza mientras se tipea).
-    var fmtNivelStock = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 4 });
+    var fmtNivelStock = Fmt.numberFormat({ maximumFractionDigits: 4 });
     function pintarNivelStock($tr) {
         var stock = parseFloat($tr.data('stock')) || 0;
         var minTxt = $tr.find('.nivel-minimo').val().trim();
@@ -395,7 +402,7 @@ $(document).ready(function () {
     });
 
     // Editar producto
-    function abrirEdicion(id) {
+    function abrirEdicion(id, soloVer) {
         cargarCombos(function () {
             resetFormulario();
             Swal.fire({ title: 'Cargando...', allowOutsideClick: false, didOpen: function () { Swal.showLoading(); } });
@@ -419,6 +426,7 @@ $(document).ready(function () {
                 $('#producto_categoria_id').val(p.producto_categoria_id);
                 $('#unidad_medida_id').val(p.unidad_medida_id || '');
                 $('#iva_alicuota_id').val(p.iva_alicuota_id);
+                if (PRES) PRES.cargar(p.producto_id, { soloLectura: !!soloVer || SOLO_LECTURA });
 
                 $('#impuesto_interno_porcentaje').val(p.impuesto_interno_porcentaje || '');
                 $('#impuesto_interno_fijo').val(p.impuesto_interno_fijo || '');
@@ -443,6 +451,16 @@ $(document).ready(function () {
                 $('#cont_cuenta_venta_id').val(p.cont_cuenta_venta_id || '');
                 $('#cont_cuenta_cmv_id').val(p.cont_cuenta_cmv_id || '');
 
+                if (soloVer) {
+                    // Solo ver: el formulario queda bloqueado y sin "Guardar" hasta cerrar el modal
+                    $('#modalProductoTitulo').text('Producto: ' + p.producto_codigo);
+                    $('#formProducto :input').prop('disabled', true);
+                    $('#btnGuardarProducto').hide();
+                    $('#modalProducto').one('hidden.bs.modal', function () {
+                        $('#formProducto :input').prop('disabled', false);
+                        $('#btnGuardarProducto').show();
+                    });
+                }
                 $('#modalProducto').modal('show');
             }, 'json').fail(function () {
                 Swal.close();
@@ -476,6 +494,15 @@ $(document).ready(function () {
             formData.push({ name: 'niveles_stock', value: JSON.stringify(nivelesStock) });
         }
 
+        if (PRES) {
+            var presentaciones = PRES.recolectar();
+            if (typeof presentaciones === 'string') {
+                Swal.fire({ icon: 'warning', title: 'Presentaciones', text: presentaciones });
+                return;
+            }
+            formData.push({ name: 'presentaciones', value: JSON.stringify(presentaciones) });
+        }
+
         $('#btnGuardarProducto').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
 
         $.post(AJAX_URL, formData, function (res) {
@@ -484,6 +511,8 @@ $(document).ready(function () {
                 if (res.aviso) {
                     // El producto se guardó pero los niveles no: el modal queda abierto para corregir.
                     if (!isEdit && res.producto_id) $('#producto_id').val(res.producto_id);
+                    // Si se grabaron, se recargan con sus ids (si no, quedan como están para reintentar)
+                    if (PRES && res.presentaciones_guardadas) PRES.cargar($('#producto_id').val());
                     if (tabla) tabla.ajax.reload(null, false);
                     Swal.fire({ icon: 'warning', title: 'Producto guardado', text: res.aviso });
                     return;
@@ -520,6 +549,10 @@ $(document).ready(function () {
 
         if (accion === 'editar') {
             abrirEdicion(id);
+            return;
+        }
+        if (accion === 'visualizar') {
+            abrirEdicion(id, true);
             return;
         }
 

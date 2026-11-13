@@ -5,11 +5,12 @@ require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['pagina_idx' => 616]);
 
 /**
- * percepciones_iibb_ajax.php — Percepciones IIBB practicadas (página 616).
+ * percepciones_iibb_ajax.php — Percepciones IIBB practicadas (página 116).
  * Respuesta: {success: bool, data: ..., message: string}; 'exportar' devuelve el archivo.
  */
 
 require_once __DIR__ . '/../../db.php';
+require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/percepciones_iibb_model.php';
 
 ob_start();
@@ -23,12 +24,10 @@ function perResponder(bool $ok, $data = null, string $mensaje = '', int $http = 
     exit;
 }
 
-// Función de la página (motor de botones) activa con ese accion_js
+// Función de la página (motor de botones) activa con ese accion_js y asignada al perfil del usuario
 function perFuncionHabilitada(mysqli $conexion, int $pagina_id, string $accion_js): bool
 {
-    return (bool) perIibbFila($conexion, "SELECT 1 FROM conf__paginas_funciones
-                                          WHERE pagina_id = ? AND accion_js = ? AND tabla_estado_registro_id = 1 LIMIT 1",
-                              'is', $pagina_id, $accion_js);
+    return permisos_puede($conexion, $pagina_id, $accion_js);
 }
 
 $pagina_idx = 616;

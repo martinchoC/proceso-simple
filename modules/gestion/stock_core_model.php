@@ -1,11 +1,13 @@
 <?php
+require_once __DIR__ . '/../../core/formato.php';
+
 /**
  * stock_core_model.php
  *
  * Movimientos de stock por boca - Servicio central
  * Sistema gestion_multipyme
  *
- * Esquema y configuración: sql/mantenimiento/20261008_stock_0{1,2,3}_*.sql
+ * Esquema y configuración: _local/sql/mantenimiento/20261008_stock_0{1,2,3}_*.sql
  * - gestion__stock_movimientos: libro inmutable (una fila por producto/boca/movimiento,
  *   cantidad > 0, dirección en tipo_movimiento). La cabecera es gestion__comprobantes.
  * - gestion__stock: saldo materializado por (empresa, boca, producto), mismo patrón que
@@ -171,7 +173,7 @@ function stockSincronizarComprobante($conexion, array $doc, array $lineas)
         if ($aplica && $tipo_mov === 'EGRESO' && intval($boca['permite_stock_negativo']) !== 1 && $nueva < -STOCK_EPSILON) {
             $prod = stockCodigoProducto($conexion, $d['producto_id']);
             throw new RuntimeException("Stock insuficiente de $prod en '{$boca['boca_nombre']}'. Disponible: "
-                . number_format($cantidad_ant, 2, ',', '.') . ', requerido: ' . number_format($qty, 2, ',', '.'));
+                . fmt_numero($cantidad_ant, 2) . ', requerido: ' . fmt_numero($qty, 2));
         }
 
         $costo_promedio = floatval($saldo['costo_promedio']);
@@ -351,7 +353,7 @@ function stockObtener($conexion, $empresa_id, $boca_id, $producto_id)
 
 /**
  * Rearma gestion__stock.cantidad desde el libro (boca/producto 0 = todos). No toca el costo.
- * Correr dentro de una transacción; ver también sql/mantenimiento/20261008_stock_03_verificacion.sql.
+ * Correr dentro de una transacción; ver también _local/sql/mantenimiento/20261008_stock_03_verificacion.sql.
  */
 function stockRecalcular($conexion, $empresa_id, $boca_id = 0, $producto_id = 0)
 {
