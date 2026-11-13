@@ -124,7 +124,8 @@ corrección se hace igual en los dos.
   2 (los ids son globales). Fuera de alcance; anotado.
 - **A4. Errores parciales.** Cada `INSERT` del recálculo va con `mysqli_query` y, si falla, se anota y sigue
   (`:1503-1510`). Con PHP 8.1 o superior (mysqli lanza excepciones por defecto) un error revierte todo; con PHP
-  anterior se confirma un recálculo a medias. Depende de la versión de producción (pendiente de confirmar).
+  anterior se confirmaría un recálculo a medias. Producción usa PHP 8.3 y MySQL 8.0.46 (confirmado el
+  2026-11-13): se revierte todo, no hace falta corregirlo.
 - **A5. Estado inicial.** El recálculo inserta con `obtenerEstadoInicial()` (`:141-156`: el estado de menor
   `valor_estandar`, hoy el 1). Funciona, pero no es el criterio del motor de estados.
 
@@ -205,6 +206,7 @@ idéntico al de hoy.
 
 ## Pendiente antes de la Fase B
 
-- Aprobación de C1–C6 (y si C5 y C6 van o no).
-- Nombre de la base de pruebas, creada por Pablo desde `casalucho_produccion.sql`.
-- Versión de PHP de producción (afecta A4).
+- C1–C6 aprobadas el 2026-11-13.
+- Base de pruebas `ps_prueba_listas_precios`, creada por Pablo desde `casalucho_produccion.sql`. Al importar hay
+  que sacar el `CREATE DATABASE` / `USE ps_gestion_casalucho` del dump (si no, pisa esa base local) y cambiar
+  `utf8mb4_0900_ai_ci` por `utf8mb4_unicode_ci` (seis tablas de integraciones; MariaDB 10.4 no la tiene).
