@@ -204,7 +204,34 @@ idéntico al de hoy.
   - Cualquier otra diferencia: freno y lo explico antes de seguir.
 - El otro motor (`precios_core_model.php`) no se toca en esta fase y no entra en la prueba.
 
-## Pendiente antes de la Fase B
+## Fase C — Resultado (2026-11-13, rama `distribuidora`)
+
+Base de pruebas `ps_prueba_listas_precios` (copia de producción del 2026-11-10: General 5.954 precios vigentes,
+3.802 manuales; Mostrador 5.955, 4.175 manuales; 2.757 productos con costo).
+
+**Línea base (código anterior):** un recálculo de General borraba los 3.802 manuales (3.210 desaparecían y 592
+pasaban a calculados) y uno de Mostrador, los 4.175. Fotos en `_local/tests/listas_precios/salidas/` (no versionadas).
+
+| # | Commit | Resultado de la comparación |
+|---|---|---|
+| C1 | `711b746` | Sin diferencias (producción no tiene listas MANUAL). Prueba puntual: una lista MANUAL se rechaza y sus filas quedan intactas. |
+| C2 | `4af1e6c` | Los 7.977 manuales quedan idénticos a antes; los calculados, iguales a la línea base salvo 1 de Mostrador (producto 2695), que ahora sigue el precio importado de General ($6.743) en vez del costo × 2. |
+| C3 | `7a90d68` | Sin diferencias (no hay reglas tipo 3). Prueba puntual con una regla temporal: el precio queda fijado. |
+| C4 | `9059f7c` | Sin diferencias recalculando todas las listas en orden. Recalculando solo Mostrador, la lectura anterior de la base tomaba un precio viejo en 2.252 de 2.714 productos. |
+| C5 | `d69a935` | Sin efecto en producción: solo Administrador y Acceso total ven la página y los dos tienen `editar`. |
+| C6 | `a48ada7` | Sin simular, idéntico a C4. La simulación no escribe (checksum de las tablas igual) y su resumen coincide con el recálculo real en las dos listas y los dos módulos. |
+
+Con el código nuevo, recalcular General saca 30 productos (29 dados de baja y 1 inexistente; ya pasaba) y
+recalcular Mostrador cambia 9 precios; ahora se ve antes de confirmar.
+
+Pendiente de verificar a mano: la consola del navegador en Listas de precios (diálogo de Recalcular con una lista
+COSTO y aviso con una MANUAL), en los módulos 2 y 5.
+
+Sigue abierto (decisiones de negocio, ver (b)): acumulación y promociones, unificar los dos motores, el otro motor
+pisando manuales (A2), productos sin costo en listas derivadas, vigencia y `requiere_recalculo`, precio 0 en
+pedidos, id fijo de Mostrador (A3).
+
+## Pendiente antes de la Fase B (resuelto)
 
 - C1–C6 aprobadas el 2026-11-13.
 - Base de pruebas `ps_prueba_listas_precios`, creada por Pablo desde `casalucho_produccion.sql`. Al importar hay
