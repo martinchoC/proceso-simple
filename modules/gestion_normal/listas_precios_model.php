@@ -1364,7 +1364,18 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
         }
         
         error_log("Productos encontrados: " . count($productos));
-        
+
+        // Precios manuales o importados vigentes (es_manual = 1, estado 1): el recálculo no los toca. Solo se
+        // borran y se vuelven a calcular los demás (los calculados y las filas inactivas, como antes).
+        $manuales = [];
+        $result_manuales = mysqli_query($conexion, "SELECT DISTINCT producto_id FROM gestion__listas_precios_productos
+                                                    WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx
+                                                    AND es_manual = 1 AND tabla_estado_registro_id = 1");
+        while ($row = mysqli_fetch_assoc($result_manuales)) {
+            $manuales[(int) $row['producto_id']] = true;
+        }
+        $no_manual_vigente = "AND NOT (es_manual = 1 AND tabla_estado_registro_id = 1)";
+
         // 4. Guardar historial
         $query_historial = "INSERT INTO gestion__listas_precios_productos_historial 
                             (empresa_id, lista_precio_id, lista_precio_producto_id, producto_id,
@@ -1378,12 +1389,12 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
                                    es_manual, precio_manual, precio_final, f_desde, f_hasta,
                                    observaciones, creado_por
                             FROM gestion__listas_precios_productos
-                            WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx";
+                            WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx $no_manual_vigente";
         mysqli_query($conexion, $query_historial);
-        
-        // 5. Eliminar productos existentes
-        $query_delete = "DELETE FROM gestion__listas_precios_productos 
-                        WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx";
+
+        // 5. Eliminar productos existentes (salvo los manuales vigentes)
+        $query_delete = "DELETE FROM gestion__listas_precios_productos
+                        WHERE lista_precio_id = $lista_precio_id AND empresa_id = $empresa_idx $no_manual_vigente";
         mysqli_query($conexion, $query_delete);
         
         // 6. Preparar valores fijos
@@ -1396,6 +1407,10 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
         
         // 7. Procesar cada producto con INSERTs individuales
         foreach ($productos as $producto) {
+            if (isset($manuales[(int) $producto['producto_id']])) {
+                continue; // precio manual o importado: se mantiene
+            }
+
             // Determinar precio base
             if ($lista['lista_base_id']) {
                 $query_base = "SELECT precio_final 
@@ -1548,6 +1563,9 @@ function recalcularPreciosLista($conexion, $lista_precio_id, $empresa_idx)
         mysqli_commit($conexion);
         
         $mensaje = "Precios recalculados correctamente. {$insertados} productos procesados.";
+        if (!empty($manuales)) {
+            $mensaje .= " " . count($manuales) . " precios manuales o importados se mantienen.";
+        }
         if (!empty($errores)) {
             $mensaje .= " Errores: " . implode(", ", array_slice($errores, 0, 3));
         }
