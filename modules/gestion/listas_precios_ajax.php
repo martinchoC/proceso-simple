@@ -299,6 +299,8 @@ try {
             break;
 
         case 'recalcular_precios':
+            // Reescribe los precios de la lista: mismo permiso que editarla (core/permisos.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
             $lista_precio_id = intval($_POST['lista_precio_id'] ?? 0);
             if (empty($lista_precio_id)) {
                 echo json_encode(['success' => false, 'error' => 'ID de lista no proporcionado'], JSON_UNESCAPED_UNICODE);
