@@ -282,6 +282,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_venta_presentaciones">Vende por presentación <?= ui_ayuda('Cada presentación (caja, pack) tiene su propio precio en cada lista de precios, con cantidad mínima y múltiplo de venta. Una presentación sin precio en la lista no se ofrece. Requiere "Usa presentaciones".') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261116_canales_venta_01.sql aplicado
+                                    $emp_col_canales = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_canales_venta'");
+                                    if ($emp_col_canales && mysqli_num_rows($emp_col_canales) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_canales_venta" name="usa_canales_venta" value="1" />
+                                        <label class="form-check-label" for="usa_canales_venta">Usa canales de venta <?= ui_ayuda('Cada lista de precios lleva un canal (minorista, mayorista) y el cliente toma el de su lista. Cada sucursal puede limitar los canales que vende. Un cliente sin condición comercial toma la lista por defecto de la empresa.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1096,6 +1104,7 @@ $(document).ready(function(){
                 $('#decimales_stock').val(res.decimales_stock !== undefined && res.decimales_stock !== null ? String(res.decimales_stock) : '2');
                 $('#usa_presentaciones').prop('checked', parseInt(res.usa_presentaciones, 10) === 1);
                 $('#usa_venta_presentaciones').prop('checked', parseInt(res.usa_venta_presentaciones, 10) === 1);
+                $('#usa_canales_venta').prop('checked', parseInt(res.usa_canales_venta, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1246,6 +1255,9 @@ $(document).ready(function(){
             color_logo_oscuro: $('#color_logo_oscuro').val(),
             color_logo_claro: $('#color_logo_claro').val()
         };
+        // Solo si la pantalla los muestra (columna existente); sin el campo, el modelo conserva el valor
+        if ($('#usa_venta_presentaciones').length) formData.usa_venta_presentaciones = $('#usa_venta_presentaciones').is(':checked') ? 1 : 0;
+        if ($('#usa_canales_venta').length) formData.usa_canales_venta = $('#usa_canales_venta').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
