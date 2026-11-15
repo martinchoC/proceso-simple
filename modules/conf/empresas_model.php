@@ -221,6 +221,7 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     $usa_canales_venta = !empty($data['usa_canales_venta']) ? 1 : 0;
     $usa_reglas_precio_venta = !empty($data['usa_reglas_precio_venta']) ? 1 : 0;
     $usa_vendedores = !empty($data['usa_vendedores']) ? 1 : 0;
+    $usa_distribucion = !empty($data['usa_distribucion']) ? 1 : 0;
     $es_principal = !empty($data['es_principal']) ? 1 : 0;
 
     $cols = ['empresa', 'documento_tipo_id', 'documento_numero', 'telefono', 'domicilio', 'localidad_id', 'condicion_fiscal_id', 'email', 'tabla_estado_registro_id'];
@@ -286,6 +287,10 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     if (conf_empresa_columna_existe($conexion, 'usa_vendedores')) {
         $cols[] = 'usa_vendedores';
         $vals[] = "$usa_vendedores";
+    }
+    if (conf_empresa_columna_existe($conexion, 'usa_distribucion')) {
+        $cols[] = 'usa_distribucion';
+        $vals[] = "$usa_distribucion";
     }
 
     $sql = "INSERT INTO conf__empresas (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
@@ -388,6 +393,7 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     $usa_canales_venta = isset($data['usa_canales_venta']) ? (!empty($data['usa_canales_venta']) ? 1 : 0) : 'usa_canales_venta';
     $usa_reglas_precio_venta = isset($data['usa_reglas_precio_venta']) ? (!empty($data['usa_reglas_precio_venta']) ? 1 : 0) : 'usa_reglas_precio_venta';
     $usa_vendedores = isset($data['usa_vendedores']) ? (!empty($data['usa_vendedores']) ? 1 : 0) : 'usa_vendedores';
+    $usa_distribucion = isset($data['usa_distribucion']) ? (!empty($data['usa_distribucion']) ? 1 : 0) : 'usa_distribucion';
     $es_principal = isset($data['es_principal']) ? (!empty($data['es_principal']) ? 1 : 0) : null;
 
     $updates = [
@@ -442,6 +448,9 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     }
     if (conf_empresa_columna_existe($conexion, 'usa_vendedores')) {
         $updates[] = "usa_vendedores=$usa_vendedores";
+    }
+    if (conf_empresa_columna_existe($conexion, 'usa_distribucion')) {
+        $updates[] = "usa_distribucion=$usa_distribucion";
     }
     if ($es_principal !== null && conf_empresa_columna_existe($conexion, 'es_principal')) {
         $updates[] = "es_principal=$es_principal";

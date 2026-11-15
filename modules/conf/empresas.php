@@ -306,6 +306,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_vendedores">Usa vendedores y carteras <?= ui_ayuda('Vendedores con su cartera de clientes (Ventas > Vendedores y carteras). El pedido guarda el vendedor y el origen, y el usuario vendedor ve y carga solo pedidos de su cartera.') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261119_distribucion_01.sql aplicado
+                                    $emp_col_dist = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_distribucion'");
+                                    if ($emp_col_dist && mysqli_num_rows($emp_col_dist) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_distribucion" name="usa_distribucion" value="1" />
+                                        <label class="form-check-label" for="usa_distribucion">Usa distribución <?= ui_ayuda('Zonas, camiones, armado nocturno del reparto, hojas de ruta y rendición (Ventas > Distribución). Los pedidos revisados se liberan para distribución (estado Confirmado para distribución).') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1123,6 +1131,7 @@ $(document).ready(function(){
                 $('#usa_canales_venta').prop('checked', parseInt(res.usa_canales_venta, 10) === 1);
                 $('#usa_reglas_precio_venta').prop('checked', parseInt(res.usa_reglas_precio_venta, 10) === 1);
                 $('#usa_vendedores').prop('checked', parseInt(res.usa_vendedores, 10) === 1);
+                $('#usa_distribucion').prop('checked', parseInt(res.usa_distribucion, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1278,6 +1287,7 @@ $(document).ready(function(){
         if ($('#usa_canales_venta').length) formData.usa_canales_venta = $('#usa_canales_venta').is(':checked') ? 1 : 0;
         if ($('#usa_reglas_precio_venta').length) formData.usa_reglas_precio_venta = $('#usa_reglas_precio_venta').is(':checked') ? 1 : 0;
         if ($('#usa_vendedores').length) formData.usa_vendedores = $('#usa_vendedores').is(':checked') ? 1 : 0;
+        if ($('#usa_distribucion').length) formData.usa_distribucion = $('#usa_distribucion').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
