@@ -423,3 +423,99 @@ if (!function_exists('lpre_guardar_precios')) {
         }
     }
 }
+
+if (!function_exists('lpre_listas_empresa')) {
+    /** Listas de precios activas de la empresa: [{lista_precio_id, nombre, vende_unidad_base}], en orden de id. */
+    function lpre_listas_empresa(mysqli $conexion, int $empresa_id): array
+    {
+        $vub = lpre_columna_existe($conexion, 'gestion__listas_precios', 'vende_unidad_base') ? 'vende_unidad_base' : '1';
+        $stmt = mysqli_prepare($conexion, "SELECT lista_precio_id, lista_precio_nombre, $vub AS vende_unidad_base
+                                           FROM gestion__listas_precios
+                                           WHERE empresa_id = ? AND tabla_estado_registro_id = 1
+                                           ORDER BY lista_precio_id");
+        mysqli_stmt_bind_param($stmt, "i", $empresa_id);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        $listas = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $listas[] = [
+                'lista_precio_id' => (int) $r['lista_precio_id'],
+                'nombre' => $r['lista_precio_nombre'],
+                'vende_unidad_base' => (int) $r['vende_unidad_base'],
+            ];
+        }
+        mysqli_stmt_close($stmt);
+        return $listas;
+    }
+}
+
+if (!function_exists('lpre_datos_producto')) {
+    /**
+     * Lo que necesita la ficha del producto para cargar la venta por presentación:
+     *   listas  [{lista_precio_id, nombre, vende_unidad_base, precio_unidad (vigente o null)}]
+     *   precios {presentacion_id: {lista_precio_id: precio}} (vigentes)
+     *   unidad  {venta_minimo, venta_multiplo} del producto (null = sin restricción)
+     */
+    function lpre_datos_producto(mysqli $conexion, int $empresa_id, int $producto_id): array
+    {
+        $listas = lpre_listas_empresa($conexion, $empresa_id);
+        $precios = [];
+        $unidad = ['venta_minimo' => null, 'venta_multiplo' => null];
+        if ($producto_id > 0) {
+            $st = mysqli_prepare($conexion, "SELECT precio_final FROM gestion__listas_precios_productos
+                                             WHERE producto_id = ? AND lista_precio_id = ? AND empresa_id = ?
+                                               AND tabla_estado_registro_id = 1 AND f_desde <= CURDATE()
+                                               AND (f_hasta IS NULL OR f_hasta >= CURDATE())
+                                             ORDER BY f_desde DESC, lista_precio_producto_id DESC LIMIT 1");
+            foreach ($listas as &$l) {
+                $lista_id = $l['lista_precio_id'];
+                mysqli_stmt_bind_param($st, "iii", $producto_id, $lista_id, $empresa_id);
+                mysqli_stmt_execute($st);
+                $row = mysqli_fetch_row(mysqli_stmt_get_result($st));
+                $l['precio_unidad'] = $row ? (float) $row[0] : null;
+                foreach (lpre_precios_vigentes($conexion, $empresa_id, $lista_id, [$producto_id]) as $pres_id => $p) {
+                    $precios[$pres_id][$lista_id] = $p['precio'];
+                }
+            }
+            unset($l);
+            mysqli_stmt_close($st);
+
+            if (lpre_columna_existe($conexion, 'gestion__productos', 'venta_minimo')
+                && lpre_columna_existe($conexion, 'gestion__productos', 'venta_multiplo')) {
+                $st = mysqli_prepare($conexion, "SELECT venta_minimo, venta_multiplo FROM gestion__productos WHERE producto_id = ? AND empresa_id = ?");
+                mysqli_stmt_bind_param($st, "ii", $producto_id, $empresa_id);
+                mysqli_stmt_execute($st);
+                $row = mysqli_fetch_assoc(mysqli_stmt_get_result($st));
+                mysqli_stmt_close($st);
+                if ($row) {
+                    $unidad = [
+                        'venta_minimo' => $row['venta_minimo'] !== null ? (float) $row['venta_minimo'] : null,
+                        'venta_multiplo' => $row['venta_multiplo'] !== null ? (float) $row['venta_multiplo'] : null,
+                    ];
+                }
+            }
+        } else {
+            foreach ($listas as &$l) {
+                $l['precio_unidad'] = null;
+            }
+            unset($l);
+        }
+        return ['listas' => $listas, 'precios' => (object) $precios, 'unidad' => $unidad];
+    }
+}
+
+if (!function_exists('lpre_guardar_restriccion_unidad')) {
+    /** Mínimo / múltiplo de venta de la unidad suelta del producto (null = sin restricción). Sin las columnas, nada. */
+    function lpre_guardar_restriccion_unidad(mysqli $conexion, int $empresa_id, int $producto_id, ?float $minimo, ?float $multiplo): bool
+    {
+        if (!lpre_columna_existe($conexion, 'gestion__productos', 'venta_minimo')
+            || !lpre_columna_existe($conexion, 'gestion__productos', 'venta_multiplo')) {
+            return false;
+        }
+        $st = mysqli_prepare($conexion, "UPDATE gestion__productos SET venta_minimo = ?, venta_multiplo = ? WHERE producto_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($st, "ddii", $minimo, $multiplo, $producto_id, $empresa_id);
+        $ok = mysqli_stmt_execute($st);
+        mysqli_stmt_close($st);
+        return $ok;
+    }
+}

@@ -122,3 +122,36 @@ siguen igual hasta el paso 2 (presentaciones en las líneas), que se diseña apa
 4. **Mayorista sin unidad suelta:** ¿por lista con `vende_unidad_base` (propuesto) o por otro criterio?
 5. **Mínimo / múltiplo de la unidad base:** ¿en el producto (propuesto) o no hace falta?
 6. **Disponibilidad:** ¿solo stock físico (propuesto) o restar lo pedido y no entregado desde ya?
+
+## Implementado (2026-11-14)
+
+Las 6 propuestas se aceptaron tal cual.
+
+| Parte | Dónde | Commit |
+|---|---|---|
+| Migración | `_local/sql/mantenimiento/20261114_venta_presentaciones_01.sql` | `d3d5780` |
+| API (`lpre_*`) | `core/listas_precios_presentaciones.php` | `500c259` |
+| Interruptor "Vende por presentación" | Configuración > Empresas (`modules/conf/empresas*`); solo aparece con la columna; exige "Usa presentaciones" | `860df94` |
+| Ficha del producto | `core/productos_presentaciones.php`, `templates/productos/presentaciones_seccion.php`, `assets/js/productos-presentaciones.js`; en los módulos 2 y 5 solo la acción `obtener_presentaciones` (`prpr_respuesta_presentaciones`) | (este) |
+
+**Ficha del producto, con la empresa vendiendo por presentación.**
+
+- La sección Presentaciones suma mínimo y "de a" para la unidad suelta (`gestion__productos`) y para cada presentación.
+- Cada presentación suma también una fila de precios, uno por lista activa. Debajo de cada precio se ve cuánto sale la unidad dentro de la presentación y el precio de la unidad suelta en esa lista. Si la lista no vende la unidad suelta, lo dice.
+- Un precio vacío o en 0 quita el precio vigente: la presentación deja de ofrecerse en esa lista.
+
+El JSON `presentaciones` pasa a ser `{filas, unidad}`. `prpr_procesar_formulario` acepta los dos formatos y, si la empresa no vende por presentación, ignora lo nuevo.
+
+**Orden de grabado.** Las listas de los precios se validan antes de guardar el producto. Después:
+
+1. `prpr_guardar` graba las presentaciones, con mínimo y múltiplo en su misma transacción.
+2. Se graba el mínimo y múltiplo de la unidad.
+3. `lpre_guardar_precios` graba los precios, en su propia transacción.
+
+Si falla el paso 1, el usuario recibe un aviso de que el producto quedó guardado y lo demás no.
+
+**Pendiente.**
+
+- "Vende la unidad suelta" en Listas de precios.
+- Importación de precios por presentación desde planilla.
+- El paso 2: presentaciones en pedidos, remitos y facturas.

@@ -59,6 +59,37 @@ if (!function_exists('prpr_empresa_usa')) {
     }
 }
 
+if (!function_exists('prpr_columnas_venta')) {
+    /** ¿Tiene la tabla de presentaciones venta_minimo / venta_multiplo? (cacheado por request) */
+    function prpr_columnas_venta(mysqli $conexion): bool
+    {
+        static $existe = null;
+        if ($existe === null) {
+            $existe = false;
+            if (prpr_disponible($conexion)) {
+                $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__productos_presentaciones WHERE Field IN ('venta_minimo', 'venta_multiplo')");
+                $existe = $res && mysqli_num_rows($res) === 2;
+            }
+        }
+        return $existe;
+    }
+}
+
+if (!function_exists('prpr_num_restriccion')) {
+    /** Mínimo / múltiplo de venta: vacío o 0 = sin restricción (null); si no, número > 0. */
+    function prpr_num_restriccion($valor, string $campo, string $fila): ?float
+    {
+        $n = prpr_num($valor, $campo, $fila);
+        if ($n === null || $n == 0.0) {
+            return null;
+        }
+        if ($n >= 100000000000000) {
+            throw new InvalidArgumentException("$fila: $campo es demasiado grande.");
+        }
+        return round($n, 4);
+    }
+}
+
 if (!function_exists('prpr_listar')) {
     /** Presentaciones activas del producto, en orden. */
     function prpr_listar(mysqli $conexion, int $empresa_id, int $producto_id): array
@@ -66,9 +97,11 @@ if (!function_exists('prpr_listar')) {
         if ($producto_id <= 0 || !prpr_disponible($conexion)) {
             return [];
         }
+        // Mínimo y múltiplo de venta solo si existen las columnas (script 20261114_venta_presentaciones_01.sql)
+        $venta = prpr_columnas_venta($conexion) ? ', venta_minimo, venta_multiplo' : '';
         $stmt = mysqli_prepare($conexion, "SELECT presentacion_id, presentacion_nombre, factor, codigo_barras, peso_bruto_kg,
                                                   largo_cm, ancho_cm, alto_cm, aplica_compra, aplica_venta,
-                                                  es_compra_defecto, es_venta_defecto, orden
+                                                  es_compra_defecto, es_venta_defecto, orden $venta
                                            FROM gestion__productos_presentaciones
                                            WHERE empresa_id = ? AND producto_id = ? AND tabla_estado_registro_id = 1
                                            ORDER BY orden ASC, factor ASC, presentacion_id ASC");
@@ -185,7 +218,27 @@ if (!function_exists('prpr_validar')) {
             $def_compra += $es_compra_def;
             $def_venta += $es_venta_def;
 
-            $salida[] = [
+            // Venta por presentación (solo si el formulario los trae: prpr_procesar_formulario los quita si la
+            // empresa no vende por presentación)
+            $venta = [];
+            if (array_key_exists('venta_minimo', $f) || array_key_exists('venta_multiplo', $f)) {
+                $venta['venta_minimo'] = prpr_num_restriccion($f['venta_minimo'] ?? null, 'la cantidad mínima', $fila);
+                $venta['venta_multiplo'] = prpr_num_restriccion($f['venta_multiplo'] ?? null, 'el múltiplo', $fila);
+            }
+            if (isset($f['precios'])) {
+                if (!is_array($f['precios'])) {
+                    throw new InvalidArgumentException("$fila: los precios llegaron con un formato inválido.");
+                }
+                $venta['precios'] = [];
+                foreach ($f['precios'] as $lista_id => $precio) {
+                    $lista_id = intval($lista_id);
+                    if ($lista_id > 0) {
+                        $venta['precios'][$lista_id] = prpr_num($precio, 'el precio', $fila);
+                    }
+                }
+            }
+
+            $salida[] = $venta + [
                 'presentacion_id' => max(0, intval($f['presentacion_id'] ?? 0)),
                 'presentacion_nombre' => $nombre,
                 'factor' => round($factor, 4),
@@ -280,6 +333,12 @@ if (!function_exists('prpr_guardar')) {
                                                    largo_cm, ancho_cm, alto_cm, aplica_compra, aplica_venta,
                                                    es_compra_defecto, es_venta_defecto, orden, tabla_estado_registro_id, usuario_id, f_alta)
                                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW())");
+            // Mínimo / múltiplo: aparte, solo con las columnas y si la fila los trae (sin eso no se tocan)
+            $upd_venta = prpr_columnas_venta($conexion)
+                ? mysqli_prepare($conexion, "UPDATE gestion__productos_presentaciones SET venta_minimo = ?, venta_multiplo = ?
+                                             WHERE presentacion_id = ? AND empresa_id = ? AND producto_id = ?")
+                : null;
+            $resumen['ids'] = []; // orden de la fila => presentacion_id (para grabar después sus precios)
             $vistos = [];
             foreach ($filas as $f) {
                 $id = intval($f['presentacion_id'] ?? 0);
@@ -301,11 +360,22 @@ if (!function_exists('prpr_guardar')) {
                         $f['aplica_compra'], $f['aplica_venta'], $f['es_compra_defecto'], $f['es_venta_defecto'],
                         $f['orden'], $uid);
                     mysqli_stmt_execute($ins);
+                    $id = (int) mysqli_insert_id($conexion);
                     $resumen['altas']++;
+                }
+                $resumen['ids'][(int) $f['orden']] = $id;
+                if ($upd_venta && array_key_exists('venta_minimo', $f)) {
+                    $vmin = $f['venta_minimo'];
+                    $vmul = $f['venta_multiplo'] ?? null;
+                    mysqli_stmt_bind_param($upd_venta, "ddiii", $vmin, $vmul, $id, $empresa_id, $producto_id);
+                    mysqli_stmt_execute($upd_venta);
                 }
             }
             mysqli_stmt_close($upd);
             mysqli_stmt_close($ins);
+            if ($upd_venta) {
+                mysqli_stmt_close($upd_venta);
+            }
 
             $bajas = array_diff(array_keys($actuales), array_keys($vistos));
             if ($bajas) {
@@ -333,6 +403,10 @@ if (!function_exists('prpr_procesar_formulario')) {
     /**
      * Paso 1 del guardado desde el ABM de productos: si la empresa usa presentaciones y el formulario las trae
      * (POST presentaciones = JSON), las valida. Devuelve null si no hay nada que guardar, o las filas listas.
+     *
+     * El JSON es la lista de filas o, con venta por presentación, {filas: [...], unidad: {venta_minimo,
+     * venta_multiplo}} con mínimo / múltiplo y precios por lista ({lista_precio_id: precio}) en cada fila. Si la
+     * empresa no vende por presentación, eso se ignora y se devuelve la lista de filas, como antes.
      * @throws InvalidArgumentException con el mensaje para el usuario (el producto NO se guarda)
      */
     function prpr_procesar_formulario(mysqli $conexion, int $empresa_id, int $producto_id, array $post): ?array
@@ -341,30 +415,120 @@ if (!function_exists('prpr_procesar_formulario')) {
         if (!isset($post['presentaciones']) || $post['presentaciones'] === '' || !prpr_empresa_usa($conexion, $empresa_id)) {
             return null;
         }
-        $filas = json_decode((string) $post['presentaciones'], true);
+        $datos = json_decode((string) $post['presentaciones'], true);
+        if (!is_array($datos)) {
+            throw new InvalidArgumentException('Las presentaciones llegaron con un formato inválido.');
+        }
+        $con_venta = array_key_exists('filas', $datos);
+        $filas = $con_venta ? $datos['filas'] : $datos;
         if (!is_array($filas)) {
             throw new InvalidArgumentException('Las presentaciones llegaron con un formato inválido.');
         }
-        return prpr_validar($conexion, $empresa_id, $producto_id, $filas, (string) ($post['codigo_barras'] ?? ''));
+        $venta = $con_venta && lpre_empresa_usa($conexion, $empresa_id);
+        if (!$venta) {
+            foreach ($filas as $i => $f) {
+                if (is_array($f)) {
+                    unset($filas[$i]['venta_minimo'], $filas[$i]['venta_multiplo'], $filas[$i]['precios']);
+                }
+            }
+        }
+        $validadas = prpr_validar($conexion, $empresa_id, $producto_id, $filas, (string) ($post['codigo_barras'] ?? ''));
+        if (!$venta) {
+            return $validadas;
+        }
+
+        // Unidad suelta (gestion__productos.venta_minimo / venta_multiplo)
+        $unidad = null;
+        if (isset($datos['unidad']) && is_array($datos['unidad'])) {
+            $unidad = [
+                'venta_minimo' => prpr_num_restriccion($datos['unidad']['venta_minimo'] ?? null, 'la cantidad mínima', 'Unidad'),
+                'venta_multiplo' => prpr_num_restriccion($datos['unidad']['venta_multiplo'] ?? null, 'el múltiplo', 'Unidad'),
+            ];
+        }
+        // Las listas de los precios tienen que ser de la empresa (se valida antes de guardar el producto)
+        $listas = [];
+        foreach ($validadas as $f) {
+            foreach (array_keys($f['precios'] ?? []) as $lista_id) {
+                $listas[$lista_id] = true;
+            }
+        }
+        if ($listas) {
+            $propias = array_column(lpre_listas_empresa($conexion, $empresa_id), 'lista_precio_id');
+            foreach (array_keys($listas) as $lista_id) {
+                if (!in_array($lista_id, $propias, true)) {
+                    throw new InvalidArgumentException('Un precio es de una lista que no es de la empresa o está inactiva.');
+                }
+            }
+        }
+        return ['filas' => $validadas, 'unidad' => $unidad];
     }
 }
 
 if (!function_exists('prpr_guardar_formulario')) {
     /**
      * Paso 2: después de guardar el producto. Devuelve null si todo bien, o un aviso para el usuario
-     * (el producto quedó guardado, las presentaciones no).
+     * (el producto quedó guardado, las presentaciones no). Con venta por presentación graba además el mínimo /
+     * múltiplo de la unidad y los precios por lista (lpre_guardar_precios, transacción propia).
      */
     function prpr_guardar_formulario(mysqli $conexion, int $empresa_id, int $usuario_id, int $producto_id, ?array $filas): ?string
     {
         if ($filas === null || $producto_id <= 0) {
             return null;
         }
+        $venta = array_key_exists('filas', $filas);
+        $lista_filas = $venta ? $filas['filas'] : $filas;
         try {
-            prpr_guardar($conexion, $empresa_id, $usuario_id, $producto_id, $filas);
-            return null;
+            $resumen = prpr_guardar($conexion, $empresa_id, $usuario_id, $producto_id, $lista_filas);
         } catch (Throwable $e) {
             error_log('prpr_guardar_formulario producto ' . $producto_id . ': ' . $e->getMessage());
             return 'El producto se guardó, pero no sus presentaciones. Volvé a guardar para reintentar.';
         }
+        if (!$venta) {
+            return null;
+        }
+        try {
+            if ($filas['unidad'] !== null) {
+                lpre_guardar_restriccion_unidad($conexion, $empresa_id, $producto_id,
+                    $filas['unidad']['venta_minimo'], $filas['unidad']['venta_multiplo']);
+            }
+            $precios = [];
+            foreach ($lista_filas as $f) {
+                $id = $resumen['ids'][(int) $f['orden']] ?? 0;
+                foreach (($f['precios'] ?? []) as $lista_id => $precio) {
+                    if ($id > 0) {
+                        $precios[] = ['lista_precio_id' => $lista_id, 'presentacion_id' => $id, 'precio' => $precio];
+                    }
+                }
+            }
+            if ($precios) {
+                $r = lpre_guardar_precios($conexion, $empresa_id, $usuario_id, $precios);
+                if (!$r['success']) {
+                    error_log('prpr_guardar_formulario precios producto ' . $producto_id . ': ' . implode(' | ', $r['errores']));
+                    return 'El producto y sus presentaciones se guardaron, pero no los precios por presentación. Volvé a guardar para reintentar.';
+                }
+            }
+            return null;
+        } catch (Throwable $e) {
+            error_log('prpr_guardar_formulario venta producto ' . $producto_id . ': ' . $e->getMessage());
+            return 'El producto y sus presentaciones se guardaron, pero no los precios ni las cantidades de venta. Volvé a guardar para reintentar.';
+        }
     }
 }
+
+if (!function_exists('prpr_respuesta_presentaciones')) {
+    /**
+     * Respuesta de la acción obtener_presentaciones del ABM de productos: las presentaciones activas y, si la
+     * empresa vende por presentación, 'venta' con las listas, los precios y el mínimo / múltiplo de la unidad.
+     */
+    function prpr_respuesta_presentaciones(mysqli $conexion, int $empresa_id, int $producto_id): array
+    {
+        $out = ['success' => true, 'data' => prpr_empresa_usa($conexion, $empresa_id) ? prpr_listar($conexion, $empresa_id, $producto_id) : []];
+        if (lpre_empresa_usa($conexion, $empresa_id)) {
+            $out['venta'] = lpre_datos_producto($conexion, $empresa_id, $producto_id);
+        }
+        return $out;
+    }
+}
+
+// Venta por presentación (precios por lista, mínimo / múltiplo): sus funciones usan las de este archivo
+require_once __DIR__ . '/listas_precios_presentaciones.php';

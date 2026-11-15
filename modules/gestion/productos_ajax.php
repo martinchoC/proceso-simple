@@ -243,9 +243,9 @@ try {
             break;
 
         case 'obtener_presentaciones':
-            echo json_encode(['success' => true, 'data' => prpr_empresa_usa($conexion, $empresa_idx)
-                ? prpr_listar($conexion, $empresa_idx, intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0))
-                : []], JSON_UNESCAPED_UNICODE);
+            // Con venta por presentación trae además precios por lista y mínimo / múltiplo (core/)
+            echo json_encode(prpr_respuesta_presentaciones($conexion, (int)$empresa_idx,
+                intval($_GET['producto_id'] ?? $_POST['producto_id'] ?? 0)), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'obtener_iva_alicuotas':

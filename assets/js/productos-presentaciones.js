@@ -9,14 +9,66 @@
  *   ProdPres.limpiar()                   -> formulario de alta
  *   ProdPres.cargar(productoId, {soloLectura})
  *   ProdPres.recolectar()                -> array para enviar como JSON en "presentaciones", o string con el error
+ *
+ * Venta por presentación (la sección viene con data-venta="1" y data-listas, ver la plantilla): cada presentación
+ * suma mínimo / múltiplo y una fila de precios por lista, y hay mínimo / múltiplo de la unidad suelta. Entonces
+ * recolectar() devuelve {filas: [...], unidad: {...}} (core/productos_presentaciones.php acepta los dos formatos).
  */
 (function (window, $) {
     'use strict';
 
     var cfg = { ajaxUrl: 'productos_ajax.php', empresaIdx: 0 };
     var token = 0;
+    var listas = [];   // [{lista_precio_id, nombre, vende_unidad_base, precio_unidad}]
 
     function $sec() { return $('#seccionPresentaciones'); }
+
+    function conVenta() { return parseInt($sec().data('venta'), 10) === 1; }
+
+    function moneda(v) {
+        return window.Fmt && typeof window.Fmt.moneda === 'function' ? window.Fmt.moneda(v) : '$ ' + Number(v).toFixed(2);
+    }
+
+    function filaPreciosHtml(p) {
+        var precios = (p && p.precios) || {};
+        var cajas = listas.map(function (l) {
+            var v = precios[l.lista_precio_id];
+            return '<div class="prpr-precio-lista">' +
+                '<div class="input-group input-group-sm">' +
+                    '<span class="input-group-text text-truncate" style="max-width: 95px;" title="' + esc(l.nombre) + '">' + esc(l.nombre) + '</span>' +
+                    '<input type="number" step="any" min="0" class="form-control prpr-precio" data-lista="' + l.lista_precio_id + '" placeholder="sin precio" value="' + esc(num(v)) + '">' +
+                '</div>' +
+                '<div class="prpr-precio-ref" data-lista="' + l.lista_precio_id + '"></div>' +
+            '</div>';
+        }).join('');
+        return '<tr class="prpr-precios"><td colspan="10"><div class="prpr-precios-caja">' +
+            '<span class="prpr-precios-titulo">Precio de la presentación' +
+                ' <i class="far fa-question-circle" title="Precio de la presentación entera (la caja, no la unidad). Sin precio en una lista, la presentación no se ofrece en esa lista."></i></span>' +
+            (cajas || '<span class="small text-muted">La empresa no tiene listas de precios activas.</span>') +
+            '</div></td></tr>';
+    }
+
+    // Referencia bajo cada precio: cuánto sale la unidad dentro de la presentación y el precio de la unidad suelta
+    function refrescarReferencias($fila) {
+        var $filas = $fila ? $fila : $sec().find('.prpr-fila');
+        $filas.each(function () {
+            var $tr = $(this);
+            var factor = parseFloat($tr.find('.prpr-factor').val());
+            $tr.next('.prpr-precios').find('.prpr-precio').each(function () {
+                var lista = String($(this).data('lista'));
+                var precio = parseFloat($(this).val());
+                var l = listas.filter(function (x) { return String(x.lista_precio_id) === lista; })[0] || {};
+                var partes = [];
+                if (precio > 0 && factor > 0) partes.push(moneda(precio / factor) + ' c/u');
+                if (l.precio_unidad !== null && l.precio_unidad !== undefined && parseInt(l.vende_unidad_base, 10) === 1) {
+                    partes.push('suelta ' + moneda(l.precio_unidad));
+                } else if (parseInt(l.vende_unidad_base, 10) === 0) {
+                    partes.push('no vende suelta');
+                }
+                $tr.next('.prpr-precios').find('.prpr-precio-ref[data-lista="' + lista + '"]').text(partes.join(' · '));
+            });
+        });
+    }
 
     function esc(t) {
         if (t === null || t === undefined) return '';
@@ -48,7 +100,7 @@
         p = p || {};
         var compra = p.aplica_compra === undefined ? 1 : parseInt(p.aplica_compra, 10);
         var venta = p.aplica_venta === undefined ? 1 : parseInt(p.aplica_venta, 10);
-        return '<tr class="prpr-fila" data-id="' + (parseInt(p.presentacion_id, 10) || 0) + '">' +
+        return '<tr class="prpr-fila' + (conVenta() ? ' prpr-fila-con-precios' : '') + '" data-id="' + (parseInt(p.presentacion_id, 10) || 0) + '">' +
             '<td><input type="text" class="form-control form-control-sm prpr-nombre" maxlength="60" placeholder="Ej: Caja x 12" value="' + esc(p.presentacion_nombre) + '"></td>' +
             '<td><div class="input-group input-group-sm">' +
                 '<input type="number" step="any" min="0" class="form-control prpr-factor" placeholder="12" value="' + esc(num(p.factor)) + '">' +
@@ -68,8 +120,13 @@
                 '<label class="mb-0" title="Se puede vender en esta presentación"><input type="checkbox" class="form-check-input prpr-aplica-venta"' + (venta === 1 ? ' checked' : '') + '> se usa</label>' +
                 '<label class="mb-0" title="Presentación habitual de venta"><input type="checkbox" class="form-check-input prpr-def-venta"' + (parseInt(p.es_venta_defecto, 10) === 1 ? ' checked' : '') + '> habitual</label>' +
             '</div></td>' +
+            (conVenta()
+                ? '<td><input type="number" step="any" min="0" class="form-control form-control-sm prpr-vmin" placeholder="—" title="Cantidad mínima, en esta presentación" value="' + esc(num(p.venta_minimo)) + '"></td>' +
+                  '<td><input type="number" step="any" min="0" class="form-control form-control-sm prpr-vmul" placeholder="—" title="Se vende de a, en esta presentación" value="' + esc(num(p.venta_multiplo)) + '"></td>'
+                : '') +
             '<td class="text-end"><button type="button" class="btn btn-sm btn-link text-danger p-0 prpr-quitar" title="Quitar presentación"><i class="fas fa-trash-alt"></i></button></td>' +
-            '</tr>';
+            '</tr>' +
+            (conVenta() ? filaPreciosHtml(p) : '');
     }
 
     function actualizarVacio() {
@@ -77,12 +134,25 @@
         $tb.find('.prpr-vacio').toggle($tb.find('.prpr-fila').length === 0);
     }
 
-    function pintar(filas, soloLectura) {
+    function pintar(filas, soloLectura, venta) {
         var $tb = $sec().find('tbody');
-        $tb.find('.prpr-fila').remove();
-        (filas || []).forEach(function (p) { $tb.append(filaHtml(p)); });
+        $tb.find('.prpr-fila, .prpr-precios').remove();
+        var precios = (venta && venta.precios) || {};
+        (filas || []).forEach(function (p) {
+            $tb.append(filaHtml($.extend({}, p, { precios: precios[p.presentacion_id] || {} })));
+        });
+        var unidad = (venta && venta.unidad) || {};
+        $sec().find('.prpr-unidad-min').val(num(unidad.venta_minimo));
+        $sec().find('.prpr-unidad-mul').val(num(unidad.venta_multiplo));
         actualizarVacio();
+        if (conVenta()) refrescarReferencias();
         bloquear(!!soloLectura);
+    }
+
+    function listasIniciales() {
+        var l = $sec().data('listas');
+        if (typeof l === 'string') { try { l = JSON.parse(l); } catch (e) { l = []; } }
+        return Array.isArray(l) ? l : [];
     }
 
     function bloquear(si) {
@@ -101,9 +171,16 @@
                 $s.find('.prpr-fila:last .prpr-nombre').trigger('focus');
             });
             $s.on('click', '.prpr-quitar', function () {
-                $(this).closest('tr').remove();
+                var $tr = $(this).closest('tr');
+                $tr.next('.prpr-precios').remove();
+                $tr.remove();
                 actualizarVacio();
             });
+            $s.on('input', '.prpr-factor', function () { refrescarReferencias($(this).closest('tr')); });
+            $s.on('input', '.prpr-precio', function () {
+                refrescarReferencias($(this).closest('tr.prpr-precios').prev('.prpr-fila'));
+            });
+            listas = listasIniciales();
             // Una sola habitual de compra y una de venta; habitual implica "se usa"
             $s.on('change', '.prpr-def-compra, .prpr-def-venta', function () {
                 if (!this.checked) return;
@@ -125,6 +202,7 @@
         limpiar: function () {
             if (!ProdPres.activo()) return;
             token++;
+            listas = listasIniciales();
             pintar([], false);
             refrescarUnidad();
         },
@@ -136,12 +214,14 @@
             refrescarUnidad();
             if (!productoId) { pintar([], soloLectura); return; }
             var $tb = $sec().find('tbody');
-            $tb.find('.prpr-fila').remove();
+            $tb.find('.prpr-fila, .prpr-precios').remove();
             $tb.find('.prpr-vacio').show().find('td').text('Cargando presentaciones...');
             $.get(cfg.ajaxUrl, { accion: 'obtener_presentaciones', producto_id: productoId, empresa_idx: cfg.empresaIdx }, function (res) {
                 if (t !== token) return; // respuesta vieja
                 $tb.find('.prpr-vacio td').text('Sin presentaciones: se compra y se vende solo por unidad.');
-                pintar(res && res.success && Array.isArray(res.data) ? res.data : [], soloLectura);
+                var venta = res && res.venta ? res.venta : null;
+                if (venta && Array.isArray(venta.listas)) listas = venta.listas;
+                pintar(res && res.success && Array.isArray(res.data) ? res.data : [], soloLectura, venta);
             }, 'json').fail(function () {
                 if (t !== token) return;
                 $tb.find('.prpr-vacio td').html('<span class="text-danger">No se pudieron cargar las presentaciones</span>');
@@ -174,8 +254,31 @@
                     es_compra_defecto: $tr.find('.prpr-def-compra').is(':checked') ? 1 : 0,
                     es_venta_defecto: $tr.find('.prpr-def-venta').is(':checked') ? 1 : 0
                 });
+                if (conVenta()) {
+                    var fila = filas[filas.length - 1];
+                    fila.venta_minimo = $.trim($tr.find('.prpr-vmin').val());
+                    fila.venta_multiplo = $.trim($tr.find('.prpr-vmul').val());
+                    fila.precios = {};
+                    $tr.next('.prpr-precios').find('.prpr-precio').each(function () {
+                        var v = $.trim($(this).val());
+                        $(this).removeClass('is-invalid');
+                        if (!error && v !== '' && !(parseFloat(v) >= 0)) {
+                            error = 'Revisá los precios de la presentación "' + nombre + '".';
+                            $(this).addClass('is-invalid');
+                        }
+                        fila.precios[$(this).data('lista')] = v;
+                    });
+                }
             });
-            return error || filas;
+            if (error) return error;
+            if (!conVenta()) return filas;
+            return {
+                filas: filas,
+                unidad: {
+                    venta_minimo: $.trim($sec().find('.prpr-unidad-min').val()),
+                    venta_multiplo: $.trim($sec().find('.prpr-unidad-mul').val())
+                }
+            };
         },
 
         bloquear: bloquear
