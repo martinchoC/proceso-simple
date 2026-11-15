@@ -81,6 +81,11 @@ $(document).ready(function () {
                     render: function (data, type) {
                         var nombreMostrar = data.entidad_fantasia || data.entidad_nombre || '';
                         if (type === 'export') return nombreMostrar;
+                        // Vendedores y carteras: el vendedor del pedido debajo del cliente (vendedor_nombre solo viene con el indicador)
+                        if (data.vendedor_nombre) {
+                            if (type === 'filter') return nombreMostrar + ' ' + data.vendedor_nombre;
+                            if (type === 'display') return `<div>${nombreMostrar}</div><small class="text-muted"><i class="fas fa-user-tie me-1"></i>${$('<div>').text(data.vendedor_nombre).html()}</small>`;
+                        }
                         return `<div>${nombreMostrar}</div>`;
                     }
                 },

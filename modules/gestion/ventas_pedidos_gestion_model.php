@@ -31,7 +31,9 @@ function obtenerPedidosGestion($conexion, $empresa_idx, $pagina_id)
             LEFT JOIN gestion__entidades e ON vp.entidad_id = e.entidad_id
             LEFT JOIN gestion__sucursales s ON vp.sucursal_id = s.sucursal_id AND s.empresa_id = vp.empresa_id
             LEFT JOIN gestion__puntos_venta pv ON vp.punto_venta_id = pv.punto_venta_id AND pv.empresa_id = vp.empresa_id
-            WHERE vp.empresa_id = ? AND vp.tabla_estado_registro_id IN (5, 9, 10)
+            WHERE vp.empresa_id = ? AND vp.tabla_estado_registro_id IN (5, 9, 10)"
+            // Vendedores y carteras: el usuario vendedor ve solo pedidos de su cartera (sin el indicador, nada)
+            . vcar_sql_filtro_cliente($conexion, $empresa_idx, intval($_SESSION['usuario_id'] ?? 0), 'vp.entidad_id', 'vp.vendedor_entidad_id') . "
             ORDER BY vp.f_emision ASC, vp.venta_pedido_id ASC";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -56,6 +58,7 @@ function obtenerPedidosGestion($conexion, $empresa_idx, $pagina_id)
         $pedidos[] = $fila;
     }
     mysqli_stmt_close($stmt);
+    $pedidos = vcar_agregar_vendedor_filas($conexion, $empresa_idx, $pedidos); // vendedor_nombre (sin el indicador, nada)
     return $pedidos;
 }
 

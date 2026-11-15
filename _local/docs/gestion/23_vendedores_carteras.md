@@ -1,6 +1,6 @@
 # Vendedores y carteras de clientes (paso 5a)
 
-Estado: **plan a aprobar** (2026-11-15). La parte (b), distribución, va en otra sesión con su propio plan
+Estado: **implementado** (2026-11-15; plan aprobado con las 5 recomendaciones). La parte (b), distribución, va en otra sesión con su propio plan
 (al final, un adelanto de cómo encaja).
 
 ## Pedido (Prompt 5, parte a)
@@ -109,3 +109,23 @@ de las presentaciones (`gestion__productos_presentaciones` ya los tiene) contra 
 ruta con orden manual (sortablejs local); lista de carga por producto y presentación; rendición básica (entregado
 / rechazado / cobrado por pedido). Sin mapas ni optimización de rutas. El vendedor del pedido de este paso sirve
 para agrupar y para la rendición.
+
+## Implementado (2026-11-15)
+
+| Paso | Qué |
+|---|---|
+| 5a-1 | Migración `20261118_vendedores_carteras_01.sql` (`usa_vendedores`, rol VEN id 9, tablas 469 `gestion__vendedores_usuarios` y 470 `gestion__vendedores_carteras`, `gestion__ventas_pedidos.vendedor_entidad_id` / `origen`) y `core/vendedores.php` (`vcar_*`). `sincronizarRolesEntidad` (`core/entidades_roles.php`) no da de baja el rol VEN: el formulario de Entidades tiene las casillas de rol fijas y no lo muestra |
+| 5a-2 | Página "Vendedores y carteras" 147 / 647 (`20261118_vendedores_carteras_02_pagina.sql`, funciones 3599–3604 / 8599–8604, solo perfiles de administración): solapas Vendedores, Cartera y Clientes sin vendedor (`core/vendedores_abm.php`, `templates/vendedores/`, `assets/js/vendedores.js`); interruptor en Empresas |
+| 5a-3 | Pedidos (91 y 55, módulos 2 y 5): vendedor y origen al grabar (alta, edición y copia), vendedor debajo del cliente en los dos listados (también en la búsqueda), selector "Vendedor" en el pedido para quien tiene "Asignar vendedor" (lo agrega el JS solo con el indicador), filtro por cartera en los listados, en el selector de clientes y al grabar, y control al abrir / operar un pedido por id (`vcar_exigir_pedido`) |
+
+Pruebas: `probar_vcar.php` (núcleo: 3 apagado y 36 prendido en la copia, 4 contra el maestro sin la estructura),
+`probar_empresas_vend.php` (interruptor), caso de simulación `36_vendedores_carteras.py` (página y pedidos, con el
+indicador apagado al final) y comparación antes / después de los casos 03, 04, 06, 09 y 19b con el indicador
+apagado.
+
+Límites conocidos:
+- El filtro por cartera usa la cartera **de hoy**: si un cliente pasa a otro vendedor, el anterior deja de ver sus
+  pedidos viejos salvo los que quedaron a su nombre (`vendedor_entidad_id`).
+- Solo pedidos: remitos, facturas, cuenta corriente y cobranzas no se filtran (decisión 3).
+- El remito y la factura no guardan vendedor: se lee del pedido de origen (para comisiones, más adelante).
+- La consola del navegador no se revisó en estas pantallas (sin navegador en esta sesión).

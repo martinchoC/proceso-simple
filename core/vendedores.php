@@ -629,3 +629,60 @@ if (!function_exists('vcar_pedidos_vendedores')) {
         return $out;
     }
 }
+
+if (!function_exists('vcar_exigir_pedido')) {
+    /**
+     * Un usuario restringido solo abre / opera pedidos de su cartera (cliente en su cartera hoy) o propios (vendedor =
+     * él). Sin restricción o pedido inexistente: no hace nada (el resto lo valida cada acción).
+     * @throws InvalidArgumentException
+     */
+    function vcar_exigir_pedido(mysqli $conexion, int $empresa_id, int $usuario_id, int $venta_pedido_id): void
+    {
+        $v = vcar_restringido($conexion, $empresa_id, $usuario_id);
+        if ($v === null || $venta_pedido_id <= 0) {
+            return;
+        }
+        $r = vcar_filas($conexion, "SELECT entidad_id, vendedor_entidad_id FROM gestion__ventas_pedidos WHERE venta_pedido_id = ? AND empresa_id = ?",
+            'ii', [$venta_pedido_id, $empresa_id]);
+        if (!$r) {
+            return;
+        }
+        if ((int) ($r[0]['vendedor_entidad_id'] ?? 0) === $v || vcar_vendedor_de_cliente($conexion, $empresa_id, (int) $r[0]['entidad_id']) === $v) {
+            return;
+        }
+        throw new InvalidArgumentException('El pedido es de un cliente que no está en tu cartera.');
+    }
+}
+
+if (!function_exists('vcar_agregar_vendedor_filas')) {
+    /** Agrega vendedor_nombre y origen a filas de pedidos (con venta_pedido_id). Sin el indicador no las toca. */
+    function vcar_agregar_vendedor_filas(mysqli $conexion, int $empresa_id, array $filas): array
+    {
+        if (!$filas || !vcar_empresa_usa($conexion, $empresa_id)) {
+            return $filas;
+        }
+        $v = vcar_pedidos_vendedores($conexion, $empresa_id, array_column($filas, 'venta_pedido_id'));
+        foreach ($filas as &$f) {
+            $x = $v[(int) ($f['venta_pedido_id'] ?? 0)] ?? null;
+            $f['vendedor_entidad_id'] = $x['vendedor_entidad_id'] ?? null;
+            $f['vendedor_nombre'] = $x['vendedor_nombre'] ?? null;
+            $f['origen'] = $x['origen'] ?? null;
+        }
+        unset($f);
+        return $filas;
+    }
+}
+
+if (!function_exists('vcar_opciones_pedido')) {
+    /** Para la pantalla del pedido: indicador, si el usuario puede elegir vendedor y la lista de vendedores activos. */
+    function vcar_opciones_pedido(mysqli $conexion, int $empresa_id, int $usuario_id): array
+    {
+        if (!vcar_empresa_usa($conexion, $empresa_id)) {
+            return ['activo' => false];
+        }
+        $puede = vcar_vendedor_de_usuario($conexion, $empresa_id, $usuario_id) === null
+            && vcar_usuario_puede($conexion, $empresa_id, $usuario_id, VCAR_FUNCION_ASIGNAR);
+        return ['activo' => true, 'puede_asignar' => $puede, 'restringido' => vcar_restringido($conexion, $empresa_id, $usuario_id) !== null,
+                'vendedores' => array_map(fn($v) => ['id' => (int) $v['vendedor_entidad_id'], 'nombre' => $v['entidad_nombre']], vcar_vendedores($conexion, $empresa_id))];
+    }
+}

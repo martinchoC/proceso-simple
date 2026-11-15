@@ -112,6 +112,32 @@ $(document).ready(function () {
         actualizarTotales();
     }
 
+    // ========== VENDEDORES Y CARTERAS (doc 23, paso 5a-3) ==========
+    // Con el indicador, quien tiene "Asignar vendedor" ve un selector de vendedor en el pedido (vacío = el de la cartera del
+    // cliente); el usuario vendedor no lo ve: el pedido queda a su nombre. Sin el indicador no se agrega nada.
+    var vcarOpciones = { activo: false };
+    function vcarIniciar() {
+        $.getJSON('ventas_pedidos_ajax.php', { accion: 'vendedores_opciones', empresa_idx: empresa_idx }, function (r) {
+            if (!r || !r.success || !r.data || !r.data.activo) return;
+            vcarOpciones = r.data;
+            if (!vcarOpciones.puede_asignar || $('#vcar_vendedor').length) return;
+            var opts = '<option value="">Según la cartera del cliente</option>' + (vcarOpciones.vendedores || []).map(function (v) {
+                return '<option value="' + v.id + '">' + $('<div>').text(v.nombre).html() + '</option>';
+            }).join('');
+            $('#observaciones').closest('.row').after('<div class="row g-2 mt-2"><div class="col-md-4"><label for="vcar_vendedor" class="form-label fw-bold small">Vendedor</label>'
+                + '<select class="form-select form-select-sm" id="vcar_vendedor" name="vendedor_entidad_id">' + opts + '</select></div></div>');
+        });
+    }
+    function vcarMostrarVendedor(res) {
+        if (!$('#vcar_vendedor').length) return;
+        var id = res && res.vendedor_entidad_id ? String(res.vendedor_entidad_id) : '';
+        if (id && !$('#vcar_vendedor option[value="' + id + '"]').length) {
+            $('#vcar_vendedor').append('<option value="' + id + '">' + $('<div>').text(res.vendedor_nombre || ('Vendedor ' + id)).html() + '</option>');
+        }
+        $('#vcar_vendedor').val(id);
+    }
+    vcarIniciar();
+
     // ========== REGLAS DE PRECIO DE VENTA (escalas, promociones y topes; doc 22) ==========
     // Con window.PRV_ACTIVO (ventas_pedidos.php), el % de cada línea lo calcula el servidor (resolver_descuentos): el
     // mayor entre el descuento del cliente, la escala y la promoción (sin sumarlos, con el tope de la lista), más el
@@ -300,6 +326,11 @@ $(document).ready(function () {
                         var nombreMostrar = data.entidad_fantasia || data.entidad_nombre || '';
                         if (type === 'export') {
                             return nombreMostrar;
+                        }
+                        // Vendedores y carteras: el vendedor del pedido debajo del cliente (vendedor_nombre solo viene con el indicador)
+                        if (data.vendedor_nombre) {
+                            if (type === 'filter') return nombreMostrar + ' ' + data.vendedor_nombre;
+                            if (type === 'display') return `<div>${nombreMostrar}</div><small class="text-muted"><i class="fas fa-user-tie me-1"></i>${$('<div>').text(data.vendedor_nombre).html()}</small>`;
                         }
                         return `<div>${nombreMostrar}</div>`;
                     }
@@ -940,6 +971,7 @@ $(document).ready(function () {
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
+                vcarMostrarVendedor(res);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
                 $('#descuento_general_pct').val(window.PRV_ACTIVO ? prvManualDe(res) : (res.descuento_general_pct || '0'));
                 $('#total_neto').val(res.subtotal || 0);
@@ -2089,6 +2121,7 @@ $(document).ready(function () {
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
+                vcarMostrarVendedor(res);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
                 $('#descuento_general_pct').val(window.PRV_ACTIVO ? prvManualDe(res) : (res.descuento_general_pct || '0'));
                 $('#total_neto').val(res.subtotal || 0);
@@ -2254,6 +2287,7 @@ $(document).ready(function () {
         formData.append('tipo_cambio', $('#tipo_cambio').val() || '1.000000');
         formData.append('direccion_entrega', $('#direccion_entrega').val() || '');
         formData.append('observaciones', $('#observaciones').val() || '');
+        if ($('#vcar_vendedor').length) formData.append('vendedor_entidad_id', $('#vcar_vendedor').val() || 0);
         formData.append('subtotal', $('#total_neto').val() || '0');
         formData.append('descuento_general_pct', $('#descuento_general_pct').val() || '0');
         formData.append('descuentos', $('#descuentos').val() || '0');

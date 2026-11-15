@@ -36,6 +36,16 @@ $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
 // Solo una página de este módulo (si no, la de ventas_pedidos.php del módulo): contra ella se validan botones y acciones
 $pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'ventas_pedidos.php');
 
+// Vendedores y carteras: un usuario vendedor solo abre y opera pedidos de su cartera (sin el indicador, nada)
+if (in_array($accion, ['obtener', 'ejecutar_accion', 'copiar', 'editar', 'obtener_remitos_pedido'], true)) {
+    try {
+        vcar_exigir_pedido($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), intval($_POST['venta_pedido_id'] ?? $_GET['venta_pedido_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        enviarRespuesta(['success' => false, 'resultado' => false, 'error' => $e->getMessage(), 'message' => $e->getMessage()]);
+    }
+}
+
+
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
 }
@@ -173,6 +183,7 @@ try {
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'vendedor_entidad_id' => intval($_POST['vendedor_entidad_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
@@ -215,6 +226,7 @@ try {
                 'impuestos' => floatval($_POST['impuestos'] ?? 0),
                 'total' => floatval($_POST['total'] ?? 0),
                 'observaciones' => trim($_POST['observaciones'] ?? ''),
+                'vendedor_entidad_id' => intval($_POST['vendedor_entidad_id'] ?? 0),
                 'detalles' => $detalles,
                 'empresa_idx' => $empresa_idx,
                 'pagina_idx' => $pagina_idx
@@ -338,6 +350,11 @@ try {
             echo json_encode($unidades, JSON_UNESCAPED_UNICODE);
             break;
             
+        // Vendedores y carteras (core/vendedores.php): si el usuario puede elegir el vendedor y la lista de vendedores
+        case 'vendedores_opciones':
+            echo json_encode(['success' => true, 'data' => vcar_opciones_pedido($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']))], JSON_UNESCAPED_UNICODE);
+            break;
+
         // Reglas de precio de venta (core/precios_venta.php): descuento de cada línea según escalas, promociones y topes
         case 'resolver_descuentos':
             echo json_encode(prv_resolver_pantalla($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), 'pedido', $_POST), JSON_UNESCAPED_UNICODE);

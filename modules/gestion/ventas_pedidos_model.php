@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/vendedores.php'; // vendedores y carteras (vcar_*): inactivo sin el indicador
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -492,6 +493,9 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
         }
     }
 
+    // Vendedores y carteras: el usuario vendedor ve solo pedidos de su cartera (sin el indicador, nada)
+    $sql .= vcar_sql_filtro_cliente($conexion, intval($empresa_idx), intval($_SESSION['usuario_id'] ?? 0), 'vp.entidad_id', 'vp.vendedor_entidad_id');
+
     $sql .= " ORDER BY vp.f_emision DESC, vp.venta_pedido_id DESC";
 
     $stmt = mysqli_prepare($conexion, $sql);
@@ -529,6 +533,7 @@ function obtenerPedidosVenta($conexion, $empresa_idx, $pagina_id)
     }
 
     mysqli_stmt_close($stmt);
+    $data = vcar_agregar_vendedor_filas($conexion, intval($empresa_idx), $data); // vendedor_nombre (sin el indicador, nada)
     return $data;
 }
 
@@ -578,6 +583,13 @@ function agregarPedidoVenta($conexion, $data)
             'entidad_id' => intval($data['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
             'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
         ], $data['detalles'], 'pedido');
+    }
+    // Vendedores y carteras: vendedor y origen del pedido; el usuario vendedor solo carga clientes de su cartera (sin el indicador, nada)
+    try {
+        $vcar_pedido = vcar_resolver_pedido($conexion, intval($data['empresa_idx'] ?? 0), intval($_SESSION['usuario_id'] ?? 0),
+            intval($data['entidad_id'] ?? 0), $data['f_emision'] ?? null, $data, null);
+    } catch (InvalidArgumentException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
     }
 
     if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
@@ -727,6 +739,7 @@ function agregarPedidoVenta($conexion, $data)
         if (!$detalles_success) {
             throw new Exception("Error al insertar los detalles");
         }
+        vcar_guardar_pedido($conexion, (int) $venta_pedido_id, $vcar_pedido);
 
         mysqli_commit($conexion);
         return ['resultado' => true, 'venta_pedido_id' => $venta_pedido_id, 'comprobante_id' => $comprobante_id];
@@ -869,6 +882,13 @@ function editarPedidoVenta($conexion, $id, $data)
             'entidad_id' => intval($data['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
             'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
         ], $data['detalles'], 'pedido');
+    }
+    // Vendedores y carteras: vendedor y origen del pedido; el usuario vendedor solo carga clientes de su cartera (sin el indicador, nada)
+    try {
+        $vcar_pedido = vcar_resolver_pedido($conexion, intval($data['empresa_idx'] ?? 0), intval($_SESSION['usuario_id'] ?? 0),
+            intval($data['entidad_id'] ?? 0), $data['f_emision'] ?? null, $data, vcar_pedido_actual($conexion, intval($data['empresa_idx'] ?? 0), $id));
+    } catch (InvalidArgumentException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
     }
 
     mysqli_begin_transaction($conexion);
@@ -1029,6 +1049,7 @@ function editarPedidoVenta($conexion, $id, $data)
         if (!$sync_result['resultado']) {
             throw new Exception($sync_result['error']);
         }
+        vcar_guardar_pedido($conexion, $id, $vcar_pedido);
 
         mysqli_commit($conexion);
         return ['resultado' => true, 'message' => 'Pedido actualizado correctamente'];
@@ -1277,7 +1298,8 @@ function obtenerClientes($conexion, $empresa_idx)
             FROM gestion__entidades 
             WHERE empresa_id = ? 
             AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI') . "
-            AND tabla_estado_registro_id = 1 
+            AND tabla_estado_registro_id = 1 "
+            . vcar_sql_filtro_cliente($conexion, intval($empresa_idx), intval($_SESSION['usuario_id'] ?? 0), 'gestion__entidades.entidad_id') . "
             ORDER BY entidad_nombre";
     
     $stmt = mysqli_prepare($conexion, $sql);

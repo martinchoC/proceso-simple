@@ -40,6 +40,16 @@ $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0);
 // Solo una página de este módulo (si no, la de ventas_pedidos_gestion.php del módulo): contra ella se validan botones y acciones
 $pagina_idx = permisos_pagina_modulo($conexion, 2, (int)$pagina_idx, 'ventas_pedidos_gestion.php');
 
+// Vendedores y carteras: un usuario vendedor solo abre y opera pedidos de su cartera (sin el indicador, nada)
+if (in_array($accion, ['abrir_pedido', 'actualizar_cantidad_detalle'], true)) {
+    try {
+        vcar_exigir_pedido($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), intval($_POST['venta_pedido_id'] ?? $_GET['venta_pedido_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        enviarRespuesta(['success' => false, 'resultado' => false, 'error' => $e->getMessage(), 'message' => $e->getMessage()]);
+    }
+}
+
+
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos', 500);
 }

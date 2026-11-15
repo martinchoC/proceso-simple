@@ -72,3 +72,72 @@ if CTX.get('ok'):
     r = vp(dict(accion='usuarios'), 'GET')
     check(ok_resp(r) and any(int(u['usuario_id']) == USU_V and int(u['vendedor_entidad_id'] or 0) == v1 for u in data(r)),
           'usuarios de la empresa con el vendedor que son', str(r)[:300])
+
+
+# ---------------------------------------------------------------------------------------------
+P1 = 1529
+
+
+def alta_pedido(cliente, usuario_id=1, **extra):
+    dets = [linea(P1, 2, 100.0, 21.0)]
+    r = ajax('ventas_pedidos_ajax.php', dict(dict(accion='agregar', empresa_idx=2, pagina_idx=91, comprobante_tipo_id=1, sucursal_id=1,
+             punto_venta_id=1, entidad_id=cliente, f_emision=HOY, moneda_id=1, tipo_cambio=1, condicion_pago_id='',
+             descuento_general_pct=0, detalles=dets, **totales(dets)), **extra), usuario_id=usuario_id)
+    return r, ((r.get('venta_pedido_id') or r.get('id')) if isinstance(r, dict) else None)
+
+
+def vend_ped(ped):
+    return uno(f"SELECT vendedor_entidad_id v, origen o FROM gestion__ventas_pedidos WHERE venta_pedido_id = {ped or 0}")
+
+
+caso('Vendedores: pedido con vendedor, origen y cartera')
+v1 = CTX.get('v1')
+if CTX.get('ok') and v1:
+    # Estado de la cartera tras la parte de la página: C1 -> vendedor 1; C2 y C3 -> vendedor 2. Usuario 8 = vendedor 1.
+    r, p1 = alta_pedido(C1, usuario_id=USU_V)
+    l = vend_ped(p1)
+    check(ok_resp(r) and l and int(l['v'] or 0) == v1 and l['o'] == 'VENDEDOR', 'el vendedor carga un pedido de su cliente: a su nombre, origen VENDEDOR', err(r) + ' ' + str(l))
+    r, p2 = alta_pedido(C2, usuario_id=USU_V)
+    check(not ok_resp(r) and 'cartera' in err(r), 'el vendedor no carga pedidos de un cliente de otra cartera', err(r))
+    r, p3 = alta_pedido(C2)
+    l = vend_ped(p3)
+    check(ok_resp(r) and l and int(l['v'] or 0) == V2_ENT and l['o'] == 'ERP', 'administración carga un pedido: vendedor de la cartera, origen ERP', err(r) + ' ' + str(l))
+    r, p4 = alta_pedido(C3, vendedor_entidad_id=v1)
+    l = vend_ped(p4)
+    check(ok_resp(r) and l and int(l['v'] or 0) == v1, 'administración elige otro vendedor ("Asignar vendedor")', err(r) + ' ' + str(l))
+    CTX['p3'] = p3
+
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='listar', empresa_idx=2, pagina_idx=91), 'GET', usuario_id=USU_V)
+    ids = [int(x['venta_pedido_id']) for x in (r if isinstance(r, list) else [])]
+    clientes = {int(x['entidad_id']) for x in (r if isinstance(r, list) else [])}
+    check(p1 in ids and p4 in ids and p3 not in ids and C2 not in clientes,
+          'el listado del vendedor trae su cartera y sus pedidos, no los de otros', str(r)[:300])
+    fila = next((x for x in (r if isinstance(r, list) else []) if int(x['venta_pedido_id']) == p1), {})
+    check(fila.get('vendedor_nombre') == 'SIM Vendedor Uno', 'el listado trae el nombre del vendedor', str(fila)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='listar', empresa_idx=2, pagina_idx=91), 'GET')
+    check(isinstance(r, list) and p3 in [int(x['venta_pedido_id']) for x in r], 'el administrador ve todos los pedidos', str(r)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='obtener', venta_pedido_id=p3, empresa_idx=2, pagina_idx=91), 'GET', usuario_id=USU_V)
+    check(isinstance(r, dict) and 'cartera' in err(r), 'el vendedor no abre un pedido de otra cartera', str(r)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='obtener_clientes', empresa_idx=2, pagina_idx=91), 'GET', usuario_id=USU_V)
+    cl = {int(x['entidad_id']) for x in (r if isinstance(r, list) else [])}
+    check(cl == {C1}, 'el selector de clientes del vendedor trae solo su cartera', str(r)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='vendedores_opciones', empresa_idx=2, pagina_idx=91), 'GET')
+    d = data(r) or {}
+    check(d.get('activo') and d.get('puede_asignar') and any(int(v['id']) == v1 for v in d.get('vendedores', [])), 'opciones de la pantalla para administración', str(r)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='vendedores_opciones', empresa_idx=2, pagina_idx=91), 'GET', usuario_id=USU_V)
+    d = data(r) or {}
+    check(d.get('activo') and not d.get('puede_asignar') and d.get('restringido'), 'el vendedor no elige vendedor y está restringido', str(r)[:200])
+    r = ajax('ventas_pedidos_gestion_ajax.php', dict(accion='listar', empresa_idx=2, pagina_idx=55), 'GET', usuario_id=1)
+    check(isinstance(r, list), 'Pedidos Realizados lista con el indicador prendido', str(r)[:200])
+
+    # Indicador apagado: todo como antes
+    sql("UPDATE conf__empresas SET usa_vendedores = 0 WHERE empresa_id = 2")
+    r, p5 = alta_pedido(C2, usuario_id=USU_V)
+    l = vend_ped(p5)
+    check(ok_resp(r) and l and l['v'] is None and l['o'] is None, 'apagado: el vendedor carga cualquier cliente y las columnas quedan en NULL', err(r) + ' ' + str(l))
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='listar', empresa_idx=2, pagina_idx=91), 'GET', usuario_id=USU_V)
+    check(isinstance(r, list) and CTX['p3'] in [int(x['venta_pedido_id']) for x in r] and all('vendedor_nombre' not in x for x in r),
+          'apagado: el listado no filtra ni agrega el vendedor', str(r)[:200])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='vendedores_opciones', empresa_idx=2, pagina_idx=91), 'GET')
+    check(isinstance(r, dict) and (data(r) or {}).get('activo') is False, 'apagado: la pantalla no agrega el selector', str(r)[:200])
+    sql("UPDATE conf__empresas SET usa_vendedores = 1 WHERE empresa_id = 2")
