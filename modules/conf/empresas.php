@@ -274,6 +274,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input class="form-check-input" type="checkbox" id="usa_presentaciones" name="usa_presentaciones" value="1" />
                                         <label class="form-check-label" for="usa_presentaciones">Usa presentaciones (caja, pack, pallet)</label>
                                     </div>
+                                    <?php // Solo con el script 20261114_venta_presentaciones_01.sql aplicado
+                                    $emp_col_venta_pres = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_venta_presentaciones'");
+                                    if ($emp_col_venta_pres && mysqli_num_rows($emp_col_venta_pres) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_venta_presentaciones" name="usa_venta_presentaciones" value="1" />
+                                        <label class="form-check-label" for="usa_venta_presentaciones">Vende por presentación <?= ui_ayuda('Cada presentación (caja, pack) tiene su propio precio en cada lista de precios, con cantidad mínima y múltiplo de venta. Una presentación sin precio en la lista no se ofrece. Requiere "Usa presentaciones".') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -994,10 +1002,19 @@ $(document).ready(function(){
     $('#ia_habilitada, #ia_api_key_quitar, #es_principal').on('change', pintarEstadoIa);
     $('#ia_api_key').on('input', pintarEstadoIa);
 
+    // Vender por presentación exige usar presentaciones
+    function empSyncVentaPresentaciones() {
+        var usa = $('#usa_presentaciones').is(':checked');
+        if (!usa) $('#usa_venta_presentaciones').prop('checked', false);
+        $('#usa_venta_presentaciones').prop('disabled', !usa);
+    }
+    $('#usa_presentaciones').on('change', empSyncVentaPresentaciones);
+
     $('#btnNuevo').click(function(){
         $('#formempresa')[0].reset();
         $('#empresa_id').val('');
         $('#es_principal').prop('checked', false);
+        empSyncVentaPresentaciones();
         mostrarLogo('');
         // Nueva: IA habilitada; sin clave propia usa la de la principal
         var principal = '';
@@ -1078,6 +1095,8 @@ $(document).ready(function(){
                 if (!$('#formato_numero').val()) $('#formato_numero').val('PUNTO|COMA');
                 $('#decimales_stock').val(res.decimales_stock !== undefined && res.decimales_stock !== null ? String(res.decimales_stock) : '2');
                 $('#usa_presentaciones').prop('checked', parseInt(res.usa_presentaciones, 10) === 1);
+                $('#usa_venta_presentaciones').prop('checked', parseInt(res.usa_venta_presentaciones, 10) === 1);
+                empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
                 $('#es_principal').prop('checked', parseInt(res.es_principal, 10) === 1);

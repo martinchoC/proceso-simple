@@ -216,6 +216,8 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     $separador_decimal = !empty($data['separador_decimal']) ? "'" . mysqli_real_escape_string($conexion, trim($data['separador_decimal'])) . "'" : "'COMA'";
     $decimales_stock = is_numeric($data['decimales_stock'] ?? null) ? intval($data['decimales_stock']) : 2;
     $usa_presentaciones = !empty($data['usa_presentaciones']) ? 1 : 0;
+    // Vender por presentación exige usar presentaciones
+    $usa_venta_presentaciones = ($usa_presentaciones === 1 && !empty($data['usa_venta_presentaciones'])) ? 1 : 0;
     $es_principal = !empty($data['es_principal']) ? 1 : 0;
 
     $cols = ['empresa', 'documento_tipo_id', 'documento_numero', 'telefono', 'domicilio', 'localidad_id', 'condicion_fiscal_id', 'email', 'tabla_estado_registro_id'];
@@ -265,6 +267,10 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     if (conf_empresa_columna_existe($conexion, 'usa_presentaciones')) {
         $cols[] = 'usa_presentaciones';
         $vals[] = "$usa_presentaciones";
+    }
+    if (conf_empresa_columna_existe($conexion, 'usa_venta_presentaciones')) {
+        $cols[] = 'usa_venta_presentaciones';
+        $vals[] = "$usa_venta_presentaciones";
     }
 
     $sql = "INSERT INTO conf__empresas (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
@@ -355,6 +361,14 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     $decimales_stock = is_numeric($data['decimales_stock'] ?? null) ? intval($data['decimales_stock']) : 'decimales_stock';
     // Sin el campo (llamadas que no son la pantalla de Empresas) se conserva
     $usa_presentaciones = isset($data['usa_presentaciones']) ? (!empty($data['usa_presentaciones']) ? 1 : 0) : 'usa_presentaciones';
+    // Igual; apagar presentaciones apaga también la venta por presentación
+    if ($usa_presentaciones === 0) {
+        $usa_venta_presentaciones = 0;
+    } elseif (isset($data['usa_venta_presentaciones'])) {
+        $usa_venta_presentaciones = !empty($data['usa_venta_presentaciones']) ? 1 : 0;
+    } else {
+        $usa_venta_presentaciones = 'usa_venta_presentaciones';
+    }
     $es_principal = isset($data['es_principal']) ? (!empty($data['es_principal']) ? 1 : 0) : null;
 
     $updates = [
@@ -397,6 +411,9 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     }
     if (conf_empresa_columna_existe($conexion, 'usa_presentaciones')) {
         $updates[] = "usa_presentaciones=$usa_presentaciones";
+    }
+    if (conf_empresa_columna_existe($conexion, 'usa_venta_presentaciones')) {
+        $updates[] = "usa_venta_presentaciones=$usa_venta_presentaciones";
     }
     if ($es_principal !== null && conf_empresa_columna_existe($conexion, 'es_principal')) {
         $updates[] = "es_principal=$es_principal";
