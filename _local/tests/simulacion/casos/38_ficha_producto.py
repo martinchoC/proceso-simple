@@ -123,3 +123,48 @@ if CTX.get('ok'):
             r = lpa(dict(accion='eliminar', lista_precio_producto_id=lpp))
             check(isinstance(r, dict) and r.get('resultado'), 'quitar el precio (baja lógica)', str(r)[:200])
             sql("DELETE FROM gestion__listas_precios_productos WHERE lista_precio_producto_id = %d" % lpp)
+
+
+# ---------------------------------------------------------------------------------------------
+# Paso 7-3: solapa Ubicaciones.
+caso('Ficha completa: ubicaciones del producto')
+if CTX.get('ok'):
+    P = CTX['prod']
+    sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 1 WHERE empresa_id = %d" % E)
+    r = pa(dict(accion='ficha_ubicaciones_opciones'), 'GET')
+    sucs = (data(r) or {}).get('sucursales') or []
+    suc = next((s for s in sucs if s.get('bocas')), None)
+    check(ok_resp(r) and suc, 'sucursales del usuario con sus bocas', str(r)[:200])
+    if suc:
+        sufijo = 'SIM%d' % P
+        base = dict(accion='ficha_ubicacion_crear', producto_id=P, sucursal_id=suc['sucursal_id'], boca_id=suc['bocas'][0]['boca_id'],
+                    seccion=sufijo, estanteria='E1', estante='2', posicion='3', descripcion='Prueba')
+        r = pa(dict(base, estante=''))
+        check(not ok_resp(r) and 'Falta el estante' in err(r), 'falta un dato: se rechaza', err(r))
+        r = pa(base)
+        su = int((data(r) or {}).get('sucursal_ubicacion_id') or 0)
+        pu = int((data(r) or {}).get('producto_ubicacion_id') or 0)
+        check(ok_resp(r) and su and pu, 'crear la ubicación y asignarla', err(r))
+        r = pa(base)
+        check(not ok_resp(r) and 'ya existe' in err(r), 'la misma ubicación dos veces se rechaza', err(r))
+        check(int(val("SELECT COUNT(*) FROM gestion__sucursales_ubicaciones WHERE seccion = '%s'" % sufijo)) == 1,
+              'el rechazo no deja una ubicación a medias')
+        r = pa(dict(accion='ficha_ubicaciones_listar', producto_id=P), 'GET')
+        check(ok_resp(r) and [int(u['sucursal_ubicacion_id']) for u in data(r)] == [su], 'la solapa la lista', str(r)[:200])
+        r = pa(dict(accion='ficha_ubicacion_asignar', producto_id=P, sucursal_ubicacion_id=su))
+        check(not ok_resp(r) and 'ya está asignada' in err(r), 'asignarla dos veces se rechaza', err(r))
+        ajena = int(val("SELECT sucursal_ubicacion_id FROM gestion__sucursales_ubicaciones WHERE empresa_id <> %d AND tabla_estado_registro_id = 1 LIMIT 1" % E) or 0)
+        r = pa(dict(accion='ficha_ubicacion_asignar', producto_id=P, sucursal_ubicacion_id=ajena))
+        check(not ok_resp(r), 'una ubicación de otra empresa se rechaza', err(r))
+        r = pc(dict(accion='ficha_ubicaciones_listar', producto_id=P))
+        check(ok_resp(r) and len(data(r) or []) == 1, 'la consulta ve las ubicaciones', err(r))
+        r = pc(dict(accion='ficha_ubicacion_quitar', producto_id=P, producto_ubicacion_id=pu), 'POST')
+        check(not ok_resp(r), 'la consulta no puede quitarlas', str(r)[:200])
+        r = pa(dict(accion='ficha_ubicacion_quitar', producto_id=P, producto_ubicacion_id=pu))
+        check(ok_resp(r) and int(val("SELECT tabla_estado_registro_id FROM gestion__productos_ubicaciones WHERE producto_ubicacion_id = %d" % pu)) == 2,
+              'quitarla (baja lógica)', err(r))
+        r = pa(dict(accion='ficha_ubicacion_asignar', producto_id=P, sucursal_ubicacion_id=su))
+        check(ok_resp(r) and int((data(r) or {}).get('producto_ubicacion_id') or 0) == pu, 'volver a asignarla reactiva el registro', err(r))
+        sql("DELETE FROM gestion__productos_ubicaciones WHERE sucursal_ubicacion_id = %d" % su)
+        sql("DELETE FROM gestion__sucursales_ubicaciones WHERE sucursal_ubicacion_id = %d" % su)
+    sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 0 WHERE empresa_id = %d" % E)

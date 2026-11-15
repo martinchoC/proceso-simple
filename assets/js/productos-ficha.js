@@ -10,7 +10,7 @@ var ProdFicha = (function ($) {
     'use strict';
 
     var cfg = { ajaxUrl: 'productos_ajax.php', preciosUrl: 'listas_precios_productos_ajax.php', empresaIdx: 0, paginaIdx: 0, soloLectura: false };
-    var productoId = 0, proveedores = null, vinculos = [], listas = null, precios = [], ro = false;   // ro: solo lectura (consulta o "ver")
+    var productoId = 0, proveedores = null, vinculos = [], listas = null, precios = [], ubiOpciones = null, ro = false;   // ro: solo lectura (consulta o "ver")
 
     function activo() { return $('#pficSolapas').length > 0; }
     function esc(t) { return t === null || t === undefined ? '' : String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -153,6 +153,64 @@ var ProdFicha = (function ($) {
         });
     }
 
+    // ---------------------------------------------------------------- Ubicaciones
+    function textoUbicacion(u) {
+        return [u.sucursal_nombre, u.boca_nombre, 'Secc. ' + u.seccion, 'Estant. ' + u.estanteria, 'Estante ' + u.estante, 'Pos. ' + u.posicion]
+            .filter(Boolean).join(' · ') + (u.descripcion ? ' (' + u.descripcion + ')' : '');
+    }
+    function cargarOpcionesUbicacion(forzar) {
+        if (ro || (ubiOpciones && !forzar)) return;
+        pedir('ficha_ubicaciones_opciones', {}, 'GET').done(function (r) {
+            ubiOpciones = (r && r.success && r.data) || { ubicaciones: [], sucursales: [] };
+            $('#pficUbiElegir').html('<option value="">Elegir…</option>' + ubiOpciones.ubicaciones.map(function (u) {
+                return '<option value="' + u.sucursal_ubicacion_id + '">' + esc(textoUbicacion(u)) + '</option>';
+            }).join(''));
+            $('#pficUbiSucursal').html(ubiOpciones.sucursales.map(function (s) { return '<option value="' + s.sucursal_id + '">' + esc(s.sucursal_nombre) + '</option>'; }).join(''));
+            pintarBocas();
+        });
+    }
+    function pintarBocas() {
+        var sid = String($('#pficUbiSucursal').val() || '');
+        var s = ((ubiOpciones && ubiOpciones.sucursales) || []).find(function (x) { return String(x.sucursal_id) === sid; });
+        $('#pficUbiBoca').html(((s && s.bocas) || []).map(function (b) { return '<option value="' + b.boca_id + '">' + esc(b.boca_nombre) + '</option>'; }).join(''));
+    }
+    function listarUbicaciones() {
+        if (!productoId) { $('#pficUbiFilas').html(''); return; }
+        pedir('ficha_ubicaciones_listar', {}, 'GET').done(function (r) {
+            var us = (r && r.success && r.data) || [];
+            $('#pficUbiFilas').html(us.length ? us.map(function (u) {
+                return '<tr><td>' + esc(u.sucursal_nombre) + '</td><td>' + esc(u.boca_nombre) + '</td><td>' + esc(u.seccion) + '</td><td>' + esc(u.estanteria) + '</td>'
+                    + '<td>' + esc(u.estante) + '</td><td>' + esc(u.posicion) + '</td><td class="small">' + esc(u.descripcion) + '</td>'
+                    + (ro ? '' : '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger pfic-ubi-quitar" data-id="' + u.producto_ubicacion_id + '" title="Quitar"><i class="fas fa-trash"></i></button></td>')
+                    + '</tr>';
+            }).join('') : '<tr><td colspan="' + (ro ? 7 : 8) + '" class="text-muted small p-3">El producto no tiene ubicaciones asignadas.</td></tr>');
+        }).fail(fallo);
+    }
+    function limpiarFormUbicacion() {
+        $('#pficUbiElegir').val('');
+        $('#pficUbiNuevaForm').addClass('d-none').find('input').val('');
+    }
+    function enlazarUbicaciones() {
+        $('#pficUbiAsignar').on('click', function () {
+            var su = $('#pficUbiElegir').val();
+            if (!su) { if (window.UiSimple) UiSimple.aviso('Elija la ubicación.'); return; }
+            pedir('ficha_ubicacion_asignar', { sucursal_ubicacion_id: su }).done(function (r) { respuesta(r, function () { limpiarFormUbicacion(); listarUbicaciones(); }); }).fail(fallo);
+        });
+        $('#pficUbiNueva').on('click', function () { $('#pficUbiNuevaForm').toggleClass('d-none'); pintarBocas(); $('#pficUbiSeccion').trigger('focus'); });
+        $('#pficUbiNuevaCancelar').on('click', limpiarFormUbicacion);
+        $('#pficUbiSucursal').on('change', pintarBocas);
+        $('#pficUbiCrear').on('click', function () {
+            pedir('ficha_ubicacion_crear', {
+                sucursal_id: $('#pficUbiSucursal').val(), boca_id: $('#pficUbiBoca').val(), seccion: $.trim($('#pficUbiSeccion').val()),
+                estanteria: $.trim($('#pficUbiEstanteria').val()), estante: $.trim($('#pficUbiEstante').val()),
+                posicion: $.trim($('#pficUbiPosicion').val()), descripcion: $.trim($('#pficUbiDesc').val())
+            }).done(function (r) { respuesta(r, function () { limpiarFormUbicacion(); cargarOpcionesUbicacion(true); listarUbicaciones(); }); }).fail(fallo);
+        });
+        $(document).on('click', '.pfic-ubi-quitar', function () {
+            pedir('ficha_ubicacion_quitar', { producto_ubicacion_id: $(this).data('id') }).done(function (r) { respuesta(r, listarUbicaciones); }).fail(fallo);
+        });
+    }
+
     // ---------------------------------------------------------------- Ficha
     function habilitar(si) {
         $('#pficSolapas .pfic-requiere-producto').toggleClass('disabled', !si).attr('title', si ? null : 'Guarde primero el producto');
@@ -161,24 +219,28 @@ var ProdFicha = (function ($) {
         if (!activo()) return;
         productoId = parseInt(id, 10) || 0;
         ro = !!cfg.soloLectura || !!(opciones && opciones.soloLectura);
-        $('#pficProvForm, #pficPreForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm, #pficUbiForm').toggleClass('d-none', ro);
         habilitar(productoId > 0);
         limpiarFormProveedor();
         limpiarFormPrecio();
+        limpiarFormUbicacion();
         cargarCombo();
         cargarListas();
+        cargarOpcionesUbicacion();
         listarProveedores();
         listarPrecios();
+        listarUbicaciones();
     }
     function limpiar() {
         if (!activo()) return;
         productoId = 0;
         ro = !!cfg.soloLectura;
-        $('#pficProvForm, #pficPreForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm, #pficUbiForm').toggleClass('d-none', ro);
         habilitar(false);
         limpiarFormProveedor();
         limpiarFormPrecio();
-        $('#pficProvFilas, #pficPreFilas').html('');
+        limpiarFormUbicacion();
+        $('#pficProvFilas, #pficPreFilas, #pficUbiFilas').html('');
         bootstrap.Tab.getOrCreateInstance(document.querySelector('#pficSolapas [data-bs-target="#pficInfo"]')).show();
     }
     function init(opciones) {
@@ -186,6 +248,7 @@ var ProdFicha = (function ($) {
         if (!activo()) return;
         enlazarProveedores();
         enlazarPrecios();
+        enlazarUbicaciones();
         habilitar(false);
     }
 

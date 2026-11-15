@@ -7,19 +7,21 @@
 
 require_once __DIR__ . '/base.php';
 require_once __DIR__ . '/proveedores.php';
+require_once __DIR__ . '/ubicaciones.php';
 
 if (!function_exists('pfic_acciones_lectura')) {
     /** Acciones de lectura (las que admite la consulta de productos). */
     function pfic_acciones_lectura(): array
     {
-        return ['ficha_proveedores_listar', 'ficha_proveedores_combo'];
+        return ['ficha_proveedores_listar', 'ficha_proveedores_combo', 'ficha_ubicaciones_listar', 'ficha_ubicaciones_opciones'];
     }
 }
 
 if (!function_exists('pfic_ajax_acciones')) {
     function pfic_ajax_acciones(mysqli $conexion, array $ctx, string $accion, int $pagina_id): void
     {
-        $escritura = ['ficha_proveedor_guardar', 'ficha_proveedor_quitar', 'ficha_proveedor_principal'];
+        $escritura = ['ficha_proveedor_guardar', 'ficha_proveedor_quitar', 'ficha_proveedor_principal',
+                      'ficha_ubicacion_asignar', 'ficha_ubicacion_quitar', 'ficha_ubicacion_crear'];
         if (!in_array($accion, pfic_acciones_lectura(), true) && !in_array($accion, $escritura, true)) {
             return;
         }
@@ -42,6 +44,7 @@ if (!function_exists('pfic_ajax_acciones')) {
             }
         }
         $producto_id = intval($_REQUEST['producto_id'] ?? 0);
+        $usuario_id = (int) ($ctx['usuario_id'] ?? 0);
         try {
             switch ($accion) {
                 case 'ficha_proveedores_listar':
@@ -58,6 +61,30 @@ if (!function_exists('pfic_ajax_acciones')) {
                 case 'ficha_proveedor_principal':
                     pfpv_principal($conexion, $empresa_id, $producto_id, intval($_POST['producto_proveedor_id'] ?? 0));
                     $responder(['success' => true, 'data' => null, 'message' => 'Proveedor principal actualizado']);
+                case 'ficha_ubicaciones_listar':
+                    $responder(['success' => true, 'data' => pfub_listar($conexion, $empresa_id, $usuario_id, $producto_id), 'message' => '']);
+                case 'ficha_ubicaciones_opciones':
+                    $responder(['success' => true, 'data' => ['ubicaciones' => pfub_disponibles($conexion, $empresa_id, $usuario_id),
+                        'sucursales' => pfub_sucursales($conexion, $empresa_id, $usuario_id)], 'message' => '']);
+                case 'ficha_ubicacion_asignar':
+                    $id = pfub_asignar($conexion, $empresa_id, $usuario_id, $producto_id, intval($_POST['sucursal_ubicacion_id'] ?? 0));
+                    $responder(['success' => true, 'data' => ['producto_ubicacion_id' => $id], 'message' => 'Ubicación asignada']);
+                case 'ficha_ubicacion_quitar':
+                    pfub_quitar($conexion, $empresa_id, $usuario_id, $producto_id, intval($_POST['producto_ubicacion_id'] ?? 0));
+                    $responder(['success' => true, 'data' => null, 'message' => 'Ubicación quitada']);
+                case 'ficha_ubicacion_crear':
+                    // Crea la ubicación de la sucursal y la asigna al producto, todo o nada
+                    pfic_producto_de_empresa($conexion, $empresa_id, $producto_id);
+                    mysqli_begin_transaction($conexion);
+                    try {
+                        $su = pfub_crear($conexion, $empresa_id, $usuario_id, $_POST);
+                        $id = pfub_asignar($conexion, $empresa_id, $usuario_id, $producto_id, $su);
+                        mysqli_commit($conexion);
+                    } catch (Throwable $e) {
+                        mysqli_rollback($conexion);
+                        throw $e;
+                    }
+                    $responder(['success' => true, 'data' => ['sucursal_ubicacion_id' => $su, 'producto_ubicacion_id' => $id], 'message' => 'Ubicación creada y asignada']);
             }
         } catch (InvalidArgumentException $e) {
             $responder(['success' => false, 'data' => null, 'message' => $e->getMessage()]);

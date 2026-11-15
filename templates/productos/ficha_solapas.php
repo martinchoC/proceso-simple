@@ -15,6 +15,7 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
     <li class="nav-item"><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#pficInfo"><i class="fas fa-id-card me-1"></i>Información</button></li>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficProveedores"><i class="fas fa-truck me-1"></i>Proveedores</button></li>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficPrecios"><i class="fas fa-dollar-sign me-1"></i>Precios</button></li>
+    <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficUbicaciones"><i class="fas fa-map-marker-alt me-1"></i>Ubicaciones</button></li>
 </ul>
 <div class="tab-content">
 <div class="tab-pane fade show active" id="pficInfo" role="tabpanel">
@@ -78,6 +79,45 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light"><tr><th>Lista</th><th class="text-end">Precio sin IVA</th><th class="text-end">Precio con IVA</th><th>Actualizado</th><?php if (!$pfic_ro): ?><th style="width: 110px;"></th><?php endif; ?></tr></thead>
             <tbody id="pficPreFilas"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="tab-pane fade" id="pficUbicaciones" role="tabpanel">
+    <p class="small text-muted mb-2">Dónde se guarda el producto en el depósito (de sus sucursales). Las ubicaciones se arman en Depósitos - Ubicaciones o acá con "Nueva ubicación".</p>
+    <?php if (!$pfic_ro): ?>
+    <div id="pficUbiForm">
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-md-8">
+                <label class="form-label form-label-sm" for="pficUbiElegir">Ubicación</label>
+                <select class="form-select form-select-sm" id="pficUbiElegir"><option value="">Elegir…</option></select>
+            </div>
+            <div class="col-md-4 d-flex gap-1">
+                <button type="button" class="btn btn-sm btn-primary flex-fill" id="pficUbiAsignar">Asignar</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="pficUbiNueva"><i class="fas fa-plus me-1"></i>Nueva ubicación</button>
+            </div>
+        </div>
+        <div class="border rounded p-2 mb-2 d-none" id="pficUbiNuevaForm">
+            <div class="row g-2">
+                <div class="col-md-3"><label class="form-label form-label-sm" for="pficUbiSucursal">Sucursal</label><select class="form-select form-select-sm" id="pficUbiSucursal"></select></div>
+                <div class="col-md-3"><label class="form-label form-label-sm" for="pficUbiBoca">Boca</label><select class="form-select form-select-sm" id="pficUbiBoca"></select></div>
+                <div class="col-md-6"><label class="form-label form-label-sm" for="pficUbiDesc">Descripción</label><input type="text" class="form-control form-control-sm" id="pficUbiDesc" maxlength="255"></div>
+                <div class="col-6 col-md-2"><label class="form-label form-label-sm" for="pficUbiSeccion">Sección</label><input type="text" class="form-control form-control-sm" id="pficUbiSeccion" maxlength="50"></div>
+                <div class="col-6 col-md-2"><label class="form-label form-label-sm" for="pficUbiEstanteria">Estantería</label><input type="text" class="form-control form-control-sm" id="pficUbiEstanteria" maxlength="50"></div>
+                <div class="col-6 col-md-2"><label class="form-label form-label-sm" for="pficUbiEstante">Estante</label><input type="text" class="form-control form-control-sm" id="pficUbiEstante" maxlength="50"></div>
+                <div class="col-6 col-md-2"><label class="form-label form-label-sm" for="pficUbiPosicion">Posición</label><input type="text" class="form-control form-control-sm" id="pficUbiPosicion" maxlength="50"></div>
+                <div class="col-md-4 d-flex align-items-end gap-1">
+                    <button type="button" class="btn btn-sm btn-primary flex-fill" id="pficUbiCrear">Crear y asignar</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="pficUbiNuevaCancelar" title="Cancelar"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Sucursal</th><th>Boca</th><th>Sección</th><th>Estantería</th><th>Estante</th><th>Posición</th><th>Descripción</th><?php if (!$pfic_ro): ?><th style="width: 60px;"></th><?php endif; ?></tr></thead>
+            <tbody id="pficUbiFilas"></tbody>
         </table>
     </div>
 </div>
