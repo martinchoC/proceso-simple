@@ -662,6 +662,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         const MODULO_ID = <?= $modulo_id ?>;
     </script>
     <script src="<?= asset_local('js/cobro-contado.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/cobro-contado.js') ?>"></script>
+    <script src="<?= asset_local('js/ventas-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/ventas-presentaciones.js') ?>"></script>
     <script src="ventas_remitos.js?v=<?= filemtime(__DIR__.'/ventas_remitos.js') ?>"></script>
 </main>
 

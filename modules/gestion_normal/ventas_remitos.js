@@ -601,11 +601,11 @@ $(document).ready(function () {
                 <td>${linea.producto_nombre || ''}</td>
                 <td>${renderUbicacionesPendiente(linea.ubicaciones_detalle)}</td>
                 <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
-                <td class="text-end">${formatMoneda(pendienteEfectivo)}</td>
+                <td class="text-end">${formatMoneda(VentaPres.aVisible(linea, pendienteEfectivo))}${VentaPres.badge(linea)}</td>
                 <td>
                     <input type="number" class="form-control form-control-sm no-spinner input-cantidad-pendiente"
-                        value="${pendienteEfectivo.toFixed(2)}" step="0.01" min="0.01"
-                        max="${pendienteEfectivo}">
+                        value="${VentaPres.esPres(linea) ? Math.floor(VentaPres.aVisible(linea, pendienteEfectivo) + 1e-9) : pendienteEfectivo.toFixed(2)}" step="${VentaPres.esPres(linea) ? 1 : 0.01}" min="${VentaPres.esPres(linea) ? 1 : 0.01}"
+                        max="${VentaPres.aVisible(linea, pendienteEfectivo)}">
                 </td>
                 <td class="text-center">
                     <button type="button" class="btn btn-sm btn-success btn-agregar-pendiente"
@@ -659,6 +659,9 @@ $(document).ready(function () {
         var btn = $(this);
         var fila = btn.closest('tr');
         var cantidad = parseFloat(fila.find('.input-cantidad-pendiente').val());
+        // Venta por presentación: la línea del pedido en cajas se carga en cajas (se guarda en unidades)
+        var lineaPres = (pedidosPendientesCliente || []).find(function (l) { return l.venta_pedido_detalle_id == btn.data('vpd-id'); });
+        if (VentaPres.esPres(lineaPres) && !isNaN(cantidad)) cantidad = VentaPres.aBase(lineaPres, cantidad);
         var pendienteEfectivo = parseFloat(btn.data('pendiente'));
 
         if (!cantidad || cantidad <= 0) {
@@ -691,7 +694,7 @@ $(document).ready(function () {
             var importeNeto = cantidad * precioNeto;
             var ivaImporte = importeNeto * (ivaPct / 100);
 
-            detalles.push({
+            detalles.push(VentaPres.copiar(lineaPres, {
                 detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
                 venta_remito_detalle_id: 0,
                 venta_pedido_detalle_id: vpdId,
@@ -709,7 +712,7 @@ $(document).ready(function () {
                 iva_importe: ivaImporte,
                 origen_pedido_nro: btn.data('pedido-nro'),
                 origen_pedido_tipo: btn.data('pedido-tipo')
-            });
+            }));
         }
 
         renderizarDetalles();
@@ -765,6 +768,44 @@ $(document).ready(function () {
         ultimosResultadosBusqueda.forEach(function (item, index) {
             var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
             var precio = parseFloat(item.precio_neto || 0);
+
+            // Venta por presentación: una fila por forma de venta (la unidad sigue el camino de siempre)
+            var ofertasItem = VentaPres.ofertas(item);
+            if (ofertasItem.length) {
+                var pct = parseFloat(item.descuento_general_pct || 0);
+                ofertasItem.forEach(function (of) {
+                    var presId = parseInt(of.presentacion_id, 10) || 0;
+                    var factor = parseFloat(of.factor || 1);
+                    var precioOf = parseFloat(of.precio || 0);
+                    html += `<tr class="resultado-libre-fila">
+                        <td>${item.producto_codigo || ''}</td>
+                        <td>${item.producto_nombre || ''}
+                            <span class="badge ${presId ? 'bg-secondary' : 'bg-light text-dark border'} ms-1">${escapeHtml(VentaPres.textoOferta(of))}</span>
+                        </td>
+                        <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
+                        <td class="text-end">$${formatMoneda(precioOf * (1 - pct / 100))}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm no-spinner input-cantidad-libre"
+                                value="1.00" step="${presId ? 1 : 0.01}" min="${presId ? 1 : 0.01}">
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-success btn-agregar-libre"
+                                data-index="${index}" data-id="${item.producto_id}"
+                                data-codigo="${item.producto_codigo}" data-nombre="${item.producto_nombre}"
+                                data-precio="${presId ? precioOf / factor * (1 - pct / 100) : precioOf * (1 - pct / 100)}"
+                                data-precio-bruto="${presId ? precioOf / factor : precioOf}"
+                                data-descuento-pct="${pct}"
+                                data-iva-id="${item.iva_alicuota_id || ''}" data-iva="${ivaPorcentaje}"
+                                data-pres-id="${presId}" data-pres-nombre="${escapeHtml(of.nombre || '')}"
+                                data-pres-factor="${factor}" data-pres-precio="${precioOf}"
+                                title="Agregar al remito">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                return;
+            }
 
             html += `<tr class="resultado-libre-fila">
                 <td>${item.producto_codigo || ''}</td>
@@ -982,13 +1023,45 @@ $(document).ready(function () {
         }
 
         var productoId = parseInt(btn.data('id'));
+        var presId = parseInt(btn.data('pres-id'), 10) || 0;
         var existente = detalles.find(function (d) {
-            return !d.venta_pedido_detalle_id && d.producto_id == productoId;
+            return !d.venta_pedido_detalle_id && d.producto_id == productoId && VentaPres.clave(d) === presId;
         });
 
         var mensajeToast = 'Línea agregada';
 
-        if (existente) {
+        if (presId > 0) {
+            // Venta por presentación: la cantidad va en cajas; la línea se guarda en unidades
+            var pres = {
+                presentacion_id: presId,
+                presentacion_nombre: btn.data('pres-nombre'),
+                presentacion_factor: parseFloat(btn.data('pres-factor')) || 1,
+                presentacion_precio: parseFloat(btn.data('pres-precio')) || 0
+            };
+            var destino = existente || VentaPres.copiar(pres, {
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
+                venta_remito_detalle_id: 0,
+                venta_pedido_detalle_id: null,
+                producto_id: productoId,
+                producto_codigo: btn.data('codigo'),
+                producto_nombre: btn.data('nombre'),
+                cantidad: 0,
+                precio_unitario_bruto: parseFloat(btn.data('precio-bruto')) || 0,
+                descuento_general_pct: parseFloat(btn.data('descuento-pct')) || 0,
+                iva_alicuota_id: btn.data('iva-id') || null,
+                iva_porcentaje: parseFloat(btn.data('iva')) || 0,
+                origen_pedido_nro: null,
+                origen_pedido_tipo: null
+            });
+            destino.cantidad = (parseFloat(destino.cantidad) || 0) + VentaPres.aBase(destino, cantidad);
+            destino.presentacion_cantidad = VentaPres.aVisible(destino, destino.cantidad);
+            destino.descuento_general = destino.precio_unitario_bruto * (destino.descuento_general_pct / 100);
+            destino.precio_unitario_neto = destino.precio_unitario_bruto - destino.descuento_general;
+            destino.importe_linea = destino.cantidad * destino.precio_unitario_neto;
+            destino.iva_importe = destino.importe_linea * (destino.iva_porcentaje / 100);
+            if (!existente) detalles.push(destino);
+            else mensajeToast = 'Cantidad sumada a la línea existente';
+        } else if (existente) {
             // Ya hay una línea "sin pedido" para este producto: se suma la cantidad
             // en lugar de crear una línea duplicada (precio, descuento e IVA no cambian).
             existente.cantidad = (parseFloat(existente.cantidad) || 0) + cantidad;
@@ -1077,16 +1150,16 @@ $(document).ready(function () {
             html += `<tr data-idx="${detalle.detalle_idx}">
                 <td>${origen}</td>
                 <td>${detalle.producto_codigo || ''}</td>
-                <td>${detalle.producto_nombre || ''}</td>
+                <td>${detalle.producto_nombre || ''}${VentaPres.badge(detalle)}</td>
                 <td class="text-center">
                     <div class="cantidad-stepper mx-auto">
                         <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
                         <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
-                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
+                            data-idx="${detalle.detalle_idx}" value="${VentaPres.aVisible(detalle, detalle.cantidad)}" step="0.01" min="0">
                         <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
                     </div>
                 </td>
-                <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
+                <td class="text-end">$${formatMoneda(VentaPres.esPres(detalle) ? detalle.precio_unitario_neto * detalle.presentacion_factor : detalle.precio_unitario_neto)}</td>
                 <td class="text-end">$${formatMoneda(detalle.importe_linea)}</td>
                 <td class="text-center">${iva}</td>
                 <td class="text-end">$${formatMoneda(importeIva)}</td>
@@ -1123,6 +1196,8 @@ $(document).ready(function () {
     function cambiarCantidadDetalle(idx, nuevaCantidad) {
         var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
         if (!detalle) return;
+        // Venta por presentación: la pantalla manda cajas; acá se trabaja en unidades
+        if (VentaPres.esPres(detalle) && !isNaN(nuevaCantidad)) nuevaCantidad = VentaPres.aBase(detalle, nuevaCantidad);
 
         if (isNaN(nuevaCantidad)) {
             renderizarDetalles();
@@ -1169,6 +1244,7 @@ $(document).ready(function () {
         detalle.cantidad = nuevaCantidad;
         detalle.importe_linea = detalle.cantidad * detalle.precio_unitario_neto;
         detalle.iva_importe = detalle.importe_linea * (detalle.iva_porcentaje / 100);
+        if (VentaPres.esPres(detalle)) detalle.presentacion_cantidad = VentaPres.aVisible(detalle, detalle.cantidad);
 
         renderizarDetalles();
         actualizarTotales();
@@ -1179,14 +1255,14 @@ $(document).ready(function () {
         var idx = $(this).data('idx');
         var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
         if (!detalle) return;
-        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) - 1) * 100) / 100);
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(VentaPres.aVisible(detalle, detalle.cantidad)) || 0) - 1) * 100) / 100);
     });
 
     $(document).on('click', '.btn-cantidad-mas', function () {
         var idx = $(this).data('idx');
         var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
         if (!detalle) return;
-        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) + 1) * 100) / 100);
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(VentaPres.aVisible(detalle, detalle.cantidad)) || 0) + 1) * 100) / 100);
     });
 
     $(document).on('change', '.input-cantidad-detalle', function () {
@@ -1355,7 +1431,7 @@ $(document).ready(function () {
 
     function poblarDetallesDesdeRespuesta(res) {
         detalles = (res.detalles || []).map(function (d, index) {
-            return {
+            return VentaPres.copiar(d, {
                 detalle_idx: index,
                 venta_remito_detalle_id: d.venta_remito_detalle_id,
                 venta_pedido_detalle_id: d.venta_pedido_detalle_id || null,
@@ -1373,7 +1449,7 @@ $(document).ready(function () {
                 iva_importe: parseFloat(d.iva_importe || 0),
                 origen_pedido_nro: d.pedido_comprobante_nro,
                 origen_pedido_tipo: null
-            };
+            });
         });
         renderizarDetalles();
         actualizarTotales();

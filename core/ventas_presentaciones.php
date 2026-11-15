@@ -127,11 +127,14 @@ if (!function_exists('vpre_normalizar_lineas')) {
     function vpre_normalizar_lineas(mysqli $conexion, int $empresa_id, int $lista_precio_id, array $detalles, string $tipo): array
     {
         $vende_unidad = $lista_precio_id > 0 ? lpre_lista_vende_unidad($conexion, $empresa_id, $lista_precio_id) : true;
-        $campo_origen = ['pedido' => null, 'remito' => 'venta_pedido_detalle_id', 'factura' => 'venta_remito_detalle_id'][$tipo] ?? null;
+        // Campos que indican que la línea viene de un comprobante anterior (hereda: no se normaliza)
+        $campos_origen = ['pedido' => [], 'remito' => ['venta_pedido_detalle_id'], 'factura' => ['venta_remito_detalle_id', 'venta_pedido_detalle_id']][$tipo] ?? [];
         foreach ($detalles as $i => &$d) {
             $d['_vpre'] = null;
-            if ($campo_origen !== null && !empty($d[$campo_origen])) {
-                continue; // hereda
+            foreach ($campos_origen as $campo_origen) {
+                if (!empty($d[$campo_origen])) {
+                    continue 2; // hereda
+                }
             }
             $producto_id = intval($d['producto_id'] ?? 0);
             $pres_id = intval($d['presentacion_id'] ?? 0);
@@ -156,6 +159,9 @@ if (!function_exists('vpre_normalizar_lineas')) {
             }
             $factor = (float) $pres['factor'];
             $pc = round((float) ($d['presentacion_cantidad'] ?? 0), 4);
+            if (abs($pc - round($pc)) > 1e-6) {
+                throw new InvalidArgumentException("\"{$pres['presentacion_nombre']}\": se vende de a presentaciones enteras (" . lpre_num($factor) . ' unidades cada una).');
+            }
             $msg = lpre_validar_cantidad($pc,
                 $pres['venta_minimo'] !== null ? (float) $pres['venta_minimo'] : null,
                 $pres['venta_multiplo'] !== null ? (float) $pres['venta_multiplo'] : null,

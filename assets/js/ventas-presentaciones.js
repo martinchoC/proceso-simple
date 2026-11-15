@@ -87,6 +87,20 @@
             };
         },
 
+        // Conversión entre unidad base y presentaciones para una línea (o cualquier objeto con presentacion_factor)
+        aVisible: function (d, cantidadBase) {
+            return VentaPres.esPres(d) ? r4(num(cantidadBase) / num(d.presentacion_factor)) : cantidadBase;
+        },
+        aBase: function (d, visible) {
+            return VentaPres.esPres(d) ? r4(num(visible) * num(d.presentacion_factor)) : visible;
+        },
+        // Badge con el nombre de la presentación ('' si es por unidad)
+        badge: function (d) {
+            if (!VentaPres.esPres(d)) return '';
+            var t = String(d.presentacion_nombre || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return ' <span class="badge bg-secondary">' + t + '</span>';
+        },
+
         ofertas: function (item) { return item && Array.isArray(item.ofertas) ? item.ofertas : []; },
 
         textoOferta: function (of) {

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -793,6 +794,10 @@ function obtenerPedidosPendientesCliente($conexion, $empresa_idx, $entidad_id, $
     }
 
     mysqli_stmt_close($stmt);
+    // Venta por presentación: la presentación de cada línea pendiente del pedido (solo con el indicador)
+    if (vpre_activo($conexion, (int) $empresa_idx, 'pedido')) {
+        $lineas = vpre_agregar_fotos($conexion, 'pedido', $lineas);
+    }
     return $lineas;
 }
 
@@ -1020,6 +1025,10 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
     }
     mysqli_stmt_close($stmt);
 
+    // Venta por presentación: la foto de cada línea (solo con el indicador)
+    if (vpre_activo($conexion, (int) $empresa_idx, 'remito')) {
+        $detalles = vpre_agregar_fotos($conexion, 'remito', $detalles);
+    }
     $remito['detalles'] = $detalles;
     return $remito;
 }
@@ -1339,6 +1348,10 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
     if (!is_array($detalles) || count($detalles) === 0) {
         throw new Exception("Debe agregar al menos un producto al remito");
     }
+    // Venta por presentación: las líneas sin pedido en cajas pasan a unidad base (sin el indicador, no hace nada)
+    $detalles = vpre_preparar_lineas($conexion, intval($empresa_id),
+        (!empty($entidad_id) && vpre_activo($conexion, intval($empresa_id), 'remito')) ? lpre_lista_cliente($conexion, intval($empresa_id), intval($entidad_id)) : 0,
+        $detalles, 'remito');
 
     $importe_neto_total = 0;
     $importe_iva_total = 0;
@@ -1414,6 +1427,12 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
                 ));
             }
 
+            // Venta por presentación: una línea del pedido en cajas se entrega de a cajas enteras
+            $error_presentacion = vpre_validar_heredada($conexion, 'pedido', $venta_pedido_detalle_id, $cantidad);
+            if ($error_presentacion !== null) {
+                throw new Exception($error_presentacion);
+            }
+
             // Autoridad: se pisa lo que mandó el navegador con lo que dice el pedido.
             $precio_unitario_bruto = floatval($linea_pedido['precio_unitario_bruto']);
             $descuento_general_pct = floatval($linea_pedido['descuento_general_pct']);
@@ -1467,6 +1486,13 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
             throw new Exception("Error insertando detalle del remito: " . mysqli_stmt_error($stmt_insert));
         }
         mysqli_stmt_close($stmt_insert);
+        // Venta por presentación: hereda la presentación de la línea del pedido, o guarda la de la línea directa
+        $remito_detalle_id_vpre = (int) mysqli_insert_id($conexion);
+        if ($venta_pedido_detalle_id) {
+            vpre_heredar($conexion, 'remito', $remito_detalle_id_vpre, 'pedido', $venta_pedido_detalle_id, $cantidad);
+        } elseif (!empty($detalle['_vpre'])) {
+            vpre_guardar_foto($conexion, 'remito', $remito_detalle_id_vpre, $detalle['_vpre']);
+        }
 
         $importe_neto_total += $importe_linea;
         $importe_iva_total += $iva_importe;
@@ -2051,5 +2077,6 @@ function buscarProductosClienteRemitos($conexion, $empresa_idx, $entidad_id, $q)
         $productos[] = $fila;
     }
     mysqli_stmt_close($stmt);
-    return $productos;
+    // Venta por presentación: ofertas por producto (sin el indicador, las filas tal cual)
+    return vpre_agregar_ofertas($conexion, intval($empresa_idx), intval($lista_precio_id), $productos, 0, 'remito');
 }
