@@ -19,6 +19,7 @@
  */
 
 require_once __DIR__ . '/canales_venta.php';
+require_once __DIR__ . '/productos_marcas.php';
 
 const PRV_TABLAS_LINEAS = [
     'pedido' => ['gestion__ventas_pedidos_detalles', 'venta_pedido_detalle_id'],
@@ -249,6 +250,7 @@ if (!function_exists('precio_resolver')) {
             $cant_producto[$pid] = ($cant_producto[$pid] ?? 0) + (float) ($l['cantidad'] ?? 0);
         }
         $categorias = [];
+        $marcas = [];
         $reglas = [];
         $tope_lista = null;
         $canal_id = null;
@@ -261,6 +263,14 @@ if (!function_exists('precio_resolver')) {
                 }
             }
             $reglas = prv_reglas_vigentes($conexion, $empresa_id, $fecha, $pids, array_values($categorias));
+            // Marca comercial (doc 25): solo si alguna regla la usa y la empresa usa marcas; si no, las reglas con
+            // marca no tocan a ningún producto (nunca se ignora la marca: "10 % Arcor" no puede volverse "10 % a todo")
+            if ($pids && array_filter($reglas, fn($r) => !empty($r['marca_comercial_id'])) && pmar_empresa_usa($conexion, $empresa_id)) {
+                foreach (prv_filas($conexion, "SELECT producto_id, marca_comercial_id FROM gestion__productos WHERE empresa_id = ? AND producto_id IN ("
+                        . implode(',', array_fill(0, count($pids), '?')) . ")", 'i' . str_repeat('i', count($pids)), array_merge([$empresa_id], $pids)) as $p) {
+                    $marcas[(int) $p['producto_id']] = (int) ($p['marca_comercial_id'] ?? 0);
+                }
+            }
             $tope_lista = prv_tope_lista($conexion, $empresa_id, $lista_id);
             $canal = cvta_canal_lista($conexion, $empresa_id, $lista_id);
             $canal_id = $canal ? $canal['canal_venta_id'] : null;
@@ -276,6 +286,7 @@ if (!function_exists('precio_resolver')) {
             foreach ($reglas as $r) {
                 if ($r['producto_id'] !== null && (int) $r['producto_id'] !== $pid) continue;
                 if ($r['producto_id'] === null && $r['producto_categoria_id'] !== null && (int) $r['producto_categoria_id'] !== ($categorias[$pid] ?? -1)) continue;
+                if ($r['producto_id'] === null && !empty($r['marca_comercial_id']) && (int) $r['marca_comercial_id'] !== ($marcas[$pid] ?? -1)) continue;
                 if ($r['presentacion_id'] !== null && (int) $r['presentacion_id'] !== $pres) continue;
                 if ($r['lista_precio_id'] !== null && (int) $r['lista_precio_id'] !== $lista_id) continue;
                 if ($r['canal_venta_id'] !== null && (int) $r['canal_venta_id'] !== $canal_id) continue;

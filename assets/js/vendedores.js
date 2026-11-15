@@ -9,6 +9,7 @@
     var cfg = { ajaxUrl: 'vendedores_ajax.php', empresaIdx: 0 };
     var vendedores = [];
     var usuarios = [];
+    var perfiles = [];
     var altaEntidad = null;
     var usuarioVendedor = 0;
     var timers = {};
@@ -88,6 +89,15 @@
     function cargarUsuarios() {
         return pedir('usuarios', {}, 'GET').done(function (r) { if (r && r.success) usuarios = r.data || []; });
     }
+    function cargarPerfiles() {
+        return pedir('perfiles', {}, 'GET').done(function (r) { if (r && r.success) perfiles = r.data || []; });
+    }
+    function opcionesPerfiles() {
+        if (!perfiles.length) return '<option value="">Sin perfiles disponibles en la empresa</option>';
+        return '<option value="">Elegir perfil…</option>' + perfiles.map(function (p) {
+            return '<option value="' + p.empresa_perfil_id + '">' + esc(p.empresa_perfil_nombre) + '</option>';
+        }).join('');
+    }
     function opcionesUsuarios(vendedorId) {
         return '<option value="0">Sin usuario</option>' + usuarios.map(function (u) {
             var otro = u.vendedor_entidad_id && String(u.vendedor_entidad_id) !== String(vendedorId || '');
@@ -98,11 +108,20 @@
     // Alta
     function abrirAlta() {
         altaEntidad = null;
-        $('#vabmAltaBuscar, #vabmAltaNombre, #vabmAltaCuit').val('');
+        $('#vabmAltaBuscar, #vabmAltaNombre, #vabmAltaCuit, #vabmAltaUsuLogin, #vabmAltaUsuNombre, #vabmAltaUsuEmail, #vabmAltaUsuPass').val('');
         $('#vabmAltaResultados').empty();
         $('#vabmAltaElegida').empty();
-        $('#vabmAltaNuevaDet').prop('open', false);
+        $('#vabmAltaNuevaDet, #vabmAltaNuevoUsuDet').prop('open', false);
+        $('#vabmAltaUsuario').prop('disabled', false);
         cargarUsuarios().always(function () { $('#vabmAltaUsuario').html(opcionesUsuarios(0)); });
+        cargarPerfiles().always(function () {
+            $('#vabmAltaUsuPerfil').html(opcionesPerfiles());
+            if (perfiles.length === 1) $('#vabmAltaUsuPerfil').val(String(perfiles[0].empresa_perfil_id));
+            else {
+                var ventas = perfiles.find(function (p) { return String(p.empresa_perfil_nombre).toLowerCase() === 'ventas'; });
+                if (ventas) $('#vabmAltaUsuPerfil').val(String(ventas.empresa_perfil_id));
+            }
+        });
         modal('vabmModalAlta').show();
     }
     function buscarAlta() {
@@ -126,6 +145,20 @@
             datos.entidad_nombre = $.trim($('#vabmAltaNombre').val());
             datos.cuit = $.trim($('#vabmAltaCuit').val());
             if (!datos.entidad_nombre) { aviso('Elija una entidad o escriba el nombre del vendedor.'); return; }
+        }
+        if ($('#vabmAltaNuevoUsuDet').prop('open')) {
+            datos.crear_usuario = 1;
+            datos.usuario_id = 0;
+            datos.nuevo_usuario = $.trim($('#vabmAltaUsuLogin').val());
+            datos.nuevo_usuario_nombre = $.trim($('#vabmAltaUsuNombre').val());
+            datos.nuevo_usuario_email = $.trim($('#vabmAltaUsuEmail').val());
+            datos.nuevo_usuario_password = $('#vabmAltaUsuPass').val() || '';
+            datos.nuevo_usuario_perfil_id = $('#vabmAltaUsuPerfil').val() || 0;
+            if (!datos.nuevo_usuario || /\s/.test(datos.nuevo_usuario)) { aviso('Escriba el usuario de ingreso sin espacios.'); return; }
+            if (!datos.nuevo_usuario_nombre) { aviso('Escriba el nombre completo del nuevo usuario.'); return; }
+            if (!datos.nuevo_usuario_email) { aviso('Escriba el email del nuevo usuario.'); return; }
+            if (datos.nuevo_usuario_password.length < 6) { aviso('La contraseña debe tener al menos 6 caracteres.'); return; }
+            if (!parseInt(datos.nuevo_usuario_perfil_id, 10)) { aviso('Elija el perfil del nuevo usuario en la empresa.'); return; }
         }
         grabar('alta', datos, function () { modal('vabmModalAlta').hide(); listar(); });
     }
@@ -256,6 +289,17 @@
             altaEntidad = ($('#vabmAltaResultados').data('filas') || []).find(function (e) { return String(e.entidad_id) === id; }) || null;
             $('#vabmAltaResultados').empty();
             $('#vabmAltaElegida').html(altaEntidad ? '<i class="fas fa-check text-success me-1"></i>' + esc(nombre(altaEntidad)) : '');
+        });
+        $('#vabmAltaNuevoUsuDet').on('toggle', function () {
+            var abierto = $(this).prop('open');
+            $('#vabmAltaUsuario').prop('disabled', abierto);
+            if (abierto) {
+                $('#vabmAltaUsuario').val('0');
+                if (!$.trim($('#vabmAltaUsuNombre').val())) {
+                    var sug = (altaEntidad && altaEntidad.entidad_nombre) || $.trim($('#vabmAltaNombre').val());
+                    if (sug) $('#vabmAltaUsuNombre').val(sug);
+                }
+            }
         });
         $('#vabmAltaGuardar').on('click', guardarAlta);
         $(document).on('click', '.vabm-usuario', function () { abrirUsuario($(this).data('id')); });

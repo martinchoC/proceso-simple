@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../core/formato.php';
+require_once __DIR__ . '/../../core/vendedores.php';
 require_once __DIR__ . '/entidades_roles_helper.php';
 $conexion = $conn;
 
@@ -523,7 +524,9 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
     $order_dir = (isset($params['order_dir']) && strtoupper($params['order_dir']) === 'DESC') ? 'DESC' : 'ASC';
 
     // 1. Total de clientes sin filtrar
-    $sql_total = "SELECT COUNT(*) as total FROM gestion__entidades WHERE empresa_id = ? AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI');
+    $uid_cartera = intval($_SESSION['usuario_id'] ?? 0);
+    $sql_total = "SELECT COUNT(*) as total FROM gestion__entidades WHERE empresa_id = ? AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI')
+        . vcar_sql_filtro_cliente($conexion, $empresa_idx, $uid_cartera, 'gestion__entidades.entidad_id');
     $stmt_total = mysqli_prepare($conexion, $sql_total);
     $total_records = 0;
     if ($stmt_total) {
@@ -552,7 +555,8 @@ function obtenerEntidadesPaginadas($conexion, $empresa_idx, $pagina_id, $params 
     $order_by = $map_columns[$order_column_idx] ?? "COALESCE(NULLIF(TRIM(e.entidad_fantasia), ''), e.entidad_nombre)";
 
     // 3. JOINs y filtros
-    $where_sql = " WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "";
+    $where_sql = " WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI')
+        . vcar_sql_filtro_cliente($conexion, $empresa_idx, $uid_cartera, 'e.entidad_id');
     $bind_types = "i";
     $bind_params = [$empresa_idx];
 
@@ -1285,7 +1289,8 @@ function obtenerEntidadPorId($conexion, $id, $empresa_idx)
             LEFT JOIN gestion__entidades_tipos et ON e.entidad_tipo_id = et.entidad_tipo_id
             LEFT JOIN conf__localidades l ON e.localidad_id = l.localidad_id
             LEFT JOIN conf__provincias p ON l.provincia_id = p.provincia_id
-            WHERE e.entidad_id = ? AND e.empresa_id = ?";
+            WHERE e.entidad_id = ? AND e.empresa_id = ?"
+        . vcar_sql_filtro_cliente($conexion, intval($empresa_idx), intval($_SESSION['usuario_id'] ?? 0), 'e.entidad_id');
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt)

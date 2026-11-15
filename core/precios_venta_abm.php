@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/precios_venta.php';
+require_once __DIR__ . '/productos_marcas.php';
 
 const PRVA_TIPOS = ['ESCALA', 'PROMOCION'];
 
@@ -33,6 +34,40 @@ if (!function_exists('prva_pertenece')) {
     {
         $r = prv_filas($conexion, "SELECT 1 FROM `$tabla` WHERE `$pk` = ? AND empresa_id = ? LIMIT 1", 'ii', [$id, $empresa_id]);
         return (bool) $r;
+    }
+}
+
+if (!function_exists('prva_marcas_activo')) {
+    /** ¿La regla puede llevar marca comercial? (empresa con marcas y la columna en las reglas, doc 25) */
+    function prva_marcas_activo(mysqli $conexion, int $empresa_id): bool
+    {
+        return pmar_empresa_usa($conexion, $empresa_id) && prv_existe($conexion, 'gestion__precios_reglas_venta', 'marca_comercial_id');
+    }
+}
+
+if (!function_exists('prva_marca_procesar')) {
+    /**
+     * Marca del alcance de la regla, antes de guardar: null = no tocar (sin marcas o sin el campo en el request);
+     * ['id' => int|null] = grabar ese valor. Con producto elegido, sin marca (el producto manda). Una marca inactiva
+     * solo se acepta si ya era la de la regla.
+     * @throws InvalidArgumentException
+     */
+    function prva_marca_procesar(mysqli $conexion, int $empresa_id, int $regla_id, array $d, ?int $producto): ?array
+    {
+        if (!array_key_exists('marca_comercial_id', $d) || !prva_marcas_activo($conexion, $empresa_id)) {
+            return null;
+        }
+        $id = intval($d['marca_comercial_id']);
+        if ($producto || $id <= 0) {
+            return ['id' => null];
+        }
+        if (!pmar_valida($conexion, $empresa_id, $id)) {
+            $actual = $regla_id > 0 ? prv_filas($conexion, "SELECT marca_comercial_id FROM gestion__precios_reglas_venta WHERE regla_venta_id = ? AND empresa_id = ?", 'ii', [$regla_id, $empresa_id]) : [];
+            if ((int) ($actual[0]['marca_comercial_id'] ?? 0) !== $id || !prva_pertenece($conexion, 'gestion__productos_marcas', 'marca_comercial_id', $id, $empresa_id)) {
+                throw new InvalidArgumentException('La marca no existe o está inactiva.');
+            }
+        }
+        return ['id' => $id];
     }
 }
 
@@ -84,10 +119,21 @@ if (!function_exists('prva_reglas_listar')) {
                 . implode(',', array_fill(0, count($ids), '?')) . ") ORDER BY cantidad_desde", str_repeat('i', count($ids)), $ids) as $t) {
             $tramos[(int) $t['regla_venta_id']][] = ['cantidad_desde' => (float) $t['cantidad_desde'], 'descuento_pct' => (float) $t['descuento_pct']];
         }
+        // Nombre de la marca del alcance (doc 25), si la columna existe y alguna regla la tiene
+        $marca_nombre = [];
+        $marca_ids = array_values(array_unique(array_filter(array_map('intval', array_column($reglas, 'marca_comercial_id')))));
+        if ($marca_ids && pmar_estructura($conexion)) {
+            foreach (prv_filas($conexion, "SELECT marca_comercial_id, nombre FROM gestion__productos_marcas WHERE empresa_id = ? AND marca_comercial_id IN ("
+                    . implode(',', array_fill(0, count($marca_ids), '?')) . ")", 'i' . str_repeat('i', count($marca_ids)), array_merge([$empresa_id], $marca_ids)) as $m) {
+                $marca_nombre[(int) $m['marca_comercial_id']] = $m['nombre'];
+            }
+        }
         foreach ($reglas as &$r) {
             $r['tramos'] = $tramos[(int) $r['regla_venta_id']] ?? [];
             $alc = [];
-            $alc[] = $r['producto_id'] ? trim($r['producto_codigo'] . ' ' . $r['producto_nombre']) : ($r['producto_categoria_id'] ? 'Categoría ' . $r['producto_categoria_nombre'] : 'Todos los productos');
+            $marca = !$r['producto_id'] && !empty($r['marca_comercial_id']) ? 'Marca ' . ($marca_nombre[(int) $r['marca_comercial_id']] ?? $r['marca_comercial_id']) : '';
+            $alc[] = $r['producto_id'] ? trim($r['producto_codigo'] . ' ' . $r['producto_nombre']) : ($r['producto_categoria_id'] ? 'Categoría ' . $r['producto_categoria_nombre'] : ($marca !== '' ? $marca : 'Todos los productos'));
+            if ($marca !== '' && $r['producto_categoria_id']) $alc[] = $marca;
             if ($r['presentacion_id']) $alc[] = (string) ($r['presentacion_nombre'] ?: 'presentación ' . $r['presentacion_id']);
             if ($r['lista_precio_id']) $alc[] = 'Lista ' . $r['lista_precio_nombre'];
             if ($r['canal_venta_id']) $alc[] = 'Canal ' . ($r['canal_nombre'] ?: $r['canal_venta_id']);
@@ -115,7 +161,8 @@ if (!function_exists('prva_regla_guardar')) {
     /**
      * Alta (regla_venta_id 0) o edición. $d: tipo, nombre, prioridad, producto_id, presentacion_id,
      * producto_categoria_id, lista_precio_id, canal_venta_id, sucursal_id, descuento_pct, f_desde, f_hasta,
-     * observaciones, tramos [[cantidad_desde, descuento_pct]...]. Los tramos se reemplazan enteros.
+     * observaciones, tramos [[cantidad_desde, descuento_pct]...], marca_comercial_id (opcional, doc 25). Los tramos se
+     * reemplazan enteros.
      * @throws InvalidArgumentException con el mensaje para el usuario
      */
     function prva_regla_guardar(mysqli $conexion, int $empresa_id, int $usuario_id, array $d): int
@@ -177,6 +224,8 @@ if (!function_exists('prva_regla_guardar')) {
         if ($id > 0 && !prv_filas($conexion, "SELECT 1 FROM gestion__precios_reglas_venta WHERE regla_venta_id = ? AND empresa_id = ?", 'ii', [$id, $empresa_id])) {
             throw new InvalidArgumentException('La regla no existe.');
         }
+        // Marca comercial del alcance (doc 25): se valida antes y se graba aparte, sin tocar el INSERT / UPDATE
+        $marca = prva_marca_procesar($conexion, $empresa_id, $id, $d, $producto);
         mysqli_begin_transaction($conexion);
         try {
             if ($id > 0) {
@@ -195,6 +244,12 @@ if (!function_exists('prva_regla_guardar')) {
             mysqli_stmt_execute($st);
             if ($id <= 0) $id = (int) mysqli_insert_id($conexion);
             mysqli_stmt_close($st);
+            if ($marca !== null) {
+                $st = mysqli_prepare($conexion, "UPDATE gestion__precios_reglas_venta SET marca_comercial_id = ? WHERE regla_venta_id = ? AND empresa_id = ?");
+                mysqli_stmt_bind_param($st, "iii", $marca['id'], $id, $empresa_id);
+                mysqli_stmt_execute($st);
+                mysqli_stmt_close($st);
+            }
             $st = mysqli_prepare($conexion, "DELETE FROM gestion__precios_reglas_venta_tramos WHERE regla_venta_id = ?");
             mysqli_stmt_bind_param($st, "i", $id);
             mysqli_stmt_execute($st);
@@ -284,7 +339,7 @@ if (!function_exists('prva_catalogos')) {
     /** Combos de la pantalla: categorías, listas (con su tope), canales y sucursales de la empresa. */
     function prva_catalogos(mysqli $conexion, int $empresa_id): array
     {
-        return [
+        $out = [
             'categorias' => prv_filas($conexion, "SELECT producto_categoria_id AS id, producto_categoria_nombre AS nombre FROM gestion__productos_categorias
                                                    WHERE empresa_id = ? AND tabla_estado_registro_id = 1 ORDER BY producto_categoria_nombre", 'i', [$empresa_id]),
             'listas' => prv_filas($conexion, "SELECT lista_precio_id AS id, lista_precio_nombre AS nombre, descuento_tope_pct FROM gestion__listas_precios
@@ -293,6 +348,11 @@ if (!function_exists('prva_catalogos')) {
             'sucursales' => prv_filas($conexion, "SELECT sucursal_id AS id, sucursal_nombre AS nombre FROM gestion__sucursales
                                                    WHERE empresa_id = ? AND tabla_estado_registro_id = 1 ORDER BY sucursal_nombre", 'i', [$empresa_id]),
         ];
+        // Marcas comerciales (doc 25): solo con el indicador de marcas; la pantalla agrega el combo si viene la clave
+        if (prva_marcas_activo($conexion, $empresa_id)) {
+            $out['marcas'] = array_map(fn($m) => ['id' => $m['marca_comercial_id'], 'nombre' => $m['nombre']], pmar_marcas($conexion, $empresa_id));
+        }
+        return $out;
     }
 }
 

@@ -40,6 +40,12 @@
             if (!r || !r.success) return;
             cat = r.data;
             $('#prvaCategoria').html(opciones(cat.categorias, 'Todas'));
+            // Marca comercial (doc 25): el combo aparece solo si la empresa usa marcas (viene cat.marcas)
+            if (cat.marcas && !$('#prvaMarca').length) {
+                $('#prvaCategoria').closest('[class*="col-"]').after('<div class="col-md-6"><label class="form-label small mb-1" for="prvaMarca">Marca</label>'
+                    + '<select class="form-select form-select-sm" id="prvaMarca"></select></div>');
+            }
+            if (cat.marcas) $('#prvaMarca').html(opciones(cat.marcas, 'Todas'));
             $('#prvaLista').html(opciones(cat.listas, 'Todas'));
             $('#prvaCanal').html(opciones(cat.canales, 'Todos'));
             $('#prvaSucursal').html(opciones(cat.sucursales, 'Todas'));
@@ -104,6 +110,7 @@
         }
         $('#prvaPres').html(html).val(presId ? String(presId) : '');
         $('#prvaCategoria').prop('disabled', !!p);
+        $('#prvaMarca').prop('disabled', !!p);
     }
 
     function abrir(r) {
@@ -117,6 +124,11 @@
         $('#prvaPrioridad').val(r ? r.prioridad : 0);
         $('#prvaObs').val(r ? (r.observaciones || '') : '');
         $('#prvaCategoria').val(r && r.producto_categoria_id ? r.producto_categoria_id : '');
+        if ($('#prvaMarca').length) {
+            var mid = r && r.marca_comercial_id ? String(r.marca_comercial_id) : '';
+            if (mid && !$('#prvaMarca option[value="' + mid + '"]').length) $('#prvaMarca').append('<option value="' + mid + '">Marca inactiva</option>');
+            $('#prvaMarca').val(mid);
+        }
         $('#prvaLista').val(r && r.lista_precio_id ? r.lista_precio_id : '');
         $('#prvaCanal').val(r && r.canal_venta_id ? r.canal_venta_id : '');
         $('#prvaSucursal').val(r && r.sucursal_id ? r.sucursal_id : '');
@@ -142,13 +154,13 @@
             tramos.push({ cantidad_desde: $(this).find('.prva-desde').val(), descuento_pct: $(this).find('.prva-tpct').val() });
         });
         var $b = $('#prvaGuardar').prop('disabled', true);
-        pedir(id ? 'editar' : 'agregar', {
+        pedir(id ? 'editar' : 'agregar', $.extend({
             regla_venta_id: id, tipo: $('#prvaTipo').val(), nombre: $('#prvaNombre').val(), f_desde: $('#prvaDesde').val(),
             f_hasta: $('#prvaHasta').val(), descuento_pct: $('#prvaPct').val(), prioridad: $('#prvaPrioridad').val(),
             observaciones: $('#prvaObs').val(), producto_id: $('#prvaProductoId').val(), presentacion_id: $('#prvaPres').val(),
             producto_categoria_id: $('#prvaProductoId').val() ? '' : $('#prvaCategoria').val(), lista_precio_id: $('#prvaLista').val(),
             canal_venta_id: $('#prvaCanal').val(), sucursal_id: $('#prvaSucursal').val(), tramos: JSON.stringify(tramos)
-        }).done(function (r) {
+        }, $('#prvaMarca').length ? { marca_comercial_id: $('#prvaProductoId').val() ? '' : $('#prvaMarca').val() } : {})).done(function (r) {
             if (r && r.success) {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('prvaModal')).hide();
                 ok(); listar();

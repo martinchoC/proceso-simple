@@ -134,6 +134,31 @@
                 <div class="ui-seccion">
                     <div class="ui-seccion-titulo">Usuario <?= ui_ayuda('Usuario con el que el vendedor entra al sistema (opcional). Con usuario, sus pedidos quedan a su nombre y ve solo los de su cartera.') ?></div>
                     <select class="form-select form-select-sm" id="vabmAltaUsuario"></select>
+                    <details class="ui-mas-opciones mt-2" id="vabmAltaNuevoUsuDet">
+                        <summary>Crear un usuario nuevo en el sistema</summary>
+                        <div class="row g-2 mt-1">
+                            <div class="col-5">
+                                <label class="form-label small ui-requerido" for="vabmAltaUsuLogin">Usuario (ingreso)</label>
+                                <input type="text" class="form-control form-control-sm" id="vabmAltaUsuLogin" maxlength="20" autocomplete="off" placeholder="ej. jperez">
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label small ui-requerido" for="vabmAltaUsuNombre">Nombre completo</label>
+                                <input type="text" class="form-control form-control-sm" id="vabmAltaUsuNombre" maxlength="100" autocomplete="off">
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label small ui-requerido" for="vabmAltaUsuEmail">Email</label>
+                                <input type="email" class="form-control form-control-sm" id="vabmAltaUsuEmail" maxlength="100" autocomplete="off">
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label small ui-requerido" for="vabmAltaUsuPass">Contraseña</label>
+                                <input type="password" class="form-control form-control-sm" id="vabmAltaUsuPass" minlength="6" autocomplete="new-password" placeholder="mín. 6 caracteres">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small ui-requerido" for="vabmAltaUsuPerfil">Perfil en la empresa</label>
+                                <select class="form-select form-select-sm" id="vabmAltaUsuPerfil"></select>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-sm btn-primary" id="vabmAltaGuardar">Guardar</button></div>

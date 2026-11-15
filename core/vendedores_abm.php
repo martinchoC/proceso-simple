@@ -47,6 +47,101 @@ if (!function_exists('vabm_usuarios')) {
     }
 }
 
+if (!function_exists('vabm_perfiles')) {
+    /** Perfiles activos de la empresa (opcionalmente del módulo actual) para asignar al crear un usuario nuevo. */
+    function vabm_perfiles(mysqli $conexion, int $empresa_id, int $modulo_id = 0): array
+    {
+        $sql = "SELECT ep.empresa_perfil_id, ep.empresa_perfil_nombre, ep.modulo_id, m.modulo
+                  FROM conf__empresas_perfiles ep
+                  LEFT JOIN conf__modulos m ON m.modulo_id = ep.modulo_id
+                 WHERE ep.empresa_id = ? AND ep.tabla_estado_registro_id = 1";
+        $tipos = 'i';
+        $params = [$empresa_id];
+        if ($modulo_id > 0) {
+            $sql .= " AND ep.modulo_id = ?";
+            $tipos .= 'i';
+            $params[] = $modulo_id;
+        }
+        $sql .= " ORDER BY (ep.empresa_perfil_nombre = 'Ventas') DESC, ep.empresa_perfil_nombre";
+        return vcar_filas($conexion, $sql, $tipos, $params);
+    }
+}
+
+if (!function_exists('vabm_crear_usuario')) {
+    /**
+     * Crea un usuario nuevo en conf__usuarios y le asigna el perfil de la empresa en conf__usuarios_perfiles.
+     * Devuelve el usuario_id creado.
+     * @throws InvalidArgumentException
+     */
+    function vabm_crear_usuario(mysqli $conexion, int $empresa_id, int $modulo_id, array $datos, string $fecha, int $creado_por): int
+    {
+        $login = trim((string) ($datos['usuario'] ?? ''));
+        $nombre = mb_substr(trim((string) ($datos['usuario_nombre'] ?? '')), 0, 100);
+        $email = mb_substr(trim((string) ($datos['email'] ?? '')), 0, 100);
+        $password = (string) ($datos['password'] ?? '');
+        $empresa_perfil_id = intval($datos['empresa_perfil_id'] ?? 0);
+
+        if ($login === '') {
+            throw new InvalidArgumentException('Escribí el usuario con el que va a ingresar al sistema.');
+        }
+        if (mb_strlen($login) > 20 || preg_match('/\s/', $login)) {
+            throw new InvalidArgumentException('El usuario de ingreso no puede tener espacios ni superar 20 caracteres.');
+        }
+        if ($nombre === '') {
+            throw new InvalidArgumentException('Escribí el nombre completo del usuario.');
+        }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException('Ingresá un email válido para el usuario.');
+        }
+        if (strlen($password) < 6) {
+            throw new InvalidArgumentException('La contraseña debe tener al menos 6 caracteres.');
+        }
+        if ($empresa_perfil_id <= 0) {
+            throw new InvalidArgumentException('Elegí un perfil de la empresa para el nuevo usuario.');
+        }
+
+        $perfil = vcar_filas($conexion,
+            "SELECT empresa_perfil_id FROM conf__empresas_perfiles
+              WHERE empresa_perfil_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1"
+            . ($modulo_id > 0 ? " AND modulo_id = ?" : "") . " LIMIT 1",
+            $modulo_id > 0 ? 'iii' : 'ii',
+            $modulo_id > 0 ? [$empresa_perfil_id, $empresa_id, $modulo_id] : [$empresa_perfil_id, $empresa_id]);
+        if (!$perfil) {
+            throw new InvalidArgumentException('El perfil elegido no pertenece a esta empresa.');
+        }
+
+        if (vcar_filas($conexion, "SELECT 1 FROM conf__usuarios WHERE usuario = ? LIMIT 1", 's', [$login])) {
+            throw new InvalidArgumentException("Ya existe un usuario '$login'. Elegí otro nombre de usuario o seleccionalo de la lista.");
+        }
+
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $duracion = 60;
+        $nuevo_usuario_id = vcar_ejecutar($conexion,
+            "INSERT INTO conf__usuarios (usuario_nombre, usuario, email, password, duracion_sid_minutos, tabla_estado_registro_id)
+             VALUES (?, ?, ?, ?, ?, 1)",
+            'ssssi', [$nombre, $login, $email, $hash, $duracion], true);
+
+        $hoy = date('Y-m-d');
+        $f_inicio = $fecha < $hoy ? $fecha : $hoy;
+        vcar_ejecutar($conexion,
+            "INSERT INTO conf__usuarios_perfiles (usuario_id, empresa_perfil_id, fecha_inicio, fecha_fin, usuario_creacion, tabla_estado_registro_id)
+             VALUES (?, ?, ?, '2099-12-31', ?, 1)",
+            'iisi', [$nuevo_usuario_id, $empresa_perfil_id, $f_inicio, $creado_por], true);
+
+        if (function_exists('auditoria_registrar_alta')) {
+            auditoria_registrar_alta($conexion, 'conf__usuarios', $nuevo_usuario_id, [
+                'usuario_id' => $nuevo_usuario_id,
+                'usuario_nombre' => $nombre,
+                'usuario' => $login,
+                'email' => $email,
+                'empresa_perfil_id' => $empresa_perfil_id,
+            ], "Alta de usuario '{$nombre}' ({$login}) desde Vendedores");
+        }
+
+        return $nuevo_usuario_id;
+    }
+}
+
 if (!function_exists('vabm_ids')) {
     /** Lista de ids desde un JSON o un array del request. */
     function vabm_ids($valor): array
@@ -96,14 +191,27 @@ if (!function_exists('vabm_despachar')) {
                 case 'usuarios':
                     $res = $ok(vabm_usuarios($conexion, $empresa_id));
                     break;
+                case 'perfiles':
+                    $res = $ok(vabm_perfiles($conexion, $empresa_id, (int) ($ctx['modulo_id'] ?? 0)));
+                    break;
                 case 'alta':
                     $id = vcar_alta_vendedor($conexion, $empresa_id, [
                         'entidad_id' => intval($_POST['entidad_id'] ?? 0), 'entidad_nombre' => $_POST['entidad_nombre'] ?? '', 'cuit' => $_POST['cuit'] ?? '',
                     ], $usuario_id);
-                    if (intval($_POST['usuario_id'] ?? 0) > 0) {
-                        vcar_ligar_usuario($conexion, $empresa_id, $id, intval($_POST['usuario_id']), $fecha, $usuario_id);
+                    $vincular_usuario_id = intval($_POST['usuario_id'] ?? 0);
+                    if (!empty($_POST['crear_usuario'])) {
+                        $vincular_usuario_id = vabm_crear_usuario($conexion, $empresa_id, (int) ($ctx['modulo_id'] ?? 0), [
+                            'usuario' => $_POST['nuevo_usuario'] ?? '',
+                            'usuario_nombre' => $_POST['nuevo_usuario_nombre'] ?? '',
+                            'email' => $_POST['nuevo_usuario_email'] ?? '',
+                            'password' => $_POST['nuevo_usuario_password'] ?? '',
+                            'empresa_perfil_id' => $_POST['nuevo_usuario_perfil_id'] ?? 0,
+                        ], $fecha, $usuario_id);
                     }
-                    $res = $ok(['vendedor_entidad_id' => $id], 'Vendedor agregado');
+                    if ($vincular_usuario_id > 0) {
+                        vcar_ligar_usuario($conexion, $empresa_id, $id, $vincular_usuario_id, $fecha, $usuario_id);
+                    }
+                    $res = $ok(['vendedor_entidad_id' => $id, 'usuario_id' => $vincular_usuario_id], !empty($_POST['crear_usuario']) ? 'Vendedor y usuario agregados' : 'Vendedor agregado');
                     break;
                 case 'ligar_usuario':
                     vcar_ligar_usuario($conexion, $empresa_id, intval($_POST['vendedor_entidad_id'] ?? 0), intval($_POST['usuario_id'] ?? 0), $fecha, $usuario_id);
