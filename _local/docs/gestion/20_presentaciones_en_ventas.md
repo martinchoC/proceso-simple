@@ -1,6 +1,6 @@
 # Presentaciones en pedidos, remitos y facturas (paso 2 de la venta por presentación)
 
-Estado: **aprobado el 2026-11-14 (las 6 propuestas)**, en implementación. Sigue al doc 19 (precios por presentación, ya implementado).
+Estado: **aprobado el 2026-11-14 (las 6 propuestas)**, **implementado el 2026-11-15** (ver "Implementado"). Sigue al doc 19 (precios por presentación, ya implementado).
 Rama `distribuidora`. Fecha: 2026-11-14.
 
 ## Política que se respeta (decidida)
@@ -133,3 +133,27 @@ Presupuestos, notas de crédito (hoy copian las líneas de la factura en unidade
 5. **Mismo producto en dos líneas** (cajas y sueltas): ¿se permite (propuesto) o se fuerza una línea por producto?
 6. **Precio**: ¿se sigue confiando en el que trae la pantalla de la lista, como hoy (propuesto), o el servidor
    debe controlar que coincida con la lista?
+
+## Implementado (2026-11-15)
+
+| Paso | Commit | Qué |
+|---|---|---|
+| Migración | `3462b37` | `20261115_venta_presentaciones_02_lineas.sql` (5 columnas NULL en las tres tablas de líneas) y este documento |
+| 2a | `37d2595` | `core/ventas_presentaciones.php` (`vpre_*`) |
+| 2b | `ca6b40b` | Pedidos: buscador con ofertas, líneas en cajas, Gestión de pedidos; `assets/js/ventas-presentaciones.js` |
+| 2c | `1dbc386` | Remitos: herencia desde el pedido (solo cajas enteras) y remito directo |
+| 2d | `4793d93` | Facturas: herencia desde remito / pedido y factura directa |
+| 2e | `ce08ddb` | Impresiones: `vpre_lineas_impresion()` antes de la plantilla (plantillas sin cambios) |
+
+Pruebas: caso de simulación `33_ventas_presentaciones.py` (37 controles: pedido, remito, factura, stock e
+impresiones con el indicador prendido) y comparación antes / después de los casos 03, 04, 06, 09 y 19b sin el
+indicador (mismos controles y mismas líneas generadas, con y sin la migración).
+
+Diferencias con el Prompt 2 original (por las decisiones de los docs 19 y 20): el indicador se llama
+`usa_venta_presentaciones`; las columnas son `presentacion_*` (no `cantidad_presentacion`); mínimo y múltiplo van
+por presentación (`venta_minimo` / `venta_multiplo`) y no hay `permite_fraccionar` (la presentación nunca se
+fracciona; la unidad suelta sigue con los decimales de siempre); una presentación sin precio en la lista no se
+ofrece (no se calcula unitario × factor).
+
+Pendiente conocido: el modal de remito dentro de `ventas_pedidos.js` y `ventas_remitos_pendientes_facturacion.js`
+siguen mostrando unidades (el servidor igual exige cajas enteras); notas de crédito y presupuestos, fuera de alcance.
