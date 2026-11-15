@@ -19,6 +19,9 @@ $acciones_permitidas = [
     'obtener_presentaciones',
     'marcas_listar',
 ];
+// Lectura de la ficha completa (solapas; core/productos_ficha/acciones.php)
+require_once __DIR__ . '/../../core/productos_ficha/acciones.php';
+$acciones_permitidas = array_merge($acciones_permitidas, pfic_acciones_lectura());
 
 // Misma precedencia GET/POST que productos_ajax.php, para que la acción validada
 // sea exactamente la que se ejecuta.

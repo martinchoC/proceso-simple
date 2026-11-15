@@ -29,6 +29,7 @@ require_once "productos_model.php";
 require_once __DIR__ . '/stock_niveles_model.php';
 require_once __DIR__ . '/../../core/productos_presentaciones.php';
 require_once __DIR__ . '/../../core/productos_marcas.php';
+require_once __DIR__ . '/../../core/productos_ficha/acciones.php';
 
 /**
  * Stock mínimo / máximo por boca cargado en el modal de productos.php.
@@ -72,6 +73,8 @@ $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = defined('PRODUCTOS_CONSULTA') ? 598 : 540;
 // Acciones marcas_* (marca comercial, core/productos_marcas.php): responden y cortan
 pmar_ajax_acciones($conexion, $ctx, (string)$accion, (int)$pagina_idx);
+// Acciones ficha_* (ficha de producto completa, core/productos_ficha/): responden y cortan
+pfic_ajax_acciones($conexion, $ctx, (string)$accion, (int)$pagina_idx);
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');

@@ -17,6 +17,9 @@ $(document).ready(function () {
     if (PRES) PRES.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx });
     // Marca comercial: solo si la empresa la usa (el campo está en el modal; assets/js/productos-marcas.js)
     if (window.ProdMarcas) window.ProdMarcas.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx, paginaIdx: pagina_idx });
+    // Ficha completa (proveedores, precios, ubicaciones, imágenes): solo si la empresa la usa (assets/js/productos-ficha.js)
+    var FICHA = window.ProdFicha && window.ProdFicha.activo() ? window.ProdFicha : null;
+    if (FICHA) FICHA.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx, paginaIdx: pagina_idx, soloLectura: SOLO_LECTURA });
 
     // ========== UTILIDADES ==========
 
@@ -277,6 +280,7 @@ $(document).ready(function () {
         cargarNivelesStock(0);
         if (PRES) PRES.limpiar();
         if (window.ProdMarcas) window.ProdMarcas.valor('');
+        if (FICHA) FICHA.limpiar();
 
         $('#modalProductoTitulo').text('Nuevo Producto / Servicio');
     }
@@ -430,6 +434,7 @@ $(document).ready(function () {
                 $('#unidad_medida_id').val(p.unidad_medida_id || '');
                 $('#iva_alicuota_id').val(p.iva_alicuota_id);
                 if (window.ProdMarcas) window.ProdMarcas.valor(p.marca_comercial_id);
+                if (FICHA) FICHA.cargar(p.producto_id, { soloLectura: !!soloVer || SOLO_LECTURA });
                 if (PRES) PRES.cargar(p.producto_id, { soloLectura: !!soloVer || SOLO_LECTURA });
 
                 $('#impuesto_interno_porcentaje').val(p.impuesto_interno_porcentaje || '');
@@ -519,6 +524,15 @@ $(document).ready(function () {
                     if (PRES && res.presentaciones_guardadas) PRES.cargar($('#producto_id').val());
                     if (tabla) tabla.ajax.reload(null, false);
                     Swal.fire({ icon: 'warning', title: 'Producto guardado', text: res.aviso });
+                    return;
+                }
+                if (FICHA && !isEdit && res.producto_id) {
+                    // Con la ficha completa el alta deja el producto abierto para cargar proveedores, precios, etc.
+                    $('#producto_id').val(res.producto_id);
+                    $('#modalProductoTitulo').text('Editar Producto: ' + $('#producto_codigo').val());
+                    FICHA.cargar(res.producto_id);
+                    if (tabla) tabla.ajax.reload(null, false);
+                    Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Ahora puede cargar sus proveedores y demás datos en las solapas.', timer: 2200, showConfirmButton: false });
                     return;
                 }
                 $('#modalProducto').modal('hide');

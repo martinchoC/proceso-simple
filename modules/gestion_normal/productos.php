@@ -15,6 +15,8 @@ require_once ROOT_PATH . '/core/productos_presentaciones.php';
 $usa_presentaciones = prpr_empresa_usa($conn, (int)$empresa_idx);
 require_once ROOT_PATH . '/core/productos_marcas.php';
 $usa_marcas_comerciales = pmar_empresa_usa($conn, (int)$empresa_idx);
+require_once ROOT_PATH . '/core/productos_ficha/base.php';
+$usa_ficha_producto_completa = pfic_empresa_usa($conn, (int)$empresa_idx);
 ?>
 
 <main class="app-main">
@@ -106,6 +108,7 @@ $usa_marcas_comerciales = pmar_empresa_usa($conn, (int)$empresa_idx);
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <?php $pfic_parte = 'inicio'; include ROOT_PATH . '/templates/productos/ficha_solapas.php'; ?>
                 <form id="formProducto" class="needs-validation" novalidate>
                     <input type="hidden" id="producto_id" name="producto_id" value="" />
                     <input type="hidden" id="empresa_id" name="empresa_id" value="<?= $empresa_idx ?>" />
@@ -344,6 +347,7 @@ $usa_marcas_comerciales = pmar_empresa_usa($conn, (int)$empresa_idx);
                         </div>
                     </div>
                 </form>
+                <?php $pfic_parte = 'fin'; include ROOT_PATH . '/templates/productos/ficha_solapas.php'; ?>
             </div>
 
             <div class="modal-footer bg-light">
@@ -475,6 +479,9 @@ $usa_marcas_comerciales = pmar_empresa_usa($conn, (int)$empresa_idx);
 <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php if ($usa_presentaciones): ?>
 <script src="<?= asset_local('js/productos-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-presentaciones.js') ?>"></script>
+<?php endif; ?>
+<?php if ($usa_ficha_producto_completa): ?>
+<script src="<?= asset_local('js/productos-ficha.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-ficha.js') ?>"></script>
 <?php endif; ?>
 <?php if ($usa_marcas_comerciales): ?>
 <script src="<?= asset_local('js/productos-marcas.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-marcas.js') ?>"></script>

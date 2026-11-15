@@ -322,6 +322,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_marcas_comerciales">Usa marca comercial en los productos <?= ui_ayuda('Marca comercial de cada producto (Arcor, Molto…) en Productos: se administra desde el botón junto al campo, se puede asignar a varios productos a la vez y se busca por ella en el listado.') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261121_ficha_producto_01.sql aplicado
+                                    $emp_col_ficha = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_ficha_producto_completa'");
+                                    if ($emp_col_ficha && mysqli_num_rows($emp_col_dist) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_ficha_producto_completa" name="usa_ficha_producto_completa" value="1" />
+                                        <label class="form-check-label" for="usa_ficha_producto_completa">Usa la ficha de producto completa <?= ui_ayuda('Solapas Proveedores (con el código de cada proveedor), Precios, Ubicaciones e Imágenes en la ficha de Productos de gestión normal.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1141,6 +1149,7 @@ $(document).ready(function(){
                 $('#usa_vendedores').prop('checked', parseInt(res.usa_vendedores, 10) === 1);
                 $('#usa_distribucion').prop('checked', parseInt(res.usa_distribucion, 10) === 1);
                 $('#usa_marcas_comerciales').prop('checked', parseInt(res.usa_marcas_comerciales, 10) === 1);
+                $('#usa_ficha_producto_completa').prop('checked', parseInt(res.usa_ficha_producto_completa, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1298,6 +1307,7 @@ $(document).ready(function(){
         if ($('#usa_vendedores').length) formData.usa_vendedores = $('#usa_vendedores').is(':checked') ? 1 : 0;
         if ($('#usa_distribucion').length) formData.usa_distribucion = $('#usa_distribucion').is(':checked') ? 1 : 0;
         if ($('#usa_marcas_comerciales').length) formData.usa_marcas_comerciales = $('#usa_marcas_comerciales').is(':checked') ? 1 : 0;
+        if ($('#usa_ficha_producto_completa').length) formData.usa_ficha_producto_completa = $('#usa_ficha_producto_completa').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
