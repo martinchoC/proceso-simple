@@ -24,6 +24,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 
 require_once __DIR__ . '/../../db.php';
 require_once "listas_precios_model.php";
+require_once __DIR__ . '/../../core/productos_presentaciones.php'; // incluye listas_precios_presentaciones.php
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
@@ -100,6 +101,10 @@ try {
             ];
 
             $resultado = agregarListaPrecio($conexion, $data);
+            // Venta por presentación: solo si el formulario trae la casilla (core/listas_precios_presentaciones.php)
+            if (!empty($resultado['resultado']) && isset($_POST['vende_unidad_base'])) {
+                lpre_guardar_vende_unidad($conexion, (int)$empresa_idx, (int)($resultado['lista_precio_id'] ?? 0), $_POST['vende_unidad_base'] === '1');
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -122,6 +127,10 @@ try {
             ];
 
             $resultado = editarListaPrecio($conexion, $id, $data);
+            // Venta por presentación: solo si el formulario trae la casilla (core/listas_precios_presentaciones.php)
+            if (!empty($resultado['resultado']) && isset($_POST['vende_unidad_base'])) {
+                lpre_guardar_vende_unidad($conexion, (int)$empresa_idx, $id, $_POST['vende_unidad_base'] === '1');
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

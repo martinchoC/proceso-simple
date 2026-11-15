@@ -923,6 +923,7 @@ $(document).ready(function () {
         $('#lista_precio_id').val('');
         $('#formListaPrecio').removeClass('was-validated');
         $('#requiere_recalculo').prop('checked', false);
+        $('#vende_unidad_base').prop('checked', true); // solo existe con venta por presentación
         $('#f_ultimo_recalculo').val('');
     }
 
@@ -1213,6 +1214,7 @@ $(document).ready(function () {
                     $('#lista_base_id').val(res.lista_base_id || '');
                     $('#observaciones').val(res.observaciones || '');
                     if (res.requiere_recalculo == 1) $('#requiere_recalculo').prop('checked', true);
+                    $('#vende_unidad_base').prop('checked', parseInt(res.vende_unidad_base, 10) !== 0);
                     $('#f_ultimo_recalculo').val(res.f_ultimo_recalculo || '');
                     $('#modalLabel').text('Editar Lista de Precio');
                     
@@ -1254,6 +1256,7 @@ $(document).ready(function () {
                     $('#lista_base_id').val(res.lista_base_id || '');
                     $('#observaciones').val(res.observaciones || '');
                     if (res.requiere_recalculo == 1) $('#requiere_recalculo').prop('checked', true);
+                    $('#vende_unidad_base').prop('checked', parseInt(res.vende_unidad_base, 10) !== 0);
                     $('#f_ultimo_recalculo').val(res.f_ultimo_recalculo || '');
                     $('#modalLabel').text('Visualizar Lista de Precio');
 
@@ -1408,6 +1411,7 @@ $(document).ready(function () {
         formData.append('lista_base_id', $('#lista_base_id').val() || '');
         formData.append('moneda_id', $('#moneda_id').val() || '');
         if ($('#requiere_recalculo').is(':checked')) formData.append('requiere_recalculo', '1');
+        if ($('#vende_unidad_base').length) formData.append('vende_unidad_base', $('#vende_unidad_base').is(':checked') ? '1' : '0');
         formData.append('f_ultimo_recalculo', $('#f_ultimo_recalculo').val() || '');
         formData.append('observaciones', $('#observaciones').val() || '');
         

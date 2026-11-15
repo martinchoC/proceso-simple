@@ -519,3 +519,23 @@ if (!function_exists('lpre_guardar_restriccion_unidad')) {
         return $ok;
     }
 }
+
+if (!function_exists('lpre_guardar_vende_unidad')) {
+    /**
+     * Graba gestion__listas_precios.vende_unidad_base (Listas de precios, después de agregar / editar la lista).
+     * Solo si la empresa vende por presentación y existe la columna; si no, no hace nada y devuelve false.
+     */
+    function lpre_guardar_vende_unidad(mysqli $conexion, int $empresa_id, int $lista_precio_id, bool $vende): bool
+    {
+        if ($lista_precio_id <= 0 || !lpre_empresa_usa($conexion, $empresa_id)
+            || !lpre_columna_existe($conexion, 'gestion__listas_precios', 'vende_unidad_base')) {
+            return false;
+        }
+        $valor = $vende ? 1 : 0;
+        $st = mysqli_prepare($conexion, "UPDATE gestion__listas_precios SET vende_unidad_base = ? WHERE lista_precio_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($st, "iii", $valor, $lista_precio_id, $empresa_id);
+        $ok = mysqli_stmt_execute($st);
+        mysqli_stmt_close($st);
+        return $ok;
+    }
+}

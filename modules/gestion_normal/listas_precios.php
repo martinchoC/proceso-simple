@@ -12,6 +12,8 @@ $ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+require_once ROOT_PATH . '/core/productos_presentaciones.php'; // incluye listas_precios_presentaciones.php
+$lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? $empresa_id));
 ?>
 
 <main class="app-main">
@@ -185,6 +187,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                                         <input type="checkbox" class="form-check-input" id="requiere_recalculo" name="requiere_recalculo" value="1">
                                                         <label class="form-check-label small">Requiere Recalculo</label>
                                                     </div>
+                                                    <?php if ($lp_venta_presentaciones): ?>
+                                                    <div class="form-check mt-1">
+                                                        <input type="checkbox" class="form-check-input" id="vende_unidad_base" name="vende_unidad_base" value="1" checked>
+                                                        <label class="form-check-label small" for="vende_unidad_base">Vende la unidad suelta <?= ui_ayuda('Destildado, la lista ofrece solo las presentaciones (caja, pack) que tienen precio en ella; por ejemplo, una lista mayorista que vende por bulto.') ?></label>
+                                                    </div>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div class="col-md-4">
                                                     <label class="form-label small mb-1">Fecha Último Recalculo</label>
