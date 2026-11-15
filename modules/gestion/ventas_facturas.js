@@ -588,7 +588,34 @@ $(function () {
         ultimosTotales = { bruto: bruto, descuento: descuento, neto: neto, iva: iva };
         pintarTotales();
         if (!facturaSoloLectura) pedirPercepciones();
+        if (prvFactura && !facturaSoloLectura) prvFactura.programar();
     }
+    // ========== REGLAS DE PRECIO DE VENTA (escalas y promociones; doc 22, paso 4e) ==========
+    // Con window.PRV_ACTIVO, los productos manuales (sin remito ni pedido) toman el descuento automático que calcula
+    // el servidor; el manual que el usuario tipeó encima se conserva. Las líneas de remito traen su descuento.
+    var prvFactura = (window.PrvPantalla && window.PRV_ACTIVO) ? PrvPantalla.crear({
+        url: 'ventas_facturas_ajax.php',
+        contexto: function () { return { empresa_idx: EMPRESA_ID, entidad_id: $('#factura_entidad_id').val() || 0, sucursal_id: $('#factura_sucursal_id').val() || 0, fecha: $('#factura_f_emision').val() || '' }; },
+        lineas: function () {
+            return detalles.filter(function (d) { return !d.venta_remito_detalle_id && !d.venta_pedido_detalle_id && !d.presentacion_id; })
+                .map(function (d) { return { producto_id: d.producto_id, presentacion_id: 0, cantidad: parseFloat(d.cantidad) || 0, ref: d.key }; });
+        },
+        aplicar: function (key, res) {
+            var input = $('.factura-cantidad').filter(function () { return String($(this).data('key')) === String(key); }).first();
+            if (!input.length) return;
+            var row = input.closest('tr');
+            var actual = parseFloat(row.find('.factura-descuento-pct').val()) || 0;
+            var pct = PrvPantalla.nuevoPct(actual, input.data('prv-auto'), res.auto_pct);
+            input.data('prv-auto', parseFloat(res.auto_pct) || 0);
+            row.find('.factura-descuento-pct').attr('title', PrvPantalla.etiqueta(res));
+            if (Math.abs(pct - actual) > 0.005) {
+                row.find('.factura-descuento-pct').val(pct.toFixed(2));
+                recalcularPrecioFila(row);
+            }
+        }
+    }) : null;
+
+
     var ultimosTotales = { bruto: 0, descuento: 0, neto: 0, iva: 0 };
     function pintarTotales() {
         var t = ultimosTotales, percepcion = 0, filasPerc = '';

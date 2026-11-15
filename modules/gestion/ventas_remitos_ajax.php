@@ -261,6 +261,11 @@ try {
             }
             break;
 
+        // Reglas de precio de venta (core/precios_venta.php): descuento automático de las líneas directas
+        case 'resolver_descuentos':
+            echo json_encode(prv_resolver_pantalla($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), 'remito', $_POST), JSON_UNESCAPED_UNICODE);
+            break;
+
         // consumidor_final=1 (sin entidad_id): busca con la lista Mostrador, sin descuento.
         case 'buscar_productos_cliente':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);

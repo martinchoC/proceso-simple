@@ -1300,6 +1300,32 @@ $(document).ready(function () {
         return Fmt.fecha(fecha);
     }
 
+    // ========== REGLAS DE PRECIO DE VENTA (escalas y promociones; doc 22, paso 4e) ==========
+    // Con window.PRV_ACTIVO, las líneas directas (sin pedido) toman el descuento automático que calcula el servidor
+    // (cliente, escala o promoción, sin sumarlos); el manual que se haya agregado encima se conserva. Las líneas del
+    // pedido traen su descuento pactado y las de presentación no se recalculan acá (el servidor graba la regla igual).
+    var prvRemitoAplicando = false;
+    var prvRemito = (window.PrvPantalla && window.PRV_ACTIVO) ? PrvPantalla.crear({
+        url: 'ventas_remitos_ajax.php',
+        contexto: function () { return { empresa_idx: empresa_idx, entidad_id: $('#entidad_id').val() || 0, sucursal_id: 0, fecha: $('#f_emision').val() || '' }; },
+        lineas: function () {
+            return detalles.filter(function (d) { return !d.venta_pedido_detalle_id && !(window.VentaPres && VentaPres.esPres(d)); })
+                .map(function (d) { return { producto_id: d.producto_id, presentacion_id: 0, cantidad: parseFloat(d.cantidad) || 0, ref: d }; });
+        },
+        aplicar: function (d, res) {
+            var pct = PrvPantalla.nuevoPct(d.descuento_general_pct, d._prv_auto, res.auto_pct);
+            d._prv_auto = parseFloat(res.auto_pct) || 0;
+            var bruto = parseFloat(d.precio_unitario_bruto) || 0;
+            d.descuento_general_pct = pct;
+            d.descuento_general = bruto * pct / 100;
+            d.precio_unitario_neto = bruto - d.descuento_general;
+            d.importe_linea = (parseFloat(d.cantidad) || 0) * d.precio_unitario_neto;
+            d.iva_importe = d.importe_linea * ((parseFloat(d.iva_porcentaje) || 0) / 100);
+        },
+        listo: function () { prvRemitoAplicando = true; try { renderizarDetalles(); actualizarTotales(); } finally { prvRemitoAplicando = false; } }
+    }) : null;
+
+
     function actualizarTotales() {
         var subtotalBruto = 0, totalDescuento = 0, totalNeto = 0, totalIva = 0;
 
@@ -1321,6 +1347,8 @@ $(document).ready(function () {
         $('#iva_resumen').text(formatMoneda(totalIva));
         $('#total_display_resumen').text('$' + formatMoneda(totalGeneral));
         $('#contador-productos').text(detalles.length);
+        // Remito en edición (no en "Ver"): pedir los descuentos de las líneas directas
+        if (prvRemito && !prvRemitoAplicando && !$('#busqueda_producto').prop('disabled')) prvRemito.programar();
     }
 
     $('#btnToggleFullscreen').click(function () {

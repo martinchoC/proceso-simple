@@ -663,6 +663,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     </script>
     <script src="<?= asset_local('js/cobro-contado.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/cobro-contado.js') ?>"></script>
     <script src="<?= asset_local('js/ventas-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/ventas-presentaciones.js') ?>"></script>
+    <?php require_once ROOT_PATH . '/core/precios_venta.php'; ?>
+    <script>window.PRV_ACTIVO = <?= prv_activo($conn, (int) ($current_empresa_id ?? 0), 'remito') ? 'true' : 'false' ?>; // escalas y promociones (doc 22)</script>
+    <script src="<?= asset_local('js/precios-venta-pantalla.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/precios-venta-pantalla.js') ?>"></script>
     <script src="ventas_remitos.js?v=<?= filemtime(__DIR__.'/ventas_remitos.js') ?>"></script>
 </main>
 

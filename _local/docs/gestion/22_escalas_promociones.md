@@ -136,3 +136,32 @@ NULL). Precio de lista, presentaciones, canales, stock, asientos y ARCA no se to
 6. **NxM, combos y regalos**: fuera de este paso (recomendado) o dentro.
 7. **Pantalla**: página nueva "Escalas y promociones" (recomendado) o ventanas dentro de Listas de precios (como
    Canales: sin configuración de página, pero la pantalla de listas se carga más).
+
+## Implementado (2026-11-15)
+
+Decisiones aprobadas: las 7 recomendadas (alcance producto / presentación / categoría + lista / canal / sucursal;
+escala por producto sumando el comprobante; tabla propia de topes; sin estado nuevo: confirma quien tiene tope;
+remito y factura heredan; NxM / combos / regalos fuera; página nueva).
+
+| Paso | Qué |
+|---|---|
+| 4a | Migración `20261117_reglas_precio_venta_01.sql` (`usa_reglas_precio_venta`, tablas 466 `gestion__precios_reglas_venta`, 467 `_tramos`, 468 `gestion__ventas_descuentos_topes`, `gestion__listas_precios.descuento_tope_pct` y 6 columnas NULL en las líneas de pedidos, remitos y facturas) y `core/precios_venta.php` (`prv_*`, `precio_resolver`) |
+| 4b | Página "Escalas y promociones" 146 / 646 bajo Ventas (`20261117_reglas_precio_venta_02_pagina.sql`, funciones 3595–3598 / 8595–8598 con los permisos de Listas de precios), con topes por perfil, tope de cada lista y vista previa (`core/precios_venta_abm.php`, `templates/precios_reglas_venta/`, `assets/js/precios-reglas-venta.js`); interruptor en Empresas |
+| 4c | Pedidos: la pantalla pide los descuentos (`resolver_descuentos`) al cambiar líneas, cliente, sucursal, fecha o el campo "Descuento general %", que con el indicador es el **manual del vendedor**; el modelo graba regla, automático, manual y aprobación de cada línea (`prv_preparar_lineas` / `prv_guardar_linea`); confirmar exige que el tope de quien confirma cubra el manual sin aprobar (`prv_aprobar_pendientes`) |
+| 4d | Remitos y facturas: las líneas que vienen del pedido / remito heredan la regla (`prv_heredar`); las directas graban la suya y no se guardan si el manual supera el tope del usuario |
+| 4e | Pantallas de remito y factura: las líneas directas toman el automático del servidor y conservan el manual tipeado encima (`assets/js/precios-venta-pantalla.js`, global `PrvPantalla`) |
+
+Pruebas: `probar_prv.php` (núcleo, en la copia y contra el maestro sin la estructura), caso de simulación
+`35_reglas_precio_venta.py` (página, pedido con tope del vendedor y aprobación al confirmar, herencia en remito y
+factura, rechazo de directos sobre el tope, indicador apagado) y comparación antes / después de los casos 03, 04,
+06, 09 y 19b con el indicador apagado (mismos chequeos y mismas líneas generadas).
+
+Límites conocidos:
+- El manual del pedido es uno para todo el comprobante (el campo de cabecera); no hay manual por línea en pedidos.
+- En remitos y facturas, las líneas en presentaciones (cajas) no se recalculan en pantalla; el servidor igual graba
+  su regla y controla el tope.
+- La pantalla de remitos pide los descuentos sin sucursal (la sale del punto de venta al grabar): una regla
+  limitada a una sucursal no se ve en pantalla, aunque el servidor la aplica al grabar si corresponde.
+- El servidor no reescribe el % ni los importes que manda la pantalla: calcula el automático y toma el excedente
+  como manual. Si la pantalla manda menos que el automático, se graba lo que mandó.
+- La consola del navegador no se revisó en estas pantallas (sin navegador en esta sesión): revisar antes de activar.

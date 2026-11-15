@@ -38,6 +38,11 @@ try {
             $solo_raiz = !empty($_GET['solo_raiz'] ?? $_POST['solo_raiz'] ?? null);
             echo json_encode(vfTiposPorPuntoVenta($conexion, $empresa_id, intval($_GET['punto_venta_id'] ?? $_POST['punto_venta_id'] ?? 0), $pagina_id, $entidad_param, $solo_raiz), JSON_UNESCAPED_UNICODE);
             break;
+        // Reglas de precio de venta (core/precios_venta.php): descuento automático de las líneas directas
+        case 'resolver_descuentos':
+            echo json_encode(prv_resolver_pantalla($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), 'factura', $_POST), JSON_UNESCAPED_UNICODE);
+            break;
+
         // entidad_id = 0: consumidor final (lista Mostrador, contado). Ídem remitos_pendientes y buscar_productos.
         case 'condicion_cliente':
             echo json_encode(vfObtenerCondicionDestinatario($conexion, intval($_GET['entidad_id'] ?? 0), $empresa_id), JSON_UNESCAPED_UNICODE);

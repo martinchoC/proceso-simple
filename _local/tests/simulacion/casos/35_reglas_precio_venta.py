@@ -229,6 +229,10 @@ if CTX.get('ok'):
     l = regla_de('remitos', 'venta_remito_id', rem)
     check(ok_resp(r) and l and l['precio_regla_tipo'] == 'PROMOCION' and abs(num(l['manual']) - 5) < 0.02 and int(l['descuento_aprobado_por'] or 0) == VEND,
           'remito directo con manual 5 %: se graba aprobado por el vendedor', err(r) + ' ' + str(l))
+    # El perfil del vendedor no factura: en la copia, permiso de alta de facturas (función 223) mientras dura el caso
+    if not int(val(f"SELECT COUNT(*) FROM conf__empresas_perfiles_funciones WHERE empresa_perfil_id = {PERFIL_VEND} AND pagina_funcion_id = 223")):
+        sql(f"INSERT INTO conf__empresas_perfiles_funciones (empresa_id, empresa_perfil_id, pagina_funcion_id, asignado) VALUES (2, {PERFIL_VEND}, 223, 1)")
+        CTX['permiso_fac'] = True
     r, fv = factura_35([lin_fac(total_pct(7, 15))], usuario_id=VEND)
     check(not ok_resp(r) and 'tope' in err(r), 'factura directa con manual 15 %: se rechaza', err(r))
     r, fv = factura_35([lin_fac(total_pct(7, 15))])
@@ -245,6 +249,17 @@ if CTX.get('ok'):
     check(ok_resp(r) and l and l['precio_regla_tipo'] is None, 'con el indicador apagado: remito directo al 30 % sin control', err(r) + ' ' + str(l))
     sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 1 WHERE empresa_id = 2")
 
+
+caso('Reglas de precio: las pantallas de remito y factura piden el automático')
+if CTX.get('ok'):
+    for archivo in ('ventas_remitos_ajax.php', 'ventas_facturas_ajax.php'):
+        r = ajax(archivo, dict(accion='resolver_descuentos', empresa_idx=2, entidad_id=CLI, sucursal_id=1, fecha=HOY, descuento_manual_pct=0,
+                 lineas=json.dumps([{'producto_id': P1, 'cantidad': 24, 'descuento_manual_pct': 0}])))
+        ls = ((r.get('data') or {}).get('lineas') or []) if isinstance(r, dict) else []
+        check(ls and num(ls[0].get('auto_pct')) == 7 and ls[0].get('regla_tipo') == 'PROMOCION', f'{archivo}: 24 u de P1 -> promo 7 %', str(r)[:300])
+
 if CTX.get('ok'):
     for i, d in CTX.get('desc_cli', []):
         sql(f"UPDATE gestion__entidades_condiciones_clientes SET cliente_descuento_general = {d if d is not None else 'NULL'} WHERE entidad_condicion_cliente_id = {i}")
+    if CTX.get('permiso_fac'):
+        sql(f"DELETE FROM conf__empresas_perfiles_funciones WHERE empresa_perfil_id = {PERFIL_VEND} AND pagina_funcion_id = 223")
