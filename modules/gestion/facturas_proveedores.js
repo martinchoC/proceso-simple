@@ -10,6 +10,8 @@ $(document).ready(function () {
     // Variables para manejo de detalles
     var detalles = [];
     var proveedorActualId = null;
+    // Compra por presentación (doc 27): solo si la página cargó assets/js/compras-presentaciones.js (indicador)
+    var CPRE = window.ComprasPres || null;
     var proveedorSucursalActualId = null;
     var timeoutBusqueda = null;
     var selectedIndex = -1;
@@ -1627,7 +1629,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
             var netoGravado = netoBase - descuentoGeneral;
             var ivaImporte = netoGravado * (iva / 100);
 
-            nuevas.push({
+            nuevas.push($.extend({
                 detalle_idx: 'temp_' + new Date().getTime() + '_' + i,
                 factura_proveedor_detalle_id: 0,
                 ordenes_compra_detalle_id: l.ordenes_compra_detalle_id,
@@ -1647,7 +1649,7 @@ function mostrarModalImpuesto(impuestoData, idx) {
                 neto_gravado: netoGravado,
                 iva_importe: ivaImporte,
                 total_linea: netoGravado + ivaImporte + noGravado + exento
-            });
+            }, CPRE && l.presentacion_id ? CPRE.fotoDesde(l, cantidad, precio) : {})); // hereda la presentación de la OC
         });
 
         if (errores.length > 0) {
@@ -1909,7 +1911,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 // Cargar detalles si existen
                 if (res.detalles && res.detalles.length > 0) {
                     detalles = res.detalles.map(function(detalle, index) {
-                        return {
+                        return $.extend({
                             detalle_idx: index,
                             factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
                             ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
@@ -1928,7 +1930,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                             neto_gravado: detalle.neto_gravado,
                             iva_importe: detalle.iva_importe,
                             total_linea: detalle.total_linea
-                        };
+                        }, CPRE ? CPRE.foto(detalle) : {});
                     });
                     renderizarDetalles();
                     actualizarTotales();
@@ -2470,6 +2472,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#producto_precio').val(res.precio);
             }
             calcularDescuentos();
+            if (CPRE) CPRE.cargar(productoId);
         }, 'json');
     }
 
@@ -2616,6 +2619,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                 $('#producto_precio').val(res.precio);
             }
             calcularDescuentos();
+            if (CPRE) CPRE.cargar(item.producto_id);
         }, 'json');
 
         $('#producto_cantidad').focus().select();
@@ -2649,6 +2653,8 @@ function cargarFacturaParaVisualizar(facturaId) {
     });
 
     // Calcular descuentos e IVA
+    if (CPRE) CPRE.init({ ajaxUrl: 'facturas_proveedores_ajax.php', empresaIdx: empresa_idx, onCambio: function () { calcularDescuentos(); } });
+
     function calcularDescuentos() {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;
         var precio = parseFloat($('#producto_precio').val()) || 0;
@@ -2783,9 +2789,11 @@ function cargarFacturaParaVisualizar(facturaId) {
         total_linea: totalLinea
     };
     
+    if (CPRE) nuevoDetalle = CPRE.convertir(nuevoDetalle); // cajas → unidades + foto
     detalles.push(nuevoDetalle);
     renderizarDetalles();
     actualizarTotales();
+    if (CPRE) CPRE.limpiar();
     
     // Limpiar campos
     $('#busqueda_producto').val('').removeData('codigos');
@@ -2879,7 +2887,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                     ${detalle.ordenes_compra_detalle_id ? '<span class="badge bg-primary ms-1" title="Línea de la orden de compra vinculada">OC</span>' : ''}
                 </td>
-                <td class="text-center">${formatNumber(cantidad, 2)}</td>
+                <td class="text-center">${formatNumber(cantidad, 2)}${CPRE ? CPRE.etiqueta(detalle) : ''}</td>
                 <td class="text-end">${formatNumber(precioUnitario, 2)}</td>
                 <td class="text-center">${Fmt.numero(descuentoItemPct, 2)}%</td>
                 <td class="text-end">${formatNumber(descuentoItem, 2)}</td>
@@ -2980,6 +2988,8 @@ function cargarFacturaParaVisualizar(facturaId) {
             $('#producto_iva_importe').val(detalle.iva_importe);
             $('#producto_no_gravado').val(detalle.no_gravado || 0);
             $('#producto_exento').val(detalle.exento || 0);
+            // Compra por presentación: la línea vuelve al formulario en su presentación (o por unidad)
+            if (CPRE) CPRE.cargar(detalle.producto_id, detalle.presentacion_id || null, detalle.presentacion_cantidad, detalle.presentacion_precio, true);
             detalleEnEdicionOC = detalle.ordenes_compra_detalle_id
                 ? { producto_id: detalle.producto_id, ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id }
                 : null;
@@ -3291,7 +3301,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                         console.log("Detalles recibidos:", res.detalles);
                         
                         detalles = res.detalles.map(function(detalle, index) {
-                            return {
+                            return $.extend({
                                 detalle_idx: index,
                                 factura_proveedor_detalle_id: detalle.factura_proveedor_detalle_id,
                                 ordenes_compra_detalle_id: detalle.ordenes_compra_detalle_id || null,
@@ -3314,7 +3324,7 @@ function cargarFacturaParaVisualizar(facturaId) {
                                 neto_gravado: detalle.neto_gravado,
                                 iva_importe: detalle.iva_importe,
                                 total_linea: detalle.total_linea
-                            };
+                            }, CPRE ? CPRE.foto(detalle) : {});
                         });
 
                         console.log("Detalles procesados:", detalles);

@@ -76,8 +76,9 @@ var ComprasPres = (function ($) {
     }
 
     /**
-     * Línea armada por la pantalla con cantidad / precio en la presentación elegida → unidad base + foto. Recalcula
-     * neto, IVA y total desde la presentación. Sin presentación elegida, la devuelve tal cual.
+     * Línea armada por la pantalla con cantidad / precio en la presentación elegida → unidad base + foto. Los importes
+     * no cambian (cajas × precio de la caja = unidades × precio unitario) y conservan descuentos y alícuotas que ya
+     * calculó la pantalla. Sin presentación elegida, la devuelve tal cual.
      */
     function convertir(d) {
         var id = $sel().length ? $sel().val() : '';
@@ -92,12 +93,18 @@ var ComprasPres = (function ($) {
         d.presentacion_precio = pp;
         d.cantidad = +(pc * f).toFixed(4);
         d.precio_unitario = +(pp / f).toFixed(6);
-        if (d.neto_gravado !== undefined) {
-            d.neto_gravado = +(pc * pp).toFixed(2);
-            d.iva_importe = +(d.neto_gravado * (parseFloat(d.iva_porcentaje) || 0) / 100).toFixed(2);
-            d.total_linea = +(d.neto_gravado + d.iva_importe + (parseFloat(d.no_gravado) || 0) + (parseFloat(d.exento) || 0)).toFixed(2);
-        }
         return d;
+    }
+
+    /**
+     * Foto para una línea en unidades que hereda la presentación de la línea de la OC (factura desde OC): la cantidad
+     * y el precio por unidad elegidos pasan a presentaciones (cantidad ÷ factor, precio × factor).
+     */
+    function fotoDesde(l, cantidad, precio) {
+        var f = parseFloat(l.presentacion_factor) || 0;
+        if (!l.presentacion_id || f <= 0) return {};
+        return { presentacion_id: parseInt(l.presentacion_id, 10), presentacion_nombre: l.presentacion_nombre, presentacion_factor: f,
+                 presentacion_cantidad: +((parseFloat(cantidad) || 0) / f).toFixed(4), presentacion_precio: +((parseFloat(precio) || 0) * f).toFixed(6) };
     }
 
     /** Texto para la tabla de líneas: "10 Caja x 12 a $ 9.600" (vacío si la línea es por unidad). */
@@ -117,5 +124,5 @@ var ComprasPres = (function ($) {
     function limpiar() { ++pedido; opciones = []; factorActual = 1; if ($sel().length) $sel().addClass('d-none').html(''); }
     function init(o) { $.extend(cfg, o || {}); asegurarSelect(); }
 
-    return { init: init, cargar: cargar, convertir: convertir, etiqueta: etiqueta, foto: foto, limpiar: limpiar };
+    return { init: init, cargar: cargar, convertir: convertir, etiqueta: etiqueta, foto: foto, fotoDesde: fotoDesde, limpiar: limpiar };
 })(jQuery);

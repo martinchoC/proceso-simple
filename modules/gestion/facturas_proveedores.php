@@ -1240,6 +1240,11 @@ if ($stmt_est_fp = mysqli_prepare($conexion, $sql_estados_fp)) {
         window.FP_CSRF = <?= json_encode(csrf_token()) ?>;
         window.FP_EMBED = <?= !empty($_GET['embed']) ? 'true' : 'false' ?>;
     </script>
+    <?php // Compra por presentación (doc 27): selector de presentación en la línea, solo con el indicador
+    require_once ROOT_PATH . '/core/compras_presentaciones.php';
+    if (cpre_activo($conexion, (int) $current_empresa_id, 'factura')): ?>
+    <script src="<?= asset_local('js/compras-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/compras-presentaciones.js') ?>"></script>
+    <?php endif; ?>
     <script src="facturas_proveedores.js?v=<?= filemtime(__DIR__.'/facturas_proveedores.js') ?>"></script>
     <?php if ($puede_cargar_archivo): ?>
     <script src="<?= asset_local('js/facturas-proveedores-lectura.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/facturas-proveedores-lectura.js') ?>"></script>

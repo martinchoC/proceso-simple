@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/productos_proveedores.php';
+require_once __DIR__ . '/../../core/compras_presentaciones.php'; // compra por presentación (doc 27)
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -1197,6 +1198,10 @@ function obtenerFacturaProveedorPorId($conexion, $id, $empresa_idx = null){
     }
     mysqli_stmt_close($stmt);
 
+    // Compra por presentación (doc 27): la foto de cada línea, solo con el indicador
+    if (cpre_activo($conexion, (int) ($factura['empresa_id'] ?? $empresa_idx), 'factura')) {
+        $detalles = cpre_agregar_fotos($conexion, 'factura', $detalles);
+    }
     $factura['detalles'] = $detalles;
     return $factura;
 }
@@ -1996,6 +2001,10 @@ function insertarDetallesFactura($conexion, $factura_proveedor_id, $empresa_id, 
         }
         
         $detalle_id = mysqli_insert_id($conexion);
+        // Compra por presentación (doc 27): foto de la presentación, solo si cpre_preparar_lineas la armó
+        if (!empty($detalle['_cpre'])) {
+            cpre_guardar_foto($conexion, 'factura', (int) $detalle_id, $detalle['_cpre']);
+        }
         $insertados++;
     }
     mysqli_stmt_close($stmt_insert_det);
@@ -2087,6 +2096,22 @@ function registrarStockFacturaProveedor($conexion, $factura_proveedor_id, $compr
     $nc_pct = floatval($factura['descuento_nc_pct'] ?? 0);
     $dto_gral_pct = floatval($factura['descuento_general_pct'] ?? 0);
 
+    // Compra por presentación (doc 27): en las líneas con presentación el costo sale de los importes (4 decimales) y el
+    // precio de lista del precio de la caja ÷ factor, no de las columnas de 2 decimales (caja $ 1.000 x 12 = $ 83,3333)
+    $cpre_lineas = [];
+    if (cpre_activo($conexion, $empresa_id, 'factura')) {
+        $st_cpre = mysqli_prepare($conexion, "SELECT factura_proveedor_detalle_id, cantidad, neto_gravado, no_gravado, exento, presentacion_id,
+                                                     presentacion_factor, presentacion_precio
+                                              FROM gestion__facturas_proveedores_detalle WHERE factura_proveedor_id = ? AND presentacion_id IS NOT NULL");
+        mysqli_stmt_bind_param($st_cpre, "i", $factura_proveedor_id);
+        mysqli_stmt_execute($st_cpre);
+        $res_cpre = mysqli_stmt_get_result($st_cpre);
+        while ($fc = mysqli_fetch_assoc($res_cpre)) {
+            $cpre_lineas[(int) $fc['factura_proveedor_detalle_id']] = $fc;
+        }
+        mysqli_stmt_close($st_cpre);
+    }
+
     // precio_unitario_neto es el costo de la compra registrado en la línea
     $stmt = mysqli_prepare($conexion, "SELECT factura_proveedor_detalle_id, producto_id, cantidad, precio_unitario, precio_unitario_neto,
                                               descuento_item_pct, descuento_general_pct, precio_unitario_bruto
@@ -2096,6 +2121,14 @@ function registrarStockFacturaProveedor($conexion, $factura_proveedor_id, $compr
     $result = mysqli_stmt_get_result($stmt);
     $lineas = [];
     while ($row = mysqli_fetch_assoc($result)) {
+        if (isset($cpre_lineas[(int) $row['factura_proveedor_detalle_id']])) {
+            $fc = $cpre_lineas[(int) $row['factura_proveedor_detalle_id']];
+            $row['precio_unitario_neto'] = cpre_costo_linea($fc);
+            if ($fc['presentacion_precio'] !== null && (float) $fc['presentacion_factor'] > 0) {
+                $row['precio_unitario_bruto'] = round((float) $fc['presentacion_precio'] / (float) $fc['presentacion_factor'], 6);
+                $row['precio_unitario'] = $row['precio_unitario_bruto'];
+            }
+        }
         $costo = floatval($row['precio_unitario_neto'] ?? 0);
         if ($contempla === 1) {
             if ($modalidad === 'NOTA_CREDITO' && $nc_pct > 0) {
@@ -3301,6 +3334,10 @@ function fpOcLineas($conexion, $empresa_id, $orden_compra_id, $factura_excluir_i
         ];
     }
     mysqli_stmt_close($stmt);
+    // Compra por presentación (doc 27): la presentación de cada línea de la OC, para que la factura la herede
+    if (cpre_activo($conexion, (int) $empresa_id, 'oc')) {
+        $lineas = cpre_agregar_fotos($conexion, 'oc', $lineas);
+    }
     return $lineas;
 }
 
@@ -4189,6 +4226,19 @@ function fpActualizarPreciosPorCompra($conexion, $factura_proveedor_id, $empresa
             $precios[intval($row['producto_id'])] = round(floatval($row['precio_unitario']), 4);
         }
         mysqli_stmt_close($stmt);
+        // Compra por presentación (doc 27): precio por unidad desde el precio de la caja (4 decimales, no los 2 de la columna)
+        if (cpre_activo($conexion, (int) $empresa_id, 'factura')) {
+            $st_cpre = mysqli_prepare($conexion, "SELECT producto_id, presentacion_precio, presentacion_factor FROM gestion__facturas_proveedores_detalle
+                                                  WHERE factura_proveedor_id = ? AND presentacion_id IS NOT NULL AND cantidad > 0 AND presentacion_precio > 0
+                                                    AND presentacion_factor > 0 ORDER BY factura_proveedor_detalle_id");
+            mysqli_stmt_bind_param($st_cpre, 'i', $factura_proveedor_id);
+            mysqli_stmt_execute($st_cpre);
+            $res_cpre = mysqli_stmt_get_result($st_cpre);
+            while ($fc = mysqli_fetch_assoc($res_cpre)) {
+                $precios[intval($fc['producto_id'])] = round((float) $fc['presentacion_precio'] / (float) $fc['presentacion_factor'], 4);
+            }
+            mysqli_stmt_close($st_cpre);
+        }
         if (empty($precios)) {
             return ['mensajes' => $mensajes];
         }

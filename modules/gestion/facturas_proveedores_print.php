@@ -189,7 +189,7 @@ ksort($iva_por_alicuota);
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($factura['detalles'] as $d): ?>
+            <?php foreach (cpre_lineas_impresion($conexion, (int) $empresa_idx, 'factura', $factura['detalles']) as $d): // en cajas si se compró en cajas (doc 27) ?>
             <tr>
                 <td><?= h($d['codigo_proveedor'] ?? '') ?></td>
                 <td><?= h($d['producto_nombre']) ?><?= !empty($d['ordenes_compra_detalle_id']) ? ' <small class="text-muted">(OC)</small>' : '' ?></td>

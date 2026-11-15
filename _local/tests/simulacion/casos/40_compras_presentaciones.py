@@ -87,6 +87,64 @@ if CTX.get('ok'):
 
 
 # ---------------------------------------------------------------------------------------------
+# Paso 8-3: factura de proveedor (desde la OC y a mano), stock, costo con precisión e impresión.
+def fp_ajax(params, method='POST'):
+    return ajax('facturas_proveedores_ajax.php', dict(params, empresa_idx=2, pagina_idx=57), method)
+
+
+caso('Compra por presentación: factura de proveedor')
+oc = CTX.get('oc')
+if CTX.get('ok') and oc:
+    PR = CTX['pres']
+    oc_ajax(dict(accion='ejecutar_accion', orden_compra_id=oc, accion_js='confirmar'))
+    oc_ajax(dict(accion='ejecutar_accion', orden_compra_id=oc, accion_js='pendiente_recepcion'))
+    r = fp_ajax(dict(accion='obtener_oc_lineas', orden_compra_id=oc, entidad_id=PROV), 'GET')
+    lineas = {int(l['producto_id']): l for l in (r.get('data') or {}).get('lineas', [])} if ok_resp(r) else {}
+    l1 = lineas.get(P1, {})
+    check(int(l1.get('presentacion_id') or 0) == PR and num(l1.get('presentacion_factor')) == 12,
+          'las líneas de la OC traen su presentación para heredarla', str(l1)[:200])
+    s1 = stock(P1)
+    dets = [
+        # 2 de las 3 cajas de la OC, a $ 9.000 la caja (lo que arma la pantalla al importar la OC)
+        linea(P1, 24, 750, ordenes_compra_detalle_id=l1.get('ordenes_compra_detalle_id'), presentacion_id=PR, presentacion_cantidad=2, presentacion_precio=9000),
+        # 1 caja a mano a $ 1.000: $ 83,3333 la unidad (la columna de 2 decimales guardaría 83,33)
+        linea(P1, 1, 1000, presentacion_id=PR, presentacion_cantidad=1, presentacion_precio=1000),
+    ]
+    dets[1]['cantidad'] = 1   # la pantalla manda cajas; el servidor recalcula 12 unidades
+    r = fp_ajax(dict(accion='agregar', comprobante_tipo_id=34, comprobante_pv=7, comprobante_nro=proximo_nro_proveedor(7, 940000),
+                     sucursal_id=1, deposito_id=1, entidad_id=PROV, f_emision=HOY, f_contabilidad=HOY, f_vencimiento=HOY, moneda_id=1,
+                     tipo_cambio=1, condicion_pago_id='', orden_compra_id=oc, descuento_general_pct=0, detalles=json.dumps(dets),
+                     impuestos_adicionales='[]', **totales([linea(P1, 24, 750), linea(P1, 12, 1000 / 12)])))
+    f = r.get('factura_proveedor_id') if isinstance(r, dict) else None
+    check(ok_resp(r) and f, 'factura con 2 cajas de la OC y 1 caja a mano', err(r))
+    if f:
+        l = sql("SELECT cantidad, precio_unitario, neto_gravado, presentacion_id, presentacion_cantidad, presentacion_precio "
+                "FROM gestion__facturas_proveedores_detalle WHERE factura_proveedor_id = %d ORDER BY factura_proveedor_detalle_id" % int(f))
+        check(len(l) == 2 and num(l[0]['cantidad']) == 24 and num(l[0]['neto_gravado']) == 18000 and num(l[0]['presentacion_cantidad']) == 2,
+              'línea de la OC: 24 u, neto $ 18.000, foto 2 cajas', str(l)[:300])
+        check(num(l[1]['cantidad']) == 12 and num(l[1]['neto_gravado']) == 1000 and num(l[1]['presentacion_precio']) == 1000,
+              'línea a mano: 12 u, neto $ 1.000 (no $ 999,96)', str(l)[:300])
+        r = fp_ajax(dict(accion='obtener', factura_proveedor_id=f), 'GET')
+        check(isinstance(r, dict) and any(int(x.get('presentacion_id') or 0) == PR for x in (r.get('detalles') or [])), 'obtener devuelve la foto', str(r)[:200])
+        fp_ajax(dict(accion='ejecutar_accion', factura_proveedor_id=f, accion_js='aprobar'))
+        r = fp_ajax(dict(accion='ejecutar_accion', factura_proveedor_id=f, accion_js='confirmar'))
+        check(ok_resp(r), 'confirmar la factura', err(r))
+        check(stock(P1) == s1 + 36, 'el stock entra en unidades: +36 (%s -> %s)' % (s1, stock(P1)))
+        check(num(val("SELECT cantidad_recibida FROM gestion__ordenes_compra_detalle WHERE ordenes_compra_detalle_id = %d" % int(l1.get('ordenes_compra_detalle_id') or 0))) == 24,
+              'la OC queda con 24 u recibidas (2 de 3 cajas)')
+        costo = num(val("SELECT costo_actual FROM gestion__productos_costos WHERE empresa_id = 2 AND producto_id = %d" % P1))
+        check(abs(costo - 83.3333) < 0.00005, 'el costo de la caja de $ 1.000 queda en $ 83,3333 la unidad (no 83,33)', str(costo))
+        html = ajax('facturas_proveedores_print.php', dict(factura_proveedor_id=f, empresa_idx=2), 'GET')
+        html = html.get('_raw', '') if isinstance(html, dict) else ''
+        check('SIM Caja x 12 (12 u)' in html, 'la impresión muestra las cajas', html[:120])
+    r = fp_ajax(dict(accion='agregar', comprobante_tipo_id=34, comprobante_pv=7, comprobante_nro=proximo_nro_proveedor(7, 940000),
+                     sucursal_id=1, deposito_id=1, entidad_id=PROV, f_emision=HOY, f_contabilidad=HOY, f_vencimiento=HOY, moneda_id=1,
+                     tipo_cambio=1, condicion_pago_id='', descuento_general_pct=0, impuestos_adicionales='[]',
+                     detalles=json.dumps([linea(P2, 1, 100, presentacion_id=PR, presentacion_cantidad=1, presentacion_precio=100)]),
+                     **totales([linea(P2, 1, 100)])))
+    check(not ok_resp(r) and 'no es de ese producto' in err(r), 'factura: una presentación de otro producto se rechaza', err(r))
+
+# ---------------------------------------------------------------------------------------------
 caso('Compra por presentación: limpieza')
 if CTX.get('ind') is not None:
     sql("UPDATE gestion__productos_presentaciones SET tabla_estado_registro_id = 2 WHERE presentacion_id = %d" % CTX.get('pres', 0))
