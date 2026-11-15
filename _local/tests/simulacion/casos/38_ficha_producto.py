@@ -168,3 +168,56 @@ if CTX.get('ok'):
         sql("DELETE FROM gestion__productos_ubicaciones WHERE sucursal_ubicacion_id = %d" % su)
         sql("DELETE FROM gestion__sucursales_ubicaciones WHERE sucursal_ubicacion_id = %d" % su)
     sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 0 WHERE empresa_id = %d" % E)
+
+
+# ---------------------------------------------------------------------------------------------
+# Paso 7-4: solapa Imágenes.
+PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+
+def subir(P, nombre='foto.png', b64=PNG, **extra):
+    return ajax('productos_ajax.php', dict(dict(accion='ficha_imagen_subir', empresa_idx=E, producto_id=P, _files={'imagen': {'name': nombre, 'content_b64': b64}}), **extra),
+                'POST', modulo='gestion_normal', empresa_id=E)
+
+
+caso('Ficha completa: imágenes del producto')
+if CTX.get('ok'):
+    P = CTX['prod']
+    sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 1 WHERE empresa_id = %d" % E)
+    r = subir(P, 'no.png', 'SG9sYQ==')
+    check(not ok_resp(r), 'un archivo que no es imagen se rechaza', err(r))
+    r1 = subir(P, descripcion='Frente')
+    i1 = int((data(r1) or {}).get('producto_imagen_id') or 0)
+    check(ok_resp(r1) and i1, 'subir una imagen', err(r1))
+    r2 = subir(P, descripcion='Dorso')
+    i2 = int((data(r2) or {}).get('producto_imagen_id') or 0)
+    check(ok_resp(r2) and i2, 'subir otra', err(r2))
+    lst = data(pa(dict(accion='ficha_imagenes_listar', producto_id=P), 'GET')) or []
+    check([int(x['producto_imagen_id']) for x in lst] == [i1, i2] and int(lst[0]['es_principal']) == 1 and int(lst[1]['es_principal']) == 0,
+          'la primera queda como principal', str(lst)[:300])
+    check(lst and lst[0]['miniatura_url'].startswith('get_imagen.php?id='), 'con la dirección de get_imagen.php', str(lst)[:200])
+    r = pa(dict(accion='ficha_imagen_principal', producto_id=P, producto_imagen_id=i2))
+    lst = data(pa(dict(accion='ficha_imagenes_listar', producto_id=P), 'GET')) or []
+    check(ok_resp(r) and int(lst[0]['producto_imagen_id']) == i2 and sum(int(x['es_principal']) for x in lst) == 1, 'cambiar la principal (una sola)', str(lst)[:300])
+    r = pa(dict(accion='ficha_imagen_mover', producto_id=P, producto_imagen_id=i2, sentido=-1))
+    ords = dict((int(x["producto_imagen_id"]), int(x["orden"])) for x in sql("SELECT producto_imagen_id, orden FROM gestion__productos_imagenes WHERE producto_imagen_id IN (%d, %d)" % (i1, i2)))
+    check(ok_resp(r) and ords.get(i2, 0) < ords.get(i1, 0), 'cambiar el orden', str(ords))
+    r = pa(dict(accion='ficha_imagen_editar', producto_id=P, producto_imagen_id=i1, descripcion='Frente nuevo'))
+    check(ok_resp(r) and val("SELECT descripcion FROM gestion__productos_imagenes WHERE producto_imagen_id = %d" % i1) == 'Frente nuevo', 'editar la descripción', err(r))
+    r = pc(dict(accion='ficha_imagenes_listar', producto_id=P))
+    check(ok_resp(r) and len(data(r) or []) == 2, 'la consulta ve las imágenes', err(r))
+    r = ajax('productos_consulta_ajax.php', dict(accion='ficha_imagen_quitar', empresa_idx=E, producto_id=P, producto_imagen_id=i1), 'POST', modulo='gestion_normal', empresa_id=E)
+    check(not ok_resp(r), 'la consulta no puede quitarlas', str(r)[:200])
+    r = pa(dict(accion='ficha_imagen_quitar', producto_id=P, producto_imagen_id=i2))
+    lst = data(pa(dict(accion='ficha_imagenes_listar', producto_id=P), 'GET')) or []
+    check(ok_resp(r) and [int(x['producto_imagen_id']) for x in lst] == [i1] and int(lst[0]['es_principal']) == 1,
+          'quitar la principal: la que queda pasa a serlo', str(lst)[:300])
+    r = pa(dict(accion='ficha_imagen_quitar', producto_id=CTX['otro'], producto_imagen_id=i1))
+    check(not ok_resp(r), 'con otro producto no se puede tocar la imagen', err(r))
+    ids = [i for i in (i1, i2) if i]
+    if ids:
+        im = [int(x["imagen_id"]) for x in sql("SELECT imagen_id FROM gestion__productos_imagenes WHERE producto_imagen_id IN (%s)" % ",".join(map(str, ids)))]
+        sql("DELETE FROM gestion__productos_imagenes WHERE producto_imagen_id IN (%s)" % ','.join(map(str, ids)))
+        if im:
+            sql("DELETE FROM conf__imagenes WHERE imagen_id IN (%s)" % ','.join(map(str, im)))
+    sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 0 WHERE empresa_id = %d" % E)

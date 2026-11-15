@@ -16,6 +16,7 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficProveedores"><i class="fas fa-truck me-1"></i>Proveedores</button></li>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficPrecios"><i class="fas fa-dollar-sign me-1"></i>Precios</button></li>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficUbicaciones"><i class="fas fa-map-marker-alt me-1"></i>Ubicaciones</button></li>
+    <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficImagenes"><i class="fas fa-images me-1"></i>Imágenes</button></li>
 </ul>
 <div class="tab-content">
 <div class="tab-pane fade show active" id="pficInfo" role="tabpanel">
@@ -120,6 +121,27 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
             <tbody id="pficUbiFilas"></tbody>
         </table>
     </div>
+</div>
+
+<div class="tab-pane fade" id="pficImagenes" role="tabpanel">
+    <p class="small text-muted mb-2">Fotos del producto (JPG, PNG o WebP de hasta 1 MB; se achican y se guardan livianas). La principal es la que se muestra primero.</p>
+    <?php if (!$pfic_ro): ?>
+    <div class="row g-2 align-items-end mb-3" id="pficImgForm">
+        <div class="col-md-5">
+            <label class="form-label form-label-sm" for="pficImgArchivo">Imagen</label>
+            <input type="file" class="form-control form-control-sm" id="pficImgArchivo" accept="image/jpeg,image/png,image/webp,image/gif">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label form-label-sm" for="pficImgDesc">Descripción</label>
+            <input type="text" class="form-control form-control-sm" id="pficImgDesc" maxlength="255">
+        </div>
+        <div class="col-md-1">
+            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pficImgPrincipal"><label class="form-check-label small" for="pficImgPrincipal">Principal</label></div>
+        </div>
+        <div class="col-md-2"><button type="button" class="btn btn-sm btn-primary w-100" id="pficImgSubir"><i class="fas fa-upload me-1"></i>Subir</button></div>
+    </div>
+    <?php endif; ?>
+    <div class="row g-2" id="pficImgGaleria"></div>
 </div>
 
 </div><!-- /.tab-content -->

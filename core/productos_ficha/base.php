@@ -6,6 +6,9 @@
  *
  * - base.php        indicador y helpers de consulta (pfic_*)
  * - proveedores.php vínculos producto ↔ proveedor con el código del proveedor (pfpv_*)
+ * - ubicaciones.php ubicaciones de depósito del producto y "Nueva ubicación" (pfub_*)
+ * - imagenes.php    fotos del producto (pfim_*)
+ * - (Precios no tiene backend acá: la solapa usa listas_precios_productos_ajax.php del módulo)
  * - acciones.php    acciones ficha_* de productos_ajax.php (pfic_ajax_acciones)
  *
  * Indicador conf__empresas.usa_ficha_producto_completa (script 20261121_ficha_producto_01.sql). Sin él (o sin la

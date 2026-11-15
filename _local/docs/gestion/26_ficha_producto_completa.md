@@ -1,6 +1,6 @@
 # Ficha de producto completa en gestion_normal
 
-Estado: **plan a aprobar** (2026-11-15).
+Estado: **implementado** (2026-11-15; plan aprobado el mismo día). Ver "Implementación" al final.
 
 ## Pedido
 
@@ -81,3 +81,30 @@ Un commit por paso, cada uno con: `php -l`, la comparación del listado / ficha 
 3. Orden 7-1 Proveedores → 7-2 Precios → 7-3 Ubicaciones → 7-4 Imágenes, **antes del 6-3** (marca en escalas y
    promociones). **Recomendado.**
 4. En la consulta del 5, las solapas visibles en solo lectura. **Recomendado.**
+
+## Implementación
+
+Commits 7-1 `0454700` (indicador, interruptor, Proveedores), 7-2 `b869e38` (Precios), 7-3 `156add1` (Ubicaciones) y
+7-4 (Imágenes). Script `20261121_ficha_producto_01.sql` (aplicado solo en la copia del simulador).
+
+- `core/productos_ficha/`: `base.php` (pfic_*), `proveedores.php` (pfpv_*), `ubicaciones.php` (pfub_*), `imagenes.php`
+  (pfim_*), `acciones.php` (`pfic_ajax_acciones`, acciones `ficha_*`; `pfic_acciones_lectura()` es la lista que admite
+  la consulta).
+- `templates/productos/ficha_solapas.php` (se incluye antes y después del `<form>` con `$pfic_parte`) y
+  `assets/js/productos-ficha.js` (`ProdFicha`).
+- Módulo 5: `productos.php`, `productos_consulta.php`, `productos.js` (con el indicador, el alta deja el producto
+  abierto para seguir con las solapas), `productos_ajax.php`, `productos_consulta_ajax.php`. Precios usa
+  `listas_precios_productos_ajax.php` sin cambios.
+
+Diferencias con la solapa del módulo 2 (a propósito):
+- Valida que producto, vínculo, ubicación e imagen sean de la empresa (el 2 no lo hace al asignar / quitar
+  ubicaciones).
+- Ubicaciones: solo las sucursales del usuario también en Productos (el 2 filtra solo en la consulta).
+- Proveedores: el código del proveedor se graba sin escaparlo dos veces (el 2 aplica `mysqli_real_escape_string` y
+  además lo pasa como parámetro, así que una comilla queda guardada como `'`).
+- Imágenes: la primera queda como principal, al quitar la principal pasa a serlo la siguiente, y el orden se cambia
+  con antes / después.
+
+Pruebas: caso `38_ficha_producto.py` 47/47 (sobre una copia recién clonada con el script; la única falla de esa
+corrida es la de consistencia preexistente de 2 asientos sin fecha); base sin la columna 4/4; interruptor de Empresas
+4/4. La consola del navegador no se revisó.

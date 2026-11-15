@@ -211,6 +211,66 @@ var ProdFicha = (function ($) {
         });
     }
 
+    // ---------------------------------------------------------------- Imágenes
+    function listarImagenes() {
+        if (!productoId) { $('#pficImgGaleria').html(''); return; }
+        pedir('ficha_imagenes_listar', {}, 'GET').done(function (r) {
+            var is = (r && r.success && r.data) || [];
+            $('#pficImgGaleria').html(is.length ? is.map(function (x, n) {
+                var principal = parseInt(x.es_principal, 10) === 1;
+                return '<div class="col-6 col-md-3"><div class="card h-100' + (principal ? ' border-primary' : '') + '">'
+                    + '<a href="' + esc(x.imagen_url) + '" target="_blank" rel="noopener"><img src="' + esc(x.miniatura_url) + '" class="card-img-top" style="height: 120px; object-fit: contain; background: #f8f9fa;" alt="' + esc(x.descripcion || x.imagen_nombre) + '"></a>'
+                    + '<div class="card-body p-2 small">' + (principal ? '<span class="badge bg-primary mb-1">Principal</span><br>' : '')
+                    + '<span class="pfic-img-desc">' + esc(x.descripcion || '') + '</span></div>'
+                    + (ro ? '' : '<div class="card-footer p-1 d-flex flex-wrap gap-1 justify-content-center">'
+                        + (principal ? '' : '<button type="button" class="btn btn-sm btn-outline-primary pfic-img-principal" data-id="' + x.producto_imagen_id + '" title="Hacer principal"><i class="fas fa-star"></i></button>')
+                        + '<button type="button" class="btn btn-sm btn-outline-secondary pfic-img-mover" data-id="' + x.producto_imagen_id + '" data-sentido="-1" title="Antes"' + (n === 0 ? ' disabled' : '') + '><i class="fas fa-arrow-left"></i></button>'
+                        + '<button type="button" class="btn btn-sm btn-outline-secondary pfic-img-mover" data-id="' + x.producto_imagen_id + '" data-sentido="1" title="Después"' + (n === is.length - 1 ? ' disabled' : '') + '><i class="fas fa-arrow-right"></i></button>'
+                        + '<button type="button" class="btn btn-sm btn-outline-secondary pfic-img-editar" data-id="' + x.producto_imagen_id + '" data-desc="' + esc(x.descripcion || '') + '" title="Descripción"><i class="fas fa-pen"></i></button>'
+                        + '<button type="button" class="btn btn-sm btn-outline-danger pfic-img-quitar" data-id="' + x.producto_imagen_id + '" title="Quitar"><i class="fas fa-trash"></i></button></div>')
+                    + '</div></div>';
+            }).join('') : '<div class="col-12 text-muted small p-2">El producto no tiene imágenes.</div>');
+        }).fail(fallo);
+    }
+    function limpiarFormImagen() { $('#pficImgArchivo, #pficImgDesc').val(''); $('#pficImgPrincipal').prop('checked', false); }
+    function subirImagen() {
+        var archivo = $('#pficImgArchivo')[0] && $('#pficImgArchivo')[0].files[0];
+        if (!archivo) { if (window.UiSimple) UiSimple.aviso('Elija la imagen.'); return; }
+        var fd = new FormData();
+        fd.append('accion', 'ficha_imagen_subir'); fd.append('empresa_idx', cfg.empresaIdx); fd.append('pagina_idx', cfg.paginaIdx);
+        fd.append('producto_id', productoId); fd.append('imagen', archivo);
+        fd.append('descripcion', $.trim($('#pficImgDesc').val())); fd.append('es_principal', $('#pficImgPrincipal').is(':checked') ? 1 : 0);
+        var $b = $('#pficImgSubir').prop('disabled', true);
+        $.ajax({ url: cfg.ajaxUrl, type: 'POST', dataType: 'json', data: fd, processData: false, contentType: false })
+            .done(function (r) { respuesta(r, function () { limpiarFormImagen(); listarImagenes(); }); }).fail(fallo)
+            .always(function () { $b.prop('disabled', false); });
+    }
+    function enlazarImagenes() {
+        $('#pficImgSubir').on('click', subirImagen);
+        $(document).on('click', '.pfic-img-principal', function () {
+            pedir('ficha_imagen_principal', { producto_imagen_id: $(this).data('id') }).done(function (r) { respuesta(r, listarImagenes); }).fail(fallo);
+        });
+        $(document).on('click', '.pfic-img-mover', function () {
+            pedir('ficha_imagen_mover', { producto_imagen_id: $(this).data('id'), sentido: $(this).data('sentido') }).done(function (r) { respuesta(r, listarImagenes); }).fail(fallo);
+        });
+        $(document).on('click', '.pfic-img-editar', function () {
+            var id = $(this).data('id'), actual = String($(this).data('desc') || '');
+            var grabar = function (desc) { pedir('ficha_imagen_editar', { producto_imagen_id: id, descripcion: desc }).done(function (r) { respuesta(r, listarImagenes); }).fail(fallo); };
+            if (window.Swal) {
+                Swal.fire({ title: 'Descripción de la imagen', input: 'text', inputValue: actual, inputAttributes: { maxlength: 255 }, showCancelButton: true, confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar' })
+                    .then(function (x) { if (x.isConfirmed) grabar(x.value || ''); });
+            } else { var d = window.prompt('Descripción de la imagen', actual); if (d !== null) grabar(d); }
+        });
+        $(document).on('click', '.pfic-img-quitar', function () {
+            var id = $(this).data('id');
+            var seguir = function () { pedir('ficha_imagen_quitar', { producto_imagen_id: id }).done(function (r) { respuesta(r, listarImagenes); }).fail(fallo); };
+            if (window.Swal) {
+                Swal.fire({ icon: 'question', text: '¿Quitar esta imagen del producto?', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar' })
+                    .then(function (x) { if (x.isConfirmed) seguir(); });
+            } else if (window.confirm('¿Quitar esta imagen del producto?')) { seguir(); }
+        });
+    }
+
     // ---------------------------------------------------------------- Ficha
     function habilitar(si) {
         $('#pficSolapas .pfic-requiere-producto').toggleClass('disabled', !si).attr('title', si ? null : 'Guarde primero el producto');
@@ -219,7 +279,7 @@ var ProdFicha = (function ($) {
         if (!activo()) return;
         productoId = parseInt(id, 10) || 0;
         ro = !!cfg.soloLectura || !!(opciones && opciones.soloLectura);
-        $('#pficProvForm, #pficPreForm, #pficUbiForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm, #pficUbiForm, #pficImgForm').toggleClass('d-none', ro);
         habilitar(productoId > 0);
         limpiarFormProveedor();
         limpiarFormPrecio();
@@ -230,13 +290,17 @@ var ProdFicha = (function ($) {
         listarProveedores();
         listarPrecios();
         listarUbicaciones();
+        limpiarFormImagen();
+        listarImagenes();
     }
     function limpiar() {
         if (!activo()) return;
         productoId = 0;
         ro = !!cfg.soloLectura;
-        $('#pficProvForm, #pficPreForm, #pficUbiForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm, #pficUbiForm, #pficImgForm').toggleClass('d-none', ro);
         habilitar(false);
+        limpiarFormImagen();
+        $('#pficImgGaleria').html('');
         limpiarFormProveedor();
         limpiarFormPrecio();
         limpiarFormUbicacion();
@@ -249,6 +313,7 @@ var ProdFicha = (function ($) {
         enlazarProveedores();
         enlazarPrecios();
         enlazarUbicaciones();
+        enlazarImagenes();
         habilitar(false);
     }
 

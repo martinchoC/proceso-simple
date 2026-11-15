@@ -3,17 +3,20 @@
  * Acciones ficha_* de productos_ajax.php del módulo 5 (doc 26). pfic_ajax_acciones() responde JSON y corta si la
  * acción es suya; si no, no hace nada. Lectura: con el acceso a la página que ya validó ajax_guard (Productos o su
  * consulta). Escritura: función "editar" de la página y nunca desde la consulta (PRODUCTOS_CONSULTA).
+ * Proveedores (pfpv_*), Ubicaciones (pfub_*) e Imágenes (pfim_*); Precios usa listas_precios_productos_ajax.php.
  */
 
 require_once __DIR__ . '/base.php';
 require_once __DIR__ . '/proveedores.php';
 require_once __DIR__ . '/ubicaciones.php';
+require_once __DIR__ . '/imagenes.php';
 
 if (!function_exists('pfic_acciones_lectura')) {
     /** Acciones de lectura (las que admite la consulta de productos). */
     function pfic_acciones_lectura(): array
     {
-        return ['ficha_proveedores_listar', 'ficha_proveedores_combo', 'ficha_ubicaciones_listar', 'ficha_ubicaciones_opciones'];
+        return ['ficha_proveedores_listar', 'ficha_proveedores_combo', 'ficha_ubicaciones_listar', 'ficha_ubicaciones_opciones',
+                'ficha_imagenes_listar'];
     }
 }
 
@@ -21,7 +24,8 @@ if (!function_exists('pfic_ajax_acciones')) {
     function pfic_ajax_acciones(mysqli $conexion, array $ctx, string $accion, int $pagina_id): void
     {
         $escritura = ['ficha_proveedor_guardar', 'ficha_proveedor_quitar', 'ficha_proveedor_principal',
-                      'ficha_ubicacion_asignar', 'ficha_ubicacion_quitar', 'ficha_ubicacion_crear'];
+                      'ficha_ubicacion_asignar', 'ficha_ubicacion_quitar', 'ficha_ubicacion_crear',
+                      'ficha_imagen_subir', 'ficha_imagen_editar', 'ficha_imagen_principal', 'ficha_imagen_mover', 'ficha_imagen_quitar'];
         if (!in_array($accion, pfic_acciones_lectura(), true) && !in_array($accion, $escritura, true)) {
             return;
         }
@@ -85,6 +89,24 @@ if (!function_exists('pfic_ajax_acciones')) {
                         throw $e;
                     }
                     $responder(['success' => true, 'data' => ['sucursal_ubicacion_id' => $su, 'producto_ubicacion_id' => $id], 'message' => 'Ubicación creada y asignada']);
+                case 'ficha_imagenes_listar':
+                    $responder(['success' => true, 'data' => pfim_listar($conexion, $empresa_id, $producto_id), 'message' => '']);
+                case 'ficha_imagen_subir':
+                    $r = pfim_subir($conexion, $empresa_id, $usuario_id, $producto_id, $_FILES['imagen'] ?? null,
+                        (string) ($_POST['descripcion'] ?? ''), !empty($_POST['es_principal']));
+                    $responder(['success' => true, 'data' => $r, 'message' => 'Imagen subida']);
+                case 'ficha_imagen_editar':
+                    pfim_editar($conexion, $empresa_id, $producto_id, intval($_POST['producto_imagen_id'] ?? 0), (string) ($_POST['descripcion'] ?? ''));
+                    $responder(['success' => true, 'data' => null, 'message' => 'Guardado']);
+                case 'ficha_imagen_principal':
+                    pfim_principal($conexion, $empresa_id, $producto_id, intval($_POST['producto_imagen_id'] ?? 0));
+                    $responder(['success' => true, 'data' => null, 'message' => 'Imagen principal actualizada']);
+                case 'ficha_imagen_mover':
+                    pfim_mover($conexion, $empresa_id, $producto_id, intval($_POST['producto_imagen_id'] ?? 0), intval($_POST['sentido'] ?? 1));
+                    $responder(['success' => true, 'data' => null, 'message' => 'Orden actualizado']);
+                case 'ficha_imagen_quitar':
+                    pfim_quitar($conexion, $empresa_id, $producto_id, intval($_POST['producto_imagen_id'] ?? 0));
+                    $responder(['success' => true, 'data' => null, 'message' => 'Imagen quitada']);
             }
         } catch (InvalidArgumentException $e) {
             $responder(['success' => false, 'data' => null, 'message' => $e->getMessage()]);
