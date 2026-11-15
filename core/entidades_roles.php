@@ -197,9 +197,11 @@ if (!function_exists('sincronizarRolesEntidad')) {
             mysqli_stmt_close($stmt);
         }
 
-        // 1. Baja de los roles que ya no se quieren
+        // 1. Baja de los roles que ya no se quieren. Los roles que se administran desde su propia página
+        // (VEN: Vendedores y carteras, core/vendedores.php) no están en el formulario de Entidades: la
+        // sincronización no los da de baja; se activan y desactivan con actualizarRolIndividualEntidad().
         foreach ($actuales as $cod => $infoRol) {
-            if (!in_array($cod, $deseados)) {
+            if (!in_array($cod, $deseados) && !in_array($cod, ['VEN'], true)) {
                 $stmtBaja = mysqli_prepare($conexion, "UPDATE gestion__entidades_roles SET f_baja = CURDATE() WHERE entidad_rol_id = ?");
                 if ($stmtBaja) {
                     mysqli_stmt_bind_param($stmtBaja, "i", $infoRol['entidad_rol_id']);
