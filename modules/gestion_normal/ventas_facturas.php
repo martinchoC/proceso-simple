@@ -383,5 +383,5 @@ $puede_importar_arca = usuario_puede_funcion($conn, intval($_SESSION['usuario_id
 </style>
 <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php if ($puede_importar_arca): ?><script src="<?= asset_local('js/xlsx-0.18.5/xlsx.full.min.js') ?>"></script><?php endif; ?>
-<script>const PAGINA_ID = <?= $pagina_idx ?>; const EMPRESA_ID = <?= $empresa_id ?>; const REMITO_ID_INICIAL = <?= $remito_id_inicial ?>; const FACTURA_ID_INICIAL = <?= $factura_id_inicial ?>; const FACTURA_ACCION_INICIAL = '<?= $factura_accion_inicial ?>';</script><script src="ventas_facturas.js?v=<?= filemtime(__DIR__.'/ventas_facturas.js') ?>"></script>
+<script>const PAGINA_ID = <?= $pagina_idx ?>; const EMPRESA_ID = <?= $empresa_id ?>; const REMITO_ID_INICIAL = <?= $remito_id_inicial ?>; const FACTURA_ID_INICIAL = <?= $factura_id_inicial ?>; const FACTURA_ACCION_INICIAL = '<?= $factura_accion_inicial ?>';</script><script src="<?= asset_local('js/ventas-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/ventas-presentaciones.js') ?>"></script><script src="ventas_facturas.js?v=<?= filemtime(__DIR__.'/ventas_facturas.js') ?>"></script>
 <?php require_once ROOT_PATH . '/templates/adminlte/footer1.php'; ?>

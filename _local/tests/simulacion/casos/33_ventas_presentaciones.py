@@ -132,3 +132,111 @@ if caja:
     check(ok_resp(r) and l and num(l['cantidad']) == 5 and num(l['precio_unitario']) == 100 and l['presentacion_id'] in (None, 'NULL'),
           'apagado: 5 u a 100, sin presentación (lo de presentación se ignora)', err(r) or str(l))
     sql("UPDATE conf__empresas SET usa_venta_presentaciones = 1 WHERE empresa_id = 2")
+
+
+# ---------------------------------------------------------------------------------------------
+def alta_remito(dets, entidad=CLI):
+    r = ajax('ventas_remitos_ajax.php', dict(accion='agregar', empresa_idx=2, pagina_idx=88, punto_venta_id=1, comprobante_tipo_id=40,
+             entidad_id=entidad, f_emision=HOY, detalles=dets))
+    return r, ((r.get('venta_remito_id') or r.get('id')) if isinstance(r, dict) else None)
+
+
+def linea_remito(rem, producto):
+    return uno(f"SELECT venta_remito_detalle_id id, cantidad, precio_unitario_bruto, importe_linea, presentacion_id, presentacion_cantidad, "
+               f"presentacion_nombre FROM gestion__ventas_remitos_detalles WHERE venta_remito_id={rem} AND producto_id={producto}")
+
+
+caso('Presentaciones en ventas: remito desde el pedido (de a cajas enteras)')
+ped = CTX.get('pedido')
+if ped and caja:
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='ejecutar_accion', venta_pedido_id=ped, accion_js='confirmar_pedido', empresa_idx=2, pagina_idx=91))
+    check(ok_resp(r), 'confirmar el pedido', err(r))
+    r = ajax('ventas_remitos_ajax.php', dict(accion='obtener_pedidos_pendientes_cliente', entidad_id=CLI, punto_venta_id=1, pedido_id=ped, empresa_idx=2), 'GET')
+    pend = []
+    for p in (r if isinstance(r, list) else []):
+        pend += [p] if 'venta_pedido_detalle_id' in p else p.get('detalles', p.get('lineas', []))
+    lp = next((l for l in pend if int(l.get('producto_id', 0)) == P2), None)
+    check(lp and lp.get('presentacion_nombre') == 'Caja x 12' and num(lp.get('presentacion_factor')) == 12,
+          'la línea pendiente trae la caja', str(lp)[:300])
+    if lp:
+        base = dict(venta_pedido_detalle_id=int(lp['venta_pedido_detalle_id']), producto_id=P2,
+                    precio_unitario_bruto=num(lp.get('precio_unitario_bruto')), descuento_general_pct=0, iva_alicuota_id=1, iva_porcentaje=21)
+        r, rem_mal = alta_remito([dict(base, cantidad=13)])
+        check(not ok_resp(r) and 'enteras' in err(r), '13 u de una línea en cajas se rechaza', err(r))
+        s2 = stock(P2)
+        r, rem = alta_remito([dict(base, cantidad=24)])
+        check(ok_resp(r) and rem, 'remito de 2 cajas (24 u)', err(r))
+        if rem:
+            CTX['remito'] = rem
+            lr = linea_remito(rem, P2)
+            check(lr and num(lr['cantidad']) == 24 and int(lr['presentacion_id']) == caja and num(lr['presentacion_cantidad']) == 2,
+                  'la línea del remito hereda la caja: 24 u = 2 cajas', str(lr))
+            r = ajax('ventas_remitos_ajax.php', dict(accion='obtener', venta_remito_id=rem, empresa_idx=2, pagina_idx=88), 'GET')
+            dl = [d for d in (r.get('detalles') or []) if int(d.get('producto_id', 0)) == P2] if isinstance(r, dict) else []
+            check(dl and num(dl[0].get('presentacion_cantidad')) == 2, 'obtener el remito devuelve la caja', str(dl)[:200])
+            r = ajax('ventas_remitos_ajax.php', dict(accion='ejecutar_accion', venta_remito_id=rem, accion_js='confirmar', empresa_idx=2, pagina_idx=88))
+            check(ok_resp(r) and stock(P2) == s2 - 24, f'confirmar el remito: stock -24 en unidades ({s2} -> {stock(P2)})', err(r))
+            check(num(val(f"SELECT cantidad_entregada FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_detalle_id={int(lp['venta_pedido_detalle_id'])}")) == 24,
+                  'el pedido queda con 24 u entregadas (2 de 4 cajas)')
+
+caso('Presentaciones en ventas: remito directo en cajas')
+if caja:
+    d = dict(producto_id=P2, cantidad=0, precio_unitario_bruto=0, descuento_general_pct=0, iva_alicuota_id=1, iva_porcentaje=21,
+             presentacion_id=caja, presentacion_cantidad=1, presentacion_precio=550)
+    r, rem2 = alta_remito([d])
+    check(not ok_resp(r) and 'mínima' in err(r), 'remito directo de 1 caja: mínimo 2', err(r))
+    d['presentacion_cantidad'] = 3
+    r, rem2 = alta_remito([d])
+    lr = linea_remito(rem2, P2) if rem2 else None
+    check(ok_resp(r) and lr and num(lr['cantidad']) == 36 and abs(num(lr['precio_unitario_bruto']) - 45.833333) < 1e-6
+          and num(lr['presentacion_cantidad']) == 3, 'remito directo de 3 cajas: 36 u a 45,833333', err(r) or str(lr))
+    check(lr and abs(num(lr['importe_linea']) - 1650) < 0.01, 'importe 1650 (diferencia por redondeo < 1 centavo)', str(lr))
+
+
+# ---------------------------------------------------------------------------------------------
+def alta_factura(dets):
+    r = ajax('ventas_facturas_ajax.php', dict(accion='agregar', empresa_idx=2, pagina_idx=56, punto_venta_id=1, sucursal_id=1,
+             comprobante_tipo_id=4, entidad_id=CLI, f_emision=HOY, f_vto=HOY, moneda_id=1, tipo_cambio=1,
+             condicion_pago_id='', descuento_general_pct=0, observaciones='SIM presentaciones', detalles=dets))
+    fv = None
+    if isinstance(r, dict):
+        fv = r.get('venta_factura_id') or (r.get('data') or {}).get('venta_factura_id') or r.get('id')
+    return r, fv
+
+
+caso('Presentaciones en ventas: factura desde el remito (de a cajas enteras)')
+rem = CTX.get('remito')
+if rem and caja:
+    r = ajax('ventas_facturas_ajax.php', dict(accion='remitos_pendientes', entidad_id=CLI, venta_remito_id=rem, empresa_idx=2, pagina_idx=56), 'GET')
+    filas = r if isinstance(r, list) else (r.get('data', []) if isinstance(r, dict) else [])
+    lr = next((l for l in filas if isinstance(l, dict) and int(l.get('producto_id', 0)) == P2 and l.get('venta_remito_detalle_id')), None)
+    check(lr and lr.get('presentacion_nombre') == 'Caja x 12', 'la línea pendiente del remito trae la caja', str(lr)[:300])
+    if lr:
+        base = dict(producto_id=P2, precio_unitario=num(lr.get('precio_unitario_bruto')), descuento_general_pct=0, iva_alicuota_id=1,
+                    iva_porcentaje=21, venta_remito_detalle_id=int(lr['venta_remito_detalle_id']),
+                    venta_pedido_detalle_id=int(lr.get('venta_pedido_detalle_id') or 0))
+        r, fv_mal = alta_factura([dict(base, cantidad=6)])
+        check(not ok_resp(r) and 'enteras' in err(r), 'facturar 6 u de una línea en cajas se rechaza', err(r))
+        s2 = stock(P2)
+        r, fv = alta_factura([dict(base, cantidad=24)])
+        check(ok_resp(r) and fv, 'factura de las 2 cajas (24 u)', err(r))
+        if fv:
+            lf = uno(f"SELECT cantidad, importe_neto, presentacion_id, presentacion_cantidad FROM gestion__ventas_facturas_detalles WHERE venta_factura_id={fv}")
+            check(lf and num(lf['cantidad']) == 24 and int(lf['presentacion_id']) == caja and num(lf['presentacion_cantidad']) == 2,
+                  'la línea de la factura hereda la caja: 24 u = 2 cajas', str(lf))
+            check(lf and abs(num(lf['importe_neto']) - 1100) < 0.01, 'importe neto 1100', str(lf))
+            r = ajax('ventas_facturas_ajax.php', dict(accion='ejecutar_accion', venta_factura_id=fv, accion_js='confirma', empresa_idx=2, pagina_idx=56))
+            check(ok_resp(r), 'confirmar la factura', err(r))
+            check(stock(P2) == s2, 'el stock no cambia (ya lo bajó el remito)')
+
+caso('Presentaciones en ventas: factura directa en cajas')
+if caja:
+    d = dict(producto_id=P2, cantidad=0, precio_unitario=0, descuento_general_pct=10, iva_alicuota_id=1, iva_porcentaje=21,
+             presentacion_id=caja, presentacion_cantidad=2.5, presentacion_precio=550)
+    r, fv2 = alta_factura([d])
+    check(not ok_resp(r) and 'enteras' in err(r), '2,5 cajas se rechaza', err(r))
+    d['presentacion_cantidad'] = 2
+    r, fv2 = alta_factura([d])
+    lf = uno(f"SELECT cantidad, precio_unitario, importe_neto, presentacion_cantidad FROM gestion__ventas_facturas_detalles WHERE venta_factura_id={fv2 or 0}")
+    check(ok_resp(r) and lf and num(lf['cantidad']) == 24 and num(lf['presentacion_cantidad']) == 2 and abs(num(lf['importe_neto']) - 990) < 0.01,
+          'factura directa: 2 cajas = 24 u, neto 990 (550 × 2 − 10 %)', err(r) or str(lf))

@@ -344,13 +344,17 @@ $(function () {
         var valorInicial = cantidadPropia > 0 ? cantidadPropia.toFixed(2) : '0.00';
         var nroRemito = manual ? '-' : esc(item.comprobante_nro || '-') + (item.consumidor_final_nombre ? ' <small class="text-muted">' + esc(item.consumidor_final_nombre) + '</small>' : '');
         var nombre = (item.producto_nombre || 'Producto manual') + (manual ? (item.etiqueta || ' (Manual)') : '');
+        // Venta por presentación: la línea va en unidades, de a presentaciones enteras (el servidor lo valida)
+        var esPres = VentaPres.esPres(item);
+        if (esPres) nombre += ' · ' + item.presentacion_nombre + ' (' + Fmt.numero(parseFloat(item.presentacion_factor), 0) + ' u.)';
+        var presAttrs = esPres ? ' data-pres-id="' + item.presentacion_id + '" data-pres-factor="' + item.presentacion_factor + '"' : '';
         var leyenda = item.leyenda || '';
         // Una línea por ítem: la leyenda va plegada detrás del ícono (resaltado si tiene texto)
         return '<tr><td>' + nroRemito + '</td><td>' + esc(item.producto_codigo || item.producto_id) + '</td>'
             + '<td class="col-detalle"><div class="d-flex align-items-center gap-1"><span class="text-truncate factura-item-nombre" title="' + esc(nombre) + '">' + esc(nombre) + '</span>'
             + '<button type="button" class="btn btn-link btn-sm p-0 ms-auto col-edit btn-leyenda-item ' + (leyenda ? 'text-primary' : 'text-muted') + '" title="' + (leyenda ? esc(leyenda) : 'Agregar leyenda (se imprime debajo del producto)') + '"><i class="fas fa-comment-dots"></i></button></div>'
             + '<textarea class="form-control form-control-sm mt-1 factura-leyenda d-none" rows="2" maxlength="1000" placeholder="Leyenda del ítem (opcional, se imprime debajo del producto)">' + esc(leyenda) + '</textarea></td>'
-            + '<td class="text-end cantidad-pendiente">' + (manual ? '-' : Fmt.numero(cantidadPendiente, 2)) + '</td><td class="text-end col-edit"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '" value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="1"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td>'
+            + '<td class="text-end cantidad-pendiente">' + (manual ? '-' : Fmt.numero(cantidadPendiente, 2)) + '</td><td class="text-end col-edit"><div class="factura-cantidad-stepper"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-menos" tabindex="-1">&minus;</button><input type="number" class="form-control form-control-sm factura-cantidad no-spinner" data-key="' + key + '" data-remito-detalle-id="' + (manual ? '' : item.venta_remito_detalle_id) + '" data-producto-id="' + item.producto_id + '" data-pedido-detalle-id="' + (item.venta_pedido_detalle_id || '') + '" data-precio="' + precio + '" data-descuento-pct="' + descuentoPct + '" data-precio-neto="' + neto + '" data-iva-id="' + (item.iva_alicuota_id || 1) + '" data-iva="' + (item.iva_porcentaje || 0) + '"' + presAttrs + ' value="' + valorInicial + '" min="0" max="' + cantidadMax + '" step="' + (esPres ? item.presentacion_factor : 1) + '"><button type="button" class="btn btn-sm btn-outline-secondary btn-cantidad-mas" tabindex="-1">+</button></div></td>'
             + '<td class="text-end col-edit"><input type="number" class="form-control form-control-sm text-end factura-precio no-spinner" value="' + precio.toFixed(2) + '" min="0" step="0.01"></td>'
             // El importe del descuento va en el tooltip (factura-descuento-renglon), no en una segunda línea
             + '<td class="text-end col-edit"><div class="input-group input-group-sm flex-nowrap factura-descuento-renglon" title="Descuento $' + moneda(descuento) + '"><input type="number" class="form-control form-control-sm text-end factura-descuento-pct no-spinner" value="' + descuentoPct.toFixed(2) + '" min="0" max="100" step="0.01"><span class="input-group-text">%</span></div></td>'
@@ -368,6 +372,15 @@ $(function () {
         detalles = detalles.filter(function (d) { return d.key !== key; });
         if (valor > 0) {
             detalles.push({ key: key, producto_id: el.data('producto-id'), venta_remito_detalle_id: el.data('remito-detalle-id') || null, venta_pedido_detalle_id: el.data('pedido-detalle-id') || null, cantidad: valor, precio_unitario: parseFloat(el.data('precio')) || 0, descuento_general_pct: parseFloat(el.data('descuento-pct')) || 0, precio_unitario_neto: parseFloat(el.data('precio-neto')) || 0, iva_alicuota_id: parseInt(el.data('iva-id')) || 1, iva_porcentaje: parseFloat(el.data('iva')) || 0, leyenda: el.closest('tr').find('.factura-leyenda').val() || '' });
+            // Venta por presentación: la línea lleva su presentación (el servidor recalcula desde las cajas)
+            var presIdFila = parseInt(el.data('pres-id'), 10) || 0;
+            if (presIdFila) {
+                var nuevo = detalles[detalles.length - 1], factorFila = parseFloat(el.data('pres-factor')) || 1;
+                nuevo.presentacion_id = presIdFila;
+                nuevo.presentacion_factor = factorFila;
+                nuevo.presentacion_cantidad = valor / factorFila;
+                nuevo.presentacion_precio = nuevo.precio_unitario * factorFila;
+            }
         }
         actualizarTotalNetoFila(el.closest('tr'));
         actualizarVisibilidadRemitos();
@@ -492,6 +505,8 @@ $(function () {
         if (!p) return;
         $('#factura_producto_busqueda').val(p.producto_codigo + ' - ' + p.producto_nombre).data('producto', p);
         $('#factura_producto_precio').val((parseFloat(p.precio_unitario) || 0).toFixed(2));
+        // Venta por presentación: el precio de la presentación elegida (la caja entera)
+        if (p._oferta) $('#factura_producto_precio').val((parseFloat(p._oferta.precio) || 0).toFixed(2));
         $('#factura_productos_resultados').empty();
         indiceActivoProducto = -1;
     }
@@ -503,9 +518,18 @@ $(function () {
             // anterior, se descarta para no pisar los resultados del texto actual.
             if (input.value !== q) return;
             productosEncontrados = rows || [];
+            // Venta por presentación: una opción por forma de venta (unidad / caja); sin ofertas, como siempre
+            var expandidos = [];
+            productosEncontrados.forEach(function (p) {
+                var ofs = VentaPres.ofertas(p);
+                if (!ofs.length) { expandidos.push(p); return; }
+                ofs.forEach(function (of) { expandidos.push($.extend({}, p, { _oferta: of })); });
+            });
+            productosEncontrados = expandidos;
             $('#factura_productos_resultados').html(productosEncontrados.map(function (p, i) {
                 return '<button type="button" class="list-group-item list-group-item-action" data-index="' + i + '">'
                     + '<strong>' + $('<div>').text(p.producto_codigo || '').html() + '</strong> - ' + $('<div>').text(p.producto_nombre || '').html()
+                    + (p._oferta ? ' <span class="badge bg-secondary">' + esc(VentaPres.textoOferta(p._oferta)) + '</span>' : '')
                     + (p.compatibilidad_texto ? '<small class="d-block text-muted"><i class="fas fa-car-side me-1"></i>' + $('<div>').text(p.compatibilidad_texto).html() + '</small>' : '')
                     + '</button>';
             }).join(''));
@@ -539,6 +563,12 @@ $(function () {
         if (!p || qty <= 0) return;
         var descuentoPct = parseFloat($('#factura_producto_descuento_pct').val()) || 0;
         var item = { key: Date.now(), producto_id: p.producto_id, producto_codigo: p.producto_codigo, producto_nombre: p.producto_nombre, cantidad: qty, cantidad_propia: qty, precio_unitario: parseFloat($('#factura_producto_precio').val()) || 0, descuento_general_pct: descuentoPct, iva_alicuota_id: p.iva_alicuota_id || 1, iva_porcentaje: p.iva_porcentaje || 0 };
+        // Venta por presentación: la cantidad y el precio son de la presentación; la línea va en unidades
+        if (p._oferta && parseInt(p._oferta.presentacion_id, 10) > 0) {
+            var fPres = parseFloat(p._oferta.factor) || 1;
+            $.extend(item, { presentacion_id: parseInt(p._oferta.presentacion_id, 10), presentacion_nombre: p._oferta.nombre, presentacion_factor: fPres,
+                cantidad: qty * fPres, cantidad_propia: qty * fPres, precio_unitario: item.precio_unitario / fPres });
+        }
         var fila = agregarFilaFactura(filaItemFactura(item, true));
         inicializarPaginacionRemitos();
         fila.find('.factura-cantidad').trigger('change');

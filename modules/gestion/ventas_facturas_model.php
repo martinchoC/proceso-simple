@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
@@ -536,6 +537,10 @@ function vfRemitosPendientes($conexion, $empresa_id, $entidad_id, $entidad_sucur
     $rows = [];
     while ($row = mysqli_fetch_assoc($result)) $rows[] = $row;
     mysqli_stmt_close($stmt);
+    // Venta por presentación: la presentación de cada línea de remito (solo con el indicador)
+    if (vpre_activo($conexion, (int) $empresa_id, 'remito')) {
+        $rows = vpre_agregar_fotos($conexion, 'remito', $rows);
+    }
     return $rows;
 }
 
@@ -603,7 +608,8 @@ function vfBuscarProductos($conexion, $empresa_id, $entidad_id, $q) {
     $rows = [];
     while ($row = mysqli_fetch_assoc($result)) $rows[] = $row;
     mysqli_stmt_close($stmt);
-    return $rows;
+    // Venta por presentación: ofertas por producto (sin el indicador, las filas tal cual)
+    return vpre_agregar_ofertas($conexion, (int) $empresa_id, $lista, $rows, 0, 'factura');
 }
 
 function vfEstadoInicial($conexion, $pagina_id) {
@@ -1131,9 +1137,23 @@ function vfInsertarDetallesFactura($conexion, $factura_id, $detalles) {
         $cantidad = floatval($d['cantidad']); $precio = floatval($d['precio_unitario']); $descPct = floatval($d['descuento_general_pct'] ?? 0);
         $desc = $d['_desc']; $netoUnit = $d['_neto'] / max($cantidad, 0.0001); $neto = $d['_neto'];
         $ivaId = intval($d['iva_alicuota_id'] ?? 1); $ivaPct = floatval($d['iva_porcentaje'] ?? 0); $ivaLinea = $d['_iva']; $linea = $d['_linea'];
+        // Venta por presentación: una línea de remito en cajas se factura de a cajas enteras
+        if ($remitoDetalle) {
+            $error_presentacion = vpre_validar_heredada($conexion, 'remito', $remitoDetalle, $cantidad);
+            if ($error_presentacion !== null) throw new Exception($error_presentacion);
+        }
         mysqli_stmt_bind_param($stmt, 'iisiiddddddiddd', $factura_id, $producto, $leyenda, $remitoDetalle, $pedidoDetalle, $cantidad, $precio, $descPct, $desc, $netoUnit, $neto, $ivaId, $ivaPct, $ivaLinea, $linea);
         if (!mysqli_stmt_execute($stmt)) throw new Exception(mysqli_stmt_error($stmt));
         mysqli_stmt_close($stmt);
+        // Venta por presentación: hereda la del remito (o la del pedido), o guarda la de la línea directa
+        $factura_detalle_id_vpre = (int) mysqli_insert_id($conexion);
+        if ($remitoDetalle) {
+            vpre_heredar($conexion, 'factura', $factura_detalle_id_vpre, 'remito', $remitoDetalle, $cantidad);
+        } elseif ($pedidoDetalle) {
+            vpre_heredar($conexion, 'factura', $factura_detalle_id_vpre, 'pedido', $pedidoDetalle, $cantidad);
+        } elseif (!empty($d['_vpre'])) {
+            vpre_guardar_foto($conexion, 'factura', $factura_detalle_id_vpre, $d['_vpre']);
+        }
 
         if ($remitoDetalle) {
             // "facturado" es un flag booleano (0/1), no el id de la factura — bindearlo con
@@ -1353,6 +1373,10 @@ function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
         $comprobante_nro = 0;
         $tipo_cambio = floatval(($data['tipo_cambio'] ?? null) ?: 1);
 
+        // Venta por presentación: líneas sin remito en cajas -> unidad base (sin el indicador, no hace nada)
+        $detalles = vpre_preparar_lineas($conexion, intval($empresa_id),
+            (!empty($destinatario['entidad_id']) && vpre_activo($conexion, intval($empresa_id), 'factura')) ? lpre_lista_cliente($conexion, intval($empresa_id), intval($destinatario['entidad_id'])) : 0,
+            $detalles, 'factura');
         list($detalles, $tot) = vfCalcularDetallesFactura($detalles, $comprobante_fiscal_id);
         $bruto = $tot['bruto']; $descuentos = $tot['descuentos']; $subtotal = $tot['subtotal']; $iva = $tot['iva']; $total = $tot['total'];
 
@@ -1488,6 +1512,10 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
         $punto_venta_id = intval($data['punto_venta_id']);
         $tipo_cambio = floatval(($data['tipo_cambio'] ?? null) ?: 1);
 
+        // Venta por presentación: líneas sin remito en cajas -> unidad base (sin el indicador, no hace nada)
+        $detalles = vpre_preparar_lineas($conexion, intval($empresa_id),
+            (!empty($destinatario['entidad_id']) && vpre_activo($conexion, intval($empresa_id), 'factura')) ? lpre_lista_cliente($conexion, intval($empresa_id), intval($destinatario['entidad_id'])) : 0,
+            $detalles, 'factura');
         list($detalles, $tot) = vfCalcularDetallesFactura($detalles, $comprobante_fiscal_id);
         $bruto = $tot['bruto']; $descuentos = $tot['descuentos']; $subtotal = $tot['subtotal']; $iva = $tot['iva']; $total = $tot['total'];
 
