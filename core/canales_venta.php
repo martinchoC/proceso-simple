@@ -193,6 +193,15 @@ if (!function_exists('cvta_guardar_canal_lista')) {
             return;
         }
         if ($canal_venta_id > 0 && !cvta_canal($conexion, $empresa_id, $canal_venta_id)) {
+            // Conservar el canal que ya tiene aunque se haya desactivado (volver a guardar la lista no lo quita)
+            $st = mysqli_prepare($conexion, "SELECT canal_venta_id FROM gestion__listas_precios WHERE lista_precio_id = ? AND empresa_id = ?");
+            mysqli_stmt_bind_param($st, "ii", $lista_precio_id, $empresa_id);
+            mysqli_stmt_execute($st);
+            $actual = intval(mysqli_fetch_row(mysqli_stmt_get_result($st))[0] ?? 0);
+            mysqli_stmt_close($st);
+            if ($actual === $canal_venta_id && cvta_canal($conexion, $empresa_id, $canal_venta_id, true)) {
+                return;
+            }
             throw new InvalidArgumentException('El canal elegido no existe o está inactivo.');
         }
         $canal = $canal_venta_id > 0 ? $canal_venta_id : null;
@@ -372,5 +381,38 @@ if (!function_exists('cvta_validar_sucursal')) {
         mysqli_stmt_close($st);
         $suc = trim((string) ($row['sucursal_nombre'] ?? '')) ?: 'elegida';
         return "La sucursal $suc no vende al canal {$canal['nombre']}.";
+    }
+}
+
+if (!function_exists('cvta_despachar')) {
+    /**
+     * Acciones de la ventana "Canales de venta" (Listas de precios, gestion / gestion_normal). El _ajax.php del módulo
+     * exige antes la función editar de la página. Respuesta {success, data, message}.
+     *   canales_listar   todos los canales de la empresa (activos e inactivos)
+     *   canal_guardar    alta / edición (POST canal_venta_id, codigo, nombre, orden, activo)
+     */
+    function cvta_despachar(mysqli $conexion, int $empresa_id, int $usuario_id, string $accion): array
+    {
+        if (!cvta_empresa_usa($conexion, $empresa_id)) {
+            return ['success' => false, 'data' => null, 'message' => 'La empresa no usa canales de venta.'];
+        }
+        try {
+            if ($accion === 'canal_guardar') {
+                $id = cvta_guardar_canal($conexion, $empresa_id, [
+                    'canal_venta_id' => $_POST['canal_venta_id'] ?? 0,
+                    'codigo' => $_POST['codigo'] ?? '',
+                    'nombre' => $_POST['nombre'] ?? '',
+                    'orden' => $_POST['orden'] ?? 0,
+                    'activo' => $_POST['activo'] ?? 1,
+                ], $usuario_id);
+                return ['success' => true, 'data' => ['canal_venta_id' => $id, 'canales' => cvta_canales($conexion, $empresa_id, true)], 'message' => 'Guardado'];
+            }
+            if ($accion === 'canales_listar') {
+                return ['success' => true, 'data' => ['canales' => cvta_canales($conexion, $empresa_id, true)], 'message' => ''];
+            }
+        } catch (InvalidArgumentException $e) {
+            return ['success' => false, 'data' => null, 'message' => $e->getMessage()];
+        }
+        return ['success' => false, 'data' => null, 'message' => 'Acción desconocida.'];
     }
 }

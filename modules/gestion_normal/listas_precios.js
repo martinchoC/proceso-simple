@@ -1,4 +1,13 @@
 $(document).ready(function () {
+    // Canal de la lista (solo con canales de venta): si el canal está inactivo y no figura, se agrega para no perderlo al guardar
+    function lpFijarCanal(id) {
+        var $s = $('#canal_venta_id');
+        if (!$s.length) return;
+        id = id ? String(id) : '';
+        if (id && !$s.find('option[value="' + id + '"]').length) $s.append('<option value="' + id + '">(canal inactivo)</option>');
+        $s.val(id);
+    }
+
     var tabla;
     var tablaReglas;
     var tablaProductosLista;
@@ -924,6 +933,7 @@ $(document).ready(function () {
         $('#formListaPrecio').removeClass('was-validated');
         $('#requiere_recalculo').prop('checked', false);
         $('#vende_unidad_base').prop('checked', true); // solo existe con venta por presentación
+        $('#canal_venta_id').val(''); // solo existe con canales de venta
         $('#f_ultimo_recalculo').val('');
     }
 
@@ -1215,6 +1225,7 @@ $(document).ready(function () {
                     $('#observaciones').val(res.observaciones || '');
                     if (res.requiere_recalculo == 1) $('#requiere_recalculo').prop('checked', true);
                     $('#vende_unidad_base').prop('checked', parseInt(res.vende_unidad_base, 10) !== 0);
+                    lpFijarCanal(res.canal_venta_id);
                     $('#f_ultimo_recalculo').val(res.f_ultimo_recalculo || '');
                     $('#modalLabel').text('Editar Lista de Precio');
                     
@@ -1257,6 +1268,7 @@ $(document).ready(function () {
                     $('#observaciones').val(res.observaciones || '');
                     if (res.requiere_recalculo == 1) $('#requiere_recalculo').prop('checked', true);
                     $('#vende_unidad_base').prop('checked', parseInt(res.vende_unidad_base, 10) !== 0);
+                    lpFijarCanal(res.canal_venta_id);
                     $('#f_ultimo_recalculo').val(res.f_ultimo_recalculo || '');
                     $('#modalLabel').text('Visualizar Lista de Precio');
 
@@ -1412,6 +1424,7 @@ $(document).ready(function () {
         formData.append('moneda_id', $('#moneda_id').val() || '');
         if ($('#requiere_recalculo').is(':checked')) formData.append('requiere_recalculo', '1');
         if ($('#vende_unidad_base').length) formData.append('vende_unidad_base', $('#vende_unidad_base').is(':checked') ? '1' : '0');
+        if ($('#canal_venta_id').length) formData.append('canal_venta_id', $('#canal_venta_id').val() || '');
         formData.append('f_ultimo_recalculo', $('#f_ultimo_recalculo').val() || '');
         formData.append('observaciones', $('#observaciones').val() || '');
         

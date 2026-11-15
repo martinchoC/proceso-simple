@@ -11,6 +11,9 @@ $ui_simple = true;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
+require_once ROOT_PATH . '/core/canales_venta.php';
+// Canales de venta (core/canales_venta.php): casillas solo si la empresa los usa
+$suc_canales = cvta_empresa_usa($conn, (int)($current_empresa_id ?? 0)) ? cvta_canales($conn, (int)($current_empresa_id ?? 0)) : [];
 ?>
 
 <main class="app-main">
@@ -129,6 +132,19 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <textarea class="form-control" id="direccion" name="direccion" maxlength="255"
                                             rows="2"></textarea>
                                     </div>
+                                    <?php if ($suc_canales): ?>
+                                    <div class="col-md-12 mb-3" id="sucCanales">
+                                        <label class="form-label">Canales que vende <?= ui_ayuda('Sin marcar ninguno, la sucursal vende a todos los canales. Con alguno marcado, no se pueden grabar pedidos, remitos ni facturas de clientes de otro canal (el canal sale de la lista de precios del cliente).') ?></label>
+                                        <div>
+                                            <?php foreach ($suc_canales as $cv): ?>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input suc-canal" type="checkbox" id="suc_canal_<?= (int)$cv['canal_venta_id'] ?>" value="<?= (int)$cv['canal_venta_id'] ?>">
+                                                <label class="form-check-label" for="suc_canal_<?= (int)$cv['canal_venta_id'] ?>"><?= htmlspecialchars($cv['nombre']) ?></label>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                             </form>
                         </div>
@@ -227,7 +243,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                     data: {
                         accion: 'listar',
                         empresa_idx: empresa_idx,
-                        pagina_idx: pagina_idx // ✅ Envía página_id=36
+                        pagina_idx: pagina_idx, // ✅ Envía página_id=36
+                        // Canales de venta: solo si la pantalla tiene las casillas (sin el campo, no se tocan)
+                        canales_venta: $('#sucCanales').length ? JSON.stringify($('.suc-canal:checked').map(function () { return parseInt(this.value, 10); }).get()) : undefined
                     },
                     dataSrc: '',
                     error: function (xhr, error, thrown) {
@@ -492,6 +510,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                         $('#direccion').val(res.direccion || '');
                         $('#telefono').val(res.telefono || '');
                         $('#email').val(res.email || '');
+                        // Canales de venta (solo con las casillas en pantalla)
+                        $('.suc-canal').prop('checked', false);
+                        (res.canales_venta || []).forEach(function (c) { $('#suc_canal_' + c).prop('checked', true); });
 
                         cargarTiposSucursales(res.sucursal_tipo_id);
                         cargarProvincias(res.provincia_id, res.localidad_id);
@@ -516,6 +537,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             function resetModal() {
                 $('#formSucursal')[0].reset();
                 $('#sucursal_id').val('');
+                $('.suc-canal').prop('checked', false);
                 $('#provincia_id').val('');
                 $('#localidad_id').html('<option value="">Seleccione una provincia primero</option>').prop('disabled', true);
                 $('#formSucursal').removeClass('was-validated');

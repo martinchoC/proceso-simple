@@ -25,6 +25,17 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 require_once __DIR__ . '/../../db.php';
 require_once "listas_precios_model.php";
 require_once __DIR__ . '/../../core/productos_presentaciones.php'; // incluye listas_precios_presentaciones.php
+require_once __DIR__ . '/../../core/canales_venta.php';
+
+// Canal de la lista (solo con canales de venta y si el formulario trae el campo): null = no se toca
+function lpCanalDelFormulario($conexion, int $empresa_idx): ?int {
+    if (!isset($_POST['canal_venta_id']) || !cvta_empresa_usa($conexion, $empresa_idx)) return null;
+    $canal = intval($_POST['canal_venta_id']);
+    if ($canal > 0 && !cvta_canal($conexion, $empresa_idx, $canal, true)) {
+        enviarRespuesta(['resultado' => false, 'error' => 'El canal elegido no existe.']);
+    }
+    return $canal;
+}
 
 $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
@@ -86,6 +97,7 @@ try {
         case 'agregar':
             // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
             permisos_exigir_funcion($conexion, (int)($pagina_id), 'agregar', true);
+            $canal_form = lpCanalDelFormulario($conexion, (int)$empresa_idx);
             $data = [
                 'lista_precio_codigo' => trim($_POST['lista_precio_codigo'] ?? ''),
                 'lista_precio_nombre' => trim($_POST['lista_precio_nombre'] ?? ''),
@@ -105,6 +117,10 @@ try {
             if (!empty($resultado['resultado']) && isset($_POST['vende_unidad_base'])) {
                 lpre_guardar_vende_unidad($conexion, (int)$empresa_idx, (int)($resultado['lista_precio_id'] ?? 0), $_POST['vende_unidad_base'] === '1');
             }
+            // Canales de venta (core/canales_venta.php): UPDATE aparte
+            if (!empty($resultado['resultado']) && $canal_form !== null) {
+                cvta_guardar_canal_lista($conexion, (int)$empresa_idx, (int)($resultado['lista_precio_id'] ?? 0), (int)$canal_form);
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -112,6 +128,7 @@ try {
             // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
             permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
             $id = intval($_POST['lista_precio_id'] ?? 0);
+            $canal_form = lpCanalDelFormulario($conexion, (int)$empresa_idx);
             
             $data = [
                 'lista_precio_codigo' => trim($_POST['lista_precio_codigo'] ?? ''),
@@ -131,7 +148,18 @@ try {
             if (!empty($resultado['resultado']) && isset($_POST['vende_unidad_base'])) {
                 lpre_guardar_vende_unidad($conexion, (int)$empresa_idx, $id, $_POST['vende_unidad_base'] === '1');
             }
+            // Canales de venta (core/canales_venta.php): UPDATE aparte
+            if (!empty($resultado['resultado']) && $canal_form !== null) {
+                cvta_guardar_canal_lista($conexion, (int)$empresa_idx, $id, (int)$canal_form);
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'canales_listar':
+        case 'canal_guardar':
+            // Ventana "Canales de venta" (core/canales_venta.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
+            echo json_encode(cvta_despachar($conexion, (int)$empresa_idx, (int)$ctx['usuario_id'], $accion), JSON_UNESCAPED_UNICODE);
             break;
 
         case 'importar_presentaciones_simular':

@@ -14,11 +14,15 @@ define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 require_once ROOT_PATH . '/core/productos_presentaciones.php'; // incluye listas_precios_presentaciones.php
 $lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? $empresa_id));
+require_once ROOT_PATH . '/core/canales_venta.php';
+$lp_canales = cvta_empresa_usa($conn, (int)($current_empresa_id ?? $empresa_id));
+$lp_canales_lista = $lp_canales ? cvta_canales($conn, (int)($current_empresa_id ?? $empresa_id), true) : [];
 ?>
 
 <main class="app-main">
     <?php ui_encabezado('Listas de precios','fas fa-tags', '', ['Seteo Empresas'],
-        $lp_venta_presentaciones ? '<button type="button" class="btn btn-sm btn-outline-primary btn-lpre-importar" data-funcion="editar"><i class="fas fa-box-open me-1"></i>Precios por presentación</button>' : ''); ?>
+        ($lp_venta_presentaciones ? '<button type="button" class="btn btn-sm btn-outline-primary btn-lpre-importar" data-funcion="editar"><i class="fas fa-box-open me-1"></i>Precios por presentación</button>' : '')
+        . ($lp_canales ? ' <button type="button" class="btn btn-sm btn-outline-primary btn-cvta-canales" data-funcion="editar"><i class="fas fa-route me-1"></i>Canales</button>' : '')); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -192,6 +196,17 @@ $lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? 
                                                     <div class="form-check mt-1">
                                                         <input type="checkbox" class="form-check-input" id="vende_unidad_base" name="vende_unidad_base" value="1" checked>
                                                         <label class="form-check-label small" for="vende_unidad_base">Vende la unidad suelta <?= ui_ayuda('Destildado, la lista ofrece solo las presentaciones (caja, pack) que tienen precio en ella; por ejemplo, una lista mayorista que vende por bulto.') ?></label>
+                                                    </div>
+                                                    <?php endif; ?>
+                                                    <?php if ($lp_canales): ?>
+                                                    <div class="mt-2">
+                                                        <label class="form-label small mb-1" for="canal_venta_id">Canal <?= ui_ayuda('Los clientes con esta lista son de este canal. Cada sucursal puede limitar los canales que vende. Los canales se cargan con el botón Canales.') ?></label>
+                                                        <select class="form-select form-select-sm" id="canal_venta_id" name="canal_venta_id">
+                                                            <option value="">Sin canal</option>
+                                                            <?php foreach ($lp_canales_lista as $cv): if ((int)$cv['tabla_estado_registro_id'] !== 1) continue; ?>
+                                                            <option value="<?= (int)$cv['canal_venta_id'] ?>"><?= htmlspecialchars($cv['nombre']) ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
                                                     </div>
                                                     <?php endif; ?>
                                                 </div>
@@ -579,6 +594,11 @@ $lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? 
     <?php include ROOT_PATH . '/templates/listas_precios/importar_presentaciones.php'; ?>
     <script src="<?= asset_local('js/listas-precios-importar-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/listas-precios-importar-presentaciones.js') ?>"></script>
     <script>$(function () { LpreImport.init({ ajaxUrl: 'listas_precios_ajax.php', empresaIdx: empresa_id, paginaId: pagina_id }); });</script>
+    <?php if ($lp_canales): ?>
+    <?php include ROOT_PATH . '/templates/listas_precios/canales_venta.php'; ?>
+    <script src="<?= asset_local('js/canales-venta.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/canales-venta.js') ?>"></script>
+    <script>$(function () { CanalesVenta.init({ ajaxUrl: 'listas_precios_ajax.php', empresaIdx: empresa_id, paginaId: pagina_id, select: '#canal_venta_id' }); });</script>
+    <?php endif; ?>
     <?php endif; ?>
 </main>
 

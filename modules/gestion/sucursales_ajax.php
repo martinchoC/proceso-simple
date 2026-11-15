@@ -2,6 +2,24 @@
 // Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['sucursales.php']]);
+require_once __DIR__ . '/../../core/canales_venta.php';
+
+// Canales que vende la sucursal (core/canales_venta.php). null = no se tocan (sin canales de venta, o la pantalla
+// no mandó el campo); si no, la lista de ids ([] = vende todos), validada antes de grabar la sucursal.
+function sucCanalesDelFormulario($conexion, int $empresa_idx): ?array {
+    $crudo = (string)($_POST['canales_venta'] ?? '');
+    if ($crudo === '' || !cvta_empresa_usa($conexion, $empresa_idx)) return null;
+    $ids = json_decode($crudo, true);
+    if (!is_array($ids)) return null;
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+    foreach ($ids as $c) {
+        if (!cvta_canal($conexion, $empresa_idx, $c)) {
+            echo json_encode(['resultado' => false, 'error' => 'Uno de los canales no existe o está inactivo.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+    return $ids;
+}
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -62,6 +80,7 @@ try {
         case 'agregar':
             // Si la página tiene la función 'agregar', el perfil tiene que tenerla asignada (core/permisos.php)
             permisos_exigir_funcion($conexion, (int)($pagina_idx), 'agregar', true);
+            $canales_form = sucCanalesDelFormulario($conexion, (int)$empresa_idx);
             $data = [
                 'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
@@ -75,6 +94,9 @@ try {
             ];
 
             $resultado = agregarSucursal($conexion, $data);
+            if (!empty($resultado['resultado']) && $canales_form !== null) {
+                cvta_guardar_canales_sucursal($conexion, (int)$empresa_idx, (int)($resultado['sucursal_id'] ?? 0), $canales_form, (int)$ctx['usuario_id']);
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -82,6 +104,7 @@ try {
             // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
             permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['sucursal_id'] ?? 0);
+            $canales_form = sucCanalesDelFormulario($conexion, (int)$empresa_idx);
             $data = [
                 'sucursal_nombre' => trim($_POST['sucursal_nombre'] ?? ''),
                 'descripcion' => trim($_POST['descripcion'] ?? ''),
@@ -94,6 +117,9 @@ try {
             ];
 
             $resultado = editarSucursal($conexion, $id, $data);
+            if (!empty($resultado['resultado']) && $canales_form !== null) {
+                cvta_guardar_canales_sucursal($conexion, (int)$empresa_idx, $id, $canales_form, (int)$ctx['usuario_id']);
+            }
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
@@ -121,6 +147,9 @@ try {
 
             $sucursal = obtenerSucursalPorId($conexion, $id, $empresa_idx);
             if ($sucursal) {
+                if (cvta_empresa_usa($conexion, (int)$empresa_idx)) {
+                    $sucursal['canales_venta'] = cvta_canales_sucursal($conexion, (int)$empresa_idx, $id);
+                }
                 echo json_encode($sucursal, JSON_UNESCAPED_UNICODE);
             } else {
                 echo json_encode(['error' => 'Sucursal no encontrada'], JSON_UNESCAPED_UNICODE);
