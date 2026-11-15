@@ -15,8 +15,8 @@ permisos por cartera.
 - `gestion__ventas_pedidos` no tiene vendedor ni origen.
 - Un usuario (`conf__usuarios`) no está ligado a ninguna entidad: hoy no hay forma de saber que el usuario X "es"
   el vendedor Y.
-- Pedidos tiene dos pantallas que listan: "Nuevos Pedidos de Clientes" (91 / 591, `ventas_pedidos.php`, alta y
-  edición) y "Pedidos Realizados" (55 / 555, `ventas_pedidos_gestion.php`). Las dos ya filtran por accesos por
+- Pedidos tiene dos pantallas que listan: "Pedidos Realizados" (55 / 555, `ventas_pedidos.php`, alta y edición) y
+  "Nuevos Pedidos de Clientes" (91 / 591, `ventas_pedidos_gestion.php`, preparación de los pedidos en 5 / 9 / 10). Las dos ya filtran por accesos por
   sucursal (`AccesosSucursalesHelper::filtroSqlSucursal`): el filtro por cartera sigue el mismo patrón.
 - El carrito (`casalucho-carrito`, tablas `ecom__*`) todavía no crea pedidos en casalucho: el origen queda
   preparado para cuando se integre.
