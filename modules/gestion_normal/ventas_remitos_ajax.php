@@ -76,6 +76,9 @@ try {
 
             // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
             permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
+            if (!obtenerRemitoVentaPorId($conexion, $venta_remito_id, $empresa_idx_local)) {
+                enviarRespuesta(['resultado' => false, 'error' => 'Remito no encontrado o fuera de su cartera.']);
+            }
             $resultado = ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js, $empresa_idx_local, $pagina_id);
             echo json_encode($resultado);
             break;
@@ -180,6 +183,9 @@ try {
             // Si la página tiene la función 'editar', el perfil tiene que tenerla asignada (core/permisos.php)
             permisos_exigir_funcion($conexion, (int)($pagina_idx), 'editar', true);
             $id = intval($_POST['venta_remito_id'] ?? 0);
+            if (!obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)) {
+                enviarRespuesta(['resultado' => false, 'error' => 'Remito no encontrado o fuera de su cartera.']);
+            }
 
             if (!isset($_POST['detalles'])) {
                 enviarRespuesta(['resultado' => false, 'error' => 'No se recibieron los detalles']);
@@ -203,6 +209,11 @@ try {
                 'pagina_idx' => $pagina_idx
             ];
 
+            try {
+                vcar_exigir_cliente($conexion, $empresa_idx, intval($ctx['usuario_id']), intval($data['entidad_id']), $data['f_emision'] ?: null);
+            } catch (InvalidArgumentException $e) {
+                enviarRespuesta(['resultado' => false, 'error' => $e->getMessage()]);
+            }
             $resultado = editarRemitoVenta($conexion, $id, $data);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;

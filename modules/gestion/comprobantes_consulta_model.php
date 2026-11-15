@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/vendedores.php';
 /**
  * comprobantes_consulta_model.php
  *
@@ -386,23 +387,35 @@ function cconsMaestros($conexion, $empresa_id, $usuario_id)
 }
 
 /** Búsqueda de entidades para el combo de filtro (por nombre, fantasía o CUIT). */
-function cconsBuscarEntidades($conexion, $texto, $solo_clientes = false, $limite = 30)
+function cconsBuscarEntidades($conexion, $texto, $solo_clientes = false, $limite = 30, $empresa_id = 0, $usuario_id = 0)
 {
     $texto = trim((string) $texto);
     $like = '%' . $texto . '%';
     $limite = max(1, min(100, intval($limite)));
+    $empresa_id = intval($empresa_id);
+    $usuario_id = intval($usuario_id);
 
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia, cuit
             FROM gestion__entidades
             WHERE tabla_estado_registro_id IN (1, 2)
               AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ?)";
+    $types = "sss";
+    $params = [$like, $like, $like];
+    if ($empresa_id > 0) {
+        $sql .= " AND empresa_id = ?";
+        $types .= "i";
+        $params[] = $empresa_id;
+    }
     if ($solo_clientes) {
         $sql .= " AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'CLI');
+        if ($empresa_id > 0 && $usuario_id > 0) {
+            $sql .= vcar_sql_filtro_cliente($conexion, $empresa_id, $usuario_id, 'gestion__entidades.entidad_id');
+        }
     }
     $sql .= " ORDER BY entidad_nombre LIMIT $limite";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "sss", $like, $like, $like);
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $lista = [];

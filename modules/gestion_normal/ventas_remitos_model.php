@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/vendedores.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -857,12 +858,13 @@ function obtenerRemitosVenta($conexion, $empresa_idx, $pagina_id, $solo_pendient
             ) td ON td.venta_remito_id = vr.venta_remito_id
             WHERE vr.empresa_id = ? $sql_where_estado";
 
-    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
-        require_once __DIR__ . '/../../core/accesos_sucursales.php';
-        $uid = intval($_SESSION['usuario_id'] ?? 0);
-        if ($uid > 0) {
+    $uid = intval($_SESSION['usuario_id'] ?? 0);
+    if ($uid > 0) {
+        if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+            require_once __DIR__ . '/../../core/accesos_sucursales.php';
             $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_idx, 'vr.sucursal_id');
         }
+        $sql .= vcar_sql_filtro_cliente($conexion, $empresa_idx, $uid, 'vr.entidad_id');
     }
 
     $sql .= " ORDER BY vr.f_emision DESC, vr.venta_remito_id DESC";
@@ -928,7 +930,8 @@ function obtenerRemitoVentaPorId($conexion, $id, $empresa_idx)
                         LIMIT 1
                    )
             LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
-            WHERE vr.venta_remito_id = ? AND vr.empresa_id = ?";
+            WHERE vr.venta_remito_id = ? AND vr.empresa_id = ?"
+        . vcar_sql_filtro_cliente($conexion, $empresa_idx, intval($_SESSION['usuario_id'] ?? 0), 'vr.entidad_id');
 
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return null;
@@ -1093,6 +1096,7 @@ function agregarRemitoVenta($conexion, $data)
 
     try {
         $empresa_id_val = intval($data['empresa_idx']);
+        vcar_exigir_cliente($conexion, $empresa_id_val, intval($_SESSION['usuario_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0), $data['f_emision'] ?? null);
         $estado_inicial_val = intval(obtenerEstadoInicialPaginaRemitos($conexion, $data['pagina_idx']) ?: 1);
 
         $comprobante_pv_val = intval($data['punto_venta_id']); // ver nota de supuestos arriba
@@ -1896,7 +1900,8 @@ function obtenerClientesRemitos($conexion, $empresa_idx)
             LEFT JOIN gestion__condiciones_fiscales cf ON ecf.condicion_fiscal_id = cf.condicion_fiscal_id
             WHERE e.empresa_id = ?
             AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "
-            AND e.tabla_estado_registro_id = 1
+            AND e.tabla_estado_registro_id = 1"
+        . vcar_sql_filtro_cliente($conexion, intval($empresa_idx), intval($_SESSION['usuario_id'] ?? 0), 'e.entidad_id') . "
             ORDER BY e.entidad_nombre";
 
     $stmt = mysqli_prepare($conexion, $sql);

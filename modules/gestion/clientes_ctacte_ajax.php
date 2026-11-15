@@ -48,10 +48,12 @@ function ctacteFechaParam($clave)
 /** entidad_id obligatorio del request. */
 function ctacteEntidadParam()
 {
+    global $conexion, $empresa_id, $usuario_id;
     $entidad_id = intval($_REQUEST['entidad_id'] ?? 0);
     if ($entidad_id <= 0) {
         ctacteResponder(['success' => false, 'data' => null, 'message' => 'Seleccione un cliente.'], 400);
     }
+    vcar_exigir_cliente($conexion, $empresa_id, $usuario_id, $entidad_id);
     return $entidad_id;
 }
 
@@ -62,6 +64,7 @@ try {
                 'texto'          => $_REQUEST['texto'] ?? '',
                 'solo_con_saldo' => !empty($_REQUEST['solo_con_saldo']),
                 'solo_vencidos'  => !empty($_REQUEST['solo_vencidos']),
+                'usuario_id'     => $usuario_id,
             ]);
             ctacteResponder([
                 'success' => true,
@@ -71,7 +74,7 @@ try {
             break;
 
         case 'buscar_clientes':
-            ctacteResponder(['success' => true, 'data' => cconsBuscarEntidades($conexion, $_REQUEST['q'] ?? '', true), 'message' => '']);
+            ctacteResponder(['success' => true, 'data' => cconsBuscarEntidades($conexion, $_REQUEST['q'] ?? '', true, 30, $empresa_id, $usuario_id), 'message' => '']);
             break;
 
         case 'cliente':
@@ -163,6 +166,8 @@ try {
         default:
             ctacteResponder(['success' => false, 'data' => null, 'message' => 'Acción no definida.'], 400);
     }
+} catch (InvalidArgumentException $e) {
+    ctacteResponder(['success' => false, 'data' => null, 'message' => $e->getMessage()], 403);
 } catch (Throwable $e) {
     error_log("=== ERROR clientes_ctacte_ajax [$accion]: " . $e->getMessage());
     ctacteResponder(['success' => false, 'data' => null, 'message' => 'Error al consultar la cuenta corriente.'], 500);

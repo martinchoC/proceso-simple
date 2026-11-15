@@ -12,6 +12,7 @@ $accion = $_GET['accion'] ?? $_POST['accion'] ?? '';
 
 // Parámetros del contexto (MULTIEMPRESA)
 $empresa_idx = intval($ctx['empresa_id']);
+$usuario_idx = intval($ctx['usuario_id']);
 // Sin default propio de esta página (a diferencia de entidades_ajax.php,
 // que cae a 50): clientes.php arma pagina_idx desde $_GET['pagina_id']
 // y lo manda siempre en cada llamada, así que si llega vacío es porque la
@@ -26,6 +27,16 @@ header('Content-Type: application/json; charset=utf-8');
 if (!$conexion) {
     echo json_encode(['error' => 'Error de conexión a la base de datos'], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+$entidad_id_guard = intval($_GET['entidad_id'] ?? $_POST['entidad_id'] ?? 0);
+if ($entidad_id_guard > 0) {
+    try {
+        vcar_exigir_cliente($conexion, $empresa_idx, $usuario_idx, $entidad_id_guard);
+    } catch (InvalidArgumentException $e) {
+        echo json_encode(['resultado' => false, 'success' => false, 'error' => $e->getMessage(), 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
 try {

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/vendedores.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
@@ -35,12 +36,13 @@ function listarVentasFacturas($conexion, $empresa_id, $pagina_id) {
             LEFT JOIN gestion__condiciones_pago cp ON cp.condicion_pago_id = f.condicion_pago_id
             WHERE f.empresa_id = ?";
 
-    if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
-        require_once __DIR__ . '/../../core/accesos_sucursales.php';
-        $uid = intval($_SESSION['usuario_id'] ?? 0);
-        if ($uid > 0) {
+    $uid = intval($_SESSION['usuario_id'] ?? 0);
+    if ($uid > 0) {
+        if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
+            require_once __DIR__ . '/../../core/accesos_sucursales.php';
             $sql .= AccesosSucursalesHelper::filtroSqlSucursal($conexion, $uid, $empresa_id, 'f.sucursal_id');
         }
+        $sql .= vcar_sql_filtro_cliente($conexion, intval($empresa_id), $uid, 'f.entidad_id');
     }
 
     $sql .= " ORDER BY f.f_emision DESC, f.venta_factura_id DESC";
@@ -256,7 +258,8 @@ function vfClientes($conexion, $empresa_id) {
                              AND es.empresa_id = e.empresa_id
                              AND es.tabla_estado_registro_id = 1
                         WHERE e.empresa_id = ? AND " . ent_sql_tiene_rol('e.entidad_id', 'CLI') . "
-                            AND e.tabla_estado_registro_id = 1
+                            AND e.tabla_estado_registro_id = 1"
+                        . vcar_sql_filtro_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), 'e.entidad_id') . "
                         ORDER BY e.entidad_nombre, es.sucursal_nombre";
     $stmt = mysqli_prepare($conexion, $sql);
     if (!$stmt) return [];
@@ -1060,7 +1063,8 @@ function vfObtenerVentaFacturaPorId($conexion, $id, $empresa_id, $pagina_id = 0)
             LEFT JOIN gestion__entidades e ON e.entidad_id = f.entidad_id
             LEFT JOIN gestion__condiciones_pago cp ON cp.condicion_pago_id = f.condicion_pago_id
             LEFT JOIN gestion__puntos_venta pv ON pv.punto_venta_id = f.punto_venta_id
-            WHERE f.venta_factura_id = ? AND f.empresa_id = ?";
+            WHERE f.venta_factura_id = ? AND f.empresa_id = ?"
+            . vcar_sql_filtro_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), 'f.entidad_id');
     $stmt = mysqli_prepare($conexion, $sql);
     mysqli_stmt_bind_param($stmt, 'ii', $id, $empresa_id);
     mysqli_stmt_execute($stmt);
@@ -1332,9 +1336,15 @@ function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
     $detalles = $data['detalles'] ?? [];
     $destinatario = vfResolverDestinatario($data);
     if (isset($destinatario['error'])) return ['success' => false, 'error' => $destinatario['error']];
+    try {
+        vcar_exigir_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0), $data['f_emision'] ?? null);
+    } catch (InvalidArgumentException $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
     if (count($detalles) === 0) return ['success' => false, 'error' => 'Agregue al menos un producto.'];
     mysqli_begin_transaction($conexion);
     try {
+        vcar_exigir_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0), $data['f_emision'] ?? null);
         $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
         // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
         cvta_exigir_venta_sucursal($conexion, intval($empresa_id), intval($data['sucursal_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0));
@@ -1461,6 +1471,11 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
     $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
     if (!$factura) return ['success' => false, 'error' => 'Factura no encontrada.'];
+    try {
+        vcar_exigir_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), intval($factura['entidad_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 
     $estado_actual = intval($factura['tabla_estado_registro_id']);
     $stmt = mysqli_prepare($conexion, "SELECT 1 FROM conf__paginas_funciones WHERE pagina_id = ? AND accion_js = 'editar' AND tabla_estado_registro_origen_id = ? AND tabla_estado_registro_id = 1 LIMIT 1");
@@ -1659,6 +1674,11 @@ function vfEjecutarTransicionEstado($conexion, $venta_factura_id, $accion_js, $e
     $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
     if (!$factura) return ['success' => false, 'error' => 'Factura no encontrada.'];
+    try {
+        vcar_exigir_cliente($conexion, intval($empresa_id), intval($_SESSION['usuario_id'] ?? 0), intval($factura['entidad_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 
     $estado_actual_id = intval($factura['tabla_estado_registro_id']);
 

@@ -1,6 +1,6 @@
 # Marca comercial del producto
 
-Estado: **plan a aprobar** (2026-11-15).
+Estado: **implementado** (2026-11-15). Ver "Implementación" al final.
 
 ## Pedido
 
@@ -50,3 +50,22 @@ Con el indicador apagado: nada. La compatibilidad de vehículos (marca / modelo 
    listas de precios, reportes y carrito, después.
 4. **Marca opcional** en el producto (recomendado) u obligatoria con el indicador prendido.
 5. **Asignación en masa por búsqueda** (recomendado) o importación desde planilla.
+
+## Implementación
+
+Commits 6-1 `f7549f7` (script `20261120_marcas_comerciales_01.sql` + `core/productos_marcas.php`), 6-2 `76ed866`
+(campo en Productos 2 y 5, consulta del 5, búsqueda del listado, ventana de marcas con asignación en masa,
+interruptor en Empresas) y 6-3 (escalas y promociones).
+
+6-3: `precio_resolver` (`core/precios_venta.php`) compara la marca del producto cuando la regla no tiene producto y sí
+tiene marca (si además tiene categoría, tienen que coincidir las dos). La marca de los productos se lee solo si alguna
+regla vigente la usa y la empresa tiene `usa_marcas_comerciales`; **sin marcas prendidas, una regla con marca no
+aplica a nadie** (no se ignora la marca, para que "10 % Arcor" no pase a ser "10 % a todo"). La pantalla
+(`core/precios_venta_abm.php`, `assets/js/precios-reglas-venta.js`) agrega el combo "Marca" solo si `catalogos` trae
+`marcas`; la marca se graba aparte del INSERT / UPDATE de la regla, en la misma transacción; con producto elegido
+queda vacía; una marca inactiva solo se acepta si ya era la de la regla; el alcance dice "Marca X".
+
+Pruebas: caso `39_marca_escalas.py` 16/16; caso 35 40/40 con el indicador de reglas prendido; comparación antes /
+después con los indicadores apagados (casos 03, 04, 06, 09, 19b) igual: 206 checks, las 4 fallas preexistentes, y la
+foto de líneas de pedidos / remitos / facturas idéntica; base sin la estructura 3/3. La consola del navegador no se
+revisó.

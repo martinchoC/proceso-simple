@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
+require_once __DIR__ . '/../../core/vendedores.php';
 /**
  * clientes_ctacte_model.php
  *
@@ -353,7 +354,8 @@ function ctacteSaldosClientes($conexion, $empresa_id, array $filtros = [])
                           COUNT(*) AS comprobantes
                    FROM ($sql) b
                    JOIN gestion__entidades e ON e.entidad_id = b.entidad_id
-                   WHERE 1 = 1";
+                   WHERE 1 = 1"
+        . vcar_sql_filtro_cliente($conexion, intval($empresa_id), intval($filtros['usuario_id'] ?? ($_SESSION['usuario_id'] ?? 0)), 'b.entidad_id');
 
     if (!empty($filtros['texto'])) {
         $like = '%' . trim($filtros['texto']) . '%';
