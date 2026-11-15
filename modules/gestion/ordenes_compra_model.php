@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/productos_proveedores.php';
 require_once __DIR__ . '/../../core/contratos/contratos_service.php';
+require_once __DIR__ . '/../../core/compras_presentaciones.php'; // compra por presentación (doc 27)
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -983,6 +984,10 @@ function obtenerOrdenCompraPorId($conexion, $id, $empresa_idx)
     }
     mysqli_stmt_close($stmt);
 
+    // Compra por presentación (doc 27): la foto de cada línea, solo con el indicador
+    if (cpre_activo($conexion, (int) $orden['empresa_id'], 'oc')) {
+        $detalles = cpre_agregar_fotos($conexion, 'oc', $detalles);
+    }
     $orden['detalles'] = $detalles;
     return $orden;
 }
@@ -1631,6 +1636,10 @@ function insertarDetallesOrden($conexion, $orden_compra_id, $empresa_id, $detall
         }
         
         $detalle_id = mysqli_insert_id($conexion);
+        // Compra por presentación (doc 27): foto de la presentación, solo si cpre_preparar_lineas la armó
+        if (!empty($detalle['_cpre'])) {
+            cpre_guardar_foto($conexion, 'oc', (int) $detalle_id, $detalle['_cpre']);
+        }
         error_log("Detalle $index insertado con ID: " . $detalle_id . " - Precio: $precio_unitario, Cantidad: $cantidad");
         $insertados++;
         mysqli_stmt_close($stmt);

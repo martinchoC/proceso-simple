@@ -230,7 +230,8 @@ if (!empty($orden['condicion_pago_id'])) {
                 $totalNoGravado = 0;
                 $totalExento = 0;
                 
-                foreach ($orden['detalles'] as $detalle): 
+                // Compra por presentación (doc 27): las líneas en cajas se imprimen en cajas (los totales no cambian)
+                foreach (cpre_lineas_impresion($conexion, (int) $empresa_idx, 'oc', $orden['detalles']) as $detalle): 
                     $totalNeto += $detalle['neto_gravado'];
                     $totalIVA += $detalle['iva_importe'];
                     $totalNoGravado += $detalle['no_gravado'];

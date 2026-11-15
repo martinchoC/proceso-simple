@@ -1,0 +1,94 @@
+from simlib import *
+
+# Compra por presentación (doc 27): órdenes de compra (8-2) y facturas de proveedor con costo (8-3). Empresa 2, módulo 2.
+# Necesita en la copia: 20261112_productos_presentaciones_01 y 20261122_compra_presentaciones_01 (--scripts).
+# Prende los indicadores y crea una presentación de compra solo en la copia; al final deja los indicadores como estaban.
+#   python _local/tests/simulacion/run.py 40_compras_presentaciones.py --scripts <arca_off.sql> \
+#       _local/sql/mantenimiento/20261122_compra_presentaciones_01.sql
+
+PROV = 5765           # DLC MOTORS (AMERS SRL), el proveedor del caso 01
+P1, P2 = 1529, 1878
+CTX = {}
+
+
+def oc_ajax(params, method='POST'):
+    return ajax('ordenes_compra_ajax.php', dict(params, empresa_idx=2, pagina_idx=51), method)
+
+
+def guardar_oc(dets, oc_id=None):
+    base = dict(comprobante_tipo_id=17, sucursal_id=1, punto_venta_id=1, entidad_id=PROV, f_emision=HOY, moneda_id=1,
+                tipo_cambio=1, detalles=json.dumps(dets), **totales(dets))
+    if oc_id:
+        return oc_ajax(dict(base, accion='editar', orden_compra_id=oc_id))
+    return oc_ajax(dict(base, accion='agregar'))
+
+
+def lineas_oc(oc_id):
+    return sql("SELECT producto_id, cantidad, precio_unitario, neto_gravado, total_linea, presentacion_id, presentacion_cantidad, presentacion_precio "
+               "FROM gestion__ordenes_compra_detalle WHERE orden_compra_id = %d ORDER BY ordenes_compra_detalle_id" % int(oc_id))
+
+
+# ---------------------------------------------------------------------------------------------
+caso('Compra por presentación: preparación (indicadores y presentación, solo en la copia)')
+if int(val("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gestion__ordenes_compra_detalle' "
+           "AND COLUMN_NAME = 'presentacion_id'")) != 1:
+    brecha('falta el script de compra por presentación en la copia', 'correr con --scripts 20261122_compra_presentaciones_01')
+else:
+    CTX['ind'] = uno("SELECT usa_presentaciones p, usa_compra_presentaciones c FROM conf__empresas WHERE empresa_id = 2")
+    sql("UPDATE conf__empresas SET usa_presentaciones = 1, usa_compra_presentaciones = 1 WHERE empresa_id = 2")
+    sql("INSERT INTO gestion__productos_presentaciones (empresa_id, producto_id, presentacion_nombre, factor, aplica_compra, aplica_venta, "
+        "es_compra_defecto, es_venta_defecto, orden, tabla_estado_registro_id) VALUES (2, %d, 'SIM Caja x 12', 12, 1, 0, 1, 0, 99, 1)" % P1)
+    CTX['pres'] = int(val("SELECT MAX(presentacion_id) FROM gestion__productos_presentaciones WHERE producto_id = %d AND presentacion_nombre = 'SIM Caja x 12'" % P1))
+    CTX['ok'] = True
+    r = oc_ajax(dict(accion='cpre_presentaciones', producto_id=P1), 'GET')
+    check(ok_resp(r) and any(int(x['presentacion_id']) == CTX['pres'] for x in (r.get('data') or [])), 'la pantalla recibe las presentaciones de compra', str(r)[:200])
+
+caso('Compra por presentación: orden de compra')
+if CTX.get('ok'):
+    PR = CTX['pres']
+    cajas = linea(P1, 2.5, 9600, presentacion_id=PR, presentacion_cantidad=2.5, presentacion_precio=9600)
+    r = guardar_oc([cajas, linea(P2, 5, 500)])
+    oc = r.get('orden_compra_id') if isinstance(r, dict) else None
+    check(ok_resp(r) and oc, 'alta de una OC con 2,5 cajas y una línea por unidad', err(r))
+    if oc:
+        CTX['oc'] = oc
+        l = lineas_oc(oc)
+        check(len(l) == 2 and num(l[0]['cantidad']) == 30 and num(l[0]['precio_unitario']) == 800 and num(l[0]['neto_gravado']) == 24000,
+              'la línea en cajas queda en unidades: 30 a $ 800, neto $ 24.000', str(l)[:300])
+        check(int(l[0]['presentacion_id'] or 0) == PR and num(l[0]['presentacion_cantidad']) == 2.5 and num(l[0]['presentacion_precio']) == 9600,
+              'con la foto: 2,5 SIM Caja x 12 a $ 9.600', str(l[0]))
+        check(l[1]['presentacion_id'] is None and num(l[1]['cantidad']) == 5, 'la línea por unidad no lleva foto', str(l[1]))
+        r = oc_ajax(dict(accion='obtener', orden_compra_id=oc), 'GET')
+        d = next((x for x in (r.get('detalles') or []) if int(x['producto_id']) == P1), {}) if isinstance(r, dict) else {}
+        check(int(d.get('presentacion_id') or 0) == PR and num(d.get('presentacion_cantidad')) == 2.5, 'obtener devuelve la foto para editar', str(d)[:200])
+        cajas3 = linea(P1, 3, 9000, presentacion_id=PR, presentacion_cantidad=3, presentacion_precio=9000)
+        r = guardar_oc([cajas3, linea(P2, 5, 500)], oc)
+        l = lineas_oc(oc)
+        check(ok_resp(r) and num(l[0]['cantidad']) == 36 and num(l[0]['presentacion_cantidad']) == 3 and num(l[0]['precio_unitario']) == 750,
+              'editar: 3 cajas a $ 9.000 = 36 u a $ 750', str(l)[:300])
+        html = ajax('ordenes_compra_print.php', dict(orden_compra_id=oc, empresa_idx=2), 'GET')
+        html = html.get('_raw', '') if isinstance(html, dict) else ''
+        check('SIM Caja x 12 (36 u)' in html, 'la impresión muestra la caja y las unidades', html[:120])
+    r = guardar_oc([linea(P2, 1, 100, presentacion_id=PR, presentacion_cantidad=1, presentacion_precio=100)])
+    check(not ok_resp(r) and 'no es de ese producto' in err(r), 'una presentación de otro producto se rechaza', err(r))
+    sql("UPDATE gestion__productos_presentaciones SET aplica_compra = 0 WHERE presentacion_id = %d" % PR)
+    r = guardar_oc([linea(P1, 1, 100, presentacion_id=PR, presentacion_cantidad=1, presentacion_precio=100)])
+    check(not ok_resp(r) and 'compras' in err(r), 'una presentación que no es de compra se rechaza', err(r))
+    sql("UPDATE gestion__productos_presentaciones SET aplica_compra = 1 WHERE presentacion_id = %d" % PR)
+    # Indicador apagado: la presentación que mande la pantalla se ignora (todo como siempre)
+    sql("UPDATE conf__empresas SET usa_compra_presentaciones = 0 WHERE empresa_id = 2")
+    r = guardar_oc([linea(P1, 7, 100, presentacion_id=PR, presentacion_cantidad=1, presentacion_precio=100)])
+    oc2 = r.get('orden_compra_id') if isinstance(r, dict) else None
+    l = lineas_oc(oc2) if oc2 else []
+    check(ok_resp(r) and l and num(l[0]['cantidad']) == 7 and l[0]['presentacion_id'] is None, 'apagado: la línea queda como la mandó la pantalla, sin foto', str(l)[:200])
+    r = oc_ajax(dict(accion='cpre_presentaciones', producto_id=P1), 'GET')
+    check(ok_resp(r) and (r.get('data') or []) == [], 'apagado: la pantalla no recibe presentaciones', str(r)[:200])
+    sql("UPDATE conf__empresas SET usa_compra_presentaciones = 1 WHERE empresa_id = 2")
+
+
+# ---------------------------------------------------------------------------------------------
+caso('Compra por presentación: limpieza')
+if CTX.get('ind') is not None:
+    sql("UPDATE gestion__productos_presentaciones SET tabla_estado_registro_id = 2 WHERE presentacion_id = %d" % CTX.get('pres', 0))
+    sql("UPDATE conf__empresas SET usa_presentaciones = %s, usa_compra_presentaciones = %s WHERE empresa_id = 2" % (CTX['ind']['p'], CTX['ind']['c']))
+    check(True, 'indicadores de la copia como estaban')

@@ -1245,6 +1245,11 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
     <script src="<?= asset_local('js/datatables-buttons-2.4.1/buttons.print.min.js') ?>"></script>
     <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
     
+    <?php // Compra por presentación (doc 27): selector de presentación en la línea, solo con el indicador
+    require_once ROOT_PATH . '/core/compras_presentaciones.php';
+    if (cpre_activo($conexion, (int) $current_empresa_id, 'oc')): ?>
+    <script src="<?= asset_local('js/compras-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/compras-presentaciones.js') ?>"></script>
+    <?php endif; ?>
     <script src="ordenes_compra.js?v=<?= filemtime(__DIR__.'/ordenes_compra.js') ?>"></script>
 </main>
 

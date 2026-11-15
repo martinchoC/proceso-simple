@@ -343,6 +343,9 @@ if (!function_exists('cpre_lineas_impresion')) {
             $unidades = (float) ($d['cantidad'] ?? 0);
             $pc = (float) $d['presentacion_cantidad'];
             $d['cantidad'] = $pc;
+            if (isset($d['cantidad_recibida']) && $d['cantidad_recibida'] !== '') {
+                $d['cantidad_recibida'] = round((float) $d['cantidad_recibida'] / $factor, 4);
+            }
             // Precio de la presentación tal como se cargó (no el unitario redondeado × factor: 83,33 × 12 = 999,96)
             $pp = $d['presentacion_precio'] !== null ? (float) $d['presentacion_precio'] : null;
             foreach (['precio_unitario', 'precio_unitario_bruto'] as $c) {

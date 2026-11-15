@@ -134,6 +134,12 @@ try {
             if (json_last_error() !== JSON_ERROR_NONE) {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
             }
+            // Compra por presentación (doc 27): valida y pasa a unidad base las líneas en cajas / packs
+            try {
+                $detalles = cpre_preparar_lineas($conexion, (int) $empresa_idx, is_array($detalles) ? $detalles : [], 'oc');
+            } catch (InvalidArgumentException $e) {
+                enviarRespuesta(['resultado' => false, 'error' => $e->getMessage()]);
+            }
             
             error_log("=== DATOS RECIBIDOS EN AGREGAR ===");
             error_log("POST: " . print_r($_POST, true));
@@ -194,6 +200,12 @@ try {
             $detalles = json_decode($_POST['detalles'], true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 enviarRespuesta(['resultado' => false, 'error' => 'Error al decodificar los detalles: ' . json_last_error_msg()]);
+            }
+            // Compra por presentación (doc 27): valida y pasa a unidad base las líneas en cajas / packs
+            try {
+                $detalles = cpre_preparar_lineas($conexion, (int) $empresa_idx, is_array($detalles) ? $detalles : [], 'oc');
+            } catch (InvalidArgumentException $e) {
+                enviarRespuesta(['resultado' => false, 'error' => $e->getMessage()]);
             }
             
             error_log("detalles decodificados: " . print_r($detalles, true));
@@ -317,6 +329,13 @@ try {
             echo json_encode($unidades, JSON_UNESCAPED_UNICODE);
             break;
             
+        case 'cpre_presentaciones':
+            // Compra por presentación (doc 27): presentaciones de compra del producto ([] sin el indicador)
+            $producto_id = intval($_GET['producto_id'] ?? 0);
+            $pres = cpre_activo($conexion, (int) $empresa_idx, 'oc') ? cpre_presentaciones($conexion, (int) $empresa_idx, [$producto_id]) : [];
+            echo json_encode(['success' => true, 'data' => $pres[$producto_id] ?? []], JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'buscar_productos_proveedor':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
             $q = $_GET['q'] ?? '';
