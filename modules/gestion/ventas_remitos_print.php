@@ -162,6 +162,9 @@ $url_copias = function ($n, $val = null) use ($venta_remito_id, $empresa_idx, $v
         . '&valorizado=' . (($val === null ? $valorizado : $val) ? 1 : 0);
 };
 
+// Venta por presentación: las líneas en cajas se muestran en cajas (core/ventas_presentaciones.php)
+$detalles = vpre_lineas_impresion($conexion, $empresa_idx, 'remito', $detalles);
+
 // Plantilla compartida (gestion / gestion_normal): usa las variables y helpers de este archivo
 include impresion_plantilla('remito', $cfg_impresion['formato']);
 

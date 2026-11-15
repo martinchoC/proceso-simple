@@ -191,6 +191,9 @@ $url_copias = function ($n, $val = null) use ($venta_pedido_id, $empresa_idx, $v
         . '&valorizado=' . (($val === null ? $valorizado : $val) ? 1 : 0);
 };
 
+// Venta por presentación: las líneas en cajas se muestran en cajas (core/ventas_presentaciones.php)
+$detalles = vpre_lineas_impresion($conexion, $empresa_idx, 'pedido', $detalles);
+
 // Plantilla compartida con el remito (gestion / gestion_normal)
 include impresion_plantilla('remito', $cfg_impresion['formato']);
 

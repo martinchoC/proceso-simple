@@ -219,6 +219,7 @@ if rem and caja:
         check(not ok_resp(r) and 'enteras' in err(r), 'facturar 6 u de una línea en cajas se rechaza', err(r))
         s2 = stock(P2)
         r, fv = alta_factura([dict(base, cantidad=24)])
+        CTX["factura"] = fv
         check(ok_resp(r) and fv, 'factura de las 2 cajas (24 u)', err(r))
         if fv:
             lf = uno(f"SELECT cantidad, importe_neto, presentacion_id, presentacion_cantidad FROM gestion__ventas_facturas_detalles WHERE venta_factura_id={fv}")
@@ -240,3 +241,16 @@ if caja:
     lf = uno(f"SELECT cantidad, precio_unitario, importe_neto, presentacion_cantidad FROM gestion__ventas_facturas_detalles WHERE venta_factura_id={fv2 or 0}")
     check(ok_resp(r) and lf and num(lf['cantidad']) == 24 and num(lf['presentacion_cantidad']) == 2 and abs(num(lf['importe_neto']) - 990) < 0.01,
           'factura directa: 2 cajas = 24 u, neto 990 (550 × 2 − 10 %)', err(r) or str(lf))
+
+caso('Presentaciones en ventas: impresiones (la línea en cajas sale en cajas)')
+for nombre, archivo, clave, doc in [('pedido', 'ventas_pedidos_print.php', 'venta_pedido_id', CTX.get('pedido')),
+                                    ('remito', 'ventas_remitos_print.php', 'venta_remito_id', CTX.get('remito')),
+                                    ('factura', 'ventas_facturas_print.php', 'venta_factura_id', CTX.get('factura'))]:
+    if not (doc and caja):
+        continue
+    html = ajax(archivo, {clave: doc, 'empresa_idx': 2, 'valorizado': 1}, 'GET')
+    raw = html.get('_raw', '') if isinstance(html, dict) else ''
+    sano = raw != '' and 'Fatal error' not in raw and 'Warning:' not in raw
+    # Caja x 12 a 550 (precio de la caja), no 45,83 por unidad
+    check(sano and 'Caja x 12' in raw and ('550,00' in raw or '550.00' in raw or '665,50' in raw),
+          f'{nombre}: la línea muestra la caja y su precio', raw[:300] if not sano else '')

@@ -250,6 +250,9 @@ $url_copias = function ($n) use ($venta_factura_id, $empresa_idx) {
     return '?venta_factura_id=' . $venta_factura_id . '&empresa_idx=' . $empresa_idx . '&copias=' . $n;
 };
 
+// Venta por presentación: las líneas en cajas se muestran en cajas (core/ventas_presentaciones.php)
+$detalles = vpre_lineas_impresion($conexion, $empresa_idx, 'factura', $detalles);
+
 // Plantilla compartida (gestion / gestion_normal): usa las variables y helpers de este archivo
 include impresion_plantilla('factura', $cfg_impresion['formato']);
 

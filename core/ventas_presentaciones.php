@@ -386,3 +386,44 @@ if (!function_exists('vpre_preparar_lineas')) {
         return vpre_normalizar_lineas($conexion, $empresa_id, $lista_precio_id, $detalles, $tipo);
     }
 }
+
+if (!function_exists('vpre_lineas_impresion')) {
+    /**
+     * Líneas para las plantillas de impresión (templates/impresion/*): las que se vendieron en una presentación
+     * salen en presentaciones ("2 Caja x 12 a $ 550") en vez de unidades. Cambia solo lo que se muestra:
+     * cantidad = presentacion_cantidad, precios unitarios × factor y el nombre de la presentación al lado del
+     * producto. Los totales del comprobante se calculan antes, con las líneas originales.
+     * Sin venta por presentación activa para el tipo devuelve las líneas sin tocar.
+     */
+    function vpre_lineas_impresion(mysqli $conexion, int $empresa_id, string $tipo, array $detalles): array
+    {
+        if (!$detalles || !vpre_activo($conexion, $empresa_id, $tipo)) {
+            return $detalles;
+        }
+        $faltan = false;
+        foreach ($detalles as $d) {
+            if (!array_key_exists('presentacion_id', $d)) {
+                $faltan = true;
+                break;
+            }
+        }
+        if ($faltan) {
+            $detalles = vpre_agregar_fotos($conexion, $tipo, $detalles);
+        }
+        foreach ($detalles as &$d) {
+            $factor = (float) ($d['presentacion_factor'] ?? 0);
+            if ((int) ($d['presentacion_id'] ?? 0) <= 0 || $factor <= 0) {
+                continue;
+            }
+            $d['cantidad'] = (float) $d['presentacion_cantidad'];
+            foreach (['precio_unitario', 'precio_unitario_bruto', 'precio_unitario_neto'] as $c) {
+                if (isset($d[$c]) && $d[$c] !== '') {
+                    $d[$c] = round((float) $d[$c] * $factor, 6);
+                }
+            }
+            $d['producto_nombre'] = trim((string) ($d['producto_nombre'] ?? '')) . ' — ' . $d['presentacion_nombre'];
+        }
+        unset($d);
+        return $detalles;
+    }
+}
