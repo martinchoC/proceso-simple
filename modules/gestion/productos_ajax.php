@@ -10,6 +10,7 @@ require_once "productos_model.php";
 require_once __DIR__ . '/stock_niveles_model.php';
 require_once __DIR__ . '/../../core/imagenes.php';
 require_once __DIR__ . '/../../core/productos_presentaciones.php';
+require_once __DIR__ . '/../../core/productos_marcas.php';
 
 /**
  * Presentaciones del formulario (core/productos_presentaciones.php): se validan antes de guardar el producto.
@@ -63,6 +64,8 @@ $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 40);
 // Solo una página de este módulo (si no, la de productos.php del módulo): contra ella se validan botones y acciones
 $pagina_idx = permisos_pagina_modulo($conn, 2, (int)$pagina_idx, 'productos.php');
+// Acciones marcas_* (marca comercial, core/productos_marcas.php): responden y cortan
+pmar_ajax_acciones($conexion, $ctx, (string)$accion, (int)$pagina_idx);
 // En la consulta de productos, las ubicaciones se limitan a las sucursales del usuario
 $usuario_filtro_ubicaciones = defined('PRODUCTOS_CONSULTA') ? intval($ctx['usuario_id']) : 0;
 
@@ -192,11 +195,14 @@ try {
             ];
 
             $presentaciones = productosValidarPresentaciones($conexion, $empresa_idx, 0);
+            // La marca comercial también (con el indicador; null = no tocar)
+            $marca = pmar_procesar_o_responder($conexion, (int)$empresa_idx, 0, $_POST);
             $resultado = agregarProducto($conexion, $data);
             if (!empty($resultado['resultado'])) {
                 $nuevo_id = intval($resultado['producto_id'] ?? 0);
                 $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $nuevo_id, $presentaciones);
-                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $nuevo_id), $aviso_pres]);
+                $aviso_marca = pmar_guardar_formulario($conexion, (int)$empresa_idx, $nuevo_id, $marca);
+                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $nuevo_id), $aviso_pres, $aviso_marca]);
                 $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
                 if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }
@@ -226,10 +232,13 @@ try {
             ];
 
             $presentaciones = productosValidarPresentaciones($conexion, $empresa_idx, $id);
+            // La marca comercial también (con el indicador; null = no tocar)
+            $marca = pmar_procesar_o_responder($conexion, (int)$empresa_idx, $id, $_POST);
             $resultado = editarProducto($conexion, $id, $data);
             if (!empty($resultado['resultado'])) {
                 $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $id, $presentaciones);
-                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $id), $aviso_pres]);
+                $aviso_marca = pmar_guardar_formulario($conexion, (int)$empresa_idx, $id, $marca);
+                $avisos = array_filter([productosGuardarNivelesStock($conexion, $ctx, $id), $aviso_pres, $aviso_marca]);
                 $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
                 if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }

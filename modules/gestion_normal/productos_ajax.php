@@ -28,6 +28,7 @@ require_once __DIR__ . '/../../db.php';
 require_once "productos_model.php";
 require_once __DIR__ . '/stock_niveles_model.php';
 require_once __DIR__ . '/../../core/productos_presentaciones.php';
+require_once __DIR__ . '/../../core/productos_marcas.php';
 
 /**
  * Stock mínimo / máximo por boca cargado en el modal de productos.php.
@@ -69,6 +70,8 @@ if (empty($accion)) {
 $empresa_idx = intval($ctx['empresa_id']);
 // Página fija (no del request): la de la consulta o la del ABM
 $pagina_idx = defined('PRODUCTOS_CONSULTA') ? 598 : 540;
+// Acciones marcas_* (marca comercial, core/productos_marcas.php): responden y cortan
+pmar_ajax_acciones($conexion, $ctx, (string)$accion, (int)$pagina_idx);
 
 if (!$conexion) {
     manejarError('Error de conexión a la base de datos');
@@ -138,6 +141,8 @@ try {
             } catch (InvalidArgumentException $e) {
                 enviarRespuesta(['success' => false, 'message' => $e->getMessage()]);
             }
+            // La marca comercial también (con el indicador; null = no tocar)
+            $marca = pmar_procesar_o_responder($conexion, (int)$empresa_idx, $producto_id, $_POST);
             $resultado = $accion === 'editar'
                 ? editarProducto($conexion, $_POST, $empresa_idx, $pagina_idx)
                 : agregarProducto($conexion, $_POST, $empresa_idx, $pagina_idx);
@@ -145,7 +150,8 @@ try {
                 if ($accion === 'agregar') $producto_id = intval($resultado['producto_id'] ?? 0);
                 $aviso_niveles = productosGuardarNivelesStock($conexion, $ctx, $producto_id);
                 $aviso_pres = prpr_guardar_formulario($conexion, $empresa_idx, (int)$ctx['usuario_id'], $producto_id, $presentaciones);
-                $avisos = array_filter([$aviso_niveles, $aviso_pres]);
+                $aviso_marca = pmar_guardar_formulario($conexion, (int)$empresa_idx, $producto_id, $marca);
+                $avisos = array_filter([$aviso_niveles, $aviso_pres, $aviso_marca]);
                 $resultado['presentaciones_guardadas'] = $presentaciones !== null && $aviso_pres === null;
                 if ($avisos) $resultado['aviso'] = implode(' ', $avisos);
             }

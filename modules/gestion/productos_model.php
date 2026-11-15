@@ -420,6 +420,16 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             // (sí puede estar pegado a "/", "-", "(", etc.: "206/207/208").
             // (la regla está en condicionPalabraBusquedaProducto())
             [$condicion, $params_palabra, $types_palabra] = condicionPalabraBusquedaProducto($palabra, "er.$estado_column", $conexion);
+            // Y por el nombre de su marca comercial, con el indicador (core/productos_marcas.php)
+            if (!isset($sql_marca)) {
+                require_once __DIR__ . '/../../core/productos_marcas.php';
+                $sql_marca = pmar_sql_busqueda($conexion, $empresa_idx, 'p');
+            }
+            if ($sql_marca !== '') {
+                $condicion = "($condicion OR $sql_marca)";
+                $params_palabra[] = '%' . $palabra . '%';
+                $types_palabra .= 's';
+            }
             $where_conditions[] = $condicion;
             array_push($where_params, ...$params_palabra);
             $where_types .= $types_palabra;

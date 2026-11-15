@@ -13,6 +13,8 @@ define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';
 require_once ROOT_PATH . '/core/productos_presentaciones.php';
 $usa_presentaciones = prpr_empresa_usa($conn, (int)$empresa_idx);
+require_once ROOT_PATH . '/core/productos_marcas.php';
+$usa_marcas_comerciales = pmar_empresa_usa($conn, (int)$empresa_idx);
 ?>
 
 <main class="app-main">
@@ -157,6 +159,8 @@ $usa_presentaciones = prpr_empresa_usa($conn, (int)$empresa_idx);
                                         </select>
                                         <div class="invalid-feedback">Seleccione una categoría.</div>
                                     </div>
+
+                                    <?php include ROOT_PATH . '/templates/productos/marca_campo.php'; ?>
 
                                     <div class="col-md-4">
                                         <label for="unidad_medida_id" class="form-label">Unidad de Medida</label>
@@ -471,6 +475,9 @@ $usa_presentaciones = prpr_empresa_usa($conn, (int)$empresa_idx);
 <script src="<?= asset_local('js/sweetalert2-11.26.25/sweetalert2.all.min.js') ?>"></script>
 <?php if ($usa_presentaciones): ?>
 <script src="<?= asset_local('js/productos-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-presentaciones.js') ?>"></script>
+<?php endif; ?>
+<?php if ($usa_marcas_comerciales): ?>
+<script src="<?= asset_local('js/productos-marcas.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-marcas.js') ?>"></script>
 <?php endif; ?>
 <script src="productos.js?v=<?= filemtime(__DIR__ . '/productos.js') ?>"></script>
 

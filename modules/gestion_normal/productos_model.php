@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../core/productos_presentaciones.php';
+require_once __DIR__ . '/../../core/productos_marcas.php';
 $conexion = $conn;
 
 // ABM "Productos y Servicios" para Módulo Gestión Normal:
@@ -87,6 +88,8 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
     if ($search !== '' && preg_match_all('/"([^"]*)"|(\S+)/', $search, $matches, PREG_SET_ORDER)) {
         // También por el código de barras de sus presentaciones (core/productos_presentaciones.php)
         $sql_pres = prpr_sql_busqueda_barras($conexion, 'p');
+        // Y por el nombre de su marca comercial, con el indicador (core/productos_marcas.php)
+        $sql_marca = pmar_sql_busqueda($conexion, (int)$empresa_idx, 'p');
         foreach ($matches as $match) {
             $termino = trim(isset($match[2]) ? $match[2] : $match[1]);
             if ($termino === '') {
@@ -94,10 +97,14 @@ function obtenerProductosPaginados($conexion, $empresa_idx, $pagina_id, $params 
             }
             $like = '%' . $termino . '%';
             $where[] = "(p.producto_codigo LIKE ? OR p.producto_nombre LIKE ? OR p.codigo_barras LIKE ? OR p.producto_descripcion LIKE ? OR p.proveedores_busqueda LIKE ?"
-                . ($sql_pres !== '' ? " OR $sql_pres" : '') . ")";
+                . ($sql_pres !== '' ? " OR $sql_pres" : '') . ($sql_marca !== '' ? " OR $sql_marca" : '') . ")";
             $types .= "sssss";
             array_push($values, $like, $like, $like, $like, $like);
             if ($sql_pres !== '') {
+                $types .= "s";
+                $values[] = $like;
+            }
+            if ($sql_marca !== '') {
                 $types .= "s";
                 $values[] = $like;
             }

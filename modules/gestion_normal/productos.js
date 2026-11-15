@@ -15,6 +15,8 @@ $(document).ready(function () {
     // Presentaciones (caja, pack, pallet): solo si la empresa las usa (la sección está en el modal)
     var PRES = window.ProdPres && window.ProdPres.activo() ? window.ProdPres : null;
     if (PRES) PRES.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx });
+    // Marca comercial: solo si la empresa la usa (el campo está en el modal; assets/js/productos-marcas.js)
+    if (window.ProdMarcas) window.ProdMarcas.init({ ajaxUrl: AJAX_URL, empresaIdx: empresa_idx, paginaIdx: pagina_idx });
 
     // ========== UTILIDADES ==========
 
@@ -274,6 +276,7 @@ $(document).ready(function () {
         actualizarVisibilidadNiveles();
         cargarNivelesStock(0);
         if (PRES) PRES.limpiar();
+        if (window.ProdMarcas) window.ProdMarcas.valor('');
 
         $('#modalProductoTitulo').text('Nuevo Producto / Servicio');
     }
@@ -426,6 +429,7 @@ $(document).ready(function () {
                 $('#producto_categoria_id').val(p.producto_categoria_id);
                 $('#unidad_medida_id').val(p.unidad_medida_id || '');
                 $('#iva_alicuota_id').val(p.iva_alicuota_id);
+                if (window.ProdMarcas) window.ProdMarcas.valor(p.marca_comercial_id);
                 if (PRES) PRES.cargar(p.producto_id, { soloLectura: !!soloVer || SOLO_LECTURA });
 
                 $('#impuesto_interno_porcentaje').val(p.impuesto_interno_porcentaje || '');

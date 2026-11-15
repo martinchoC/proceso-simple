@@ -314,6 +314,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_distribucion">Usa distribución <?= ui_ayuda('Zonas, camiones, armado nocturno del reparto, hojas de ruta y rendición (Ventas > Distribución). Los pedidos revisados se liberan para distribución (estado Confirmado para distribución).') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261120_marcas_comerciales_01.sql aplicado
+                                    $emp_col_marca = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_marcas_comerciales'");
+                                    if ($emp_col_marca && mysqli_num_rows($emp_col_dist) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_marcas_comerciales" name="usa_marcas_comerciales" value="1" />
+                                        <label class="form-check-label" for="usa_marcas_comerciales">Usa marca comercial en los productos <?= ui_ayuda('Marca comercial de cada producto (Arcor, Molto…) en Productos: se administra desde el botón junto al campo, se puede asignar a varios productos a la vez y se busca por ella en el listado.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1132,6 +1140,7 @@ $(document).ready(function(){
                 $('#usa_reglas_precio_venta').prop('checked', parseInt(res.usa_reglas_precio_venta, 10) === 1);
                 $('#usa_vendedores').prop('checked', parseInt(res.usa_vendedores, 10) === 1);
                 $('#usa_distribucion').prop('checked', parseInt(res.usa_distribucion, 10) === 1);
+                $('#usa_marcas_comerciales').prop('checked', parseInt(res.usa_marcas_comerciales, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1288,6 +1297,7 @@ $(document).ready(function(){
         if ($('#usa_reglas_precio_venta').length) formData.usa_reglas_precio_venta = $('#usa_reglas_precio_venta').is(':checked') ? 1 : 0;
         if ($('#usa_vendedores').length) formData.usa_vendedores = $('#usa_vendedores').is(':checked') ? 1 : 0;
         if ($('#usa_distribucion').length) formData.usa_distribucion = $('#usa_distribucion').is(':checked') ? 1 : 0;
+        if ($('#usa_marcas_comerciales').length) formData.usa_marcas_comerciales = $('#usa_marcas_comerciales').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });

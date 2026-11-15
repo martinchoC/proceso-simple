@@ -20,6 +20,8 @@ $empresa_idx = intval($current_empresa_id ?? $_SESSION['empresa_id'] ?? $_GET['e
 $listas_precios_iniciales = obtenerListasPrecios($conexion, $empresa_idx);
 require_once ROOT_PATH . '/core/productos_presentaciones.php';
 $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
+require_once ROOT_PATH . '/core/productos_marcas.php';
+$usa_marcas_comerciales = pmar_empresa_usa($conexion, $empresa_idx);
 ?>
 
 <main class="app-main">
@@ -245,6 +247,12 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
                                                 <div class="invalid-feedback">El nombre es obligatorio</div>
                                             </div>
                                         </div>
+
+                                        <?php if ($usa_marcas_comerciales): ?>
+                                        <div class="row g-2 mt-1">
+                                            <?php $pmar_col_clase = 'col-md-6'; include ROOT_PATH . '/templates/productos/marca_campo.php'; ?>
+                                        </div>
+                                        <?php endif; ?>
 
                                         <div class="row g-2 mt-1">
                                             <div class="col-md-12">
@@ -1700,6 +1708,8 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
             // Presentaciones (caja, pack, pallet): solo si la empresa las usa (la sección está en el formulario)
             var PRES = window.ProdPres && window.ProdPres.activo() ? window.ProdPres : null;
             if (PRES) PRES.init({ ajaxUrl: 'productos_ajax.php', empresaIdx: empresa_idx });
+            // Marca comercial: solo si la empresa la usa (el campo está en el formulario; assets/js/productos-marcas.js)
+            if (window.ProdMarcas) window.ProdMarcas.init({ ajaxUrl: 'productos_ajax.php', empresaIdx: empresa_idx, paginaIdx: pagina_idx });
             var productoActualProveedores = null;
             var productoActualPrecios = null;
             var imagenesProductoActual = [];
@@ -3215,6 +3225,7 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
                             if (res.iva_alicuota_id) $('#iva_alicuota_id').trigger('change');
                         }, 500);
                         if (PRES) PRES.cargar(productoId);
+                        if (window.ProdMarcas) window.ProdMarcas.valor(res.marca_comercial_id);
                         $('#modalLabel').text('Editar Producto');
                         cargarCompatibilidad(productoId);
                         cargarImagenesProducto(productoId);
@@ -3327,6 +3338,7 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
                 $('#sinImagenes').show();
                 cargarNivelesStock(0);
                 if (PRES) PRES.limpiar();
+                if (window.ProdMarcas) window.ProdMarcas.valor('');
                 if ($.fn.DataTable.isDataTable('#tablaUbicaciones')) {
                     $('#tablaUbicaciones').DataTable().destroy();
                     $('#tablaUbicaciones tbody').empty();
@@ -4389,6 +4401,8 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
                             garantia: $('#garantia').val(),
                             niveles_stock: JSON.stringify(nivelesStock),
                             presentaciones: presentaciones !== null ? JSON.stringify(presentaciones) : undefined,
+                            // Marca comercial: solo con el campo (indicador prendido); undefined = no se envía
+                            marca_comercial_id: $('#marca_comercial_id').length ? ($('#marca_comercial_id').val() || '') : undefined,
                             empresa_idx: empresa_idx,
                             pagina_idx: pagina_idx
                         },
@@ -4476,6 +4490,9 @@ $usa_presentaciones = prpr_empresa_usa($conexion, $empresa_idx);
     <script src="<?= asset_local('js/sortablejs-1.14.0/Sortable.min.js') ?>"></script>
     <?php if ($usa_presentaciones): ?>
     <script src="<?= asset_local('js/productos-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-presentaciones.js') ?>"></script>
+    <?php endif; ?>
+    <?php if ($usa_marcas_comerciales): ?>
+    <script src="<?= asset_local('js/productos-marcas.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/productos-marcas.js') ?>"></script>
     <?php endif; ?>
 
 </main>

@@ -17,6 +17,7 @@ $acciones_permitidas = [
     'obtener_combos',
     'obtener_niveles_stock',
     'obtener_presentaciones',
+    'marcas_listar',
 ];
 
 // Misma precedencia GET/POST que productos_ajax.php, para que la acción validada
