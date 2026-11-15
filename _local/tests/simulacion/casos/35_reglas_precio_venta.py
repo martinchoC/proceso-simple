@@ -30,6 +30,10 @@ if not estructura_ok():
     brecha('faltan los scripts de reglas de precio en la copia', 'correr con --scripts 20261116 / 20261117_01 / 20261117_02')
 else:
     sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 1 WHERE empresa_id = 2")
+    # El cliente de prueba tiene descuento propio (20 %), que le ganaría a escalas y promos: en la copia, 0 durante el caso
+    CTX['desc_cli'] = [(r['id'], r['d']) for r in sql(f"SELECT entidad_condicion_cliente_id id, cliente_descuento_general d "
+                                                        f"FROM gestion__entidades_condiciones_clientes WHERE entidad_id = {CLI}")]
+    sql(f"UPDATE gestion__entidades_condiciones_clientes SET cliente_descuento_general = 0 WHERE entidad_id = {CLI}")
     CTX['ok'] = True
     check(int(val("SELECT usa_reglas_precio_venta FROM conf__empresas WHERE empresa_id = 2")) == 1, 'indicador prendido en la copia')
 
@@ -86,3 +90,161 @@ if CTX.get('ok'):
     check(not ok_resp(r), 'perfil de otra empresa se rechaza', err(r))
     r = pg(dict(accion='lista_tope_guardar', lista_precio_id=LISTA, descuento_tope_pct=20))
     check(ok_resp(r) and num(val(f"SELECT descuento_tope_pct FROM gestion__listas_precios WHERE lista_precio_id = {LISTA}")) == 20, 'tope de la lista General 20 %', err(r))
+
+
+# ---------------------------------------------------------------------------------------------
+def total_pct(auto, manual):
+    return round((1 - (1 - auto / 100) * (1 - manual / 100)) * 100, 2)
+
+
+def linea_pct(producto, cantidad, precio, pct):
+    neto = round(cantidad * precio * (1 - pct / 100), 2)
+    iva = round(neto * 0.21, 2)
+    return linea(producto, cantidad, precio, 21.0, descuento_general_pct=pct, descuento_general=round(precio * pct / 100, 6),
+                 precio_unitario_neto=round(precio * (1 - pct / 100), 6), neto_gravado=neto, iva_importe=iva, total_linea=round(neto + iva, 2))
+
+
+def alta_pedido(dets, usuario_id=1):
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='agregar', empresa_idx=2, pagina_idx=91, comprobante_tipo_id=1, sucursal_id=1,
+             punto_venta_id=1, entidad_id=CLI, f_emision=HOY, moneda_id=1, tipo_cambio=1, condicion_pago_id='',
+             descuento_general_pct=0, detalles=dets, **totales(dets)), usuario_id=usuario_id)
+    return r, ((r.get('venta_pedido_id') or r.get('id')) if isinstance(r, dict) else None)
+
+
+def regla_linea(ped):
+    return uno(f"SELECT precio_regla_tipo, precio_regla_id, CAST(descuento_auto_pct AS DOUBLE) auto, CAST(descuento_manual_pct AS DOUBLE) manual, "
+               f"descuento_aprobado_por FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_id = {ped or 0} LIMIT 1")
+
+
+def confirmar(ped, usuario_id):
+    return ajax('ventas_pedidos_ajax.php', dict(accion='ejecutar_accion', venta_pedido_id=ped, accion_js='confirmar_pedido',
+                empresa_idx=2, pagina_idx=91), usuario_id=usuario_id)
+
+
+caso('Reglas de precio: la pantalla del pedido pide los descuentos')
+if CTX.get('ok'):
+    lineas = json.dumps([{'producto_id': P1, 'presentacion_id': 0, 'cantidad': 12}, {'producto_id': P1, 'presentacion_id': 0, 'cantidad': 12},
+                         {'producto_id': P2, 'presentacion_id': 0, 'cantidad': 1}])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='resolver_descuentos', empresa_idx=2, entidad_id=CLI, sucursal_id=1, fecha=HOY,
+             descuento_manual_pct=0, lineas=lineas))
+    d = (r.get('data') or {}) if isinstance(r, dict) else {}
+    ls = d.get('lineas') or []
+    check(d.get('activo') and len(ls) == 3 and num(ls[0].get('total_pct')) == 7 and ls[0].get('regla_tipo') == 'PROMOCION'
+          and num(ls[1].get('total_pct')) == 7, 'P1 12 + 12 u: promo 7 % en las dos líneas', str(r)[:400])
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='resolver_descuentos', empresa_idx=2, entidad_id=CLI, sucursal_id=1, fecha=HOY,
+             descuento_manual_pct=5, lineas=json.dumps([{'producto_id': P1, 'cantidad': 240}])))
+    ls = ((r.get('data') or {}).get('lineas') or []) if isinstance(r, dict) else []
+    check(ls and num(ls[0].get('auto_pct')) == 10 and num(ls[0].get('total_pct')) == total_pct(10, 5), '240 u: escala 10 % + manual 5 %', str(r)[:300])
+
+caso('Reglas de precio: pedido con descuento manual y tope del vendedor')
+if CTX.get('ok'):
+    # Vendedor (tope 10 %): automático 7 % (promo) + manual 5 % → se graba aprobado por él
+    r, ped = alta_pedido([linea_pct(P1, 24, 100.0, total_pct(7, 5))], usuario_id=VEND)
+    CTX['ped_ok'] = ped
+    l = regla_linea(ped)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] == 'PROMOCION' and num(l['auto']) == 7 and abs(num(l['manual']) - 5) < 0.02
+          and int(l['descuento_aprobado_por'] or 0) == VEND, 'manual 5 % dentro del tope: queda aprobado por el vendedor', err(r) + ' ' + str(l))
+    # Manual 15 % (supera el tope): se graba, pero el vendedor no lo puede confirmar
+    r, ped2 = alta_pedido([linea_pct(P1, 24, 100.0, total_pct(7, 15))], usuario_id=VEND)
+    l = regla_linea(ped2)
+    check(ok_resp(r) and l and abs(num(l['manual']) - 15) < 0.02 and l['descuento_aprobado_por'] is None,
+          'manual 15 %: se graba en Borrador sin aprobar', err(r) + ' ' + str(l))
+    r = confirmar(ped2, VEND)
+    check(not ok_resp(r) and 'tope' in err(r), 'el vendedor no lo puede confirmar', err(r))
+    check(int(val(f"SELECT tabla_estado_registro_id FROM gestion__ventas_pedidos WHERE venta_pedido_id = {ped2 or 0}")) == 3, '…y sigue en Borrador')
+    r = confirmar(ped2, 1)
+    l = regla_linea(ped2)
+    check(ok_resp(r) and int(l['descuento_aprobado_por'] or 0) == 1, 'lo confirma el administrador y queda aprobado por él', err(r) + ' ' + str(l))
+    # Sin descuento manual ni cliente: NINGUNA / CLIENTE según corresponda, nunca falla
+    r, ped3 = alta_pedido([linea_pct(P2, 1, 50.0, 0)])
+    l = regla_linea(ped3)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] in ('NINGUNA', 'CLIENTE') and num(l['manual']) == 0, 'producto sin reglas: sin manual', err(r) + ' ' + str(l))
+
+    sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 0 WHERE empresa_id = 2")
+    r, ped4 = alta_pedido([linea_pct(P1, 24, 100.0, 30)], usuario_id=VEND)
+    l = regla_linea(ped4)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] is None and l['manual'] is None, 'con el indicador apagado: se graba como siempre (columnas en NULL)', err(r) + ' ' + str(l))
+    r = ajax('ventas_pedidos_ajax.php', dict(accion='resolver_descuentos', empresa_idx=2, entidad_id=CLI, lineas='[]'))
+    check(isinstance(r, dict) and (r.get('data') or {}).get('activo') is False, 'la pantalla no pide descuentos', str(r)[:200])
+    r = confirmar(ped4, VEND)
+    check('tope' not in err(r), 'y el vendedor confirma sin control de tope', err(r))
+    sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 1 WHERE empresa_id = 2")
+
+
+# ---------------------------------------------------------------------------------------------
+def regla_de(tabla, pk_padre, id_padre):
+    return uno(f"SELECT precio_regla_tipo, precio_regla_id, CAST(descuento_auto_pct AS DOUBLE) auto, CAST(descuento_manual_pct AS DOUBLE) manual, "
+               f"descuento_aprobado_por FROM gestion__ventas_{tabla}_detalles WHERE {pk_padre} = {id_padre or 0} LIMIT 1")
+
+
+def remito_35(dets, usuario_id=1):
+    r = ajax('ventas_remitos_ajax.php', dict(accion='agregar', empresa_idx=2, pagina_idx=88, punto_venta_id=1, comprobante_tipo_id=40,
+             entidad_id=CLI, f_emision=HOY, detalles=dets), usuario_id=usuario_id)
+    return r, ((r.get('venta_remito_id') or r.get('id')) if isinstance(r, dict) else None)
+
+
+def factura_35(dets, usuario_id=1):
+    r = ajax('ventas_facturas_ajax.php', dict(accion='agregar', empresa_idx=2, pagina_idx=56, punto_venta_id=1, sucursal_id=1,
+             comprobante_tipo_id=4, entidad_id=CLI, f_emision=HOY, f_vto=HOY, moneda_id=1, tipo_cambio=1,
+             condicion_pago_id='', descuento_general_pct=0, observaciones='SIM reglas de precio', detalles=dets), usuario_id=usuario_id)
+    fv = None
+    if isinstance(r, dict):
+        fv = r.get('venta_factura_id') or (r.get('data') or {}).get('venta_factura_id') or r.get('id')
+    return r, fv
+
+
+def lin_rem(pct, **extra):
+    return dict(dict(producto_id=P1, cantidad=24, precio_unitario_bruto=100.0, descuento_general_pct=pct, iva_alicuota_id=1, iva_porcentaje=21), **extra)
+
+
+def lin_fac(pct, **extra):
+    return dict(dict(producto_id=P1, cantidad=24, precio_unitario=100.0, descuento_general_pct=pct, iva_alicuota_id=1, iva_porcentaje=21), **extra)
+
+
+caso('Reglas de precio: remito y factura heredan la regla del pedido')
+ped = CTX.get('ped_ok')
+if CTX.get('ok') and ped:
+    r = confirmar(ped, 1)
+    check(ok_resp(r), 'confirmar el pedido aprobado', err(r))
+    vpd = val(f"SELECT venta_pedido_detalle_id FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_id = {ped} LIMIT 1")
+    r, rem = remito_35([lin_rem(total_pct(7, 5), venta_pedido_detalle_id=int(vpd or 0))])
+    l = regla_de('remitos', 'venta_remito_id', rem)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] == 'PROMOCION' and num(l['auto']) == 7 and abs(num(l['manual']) - 5) < 0.02
+          and int(l['descuento_aprobado_por'] or 0) == VEND, 'el remito desde el pedido hereda promo 7 % + manual 5 % aprobado por el vendedor',
+          err(r) + ' ' + str(l))
+    if rem:
+        r = ajax('ventas_remitos_ajax.php', dict(accion='ejecutar_accion', venta_remito_id=rem, accion_js='confirmar', empresa_idx=2, pagina_idx=88))
+        check(ok_resp(r), 'confirmar el remito', err(r))
+        vrd = val(f"SELECT venta_remito_detalle_id FROM gestion__ventas_remitos_detalles WHERE venta_remito_id = {rem} LIMIT 1")
+        r, fv = factura_35([lin_fac(total_pct(7, 5), venta_remito_detalle_id=int(vrd or 0), venta_pedido_detalle_id=int(vpd or 0))])
+        l = regla_de('facturas', 'venta_factura_id', fv)
+        check(ok_resp(r) and l and l['precio_regla_tipo'] == 'PROMOCION' and int(l['descuento_aprobado_por'] or 0) == VEND,
+              'la factura desde el remito hereda la regla', err(r) + ' ' + str(l))
+
+caso('Reglas de precio: remito y factura directos con tope del usuario')
+if CTX.get('ok'):
+    r, rem = remito_35([lin_rem(total_pct(7, 15))], usuario_id=VEND)
+    check(not ok_resp(r) and 'tope' in err(r), 'remito directo con manual 15 % (tope 10): se rechaza', err(r))
+    r, rem = remito_35([lin_rem(total_pct(7, 5))], usuario_id=VEND)
+    l = regla_de('remitos', 'venta_remito_id', rem)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] == 'PROMOCION' and abs(num(l['manual']) - 5) < 0.02 and int(l['descuento_aprobado_por'] or 0) == VEND,
+          'remito directo con manual 5 %: se graba aprobado por el vendedor', err(r) + ' ' + str(l))
+    r, fv = factura_35([lin_fac(total_pct(7, 15))], usuario_id=VEND)
+    check(not ok_resp(r) and 'tope' in err(r), 'factura directa con manual 15 %: se rechaza', err(r))
+    r, fv = factura_35([lin_fac(total_pct(7, 15))])
+    l = regla_de('facturas', 'venta_factura_id', fv)
+    check(ok_resp(r) and l and abs(num(l['manual']) - 15) < 0.02 and int(l['descuento_aprobado_por'] or 0) == 1,
+          'la misma factura cargada por el administrador: aprobada por él', err(r) + ' ' + str(l))
+    sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 0 WHERE empresa_id = 2")
+    r, fv = factura_35([lin_fac(30)], usuario_id=VEND)
+    l = regla_de('facturas', 'venta_factura_id', fv)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] is None, 'con el indicador apagado: factura directa al 30 % sin control (columnas en NULL)',
+          err(r) + ' ' + str(l))
+    r, rem = remito_35([lin_rem(30)], usuario_id=VEND)
+    l = regla_de('remitos', 'venta_remito_id', rem)
+    check(ok_resp(r) and l and l['precio_regla_tipo'] is None, 'con el indicador apagado: remito directo al 30 % sin control', err(r) + ' ' + str(l))
+    sql("UPDATE conf__empresas SET usa_reglas_precio_venta = 1 WHERE empresa_id = 2")
+
+if CTX.get('ok'):
+    for i, d in CTX.get('desc_cli', []):
+        sql(f"UPDATE gestion__entidades_condiciones_clientes SET cliente_descuento_general = {d if d is not None else 'NULL'} WHERE entidad_condicion_cliente_id = {i}")

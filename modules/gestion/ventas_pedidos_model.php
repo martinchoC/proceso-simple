@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -311,6 +312,14 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
         
         if ($accion_js === 'confirmar_pedido') {
             
+            // Reglas de precio de venta: un descuento manual que supera el tope de quien confirma no deja confirmar
+            $ids_det_prv = array_column(prv_filas($conexion, "SELECT venta_pedido_detalle_id FROM gestion__ventas_pedidos_detalles WHERE venta_pedido_id = ?",
+                'i', [intval($venta_pedido_id)]), 'venta_pedido_detalle_id');
+            $msg_prv = prv_aprobar_pendientes($conexion, intval($pedido['empresa_id']), 'pedido', $ids_det_prv, intval($_SESSION['usuario_id'] ?? 0));
+            if ($msg_prv !== null) {
+                throw new Exception($msg_prv);
+            }
+
             if (empty($pedido['punto_venta_id'])) {
                 throw new Exception('El pedido no tiene punto de venta asignado. No se puede generar número de comprobante.');
             }
@@ -562,6 +571,13 @@ function agregarPedidoVenta($conexion, $data)
         cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), intval($data['sucursal_id'] ?? 0), intval($data['entidad_id'] ?? 0));
     } catch (InvalidArgumentException $e) {
         return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+    // Reglas de precio de venta: regla y descuento manual de cada línea, para grabarlos aparte (sin el indicador, nada)
+    if (isset($data['detalles']) && is_array($data['detalles'])) {
+        $data['detalles'] = prv_preparar_lineas($conexion, intval($data['empresa_idx'] ?? 0), [
+            'entidad_id' => intval($data['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
+            'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+        ], $data['detalles'], 'pedido');
     }
 
     if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
@@ -846,6 +862,13 @@ function editarPedidoVenta($conexion, $id, $data)
         cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), intval($data['sucursal_id'] ?? 0), intval($data['entidad_id'] ?? 0));
     } catch (InvalidArgumentException $e) {
         return ['resultado' => false, 'error' => $e->getMessage()];
+    }
+    // Reglas de precio de venta: regla y descuento manual de cada línea, para grabarlos aparte (sin el indicador, nada)
+    if (isset($data['detalles']) && is_array($data['detalles'])) {
+        $data['detalles'] = prv_preparar_lineas($conexion, intval($data['empresa_idx'] ?? 0), [
+            'entidad_id' => intval($data['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
+            'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+        ], $data['detalles'], 'pedido');
     }
 
     mysqli_begin_transaction($conexion);
@@ -1811,6 +1834,10 @@ function actualizarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $det
             if (array_key_exists('_vpre', $detalle)) {
                 vpre_guardar_foto($conexion, 'pedido', $vpd_id, $detalle['_vpre']);
             }
+            // Reglas de precio de venta: '_prv' solo viene con el indicador
+            if (!empty($detalle['_prv'])) {
+                prv_guardar_linea($conexion, 'pedido', (int) $vpd_id, $detalle['_prv'], $detalle['_prv']['_aprobado_por'] ?? null);
+            }
         } else {
             // Línea nueva: INSERT. cantidad_entregada arranca en 0 acá sí, porque
             // es genuinamente nueva.
@@ -1839,8 +1866,12 @@ function actualizarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $det
                 return ['resultado' => false, 'error' => 'Error insertando detalle nuevo: ' . $err];
             }
             $ids_recibidos[] = mysqli_insert_id($conexion);
+            $nuevo_vpd_id = (int) mysqli_insert_id($conexion);
             if (!empty($detalle['_vpre'])) {
                 vpre_guardar_foto($conexion, 'pedido', (int) mysqli_insert_id($conexion), $detalle['_vpre']);
+            }
+            if (!empty($detalle['_prv'])) {
+                prv_guardar_linea($conexion, 'pedido', $nuevo_vpd_id, $detalle['_prv'], $detalle['_prv']['_aprobado_por'] ?? null);
             }
             mysqli_stmt_close($stmt);
         }
@@ -1940,9 +1971,14 @@ function insertarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $detal
         
         $insertados++;
         mysqli_stmt_close($stmt);
+        $nuevo_vpd_id = (int) mysqli_insert_id($conexion);
         // Venta por presentación: '_vpre' solo viene con el indicador
         if (!empty($detalle['_vpre'])) {
             vpre_guardar_foto($conexion, 'pedido', (int) mysqli_insert_id($conexion), $detalle['_vpre']);
+        }
+        // Reglas de precio de venta: '_prv' solo viene con el indicador
+        if (!empty($detalle['_prv'])) {
+            prv_guardar_linea($conexion, 'pedido', $nuevo_vpd_id, $detalle['_prv'], $detalle['_prv']['_aprobado_por'] ?? null);
         }
     }
 

@@ -1156,6 +1156,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         const MODULO_ID = <?= $modulo_id ?>;
     </script>
     <script src="<?= asset_local('js/ventas-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/ventas-presentaciones.js') ?>"></script>
+    <?php require_once ROOT_PATH . '/core/precios_venta.php'; ?>
+    <script>window.PRV_ACTIVO = <?= prv_activo($conn, (int)($current_empresa_id ?? 0), 'pedido') ? 'true' : 'false' ?>; // escalas y promociones (doc 22)</script>
     <script src="ventas_pedidos.js?v=<?= filemtime(__DIR__.'/ventas_pedidos.js') ?>"></script>
 </main>
 

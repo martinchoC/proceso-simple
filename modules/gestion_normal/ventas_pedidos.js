@@ -70,12 +70,12 @@ $(document).ready(function () {
 
                 if (autoAplicarCondicionPago) {
                     var descuentoPct = parseFloat(res.data.cliente_descuento_general) || 0;
-                    $('#descuento_general_pct').val(descuentoPct);
+                    $('#descuento_general_pct').val(window.PRV_ACTIVO ? 0 : descuentoPct);
 
                     // Si ya había productos agregados (cambio de cliente sobre un pedido en curso),
                     // recalcular cada línea con el nuevo descuento general.
                     if (detalles.length > 0) {
-                        recalcularDetallesConDescuento(descuentoPct);
+                        if (window.PRV_ACTIVO) { programarResolverDescuentos(); } else { recalcularDetallesConDescuento(descuentoPct); }
                     }
                 }
             } else if (autoAplicarCondicionPago) {
@@ -110,6 +110,69 @@ $(document).ready(function () {
 
         renderizarDetalles();
         actualizarTotales();
+    }
+
+    // ========== REGLAS DE PRECIO DE VENTA (escalas, promociones y topes; doc 22) ==========
+    // Con window.PRV_ACTIVO (ventas_pedidos.php), el % de cada línea lo calcula el servidor (resolver_descuentos): el
+    // mayor entre el descuento del cliente, la escala y la promoción (sin sumarlos, con el tope de la lista), más el
+    // descuento manual del campo "Descuento general %", que en ese modo es el manual del vendedor. Un pedido ya
+    // confirmado no se recalcula (manda lo pactado). Sin el indicador nada de esto corre.
+    var prvTimer = null, prvFirma = '', prvAplicando = false, prvRequiere = false;
+    function prvAplicarPct(detalle, pct) {
+        if (VentaPres.esPres(detalle)) { detalle.descuento_general_pct = pct; VentaPres.recalcular(detalle); return; }
+        var desc = detalle.precio_unitario * (pct / 100);
+        var neto = detalle.precio_unitario - desc;
+        var ng = detalle.cantidad * neto;
+        var iva = ng * (detalle.iva_porcentaje / 100);
+        detalle.descuento_general_pct = pct;
+        detalle.descuento_general = desc;
+        detalle.precio_unitario_neto = neto;
+        detalle.neto_gravado = ng;
+        detalle.iva_importe = iva;
+        detalle.total_linea = ng + iva + (detalle.no_gravado || 0) + (detalle.exento || 0);
+    }
+    function prvBadge(detalle) {
+        var p = detalle._prv;
+        if (!window.PRV_ACTIVO || !p || !(parseFloat(p.total_pct) > 0)) return '';
+        var origen = p.regla_nombre || (p.regla_tipo === 'CLIENTE' ? 'Cliente' : '');
+        var txt = (origen ? origen + ' ' : '') + Fmt.numero(p.auto_pct, 2) + ' %' + (parseFloat(p.manual_pct) > 0 ? ' + ' + Fmt.numero(p.manual_pct, 2) + ' % manual' : '');
+        return ' <span class="badge ' + (p.requiere_aprobacion ? 'bg-warning text-dark' : 'bg-info text-dark') + '" title="Descuento aplicado">' + escapeHtml(txt) + '</span>';
+    }
+    // Al abrir un pedido: el manual que tenía (el mayor de sus líneas)
+    function prvManualDe(res) {
+        var m = 0;
+        (res.detalles || []).forEach(function (d) { m = Math.max(m, parseFloat(d.descuento_manual_pct) || 0); });
+        return m;
+    }
+    function programarResolverDescuentos() {
+        if (!window.PRV_ACTIVO || prvAplicando || pedidoConfirmado) return;
+        clearTimeout(prvTimer);
+        prvTimer = setTimeout(resolverDescuentos, 300);
+    }
+    function resolverDescuentos() {
+        var lineas = detalles.map(function (d) { return { producto_id: d.producto_id, presentacion_id: VentaPres.clave(d), cantidad: d.cantidad }; });
+        if (!lineas.length) return;
+        var datos = { accion: 'resolver_descuentos', empresa_idx: empresa_idx, entidad_id: $('#entidad_id').val() || 0,
+            sucursal_id: $('#sucursal_id').val() || 0, fecha: $('#f_emision').val() || '',
+            descuento_manual_pct: $('#descuento_general_pct').val() || 0, lineas: JSON.stringify(lineas) };
+        var firma = JSON.stringify(datos);
+        if (firma === prvFirma) return;
+        $.post('ventas_pedidos_ajax.php', datos, function (r) {
+            if (!r || !r.success || !r.data || !r.data.activo) return;
+            prvFirma = firma;
+            (r.data.lineas || []).forEach(function (res, i) {
+                if (detalles[i]) { detalles[i]._prv = res; prvAplicarPct(detalles[i], parseFloat(res.total_pct) || 0); }
+            });
+            if (r.data.requiere_aprobacion && !prvRequiere && window.UiSimple) {
+                UiSimple.aviso('El descuento manual supera tu tope: el pedido se puede guardar, pero lo tiene que confirmar alguien con un tope mayor.');
+            }
+            prvRequiere = !!r.data.requiere_aprobacion;
+            prvAplicando = true;
+            try { renderizarDetalles(); actualizarTotales(); } finally { prvAplicando = false; }
+        }, 'json');
+    }
+    if (window.PRV_ACTIVO) {
+        $(document).on('change', '#descuento_general_pct, #sucursal_id, #f_emision', programarResolverDescuentos);
     }
 
     // ========== FUNCIONES DE DATATABLE CON FILTROS POR COLUMNA ==========
@@ -878,7 +941,7 @@ $(document).ready(function () {
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
-                $('#descuento_general_pct').val(res.descuento_general_pct || '0');
+                $('#descuento_general_pct').val(window.PRV_ACTIVO ? prvManualDe(res) : (res.descuento_general_pct || '0'));
                 $('#total_neto').val(res.subtotal || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
                 $('#exento').val(res.exento || 0);
@@ -1566,7 +1629,7 @@ $(document).ready(function () {
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
                 <td>${detalle.producto_codigo || ''}</td>
                 <td>
-                    <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
+                    <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}${prvBadge(detalle)}</div>
                     ${VentaPres.esPres(detalle) ? `<span class="badge bg-secondary">${escapeHtml(detalle.presentacion_nombre || '')}</span> <small class="text-muted">${formatMoneda(detalle.cantidad)} u.</small>` : ''}
                     ${detalle.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(detalle.compatibilidad_texto)}</small>` : ''}
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
@@ -1626,7 +1689,7 @@ $(document).ready(function () {
             var nombreProducto = detalle.producto_nombre || '';
             html += `<tr>
                 <td>${detalle.producto_codigo || ''}</td>
-                <td>${nombreProducto.substring(0, 25)}${nombreProducto.length > 25 ? '...' : ''}${VentaPres.esPres(detalle) ? ` <span class="badge bg-secondary">${escapeHtml(detalle.presentacion_nombre || '')}</span>` : ''}</td>
+                <td>${nombreProducto.substring(0, 25)}${nombreProducto.length > 25 ? '...' : ''}${prvBadge(detalle)}${VentaPres.esPres(detalle) ? ` <span class="badge bg-secondary">${escapeHtml(detalle.presentacion_nombre || '')}</span>` : ''}</td>
                 <td class="text-center">${formatMoneda(VentaPres.cantidadVisible(detalle))}</td>
                 <td class="text-end fw-bold">$${formatMoneda(detalle.total_linea)}</td>
             </tr>`;
@@ -1784,6 +1847,7 @@ $(document).ready(function () {
         $('#cantidad_display_resumen_mini').text(formatMoneda(totalCantidad));
 
         $('#contador-productos').text(detalles.length);
+        programarResolverDescuentos();
     }
 
     $('#btnToggleFullscreen').click(function() {
@@ -2026,7 +2090,7 @@ $(document).ready(function () {
                 $('#direccion_entrega').val(res.direccion_entrega);
                 $('#observaciones').val(res.observaciones);
                 $('#tipo_cambio').val(res.tipo_cambio || '1.000000');
-                $('#descuento_general_pct').val(res.descuento_general_pct || '0');
+                $('#descuento_general_pct').val(window.PRV_ACTIVO ? prvManualDe(res) : (res.descuento_general_pct || '0'));
                 $('#total_neto').val(res.subtotal || 0);
                 $('#no_gravado').val(res.no_gravado || 0);
                 $('#exento').val(res.exento || 0);

@@ -338,6 +338,11 @@ try {
             echo json_encode($unidades, JSON_UNESCAPED_UNICODE);
             break;
             
+        // Reglas de precio de venta (core/precios_venta.php): descuento de cada línea según escalas, promociones y topes
+        case 'resolver_descuentos':
+            echo json_encode(prv_resolver_pantalla($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), 'pedido', $_POST), JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'buscar_productos_cliente':
             $entidad_id = intval($_GET['entidad_id'] ?? 0);
             $q = $_GET['q'] ?? '';

@@ -432,3 +432,96 @@ if (!function_exists('prv_aprobar_pendientes')) {
         return null;
     }
 }
+
+if (!function_exists('prv_preparar_lineas')) {
+    /**
+     * Gancho de los modelos al grabar (pedido, remito o factura): con las reglas activas para el tipo, calcula con
+     * precio_resolver() el automático que corresponde a cada línea y toma como manual lo que su descuento_general_pct
+     * trae por encima. Deja el resultado en $d['_prv'] (con _aprobado_por = el usuario si su tope lo cubre) para
+     * grabarlo con prv_guardar_linea() después del INSERT / UPDATE. No toca el % ni los importes de la línea.
+     * $exigir_tope: remito o factura directos (sin pedido) no se graban si el manual supera el tope del usuario; el
+     * pedido sí (queda en Borrador y lo confirma alguien con tope suficiente).
+     * Las líneas que vienen de otro comprobante (venta_pedido_detalle_id / venta_remito_detalle_id) heredan: no se
+     * resuelven acá.
+     * @throws InvalidArgumentException con el mensaje para el usuario
+     */
+    function prv_preparar_lineas(mysqli $conexion, int $empresa_id, array $ctx, array $detalles, string $tipo, bool $exigir_tope = false): array
+    {
+        if (!$detalles || !prv_activo($conexion, $empresa_id, $tipo)) {
+            return $detalles;
+        }
+        $lineas = [];
+        foreach ($detalles as $k => $d) {
+            if (!empty($d['venta_pedido_detalle_id']) || !empty($d['venta_remito_detalle_id'])) {
+                continue;
+            }
+            if (intval($d['producto_id'] ?? 0) <= 0) {
+                continue;
+            }
+            $lineas[$k] = [
+                'producto_id' => intval($d['producto_id']),
+                'presentacion_id' => intval($d['presentacion_id'] ?? 0),
+                'cantidad' => (float) ($d['cantidad'] ?? 0),
+                'descuento_total_pct' => (float) ($d['descuento_general_pct'] ?? 0),
+            ];
+        }
+        if (!$lineas) {
+            return $detalles;
+        }
+        $usuario_id = intval($ctx['usuario_id'] ?? 0);
+        $res = precio_resolver($conexion, $empresa_id, $ctx, $lineas);
+        foreach ($res as $k => $r) {
+            if ($r['requiere_aprobacion'] && $exigir_tope) {
+                throw new InvalidArgumentException('El descuento manual de ' . rtrim(rtrim(number_format($r['manual_pct'], 2, ',', ''), '0'), ',')
+                    . ' % supera tu tope (' . rtrim(rtrim(number_format($r['tope_usuario'], 2, ',', ''), '0'), ',') . ' %).');
+            }
+            $r['_aprobado_por'] = ($r['manual_pct'] > 0 && !$r['requiere_aprobacion']) ? $usuario_id : null;
+            $detalles[$k]['_prv'] = $r;
+        }
+        return $detalles;
+    }
+}
+
+if (!function_exists('prv_resolver_pantalla')) {
+    /**
+     * Acción AJAX "resolver_descuentos" de pedidos, remitos y facturas: la pantalla manda las líneas (producto_id,
+     * presentacion_id, cantidad en unidad base) y el descuento manual (descuento_manual_pct, el mismo para todas, o
+     * por línea) y recibe, por índice, el total a aplicar y la regla. Sin el indicador: activo = false.
+     */
+    function prv_resolver_pantalla(mysqli $conexion, int $empresa_id, int $usuario_id, string $tipo, array $req): array
+    {
+        if (!prv_activo($conexion, $empresa_id, $tipo)) {
+            return ['success' => true, 'data' => ['activo' => false], 'message' => ''];
+        }
+        $lineas = json_decode((string) ($req['lineas'] ?? '[]'), true);
+        if (!is_array($lineas)) {
+            $lineas = [];
+        }
+        $manual_general = max(0.0, min(100.0, (float) ($req['descuento_manual_pct'] ?? 0)));
+        $entrada = [];
+        foreach ($lineas as $i => $l) {
+            $entrada[$i] = [
+                'producto_id' => intval($l['producto_id'] ?? 0),
+                'presentacion_id' => intval($l['presentacion_id'] ?? 0),
+                'cantidad' => (float) ($l['cantidad'] ?? 0),
+                'descuento_manual_pct' => isset($l['descuento_manual_pct']) && $l['descuento_manual_pct'] !== '' ? (float) $l['descuento_manual_pct'] : $manual_general,
+            ];
+        }
+        $res = precio_resolver($conexion, $empresa_id, [
+            'entidad_id' => intval($req['entidad_id'] ?? 0), 'sucursal_id' => intval($req['sucursal_id'] ?? 0),
+            'fecha' => $req['fecha'] ?? null, 'usuario_id' => $usuario_id,
+        ], $entrada);
+        $out = [];
+        $requiere = false;
+        $tope = null;
+        foreach ($res as $i => $r) {
+            $out[$i] = [
+                'total_pct' => $r['total_pct'], 'auto_pct' => $r['auto_pct'], 'manual_pct' => $r['manual_pct'],
+                'regla_tipo' => $r['regla_tipo'], 'regla_nombre' => $r['regla_nombre'], 'requiere_aprobacion' => $r['requiere_aprobacion'],
+            ];
+            $requiere = $requiere || $r['requiere_aprobacion'];
+            $tope = $r['tope_usuario'];
+        }
+        return ['success' => true, 'data' => ['activo' => true, 'lineas' => $out, 'requiere_aprobacion' => $requiere, 'tope_usuario' => $tope], 'message' => ''];
+    }
+}
