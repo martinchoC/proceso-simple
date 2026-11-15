@@ -298,6 +298,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_reglas_precio_venta">Usa escalas y promociones <?= ui_ayuda('Descuentos por cantidad y promociones con vigencia que se aplican al vender (Ventas > Escalas y promociones), tope del descuento automático por lista y tope del descuento manual por perfil.') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261118_vendedores_carteras_01.sql aplicado
+                                    $emp_col_vend = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_vendedores'");
+                                    if ($emp_col_vend && mysqli_num_rows($emp_col_vend) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_vendedores" name="usa_vendedores" value="1" />
+                                        <label class="form-check-label" for="usa_vendedores">Usa vendedores y carteras <?= ui_ayuda('Vendedores con su cartera de clientes (Ventas > Vendedores y carteras). El pedido guarda el vendedor y el origen, y el usuario vendedor ve y carga solo pedidos de su cartera.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1114,6 +1122,7 @@ $(document).ready(function(){
                 $('#usa_venta_presentaciones').prop('checked', parseInt(res.usa_venta_presentaciones, 10) === 1);
                 $('#usa_canales_venta').prop('checked', parseInt(res.usa_canales_venta, 10) === 1);
                 $('#usa_reglas_precio_venta').prop('checked', parseInt(res.usa_reglas_precio_venta, 10) === 1);
+                $('#usa_vendedores').prop('checked', parseInt(res.usa_vendedores, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1268,6 +1277,7 @@ $(document).ready(function(){
         if ($('#usa_venta_presentaciones').length) formData.usa_venta_presentaciones = $('#usa_venta_presentaciones').is(':checked') ? 1 : 0;
         if ($('#usa_canales_venta').length) formData.usa_canales_venta = $('#usa_canales_venta').is(':checked') ? 1 : 0;
         if ($('#usa_reglas_precio_venta').length) formData.usa_reglas_precio_venta = $('#usa_reglas_precio_venta').is(':checked') ? 1 : 0;
+        if ($('#usa_vendedores').length) formData.usa_vendedores = $('#usa_vendedores').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
