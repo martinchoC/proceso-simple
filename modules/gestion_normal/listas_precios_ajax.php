@@ -134,6 +134,15 @@ try {
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 
+        case 'importar_presentaciones_simular':
+        case 'importar_presentaciones_confirmar':
+        case 'importar_presentaciones_plantilla':
+            // Precios por presentación desde planilla (core/listas_precios_presentaciones_import.php)
+            permisos_exigir_funcion($conexion, (int)($pagina_id), 'editar', true);
+            require_once __DIR__ . '/../../core/listas_precios_presentaciones_import.php';
+            echo json_encode(lpre_imp_despachar($conexion, (int)$empresa_idx, (int)$ctx['usuario_id'], $accion), JSON_UNESCAPED_UNICODE);
+            break;
+
         case 'agregar_regla':
             $data = [
                 'lista_precio_id' => intval($_POST['lista_precio_id'] ?? 0),                

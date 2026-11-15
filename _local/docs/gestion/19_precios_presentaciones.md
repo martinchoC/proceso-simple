@@ -132,7 +132,9 @@ Las 6 propuestas se aceptaron tal cual.
 | Migración | `_local/sql/mantenimiento/20261114_venta_presentaciones_01.sql` | `d3d5780` |
 | API (`lpre_*`) | `core/listas_precios_presentaciones.php` | `500c259` |
 | Interruptor "Vende por presentación" | Configuración > Empresas (`modules/conf/empresas*`); solo aparece con la columna; exige "Usa presentaciones" | `860df94` |
-| Ficha del producto | `core/productos_presentaciones.php`, `templates/productos/presentaciones_seccion.php`, `assets/js/productos-presentaciones.js`; en los módulos 2 y 5 solo la acción `obtener_presentaciones` (`prpr_respuesta_presentaciones`) | (este) |
+| Ficha del producto | `core/productos_presentaciones.php`, `templates/productos/presentaciones_seccion.php`, `assets/js/productos-presentaciones.js`; en los módulos 2 y 5 solo la acción `obtener_presentaciones` (`prpr_respuesta_presentaciones`) | `9288d4d` |
+| "Vende la unidad suelta" | Listas de precios (2 y 5): casilla en el formulario, se graba después de agregar / editar con `lpre_guardar_vende_unidad`, sin tocar el INSERT / UPDATE de la lista | `11ca933` |
+| Importación desde planilla | `core/listas_precios_presentaciones_import.php` (`lpre_imp_*`), `templates/listas_precios/importar_presentaciones.php`, `assets/js/listas-precios-importar-presentaciones.js`; en los módulos 2 y 5 el botón "Precios por presentación", el modal y tres acciones (`importar_presentaciones_simular` / `_confirmar` / `_plantilla`) que exigen "editar" | (este) |
 
 **Ficha del producto, con la empresa vendiendo por presentación.**
 
@@ -150,8 +152,12 @@ El JSON `presentaciones` pasa a ser `{filas, unidad}`. `prpr_procesar_formulario
 
 Si falla el paso 1, el usuario recibe un aviso de que el producto quedó guardado y lo demás no.
 
-**Pendiente.**
+**Importación desde planilla.** En dos pasos. Simular lee el archivo, no graba nada y deja el resultado en la sesión con un token de una hora y un solo uso. Confirmar graba todo junto con `lpre_guardar_precios`: si una fila falla, no se graba ninguna.
 
-- "Vende la unidad suelta" en Listas de precios.
-- Importación de precios por presentación desde planilla.
-- El paso 2: presentaciones en pedidos, remitos y facturas.
+- **Presentación:** se identifica por `codigo_barras`, o por `codigo` del producto más `presentacion` (el nombre).
+- **Precios:** una columna por lista, con el código o el nombre de la lista como encabezado. También acepta el formato largo, con las columnas `lista` y `precio`.
+- **Celdas:** vacía = no cambia; 0 = quita el precio. Acepta punto o coma decimal.
+- **Repetidas:** si la misma presentación y lista aparece dos veces, vale la última.
+- **Plantilla:** un CSV con `;` y las presentaciones de venta con sus precios actuales, para editarla y volver a subirla.
+
+**Pendiente.** El paso 2: presentaciones en pedidos, remitos y facturas.

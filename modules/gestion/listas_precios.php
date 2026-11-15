@@ -17,7 +17,8 @@ $lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? 
 ?>
 
 <main class="app-main">
-    <?php ui_encabezado('Listas de precios','fas fa-tags', '', ['Seteo Empresas']); ?>
+    <?php ui_encabezado('Listas de precios','fas fa-tags', '', ['Seteo Empresas'],
+        $lp_venta_presentaciones ? '<button type="button" class="btn btn-sm btn-outline-primary btn-lpre-importar" data-funcion="editar"><i class="fas fa-box-open me-1"></i>Precios por presentación</button>' : ''); ?>
 
     <div class="app-content">
         <div class="container-fluid">
@@ -574,6 +575,11 @@ $lp_venta_presentaciones = lpre_empresa_usa($conn, (int)($current_empresa_id ?? 
         const modulo_id = <?php echo $modulo_id; ?>;
     </script>
     <script src="listas_precios.js?v=<?= filemtime(__DIR__.'/listas_precios.js') ?>"></script>
+    <?php if ($lp_venta_presentaciones): ?>
+    <?php include ROOT_PATH . '/templates/listas_precios/importar_presentaciones.php'; ?>
+    <script src="<?= asset_local('js/listas-precios-importar-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/listas-precios-importar-presentaciones.js') ?>"></script>
+    <script>$(function () { LpreImport.init({ ajaxUrl: 'listas_precios_ajax.php', empresaIdx: empresa_id, paginaId: pagina_id }); });</script>
+    <?php endif; ?>
 </main>
 
 <?php
