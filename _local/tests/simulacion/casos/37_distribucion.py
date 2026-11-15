@@ -138,3 +138,70 @@ if CTX.get('ok'):
     b = botones(CTX['ped'])
     check('volver_revision' in b and 'visualizar' in b, 'apagado: un pedido que quedó en 42 se puede ver y volver a revisión', str(b))
     sql("UPDATE conf__empresas SET usa_distribucion = 1 WHERE empresa_id = 2")
+
+
+# ---------------------------------------------------------------------------------------------
+def dh(params, method='POST', usuario_id=1):
+    return ajax('distribucion_hojas_ajax.php', dict(params, empresa_idx=2), method, usuario_id=usuario_id)
+
+
+caso('Distribución: armado, hojas de ruta, lista de carga y rendición')
+ped, ped2, k1 = CTX.get('ped'), CTX.get('ped2'), CTX.get('k1')
+if CTX.get('ok') and ped and ped2 and k1:
+    peso_ant = val("SELECT peso FROM gestion__productos WHERE producto_id = 1529")
+    sql("UPDATE gestion__productos SET peso = 10 WHERE producto_id = 1529")   # 10 kg por unidad, solo en la copia
+    r = dh(dict(accion='disponibles'), 'GET')
+    disp = {int(p['venta_pedido_id']): p for p in (data(r) or [])}
+    check(ok_resp(r) and ped in disp and ped2 in disp and abs(num(disp[ped2]['peso_kg']) - 30) < 0.001,
+          'disponibles: los dos pedidos en 42, con su peso (3 u x 10 kg = 30 kg)', str(r)[:300])
+    check(disp.get(ped, {}).get('zona_nombre'), 'el pedido trae la zona del cliente', str(disp.get(ped))[:200])
+    r = dh(dict(accion='hoja_crear', fecha_reparto=HOY, camion_id=k1))
+    h1 = (data(r) or {}).get('hoja_id')
+    check(ok_resp(r) and h1, 'hoja nueva en borrador', err(r))
+    r = dh(dict(accion='agregar_pedidos', hoja_id=h1, pedidos=json.dumps([ped2])))
+    check(ok_resp(r) and (data(r) or {}).get('requiere_confirmar'), 'supera la capacidad (30 de 25 kg): pide confirmar y no graba', str(r)[:300])
+    r = dh(dict(accion='agregar_pedidos', hoja_id=h1, pedidos=json.dumps([ped2, ped]), forzar=1))
+    check(ok_resp(r) and (data(r) or {}).get('agregados') == 2, 'confirmado: se agregan los dos', err(r))
+    r = dh(dict(accion='disponibles'), 'GET')
+    check(ok_resp(r) and not ({ped, ped2} & {int(p['venta_pedido_id']) for p in data(r)}), 'ya no figuran para armar', str(r)[:200])
+    r = dh(dict(accion='hoja_crear', fecha_reparto=HOY, camion_id=k1))
+    h2 = (data(r) or {}).get('hoja_id')
+    r = dh(dict(accion='agregar_pedidos', hoja_id=h2, pedidos=json.dumps([ped]), forzar=1))
+    check(not ok_resp(r) and 'otra hoja' in err(r), 'un pedido no va en dos hojas', err(r))
+    r = dh(dict(accion='ordenar', hoja_id=h1, pedidos=json.dumps([ped, ped2])))
+    r2 = dh(dict(accion='hoja', hoja_id=h1), 'GET')
+    orden = [int(p['venta_pedido_id']) for p in ((data(r2) or {}).get('pedidos') or [])]
+    check(ok_resp(r) and orden == [ped, ped2], 'orden de visita manual', str(orden))
+    r = dh(dict(accion='lista_carga', hoja_id=h1), 'GET')
+    fila = next((f for f in (data(r) or []) if int(f['producto_id']) == 1529), {})
+    check(ok_resp(r) and abs(num(fila.get('unidades')) - 5) < 0.001, 'lista de carga: 5 u de P1 (2 + 3)', str(r)[:300])
+    r = dh(dict(accion='confirmar', hoja_id=h1))
+    check(ok_resp(r) and int(val(f"SELECT tabla_estado_registro_id FROM gestion__distribucion_hojas WHERE hoja_id = {h1}")) == 5
+          and abs(num(val(f"SELECT peso_kg FROM gestion__distribucion_hojas WHERE hoja_id = {h1}")) - 50) < 0.001,
+          'confirmar: hoja confirmada con la foto de peso (50 kg)', err(r))
+    r = accion_pedido(ped, 'volver_revision')
+    check(not ok_resp(r) and estado(ped) == 42, 'un pedido de una hoja confirmada no vuelve a revisión', err(r))
+    r = dh(dict(accion='cerrar_rendicion', hoja_id=h1))
+    check(not ok_resp(r) and 'sin resultado' in err(r), 'no se cierra la rendición con pedidos sin resultado', err(r))
+    r = dh(dict(accion='rendir_pedido', hoja_id=h1, venta_pedido_id=ped, resultado='ENTREGADO', cobrado_importe=242, cobrado_medio='Efectivo'))
+    check(ok_resp(r), 'rendir: entregado y cobrado', err(r))
+    r = dh(dict(accion='rendir_pedido', hoja_id=h1, venta_pedido_id=ped2, resultado='RECHAZADO'))
+    check(not ok_resp(r) and 'motivo' in err(r), 'rechazado sin motivo se rechaza', err(r))
+    dh(dict(accion='rendir_pedido', hoja_id=h1, venta_pedido_id=ped2, resultado='RECHAZADO', motivo='Local cerrado'))
+    r = dh(dict(accion='cerrar_rendicion', hoja_id=h1))
+    d = data(r) or {}
+    check(ok_resp(r) and (d.get('resultados') or {}).get('ENTREGADO') == 1 and (d.get('resultados') or {}).get('RECHAZADO') == 1 and abs(num(d.get('cobrado')) - 242) < 0.01,
+          'cerrar la rendición: resumen y hoja rendida', str(r)[:300])
+    r = dh(dict(accion='disponibles'), 'GET')
+    ids = {int(p['venta_pedido_id']) for p in (data(r) or [])}
+    check(ped2 in ids and ped in ids, 'después de rendir, los que siguen en 42 vuelven al armado', str(ids))
+    r = dh(dict(accion='agregar_pedidos', hoja_id=h2, pedidos=json.dumps([ped2]), forzar=1))
+    r2 = dh(dict(accion='anular', hoja_id=h2))
+    r3 = dh(dict(accion='disponibles'), 'GET')
+    check(ok_resp(r) and ok_resp(r2) and ped2 in {int(p['venta_pedido_id']) for p in (data(r3) or [])}, 'anular una hoja devuelve sus pedidos al armado', err(r) + ' ' + err(r2))
+    sql(f"UPDATE gestion__productos SET peso = {peso_ant if peso_ant is not None else 'NULL'} WHERE producto_id = 1529")
+
+    sql("UPDATE conf__empresas SET usa_distribucion = 0 WHERE empresa_id = 2")
+    r = dh(dict(accion='disponibles'), 'GET')
+    check(not ok_resp(r) and 'no usa distribución' in err(r), 'apagado: el armado no corre', err(r))
+    sql("UPDATE conf__empresas SET usa_distribucion = 1 WHERE empresa_id = 2")

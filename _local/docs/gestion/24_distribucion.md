@@ -1,6 +1,6 @@
 # Distribución: camiones, zonas, armado y hojas de ruta (paso 5b)
 
-Estado: **plan a aprobar** (2026-11-15).
+Estado: **implementado** (2026-11-15; plan aprobado con las 6 recomendaciones).
 
 ## Pedido (Prompt 5, parte b)
 
@@ -124,3 +124,27 @@ remitos siguen saliendo como hoy (desde el pedido o la preparación).
 ## Pendiente de 5a para la rendición y el reparto
 
 El vendedor del pedido (5a) aparece en la hoja de ruta y en el armado como dato; no se arma por vendedor.
+
+## Implementado (2026-11-15)
+
+| Paso | Qué |
+|---|---|
+| 5b-1 | `20261119_distribucion_01.sql` (indicador, tablas 471–475, `boca_despacho_id`, estado 42 y fila 272) y `20261119_distribucion_02_paginas.sql` (funciones del pedido 3605–3609 / 8605–8609, páginas 148 / 149 / 648 / 649 y sus funciones 3610–3619 / 8610–8619 con permisos); `core/distribucion/distribucion_service.php` (`vdis_*`) |
+| 5b-2 | Página "Distribución - Configuración" (zonas con días, clientes por zona —todas las sucursales o una de entrega—, clientes sin zona, camiones); interruptor "Usa distribución" en Empresas |
+| 5b-3 | Pedidos: "Liberar para distribución" (5 → 42, completa el depósito de despacho), "Volver a revisión" (42 → 5; lo saca de una hoja en borrador, no de una confirmada), la preparación (91) lista y abre los de 42 (→ 9). Sin el indicador no se ofrecen ni se ejecutan; un pedido que quedó en 42 se puede ver y volver |
+| 5b-4 / 5b-5 | Página "Armado y hojas de ruta" (`core/distribucion/distribucion_hojas.php`, `templates/distribucion/hojas.php`, `assets/js/distribucion-hojas.js`): armado por fecha / depósito / zona con peso y volumen y aviso de datos faltantes, hojas por camión con barras de capacidad (superarla pide confirmar), orden de visita arrastrable (Sortable), impresión de hoja de ruta y lista de carga desde el navegador, confirmar (foto de peso / volumen), anular (los pedidos vuelven al armado) y rendición por pedido (resultado, motivo, cobrado) con cierre de la hoja |
+
+Pruebas: `probar_vdis.php` (núcleo: 3 apagado y 23 prendido en la copia, 3 contra el maestro sin la estructura),
+`probar_empresas_dist.php` (interruptor), caso `37_distribucion.py` (configuración, estado 42, armado, hojas y
+rendición, con el indicador apagado: 42 chequeos) y comparación antes / después de los casos 03, 04, 06, 09 y 19b
+con el indicador apagado (idéntica).
+
+Límites conocidos:
+- El estado 18 "En curso" de la hoja no se usa: la hoja pasa de Confirmada a Rendida.
+- Se asigna a la hoja con casillas y un botón (no arrastrando entre listas); el arrastre es para el orden de visita.
+- La rendición registra: no hace remitos ni recibos ni mueve stock. Los remitos siguen saliendo de la preparación
+  o de Remitos (los pedidos en 42 ya aparecen como pendientes ahí).
+- Peso y volumen: con los datos actuales el control es parcial (pocas presentaciones con medidas y ningún producto
+  con peso); el armado marca los pedidos con líneas sin dato.
+- La impresión es la del navegador (no usa `templates/impresion/` ni el formato de la empresa).
+- La consola del navegador no se revisó en estas pantallas (sin navegador en esta sesión).
