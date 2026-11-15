@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -1113,6 +1114,14 @@ function agregarRemitoVenta($conexion, $data)
         }
         // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
         cvta_exigir_venta_sucursal($conexion, $empresa_id_val, $sucursal_id_val, $destinatario['entidad_id'] ?? null);
+        // Reglas de precio de venta: regla y descuento manual de las líneas sin pedido ni remito de origen; el manual
+        // no puede superar el tope del usuario (sin el indicador, nada)
+        if (isset($data['detalles']) && is_array($data['detalles'])) {
+            $data['detalles'] = prv_preparar_lineas($conexion, intval($empresa_id_val), [
+                'entidad_id' => intval($destinatario['entidad_id'] ?? null), 'sucursal_id' => intval($sucursal_id_val),
+                'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+            ], $data['detalles'], 'remito', true);
+        }
 
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_nro_val = 0;
@@ -1257,6 +1266,14 @@ function editarRemitoVenta($conexion, $id, $data)
         }
         // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
         cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), $sucursal_id_val, $destinatario['entidad_id'] ?? null);
+        // Reglas de precio de venta: regla y descuento manual de las líneas sin pedido ni remito de origen; el manual
+        // no puede superar el tope del usuario (sin el indicador, nada)
+        if (isset($data['detalles']) && is_array($data['detalles'])) {
+            $data['detalles'] = prv_preparar_lineas($conexion, intval($data['empresa_idx'] ?? 0), [
+                'entidad_id' => intval($destinatario['entidad_id'] ?? null), 'sucursal_id' => intval($sucursal_id_val),
+                'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+            ], $data['detalles'], 'remito', true);
+        }
 
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $entidad_id_val = $destinatario['entidad_id'];
@@ -1497,6 +1514,12 @@ function insertarDetallesRemito($conexion, $venta_remito_id, $entidad_id, $empre
             vpre_heredar($conexion, 'remito', $remito_detalle_id_vpre, 'pedido', $venta_pedido_detalle_id, $cantidad);
         } elseif (!empty($detalle['_vpre'])) {
             vpre_guardar_foto($conexion, 'remito', $remito_detalle_id_vpre, $detalle['_vpre']);
+        }
+        // Reglas de precio de venta: hereda la regla de la línea del pedido, o graba la de la línea directa
+        if ($venta_pedido_detalle_id) {
+            prv_heredar($conexion, 'remito', $remito_detalle_id_vpre, 'pedido', (int) $venta_pedido_detalle_id);
+        } elseif (!empty($detalle['_prv'])) {
+            prv_guardar_linea($conexion, 'remito', $remito_detalle_id_vpre, $detalle['_prv'], $detalle['_prv']['_aprobado_por'] ?? null);
         }
 
         $importe_neto_total += $importe_linea;

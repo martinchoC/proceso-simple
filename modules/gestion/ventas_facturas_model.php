@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
@@ -1156,6 +1157,14 @@ function vfInsertarDetallesFactura($conexion, $factura_id, $detalles) {
         } elseif (!empty($d['_vpre'])) {
             vpre_guardar_foto($conexion, 'factura', $factura_detalle_id_vpre, $d['_vpre']);
         }
+        // Reglas de precio de venta: hereda la regla del remito (o del pedido), o graba la de la línea directa
+        if ($remitoDetalle) {
+            prv_heredar($conexion, 'factura', $factura_detalle_id_vpre, 'remito', $remitoDetalle);
+        } elseif ($pedidoDetalle) {
+            prv_heredar($conexion, 'factura', $factura_detalle_id_vpre, 'pedido', $pedidoDetalle);
+        } elseif (!empty($d['_prv'])) {
+            prv_guardar_linea($conexion, 'factura', $factura_detalle_id_vpre, $d['_prv'], $d['_prv']['_aprobado_por'] ?? null);
+        }
 
         if ($remitoDetalle) {
             // "facturado" es un flag booleano (0/1), no el id de la factura — bindearlo con
@@ -1329,6 +1338,14 @@ function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
         $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
         // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
         cvta_exigir_venta_sucursal($conexion, intval($empresa_id), intval($data['sucursal_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0));
+        // Reglas de precio de venta: regla y descuento manual de las líneas sin pedido ni remito de origen; el manual
+        // no puede superar el tope del usuario (sin el indicador, nada)
+        if (isset($detalles) && is_array($detalles)) {
+            $detalles = prv_preparar_lineas($conexion, intval($empresa_id), [
+                'entidad_id' => intval($destinatario['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
+                'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+            ], $detalles, 'factura', true);
+        }
         // Consumidor final: siempre contado (no tiene cuenta corriente), sin importar lo que mande el navegador.
         $condicion_pago_id = $destinatario['entidad_id']
             ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
@@ -1475,6 +1492,14 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
         $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
         // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
         cvta_exigir_venta_sucursal($conexion, intval($empresa_id), intval($data['sucursal_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0));
+        // Reglas de precio de venta: regla y descuento manual de las líneas sin pedido ni remito de origen; el manual
+        // no puede superar el tope del usuario (sin el indicador, nada)
+        if (isset($detalles) && is_array($detalles)) {
+            $detalles = prv_preparar_lineas($conexion, intval($empresa_id), [
+                'entidad_id' => intval($destinatario['entidad_id'] ?? 0), 'sucursal_id' => intval($data['sucursal_id'] ?? 0),
+                'fecha' => $data['f_emision'] ?? null, 'usuario_id' => intval($_SESSION['usuario_id'] ?? 0),
+            ], $detalles, 'factura', true);
+        }
         $condicion_pago_id = $destinatario['entidad_id']
             ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
             : intval($cond['condicion_pago_id'] ?? 0);
