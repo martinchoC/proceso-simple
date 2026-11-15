@@ -550,6 +550,12 @@ function actualizarPrecioVentaDesdeRegla($conexion, $empresa_id, $lista_precio_i
     $actual = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
     mysqli_stmt_close($stmt);
 
+    // Precio manual o importado (es_manual = 1): la fórmula no lo pisa, mismo criterio que el recálculo de
+    // la lista (doc 18, A2). Para que vuelva a seguir al costo, se da de baja en Listas de precios por producto.
+    if ($actual && (int) $actual['es_manual'] === 1) {
+        return ['success' => true, 'actualizado' => false, 'manual' => true];
+    }
+
     // Si ya está en el mismo precio (redondeado), no se toca — evita
     // ensuciar el historial con "cambios" que en los hechos no cambian nada.
     if ($actual && abs((float)$actual['precio_final'] - $detalleCalculo['precio']) < 0.99) {
@@ -696,6 +702,7 @@ function actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id,
 
     $precios_actualizados = 0;
     $precios_sin_regla = 0;
+    $precios_manuales = 0;
     foreach ($deberianSer as $lid => $detalle) {
         if ($detalle['precio'] === null) {
             $precios_sin_regla++;
@@ -704,12 +711,14 @@ function actualizarListasPreciosPorRegla($conexion, $producto_id, $categoria_id,
         $resPrecio = actualizarPrecioVentaDesdeRegla($conexion, $empresa_id, $lid, $producto_id, $producto_costo_id, $detalle, $usuario_id);
         if ($resPrecio['success'] && !empty($resPrecio['actualizado'])) {
             $precios_actualizados++;
+        } elseif ($resPrecio['success'] && !empty($resPrecio['manual'])) {
+            $precios_manuales++;
         } elseif (!$resPrecio['success']) {
             error_log("actualizarListasPreciosPorRegla: falló producto_id=$producto_id lista_precio_id=$lid: " . ($resPrecio['message'] ?? ''));
         }
     }
 
-    return ['precios_actualizados' => $precios_actualizados, 'precios_sin_regla' => $precios_sin_regla];
+    return ['precios_actualizados' => $precios_actualizados, 'precios_sin_regla' => $precios_sin_regla, 'precios_manuales' => $precios_manuales];
 }
 
 /* =========================================================================
