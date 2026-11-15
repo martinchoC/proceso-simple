@@ -1155,6 +1155,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
         const EMPRESA_ID = <?= $empresa_id ?>;
         const MODULO_ID = <?= $modulo_id ?>;
     </script>
+    <script src="<?= asset_local('js/ventas-presentaciones.js') ?>?v=<?= filemtime(ROOT_PATH . '/assets/js/ventas-presentaciones.js') ?>"></script>
     <script src="ventas_pedidos.js?v=<?= filemtime(__DIR__.'/ventas_pedidos.js') ?>"></script>
 </main>
 

@@ -349,7 +349,7 @@ try {
             }
 
             // Cliente sin lista de precios vigente: igual se buscan los productos, con importe 0.
-            $productos = buscarProductosPorCliente($conexion, $empresa_idx_local, $entidad_id, $q);
+            $productos = buscarProductosPorCliente($conexion, $empresa_idx_local, $entidad_id, $q, intval($_GET['sucursal_id'] ?? 0));
             echo json_encode(['error' => null, 'productos' => $productos], JSON_UNESCAPED_UNICODE);
             break;
 

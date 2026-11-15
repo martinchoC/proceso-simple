@@ -89,6 +89,12 @@ $(document).ready(function () {
     // porcentaje de descuento general del cliente.
     function recalcularDetallesConDescuento(descuentoPct) {
         detalles.forEach(function(detalle) {
+            // Venta por presentación: los importes salen de la presentación (assets/js/ventas-presentaciones.js)
+            if (VentaPres.esPres(detalle)) {
+                detalle.descuento_general_pct = descuentoPct;
+                VentaPres.recalcular(detalle);
+                return;
+            }
             var descuentoGeneralImporte = detalle.precio_unitario * (descuentoPct / 100);
             var precioUnitarioNeto = detalle.precio_unitario - descuentoGeneralImporte;
             var netoGravado = detalle.cantidad * precioUnitarioNeto;
@@ -907,7 +913,7 @@ $(document).ready(function () {
                         pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                         actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
-                            return {
+                            return VentaPres.copiar(detalle, {
                                 detalle_idx: index,
                                 venta_pedido_detalle_id: detalle.venta_pedido_detalle_id,
                                 producto_id: detalle.producto_id,
@@ -925,7 +931,7 @@ $(document).ready(function () {
                                 neto_gravado: detalle.neto_gravado,
                                 iva_importe: detalle.iva_importe,
                                 total_linea: detalle.total_linea
-                            };
+                            });
                         });
                         renderizarDetalles();
                         actualizarTotales();
@@ -1151,13 +1157,19 @@ $(document).ready(function () {
             <tbody>`;
 
         ultimosResultadosBusqueda.forEach(function (item, index) {
+            // Venta por presentación: una fila por cada forma de venta del producto en la lista del cliente
+            var ofertasItem = VentaPres.ofertas(item);
+            if (ofertasItem.length) {
+                html += filasOfertasBusqueda(item, ofertasItem);
+                return;
+            }
             var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
             var precio = parseFloat(item.precio_neto || 0);
 
             // La cantidad inicial del filtro refleja lo que ya está cargado en el
             // pedido para este producto (0 si todavía no se agregó), en vez de
             // arrancar siempre en 1.
-            var detalleExistente = detalles.find(function (d) { return d.producto_id == item.producto_id; });
+            var detalleExistente = detalles.find(function (d) { return d.producto_id == item.producto_id && VentaPres.clave(d) === 0; });
             var cantidadInicial = detalleExistente ? (parseFloat(detalleExistente.cantidad) || 0) : 0;
 
             html += `<tr class="resultado-libre-fila">
@@ -1180,6 +1192,74 @@ $(document).ready(function () {
 
         html += '</tbody></table>';
         cont.html(html);
+    }
+
+    // Filas del buscador con venta por presentación: la unidad suelta (data-pres="0", el camino de siempre) y
+    // cada presentación con precio en la lista (cantidad en presentaciones). Precio con el descuento del cliente.
+    function filasOfertasBusqueda(item, ofertas) {
+        var ivaPorcentaje = parseFloat(item.iva_porcentaje || 0);
+        var pct = parseFloat(item.descuento_general_pct || 0);
+        return ofertas.map(function (of) {
+            var presId = parseInt(of.presentacion_id, 10) || 0;
+            var existente = detalles.find(function (d) { return d.producto_id == item.producto_id && VentaPres.clave(d) === presId; });
+            var cantidadInicial = existente ? (parseFloat(VentaPres.cantidadVisible(existente)) || 0) : 0;
+            var precio = parseFloat(of.precio || 0) * (1 - pct / 100);
+            return `<tr class="resultado-libre-fila">
+                <td>${item.producto_codigo || ''}</td>
+                <td>${item.producto_nombre || ''}
+                    <span class="badge ${presId ? 'bg-secondary' : 'bg-light text-dark border'} ms-1">${escapeHtml(VentaPres.textoOferta(of))}</span>
+                    ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
+                </td>
+                <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
+                <td class="text-end">$${formatMoneda(precio)}</td>
+                <td>
+                    <div class="cantidad-stepper mx-auto">
+                        <button type="button" class="btn-stepper btn-cantidad-filtro-menos" data-id="${item.producto_id}" data-pres="${presId}" tabindex="-1">&minus;</button>
+                        <input type="number" class="cantidad-stepper-input input-cantidad-producto"
+                            value="${cantidadInicial.toFixed(2)}" step="0.01" min="0">
+                        <button type="button" class="btn-stepper btn-cantidad-filtro-mas" data-id="${item.producto_id}" data-pres="${presId}" tabindex="-1">+</button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    // +/- de una fila de presentación del buscador: la cantidad va en presentaciones (cajas)
+    function ajustarCantidadPresentacion(productoId, delta, presId) {
+        var existente = detalles.find(function (d) { return d.producto_id == productoId && VentaPres.clave(d) === presId; });
+        if (existente) {
+            var n = Math.round(((parseFloat(existente.presentacion_cantidad) || 0) + delta) * 100) / 100;
+            if (n <= 0) {
+                detalles = detalles.filter(function (d) { return d.detalle_idx != existente.detalle_idx; });
+            } else {
+                VentaPres.fijarCantidad(existente, n);
+            }
+        } else {
+            if (delta <= 0) return;
+            var item = ultimosResultadosBusqueda.find(function (p) { return p.producto_id == productoId; });
+            var of = item ? VentaPres.ofertas(item).find(function (o) { return (parseInt(o.presentacion_id, 10) || 0) === presId; }) : null;
+            if (!of) return;
+            var ivaId = item.iva_alicuota_id || null;
+            var linea = $.extend({
+                detalle_idx: 'temp_' + new Date().getTime() + '_' + Math.random(),
+                venta_pedido_detalle_id: 0,
+                producto_id: productoId,
+                producto_codigo: item.producto_codigo,
+                producto_nombre: item.producto_nombre,
+                compatibilidad_texto: item.compatibilidad_texto || '',
+                cantidad_entregada: 0,
+                no_gravado: 0,
+                exento: 0,
+                iva_alicuota_id: ivaId ? parseInt(ivaId) : null,
+                iva_porcentaje: parseFloat(item.iva_porcentaje || 0)
+            }, VentaPres.nuevaLinea(of, delta, item.descuento_general_pct));
+            detalles.push(VentaPres.recalcular(linea));
+        }
+        renderizarDetalles();
+        actualizarTotales();
+        var actualizado = detalles.find(function (d) { return d.producto_id == productoId && VentaPres.clave(d) === presId; });
+        $('.btn-cantidad-filtro-mas[data-id="' + productoId + '"][data-pres="' + presId + '"]').closest('tr').find('.input-cantidad-producto')
+            .val((actualizado ? (parseFloat(actualizado.presentacion_cantidad) || 0) : 0).toFixed(2));
     }
 
     function inicializarBuscadorTagsProducto() {
@@ -1296,7 +1376,7 @@ $(document).ready(function () {
         $.ajax({
             url: 'ventas_pedidos_ajax.php',
             type: 'GET',
-            data: { accion: 'buscar_productos_cliente', entidad_id: clienteActualId, q: q, empresa_idx: empresa_idx },
+            data: { accion: 'buscar_productos_cliente', entidad_id: clienteActualId, q: q, empresa_idx: empresa_idx, sucursal_id: $('#sucursal_id').val() || 0 },
             dataType: 'json',
             success: function (res) {
                 if (res && res.error === 'sin_lista_precios') {
@@ -1345,7 +1425,7 @@ $(document).ready(function () {
     // A diferencia del stepper de las líneas ya cargadas, acá no se pide
     // confirmación al llegar a 0 — es la interacción rápida de "ir tocando"
     // mientras se recorre el filtro.
-    function ajustarCantidadDesdeFiltro(productoId, delta) {
+    function ajustarCantidadDesdeFiltro(productoId, delta, presId) {
         if (!clienteActualId) {
             Swal.fire({
                 icon: "warning",
@@ -1356,7 +1436,12 @@ $(document).ready(function () {
             return;
         }
 
-        var existente = detalles.find(function (d) { return d.producto_id == productoId; });
+        if (presId > 0) {
+            ajustarCantidadPresentacion(productoId, delta, presId);
+            return;
+        }
+
+        var existente = detalles.find(function (d) { return d.producto_id == productoId && VentaPres.clave(d) === 0; });
 
         if (existente) {
             var nuevaCantidad = Math.round(((parseFloat(existente.cantidad) || 0) + delta) * 100) / 100;
@@ -1410,17 +1495,17 @@ $(document).ready(function () {
         renderizarDetalles();
         actualizarTotales();
 
-        var actualizado = detalles.find(function (d) { return d.producto_id == productoId; });
+        var actualizado = detalles.find(function (d) { return d.producto_id == productoId && VentaPres.clave(d) === 0; });
         var cantidadMostrada = actualizado ? (parseFloat(actualizado.cantidad) || 0) : 0;
-        $('.btn-cantidad-filtro-mas[data-id="' + productoId + '"]').closest('tr').find('.input-cantidad-producto').val(cantidadMostrada.toFixed(2));
+        $('.btn-cantidad-filtro-mas[data-id="' + productoId + '"]:not([data-pres]), .btn-cantidad-filtro-mas[data-id="' + productoId + '"][data-pres="0"]').closest('tr').find('.input-cantidad-producto').val(cantidadMostrada.toFixed(2));
     }
 
     $(document).on('click', '.btn-cantidad-filtro-menos', function () {
-        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), -1);
+        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), -1, parseInt($(this).data('pres'), 10) || 0);
     });
 
     $(document).on('click', '.btn-cantidad-filtro-mas', function () {
-        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), 1);
+        ajustarCantidadDesdeFiltro(parseInt($(this).data('id')), 1, parseInt($(this).data('pres'), 10) || 0);
     });
 
     function renderizarDetalles() {
@@ -1465,30 +1550,34 @@ $(document).ready(function () {
             // Una vez confirmado el pedido, "Cant." pasa a ser un dato fijo (no
             // tiene sentido seguir editando cantidades ahí); antes de confirmar
             // sigue siendo el stepper +/- de siempre.
+            // Venta por presentación: cantidad, pendiente y precio en lo que se vende (cajas); sin presentación,
+            // los valores de siempre (VentaPres devuelve cantidad / precio_unitario_neto tal cual)
+            var cantidadVisible = VentaPres.cantidadVisible(detalle);
             var celdaCantidad = pedidoConfirmado
-                ? `<span class="fw-bold">${formatMoneda(detalle.cantidad)}</span>`
+                ? `<span class="fw-bold">${formatMoneda(cantidadVisible)}</span>`
                 : `<div class="cantidad-stepper mx-auto">
                         <button type="button" class="btn-stepper btn-cantidad-menos" data-idx="${detalle.detalle_idx}" tabindex="-1">&minus;</button>
                         <input type="number" class="cantidad-stepper-input input-cantidad-detalle"
-                            data-idx="${detalle.detalle_idx}" value="${detalle.cantidad}" step="0.01" min="0">
+                            data-idx="${detalle.detalle_idx}" value="${cantidadVisible}" step="0.01" min="0">
                         <button type="button" class="btn-stepper btn-cantidad-mas" data-idx="${detalle.detalle_idx}" tabindex="-1">+</button>
                     </div>`;
-            
+
             html += `
             <tr class="${claseFila}" data-idx="${detalle.detalle_idx}">
                 <td>${detalle.producto_codigo || ''}</td>
                 <td>
                     <div class="fw-bold">${nombreProducto.substring(0, 35)}${nombreProducto.length > 35 ? '...' : ''}</div>
+                    ${VentaPres.esPres(detalle) ? `<span class="badge bg-secondary">${escapeHtml(detalle.presentacion_nombre || '')}</span> <small class="text-muted">${formatMoneda(detalle.cantidad)} u.</small>` : ''}
                     ${detalle.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(detalle.compatibilidad_texto)}</small>` : ''}
                     ${esNuevo ? '<span class="badge bg-info ms-2">Nuevo</span>' : ''}
                 </td>
                 <td class="text-center">${celdaCantidad}</td>
                 <td class="text-center">${(function () {
-                    var pendiente = (parseFloat(detalle.cantidad) || 0) - (parseFloat(detalle.cantidad_entregada) || 0);
+                    var pendiente = (parseFloat(cantidadVisible) || 0) - VentaPres.entregadoVisible(detalle);
                     if (pendiente < 0.0001) return formatMoneda(0);
                     return `<span class="text-danger fw-bold">${formatMoneda(pendiente)}</span>`;
                 })()}</td>
-                <td class="text-end">$${formatMoneda(detalle.precio_unitario_neto)}</td>
+                <td class="text-end">$${formatMoneda(VentaPres.precioNetoVisible(detalle))}</td>
                 <td class="text-center">${Fmt.numero(detalle.iva_porcentaje, 2)}%</td>
                 <td class="text-end">$${formatMoneda(detalle.iva_importe)}</td>
                 <td class="text-end fw-bold text-success">$${formatMoneda(detalle.total_linea)}</td>
@@ -1537,8 +1626,8 @@ $(document).ready(function () {
             var nombreProducto = detalle.producto_nombre || '';
             html += `<tr>
                 <td>${detalle.producto_codigo || ''}</td>
-                <td>${nombreProducto.substring(0, 25)}${nombreProducto.length > 25 ? '...' : ''}</td>
-                <td class="text-center">${formatMoneda(detalle.cantidad)}</td>
+                <td>${nombreProducto.substring(0, 25)}${nombreProducto.length > 25 ? '...' : ''}${VentaPres.esPres(detalle) ? ` <span class="badge bg-secondary">${escapeHtml(detalle.presentacion_nombre || '')}</span>` : ''}</td>
+                <td class="text-center">${formatMoneda(VentaPres.cantidadVisible(detalle))}</td>
                 <td class="text-end fw-bold">$${formatMoneda(detalle.total_linea)}</td>
             </tr>`;
         });
@@ -1574,7 +1663,8 @@ $(document).ready(function () {
 
         // Mientras el pedido sigue editable (estado <= 5), se puede seguir ajustando
         // la cantidad, pero nunca por debajo de lo que ya salió físicamente por remito.
-        var yaEntregado = parseFloat(detalle.cantidad_entregada) || 0;
+        // (con presentación, nuevaCantidad y lo entregado van en presentaciones)
+        var yaEntregado = VentaPres.entregadoVisible(detalle);
         if (nuevaCantidad < yaEntregado - 0.0001) {
             Swal.fire({
                 icon: 'warning',
@@ -1609,6 +1699,13 @@ $(document).ready(function () {
             return;
         }
 
+        if (VentaPres.esPres(detalle)) {
+            VentaPres.fijarCantidad(detalle, nuevaCantidad);
+            renderizarDetalles();
+            actualizarTotales();
+            return;
+        }
+
         detalle.cantidad = nuevaCantidad;
         detalle.neto_gravado = detalle.cantidad * detalle.precio_unitario_neto;
         detalle.iva_importe = detalle.neto_gravado * (detalle.iva_porcentaje / 100);
@@ -1624,14 +1721,14 @@ $(document).ready(function () {
         var idx = $(this).data('idx');
         var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
         if (!detalle) return;
-        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) - 1) * 100) / 100);
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(VentaPres.cantidadVisible(detalle)) || 0) - 1) * 100) / 100);
     });
 
     $(document).on('click', '.btn-cantidad-mas', function () {
         var idx = $(this).data('idx');
         var detalle = detalles.find(function (d) { return d.detalle_idx == idx; });
         if (!detalle) return;
-        cambiarCantidadDetalle(idx, Math.round(((parseFloat(detalle.cantidad) || 0) + 1) * 100) / 100);
+        cambiarCantidadDetalle(idx, Math.round(((parseFloat(VentaPres.cantidadVisible(detalle)) || 0) + 1) * 100) / 100);
     });
 
     $(document).on('change', '.input-cantidad-detalle', function () {
@@ -1975,7 +2072,7 @@ $(document).ready(function () {
                         pedidoConfirmado = res.codigo_estandar ? (res.codigo_estandar !== 'BORRADOR') : (parseInt(res.tabla_estado_registro_id) !== 3 && parseInt(res.tabla_estado_registro_id) > 0);
                         actualizarVisibilidadCargarRemitoNuevo();
                         detalles = res.detalles.map(function(detalle, index) {
-                            return {
+                            return VentaPres.copiar(detalle, {
                                 detalle_idx: index,
                                 venta_pedido_detalle_id: detalle.venta_pedido_detalle_id,
                                 producto_id: detalle.producto_id,
@@ -1995,7 +2092,7 @@ $(document).ready(function () {
                                 neto_gravado: detalle.neto_gravado,
                                 iva_importe: detalle.iva_importe,
                                 total_linea: detalle.total_linea
-                            };
+                            });
                         });
                         renderizarDetalles();
                         actualizarTotales();

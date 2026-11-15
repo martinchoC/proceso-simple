@@ -158,6 +158,11 @@ function actualizarCantidadDetallePedido($conexion, $venta_pedido_id, $venta_ped
         if ($cantidad < $cantidad_reservada - 0.0001) {
             throw new Exception("La cantidad no puede ser menor a la cantidad ya reservada ($cantidad_reservada)." );
         }
+        // Venta por presentación: una línea en cajas solo cambia de a cajas enteras (sin foto, no hace nada)
+        $error_presentacion = vpre_ajustar_cantidad($conexion, $venta_pedido_detalle_id, $cantidad, false);
+        if ($error_presentacion !== null) {
+            throw new Exception($error_presentacion);
+        }
 
         $precio_unitario = floatval($detalle['precio_unitario']);
         $descuento_pct = floatval($detalle['descuento_general_pct']);
@@ -183,6 +188,7 @@ function actualizarCantidadDetallePedido($conexion, $venta_pedido_id, $venta_ped
             throw new Exception('Error actualizando la cantidad del pedido.');
         }
         mysqli_stmt_close($stmt);
+        vpre_ajustar_cantidad($conexion, $venta_pedido_detalle_id, $cantidad, true);
 
         $sql_totales = "UPDATE gestion__ventas_pedidos vp
                         INNER JOIN (

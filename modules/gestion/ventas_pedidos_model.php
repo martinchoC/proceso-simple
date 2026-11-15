@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
+require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -548,6 +549,13 @@ function agregarPedidoVenta($conexion, $data)
     if (!isset($data['detalles']) || !is_array($data['detalles']) || count($data['detalles']) === 0) {
         return ['resultado' => false, 'error' => 'Debe agregar al menos un producto al detalle'];
     }
+    // Venta por presentación: valida y pasa las líneas a unidad base (sin el indicador, no hace nada)
+    try {
+        $data['detalles'] = vpre_preparar_lineas($conexion, intval($data['empresa_idx'] ?? 0),
+            vpre_activo($conexion, intval($data['empresa_idx'] ?? 0), 'pedido') ? intval(obtenerListaPrecioVigenteCliente($conexion, intval($data['entidad_id']))['lista_precio_id'] ?? 0) : 0, $data['detalles'], 'pedido');
+    } catch (InvalidArgumentException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
 
     if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
         require_once __DIR__ . '/../../core/accesos_sucursales.php';
@@ -761,6 +769,14 @@ function copiarPedidoVenta($conexion, $venta_pedido_id, $empresa_idx, $pagina_id
             'exento' => floatval($d['exento']),
             'total_linea' => floatval($d['total_linea'])
         ];
+        // Venta por presentación: la línea copiada sigue en su presentación (la valida agregarPedidoVenta)
+        if (!empty($d['presentacion_id'])) {
+            $detalles[count($detalles) - 1] += [
+                'presentacion_id' => intval($d['presentacion_id']),
+                'presentacion_cantidad' => floatval($d['presentacion_cantidad']),
+                'presentacion_precio' => floatval($d['presentacion_precio']),
+            ];
+        }
     }
     mysqli_stmt_close($stmt);
     if (!$detalles) {
@@ -808,6 +824,16 @@ function copiarPedidoVenta($conexion, $venta_pedido_id, $empresa_idx, $pagina_id
 function editarPedidoVenta($conexion, $id, $data)
 {
     $id = intval($id);
+
+    // Venta por presentación: valida y pasa las líneas a unidad base (sin el indicador, no hace nada)
+    if (isset($data['detalles']) && is_array($data['detalles'])) {
+        try {
+            $data['detalles'] = vpre_preparar_lineas($conexion, intval($data['empresa_idx'] ?? 0),
+                vpre_activo($conexion, intval($data['empresa_idx'] ?? 0), 'pedido') ? intval(obtenerListaPrecioVigenteCliente($conexion, intval($data['entidad_id'] ?? 0))['lista_precio_id'] ?? 0) : 0, $data['detalles'], 'pedido');
+        } catch (InvalidArgumentException $e) {
+            return ['resultado' => false, 'error' => $e->getMessage()];
+        }
+    }
 
     mysqli_begin_transaction($conexion);
 
@@ -1058,6 +1084,10 @@ function obtenerPedidoVentaPorId($conexion, $id, $empresa_idx, $pagina_id = 0)
     }
     mysqli_stmt_close($stmt);
 
+    // Venta por presentación: la foto de cada línea (solo con el indicador)
+    if (vpre_activo($conexion, (int) $empresa_idx, 'pedido')) {
+        $detalles = vpre_agregar_fotos($conexion, 'pedido', $detalles);
+    }
     $pedido['detalles'] = $detalles;
     return $pedido;
 }
@@ -1548,7 +1578,7 @@ function agregarProductoRapido($conexion, $data)
 // sin importar en qué columna esté cada una. También devuelve, ya calculados, el
 // descuento general del cliente y el precio neto (bruto - descuento), para que el
 // carrito de "Agregar Producto" no tenga que volver a consultarlos por fila.
-function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
+function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q, $sucursal_id = 0)
 {
     $entidad_id = intval($entidad_id);
     $empresa_idx = intval($empresa_idx);
@@ -1611,7 +1641,9 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q)
     }
 
     mysqli_stmt_close($stmt);
-    return $productos;
+    // Venta por presentación: 'ofertas' por producto (unidad / presentaciones con precio, disponibilidad de la
+    // sucursal). Sin el indicador, devuelve las filas tal cual.
+    return vpre_agregar_ofertas($conexion, $empresa_idx, $lista_precio_id, $productos, intval($sucursal_id));
 }
 
 // Antes solo miraba el último precio_unitario usado en pedidos previos a este cliente.
@@ -1761,6 +1793,10 @@ function actualizarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $det
             }
             mysqli_stmt_close($stmt);
             $ids_recibidos[] = $vpd_id;
+            // Venta por presentación: '_vpre' solo viene con el indicador (null = la línea pasó a ser por unidad)
+            if (array_key_exists('_vpre', $detalle)) {
+                vpre_guardar_foto($conexion, 'pedido', $vpd_id, $detalle['_vpre']);
+            }
         } else {
             // Línea nueva: INSERT. cantidad_entregada arranca en 0 acá sí, porque
             // es genuinamente nueva.
@@ -1789,6 +1825,9 @@ function actualizarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $det
                 return ['resultado' => false, 'error' => 'Error insertando detalle nuevo: ' . $err];
             }
             $ids_recibidos[] = mysqli_insert_id($conexion);
+            if (!empty($detalle['_vpre'])) {
+                vpre_guardar_foto($conexion, 'pedido', (int) mysqli_insert_id($conexion), $detalle['_vpre']);
+            }
             mysqli_stmt_close($stmt);
         }
     }
@@ -1887,8 +1926,12 @@ function insertarDetallesPedido($conexion, $venta_pedido_id, $empresa_id, $detal
         
         $insertados++;
         mysqli_stmt_close($stmt);
+        // Venta por presentación: '_vpre' solo viene con el indicador
+        if (!empty($detalle['_vpre'])) {
+            vpre_guardar_foto($conexion, 'pedido', (int) mysqli_insert_id($conexion), $detalle['_vpre']);
+        }
     }
-    
+
     return true;
 }
 

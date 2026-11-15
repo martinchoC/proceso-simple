@@ -364,3 +364,19 @@ if (!function_exists('vpre_agregar_fotos')) {
         return $filas;
     }
 }
+
+if (!function_exists('vpre_preparar_lineas')) {
+    /**
+     * Punto de entrada de los modelos: si la venta por presentación está activa para el tipo, normaliza y valida las
+     * líneas (vpre_normalizar_lineas); si no, las devuelve sin tocar. $lista_precio_id: la del cliente (0 = no se
+     * controla la unidad suelta).
+     * @throws InvalidArgumentException con el mensaje para el usuario
+     */
+    function vpre_preparar_lineas(mysqli $conexion, int $empresa_id, int $lista_precio_id, array $detalles, string $tipo): array
+    {
+        if (!vpre_activo($conexion, $empresa_id, $tipo)) {
+            return $detalles;
+        }
+        return vpre_normalizar_lineas($conexion, $empresa_id, $lista_precio_id, $detalles, $tipo);
+    }
+}
