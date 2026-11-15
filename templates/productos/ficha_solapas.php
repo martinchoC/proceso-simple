@@ -14,6 +14,7 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
 <ul class="nav ui-solapas mb-3" id="pficSolapas" role="tablist">
     <li class="nav-item"><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#pficInfo"><i class="fas fa-id-card me-1"></i>Información</button></li>
     <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficProveedores"><i class="fas fa-truck me-1"></i>Proveedores</button></li>
+    <li class="nav-item"><button class="nav-link pfic-requiere-producto" type="button" data-bs-toggle="tab" data-bs-target="#pficPrecios"><i class="fas fa-dollar-sign me-1"></i>Precios</button></li>
 </ul>
 <div class="tab-content">
 <div class="tab-pane fade show active" id="pficInfo" role="tabpanel">
@@ -49,6 +50,34 @@ if (($pfic_parte ?? '') === 'inicio'): ?>
         <table class="table table-sm table-hover align-middle mb-0">
             <thead class="table-light"><tr><th style="width: 90px;">Principal</th><th>Proveedor</th><th>CUIT</th><th>Código del proveedor</th><?php if (!$pfic_ro): ?><th style="width: 110px;"></th><?php endif; ?></tr></thead>
             <tbody id="pficProvFilas"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="tab-pane fade" id="pficPrecios" role="tabpanel">
+    <p class="small text-muted mb-2">Precio del producto en cada lista (el mismo dato que la página Lista de Precios). Un precio cargado acá queda como manual.</p>
+    <?php if (!$pfic_ro): ?>
+    <div class="row g-2 align-items-end mb-2" id="pficPreForm">
+        <input type="hidden" id="pficPreId" value="">
+        <div class="col-md-5">
+            <label class="form-label form-label-sm" for="pficPreLista">Lista</label>
+            <select class="form-select form-select-sm" id="pficPreLista"><option value="">Elegir…</option></select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label form-label-sm" for="pficPrePrecio">Precio sin IVA</label>
+            <input type="number" class="form-control form-control-sm text-end" id="pficPrePrecio" min="0" step="0.01">
+        </div>
+        <div class="col-md-2"></div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="button" class="btn btn-sm btn-primary flex-fill" id="pficPreGuardar">Agregar</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="pficPreCancelar" title="Cancelar"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+    <?php endif; ?>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Lista</th><th class="text-end">Precio sin IVA</th><th class="text-end">Precio con IVA</th><th>Actualizado</th><?php if (!$pfic_ro): ?><th style="width: 110px;"></th><?php endif; ?></tr></thead>
+            <tbody id="pficPreFilas"></tbody>
         </table>
     </div>
 </div>

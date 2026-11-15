@@ -92,3 +92,34 @@ if CTX.get('ok'):
     sql("DELETE FROM gestion__productos_proveedores WHERE producto_proveedor_id = %d" % int(pp))
     sql("UPDATE gestion__productos SET proveedores_busqueda = NULL WHERE producto_id = %d" % P)
     sql("UPDATE conf__empresas SET usa_ficha_producto_completa = 0 WHERE empresa_id = %d" % E)
+
+# ---------------------------------------------------------------------------------------------
+# Paso 7-2: la solapa Precios usa listas_precios_productos_ajax.php del 5 tal como está.
+def lpa(params, method='GET'):
+    return ajax('listas_precios_productos_ajax.php', params, method, modulo='gestion_normal', empresa_id=E)
+
+
+caso('Ficha completa: precios del producto (endpoint de Lista de Precios)')
+if CTX.get('ok'):
+    P = CTX['prod']
+    listas = lpa(dict(accion='obtener_listas'))
+    lista = next((int(l['lista_precio_id']) for l in (listas if isinstance(listas, list) else [])
+                  if not int(val("SELECT COUNT(*) FROM gestion__listas_precios_productos WHERE lista_precio_id = %d AND producto_id = %d "
+                                 "AND tabla_estado_registro_id = 1" % (int(l['lista_precio_id']), P)))), 0)
+    check(lista > 0, 'hay una lista de la empresa sin precio para el producto', str(listas)[:200])
+    if lista:
+        r = lpa(dict(accion='agregar', lista_precio_id=lista, producto_id=P, precio_unitario=1234.5), 'POST')
+        check(isinstance(r, dict) and r.get('resultado'), 'agregar el precio en la lista', str(r)[:200])
+        r = lpa(dict(accion='obtener_precios_producto', producto_id=P))
+        fila = next((x for x in (r if isinstance(r, list) else []) if int(x['lista_precio_id']) == lista), None)
+        check(fila and abs(float(fila['precio_unitario']) - 1234.5) < 0.001, 'la solapa lo lista', str(r)[:200])
+        if fila:
+            lpp = int(fila['lista_precio_producto_id'])
+            r = lpa(dict(accion='agregar', lista_precio_id=lista, producto_id=P, precio_unitario=10), 'POST')
+            check(isinstance(r, dict) and not r.get('resultado'), 'el mismo producto dos veces en la lista se rechaza', str(r)[:200])
+            r = lpa(dict(accion='editar', lista_precio_producto_id=lpp, lista_precio_id=lista, producto_id=P, precio_unitario=1500), 'POST')
+            check(isinstance(r, dict) and r.get('resultado') and abs(float(val("SELECT precio_final FROM gestion__listas_precios_productos "
+                  "WHERE lista_precio_producto_id = %d" % lpp)) - 1500) < 0.001, 'editar el precio', str(r)[:200])
+            r = lpa(dict(accion='eliminar', lista_precio_producto_id=lpp))
+            check(isinstance(r, dict) and r.get('resultado'), 'quitar el precio (baja lógica)', str(r)[:200])
+            sql("DELETE FROM gestion__listas_precios_productos WHERE lista_precio_producto_id = %d" % lpp)

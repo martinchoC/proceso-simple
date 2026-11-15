@@ -1,6 +1,7 @@
 /**
  * Ficha de producto completa del módulo 5 (doc 26): solapas de templates/productos/ficha_solapas.php.
- * Backend: acciones ficha_* de productos_ajax.php → core/productos_ficha/.
+ * Backend: acciones ficha_* de productos_ajax.php → core/productos_ficha/; Precios usa listas_precios_productos_ajax.php
+ * tal como está (el mismo de la página Lista de Precios, que ya acepta llamadas desde Productos).
  * Uso (productos.js): ProdFicha.init({ ajaxUrl, empresaIdx, paginaIdx, soloLectura });
  * ProdFicha.cargar(productoId, { soloLectura }) al abrir un producto; ProdFicha.limpiar() en el alta (las solapas quedan
  * deshabilitadas hasta guardar). Sin las solapas en la página no hace nada.
@@ -8,8 +9,8 @@
 var ProdFicha = (function ($) {
     'use strict';
 
-    var cfg = { ajaxUrl: 'productos_ajax.php', empresaIdx: 0, paginaIdx: 0, soloLectura: false };
-    var productoId = 0, proveedores = null, vinculos = [], ro = false;   // ro: solo lectura (consulta o "ver")
+    var cfg = { ajaxUrl: 'productos_ajax.php', preciosUrl: 'listas_precios_productos_ajax.php', empresaIdx: 0, paginaIdx: 0, soloLectura: false };
+    var productoId = 0, proveedores = null, vinculos = [], listas = null, precios = [], ro = false;   // ro: solo lectura (consulta o "ver")
 
     function activo() { return $('#pficSolapas').length > 0; }
     function esc(t) { return t === null || t === undefined ? '' : String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -89,6 +90,69 @@ var ProdFicha = (function ($) {
         });
     }
 
+    // ---------------------------------------------------------------- Precios (endpoint de Lista de Precios)
+    function lp(accion, datos, metodo) {
+        return $.ajax({ url: cfg.preciosUrl, type: metodo || 'GET', dataType: 'json', data: $.extend({ accion: accion }, datos || {}) });
+    }
+    function dinero(v) { return window.Fmt ? '$ ' + Fmt.numero(parseFloat(v) || 0, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(v) || 0).toFixed(2); }
+    function respuestaLp(r, siOk) {
+        if (!r || !r.resultado) { error((r && r.error) || 'No se pudo guardar.'); return; }
+        ok('Guardado'); siOk();
+    }
+    function cargarListas() {
+        if (ro || listas) return;
+        lp('obtener_listas').done(function (r) {
+            listas = r || [];
+            $('#pficPreLista').html('<option value="">Elegir…</option>' + listas.map(function (l) { return '<option value="' + l.lista_precio_id + '">' + esc(l.nombre) + '</option>'; }).join(''));
+        });
+    }
+    function listarPrecios() {
+        if (!productoId) { $('#pficPreFilas').html(''); return; }
+        lp('obtener_precios_producto', { producto_id: productoId }).done(function (r) {
+            precios = r || [];
+            $('#pficPreFilas').html(precios.length ? precios.map(function (x) {
+                return '<tr><td>' + esc(x.lista_nombre) + '</td><td class="text-end">' + dinero(x.precio_unitario) + '</td>'
+                    + '<td class="text-end" title="IVA ' + esc(x.iva_porcentaje) + ' %">' + dinero(x.precio_con_iva) + '</td>'
+                    + '<td class="small">' + (x.f_actualizacion ? esc(window.Fmt ? Fmt.fechaHora(x.f_actualizacion) : x.f_actualizacion) : '-') + '</td>'
+                    + (ro ? '' : '<td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-secondary pfic-pre-editar" data-id="' + x.lista_precio_producto_id + '" title="Editar"><i class="fas fa-pen"></i></button> '
+                        + '<button type="button" class="btn btn-sm btn-outline-danger pfic-pre-quitar" data-id="' + x.lista_precio_producto_id + '" title="Quitar"><i class="fas fa-trash"></i></button></td>')
+                    + '</tr>';
+            }).join('') : '<tr><td colspan="' + (ro ? 4 : 5) + '" class="text-muted small p-3">El producto no tiene precios cargados.</td></tr>');
+        }).fail(fallo);
+    }
+    function limpiarFormPrecio() {
+        $('#pficPreId').val(''); $('#pficPreLista').val('').prop('disabled', false); $('#pficPrePrecio').val('');
+        $('#pficPreGuardar').text('Agregar'); $('#pficPreCancelar').addClass('d-none');
+    }
+    function guardarPrecio() {
+        var lista = $('#pficPreLista').val(), precio = parseFloat($('#pficPrePrecio').val());
+        if (!lista || !(precio > 0)) { if (window.UiSimple) UiSimple.aviso('Elija la lista y cargue un precio mayor a cero.'); return; }
+        var id = $('#pficPreId').val();
+        lp(id ? 'editar' : 'agregar', { lista_precio_producto_id: id, lista_precio_id: lista, producto_id: productoId, precio_unitario: precio }, 'POST')
+            .done(function (r) { respuestaLp(r, function () { limpiarFormPrecio(); listarPrecios(); }); }).fail(fallo);
+    }
+    function enlazarPrecios() {
+        $('#pficPreGuardar').on('click', guardarPrecio);
+        $('#pficPrePrecio').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); guardarPrecio(); } });
+        $('#pficPreCancelar').on('click', limpiarFormPrecio);
+        $(document).on('click', '.pfic-pre-editar', function () {
+            var id = String($(this).data('id'));
+            var x = precios.find(function (p) { return String(p.lista_precio_producto_id) === id; });
+            if (!x) return;
+            $('#pficPreId').val(x.lista_precio_producto_id); $('#pficPreLista').val(String(x.lista_precio_id)).prop('disabled', true);
+            $('#pficPrePrecio').val((parseFloat(x.precio_unitario) || 0).toFixed(2)).trigger('focus');
+            $('#pficPreGuardar').text('Guardar'); $('#pficPreCancelar').removeClass('d-none');
+        });
+        $(document).on('click', '.pfic-pre-quitar', function () {
+            var id = $(this).data('id');
+            var seguir = function () { lp('eliminar', { lista_precio_producto_id: id }).done(function (r) { respuestaLp(r, listarPrecios); }).fail(fallo); };
+            if (window.Swal) {
+                Swal.fire({ icon: 'question', text: '¿Quitar el precio del producto en esta lista?', showCancelButton: true, confirmButtonText: 'Quitar', cancelButtonText: 'Cancelar' })
+                    .then(function (x) { if (x.isConfirmed) seguir(); });
+            } else if (window.confirm('¿Quitar el precio del producto en esta lista?')) { seguir(); }
+        });
+    }
+
     // ---------------------------------------------------------------- Ficha
     function habilitar(si) {
         $('#pficSolapas .pfic-requiere-producto').toggleClass('disabled', !si).attr('title', si ? null : 'Guarde primero el producto');
@@ -97,26 +161,31 @@ var ProdFicha = (function ($) {
         if (!activo()) return;
         productoId = parseInt(id, 10) || 0;
         ro = !!cfg.soloLectura || !!(opciones && opciones.soloLectura);
-        $('#pficProvForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm').toggleClass('d-none', ro);
         habilitar(productoId > 0);
         limpiarFormProveedor();
+        limpiarFormPrecio();
         cargarCombo();
+        cargarListas();
         listarProveedores();
+        listarPrecios();
     }
     function limpiar() {
         if (!activo()) return;
         productoId = 0;
         ro = !!cfg.soloLectura;
-        $('#pficProvForm').toggleClass('d-none', ro);
+        $('#pficProvForm, #pficPreForm').toggleClass('d-none', ro);
         habilitar(false);
         limpiarFormProveedor();
-        $('#pficProvFilas').html('');
+        limpiarFormPrecio();
+        $('#pficProvFilas, #pficPreFilas').html('');
         bootstrap.Tab.getOrCreateInstance(document.querySelector('#pficSolapas [data-bs-target="#pficInfo"]')).show();
     }
     function init(opciones) {
         $.extend(cfg, opciones || {});
         if (!activo()) return;
         enlazarProveedores();
+        enlazarPrecios();
         habilitar(false);
     }
 
