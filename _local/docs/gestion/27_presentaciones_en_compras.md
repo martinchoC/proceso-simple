@@ -1,6 +1,6 @@
 # Presentaciones en órdenes de compra y facturas de proveedor
 
-Estado: **plan a aprobar** (2026-11-15). Rama `distribuidora`. Es la otra mitad de la etapa 2 del doc 17: las ventas
+Estado: **implementado** (2026-11-15; las 5 decisiones aprobadas el mismo día). Ver "Implementación" al final. Rama `distribuidora`. Es la otra mitad de la etapa 2 del doc 17: las ventas
 ya usan presentaciones (doc 20); las compras siguen en unidades.
 
 ## Pedido
@@ -82,3 +82,48 @@ proveedor que generan (todas las columnas, sin ids ni fechas).
 5. **Fuera de este paso**: lista de precios del proveedor por presentación (`proveedor_precios`), presupuestos /
    pedidos de compra (`gestion__compras_pedidos`, hoy sin uso) y la importación de ARCA (sin productos).
    **Recomendado.**
+
+## Implementación
+
+Commits 8-1 `5c242f9` (migración, núcleo, interruptor en Empresas), 8-2 `5bbe4e0` (orden de compra), 8-3 `8206c4d`
+(factura de proveedor, costo, impresión) y 8-4 `8b19867` (presentación del proveedor y lectura de facturas). Scripts
+`20261122_compra_presentaciones_01.sql` (indicador y las cinco columnas) y `_02.sql`
+(`gestion__productos_proveedores.presentacion_id`), aplicados solo en la copia del simulador.
+
+- `core/compras_presentaciones.php` (`cpre_*`): habilitación tolerante (`cpre_activo` = indicadores + columnas;
+  `cpre_proveedor_activo` para la columna del vínculo), `cpre_preparar_lineas` (valida y convierte; cada línea sale
+  con `_cpre`), `cpre_guardar_foto` (UPDATE aparte), `cpre_agregar_fotos`, `cpre_costo_linea`,
+  `cpre_lineas_impresion`, `cpre_presentaciones_compra` (con proveedor, la suya primero y `es_proveedor = 1`),
+  `cpre_validar_presentacion_proveedor` / `cpre_guardar_presentacion_proveedor` / `cpre_vinculos_presentacion` y
+  `cpre_lectura_lineas`.
+- `assets/js/compras-presentaciones.js` (`ComprasPres`): selector en la línea, conversión a unidades, etiqueta en la
+  tabla, foto al editar y `fotoDesde` para la factura armada desde la OC.
+- Módulos 2 y 5 (mismo cambio en los dos): `ordenes_compra*` y `facturas_proveedores*` (`_ajax.php` acción
+  `cpre_presentaciones` y `cpre_preparar_lineas` en agregar / editar; `_model.php` foto después de cada línea, fotos
+  en obtener, en las líneas de la OC para la factura, en el costo de `registrarStockFacturaProveedor` y en
+  `fpActualizarPreciosPorCompra`; `_print.php`; `.php` incluye el JS solo con el indicador; `.js`).
+- Lectura de facturas (`core/facturas_lectura/fp_lectura_model.php`): `fplArmarLineas` pasa a cajas los ítems del
+  proveedor con presentación, y `fplGuardarBorrador` (guardar los listos y cron) valida con `cpre_preparar_lineas`.
+- Ficha de producto del módulo 5 (`core/productos_ficha/proveedores.php` / `acciones.php`,
+  `assets/js/productos-ficha.js`): "Vende en" junto al código del proveedor.
+
+Diferencias con el plan:
+- En la OC, la pantalla no agrupa por producto: cajas y sueltas del mismo producto van en dos líneas.
+- La factura desde una OC no "hereda" la presentación del lado del servidor: la pantalla trae la foto de la línea
+  de la OC y el servidor la valida como una línea cargada a mano; la foto queda con lo facturado.
+- La factura no recalcula los importes desde la presentación (la OC sí): respeta los descuentos y las alícuotas no
+  gravadas / exentas que arma la pantalla; se recalculan cantidad y precio unitario.
+- "Vende en" está solo en la ficha completa del módulo 5. La solapa Proveedores de productos del módulo 2 y la
+  pantalla de vínculos productos ↔ proveedores no lo tienen (el vínculo se puede elegir desde la ficha).
+- El modal "Importar de OC" de la factura sigue mostrando las cantidades pendientes en unidades.
+
+Pruebas:
+- Caso `40_compras_presentaciones.py` 34/34 sobre una copia recién clonada con los dos scripts (OC, factura desde OC
+  y a mano, stock +36, OC recibida 24, costo $ 83,3333, impresión, rechazos, presentación del proveedor, lectura de
+  facturas en cajas y apagado).
+- Con el indicador apagado, igual que antes: compras 01, 05 y 08 (100 chequeos) más la foto de líneas de OC,
+  factura y costos; ventas 03, 04, 06, 09 y 19b (206 chequeos) más la foto de líneas, contra una corrida del código
+  de antes del 8-1 sobre el mismo maestro. Las fallas son las preexistentes (2 asientos sin fecha y las 4 de
+  ventas). Los casos 11 y 13 no corren antes ni después: falta el script `20261011_percepciones_recibidas_01_subgrupo_fc.sql`.
+- Base sin las columnas (`gestion_backup261113`): nada cambia.
+- La consola del navegador no se revisó.
