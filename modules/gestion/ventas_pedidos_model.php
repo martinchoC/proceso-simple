@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
+require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -556,6 +557,12 @@ function agregarPedidoVenta($conexion, $data)
     } catch (InvalidArgumentException $e) {
         return ['resultado' => false, 'error' => $e->getMessage()];
     }
+    // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+    try {
+        cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), intval($data['sucursal_id'] ?? 0), intval($data['entidad_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
+    }
 
     if (file_exists(__DIR__ . '/../../core/accesos_sucursales.php')) {
         require_once __DIR__ . '/../../core/accesos_sucursales.php';
@@ -833,6 +840,12 @@ function editarPedidoVenta($conexion, $id, $data)
         } catch (InvalidArgumentException $e) {
             return ['resultado' => false, 'error' => $e->getMessage()];
         }
+    }
+    // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+    try {
+        cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), intval($data['sucursal_id'] ?? 0), intval($data['entidad_id'] ?? 0));
+    } catch (InvalidArgumentException $e) {
+        return ['resultado' => false, 'error' => $e->getMessage()];
     }
 
     mysqli_begin_transaction($conexion);
@@ -1400,7 +1413,7 @@ function obtenerListaPrecioVigenteCliente($conexion, $entidad_id)
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    return $row ?: null;
+    return cvta_completar_condicion($conexion, $entidad_id, $row ?: null); // canales de venta: lista unificada (sin el indicador, igual que antes)
 }
 
 function obtenerCondicionesCliente($conexion, $entidad_id, $empresa_idx)
@@ -1643,7 +1656,8 @@ function buscarProductosPorCliente($conexion, $empresa_idx, $entidad_id, $q, $su
     mysqli_stmt_close($stmt);
     // Venta por presentación: 'ofertas' por producto (unidad / presentaciones con precio, disponibilidad de la
     // sucursal). Sin el indicador, devuelve las filas tal cual.
-    return vpre_agregar_ofertas($conexion, $empresa_idx, $lista_precio_id, $productos, intval($sucursal_id));
+    // en_lista: canales de venta, aviso "sin precio en la lista del cliente" (sin el indicador no se agrega)
+    return cvta_marcar_en_lista($conexion, (int) $empresa_idx, (int) $lista_precio_id, vpre_agregar_ofertas($conexion, $empresa_idx, $lista_precio_id, $productos, intval($sucursal_id)));
 }
 
 // Antes solo miraba el último precio_unitario usado en pedidos previos a este cliente.

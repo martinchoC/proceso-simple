@@ -19,6 +19,7 @@
  */
 
 require_once __DIR__ . '/productos_presentaciones.php';
+require_once __DIR__ . '/canales_venta.php'; // lpre_lista_cliente usa el criterio único de canales de venta
 
 if (!function_exists('lpre_columna_existe')) {
     /** ¿Existe la columna? (cacheado por request) */
@@ -153,6 +154,10 @@ if (!function_exists('lpre_lista_cliente')) {
      */
     function lpre_lista_cliente(mysqli $conexion, int $empresa_id, int $entidad_id): int
     {
+        // Canales de venta: con el indicador, el criterio único (condición → lista de la entidad → por defecto)
+        if (cvta_empresa_usa($conexion, $empresa_id)) {
+            return cvta_lista_cliente($conexion, $empresa_id, $entidad_id)['lista_precio_id'];
+        }
         $stmt = mysqli_prepare($conexion, "SELECT ecc.lista_precio_id
                                            FROM gestion__entidades_condiciones_clientes ecc
                                            INNER JOIN gestion__entidades e ON e.entidad_id = ecc.entidad_id AND e.empresa_id = ?

@@ -1174,7 +1174,7 @@ $(document).ready(function () {
 
             html += `<tr class="resultado-libre-fila">
                 <td>${item.producto_codigo || ''}</td>
-                <td>${item.producto_nombre || ''}
+                <td>${item.producto_nombre || ''}${item.en_lista === false ? '<span class="badge bg-warning text-dark ms-1" title="No tiene precio vigente en la lista del cliente: entra con precio 0">Sin precio en la lista</span>' : ''}
                     ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
                 </td>
                 <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
@@ -1206,7 +1206,7 @@ $(document).ready(function () {
             var precio = parseFloat(of.precio || 0) * (1 - pct / 100);
             return `<tr class="resultado-libre-fila">
                 <td>${item.producto_codigo || ''}</td>
-                <td>${item.producto_nombre || ''}
+                <td>${item.producto_nombre || ''}${!presId && item.en_lista === false ? '<span class="badge bg-warning text-dark ms-1" title="No tiene precio vigente en la lista del cliente: entra con precio 0">Sin precio en la lista</span>' : ''}
                     <span class="badge ${presId ? 'bg-secondary' : 'bg-light text-dark border'} ms-1">${escapeHtml(VentaPres.textoOferta(of))}</span>
                     ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
                 </td>

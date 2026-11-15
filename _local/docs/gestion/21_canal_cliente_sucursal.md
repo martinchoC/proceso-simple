@@ -1,6 +1,6 @@
 # Canal del cliente, qué compra cada canal y qué canales vende cada sucursal (paso 3)
 
-Estado: **propuesta, a aprobar**. Sigue a los docs 19 (precios por presentación) y 20 (presentaciones en ventas).
+Estado: **aprobado el 2026-11-15 (las 6 recomendadas)**, implementado el mismo día (ver "Implementado"). Sigue a los docs 19 (precios por presentación) y 20 (presentaciones en ventas).
 Rama `distribuidora`. Fecha: 2026-11-15.
 
 ## Lo que ya está decidido o hecho
@@ -98,7 +98,7 @@ Quién la usa (solo con `usa_canales_venta` prendido; apagado, las funciones act
 - **Canales de venta** (ABM simple, nuevo): página en `conf` o en gestión, a definir al verificar cómo se
   sincronizan; lógica en `core/`, plantilla en `templates/`.
 - **Listas de precios** (2 y 5): selector "Canal" (solo con el indicador).
-- **Sucursales** (`modules/conf/sucursales*`): casillas "Canales que vende" (sin marcar = todos).
+- **Sucursales** (`sucursales*` de los módulos 2 y 5; no está en `conf`, como decía la primera versión): casillas "Canales que vende" (sin marcar = todos).
 - **Clientes** (2 y 5): junto a la lista vigente, el canal como dato derivado (solo lectura), con la aclaración
   "sale de la lista" para no confundirlo con el tipo de cliente.
 - **Pedido, remito, factura**: badge del canal al elegir cliente; aviso si la sucursal no lo vende.
@@ -127,3 +127,20 @@ cliente sigue como está (no se usa para el canal).
    (lista de la entidad → condición → defecto).
 5. **Clientes sin condición**: con el indicador, toman la lista por defecto (recomendado) o siguen en 0 con aviso.
 6. **Aviso "sin precio en la lista"** (doc 18, hallazgo 8) en esta fase (recomendado) o después.
+
+## Implementado (2026-11-15)
+
+| Paso | Qué |
+|---|---|
+| 3a | Migración `20261116_canales_venta_01.sql` (`usa_canales_venta`, tablas 464 `gestion__canales_venta` y 465 `gestion__sucursales_canales_venta`, `gestion__listas_precios.canal_venta_id`) y `core/canales_venta.php` (`cvta_*`) |
+| 3b | Interruptor en Empresas (y corrección: "Vende por presentación" no se grababa desde la pantalla); en Listas de precios (2 y 5) selector Canal y botón **Canales** con la ventana de alta y edición (`templates/listas_precios/canales_venta.php`, `assets/js/canales-venta.js`, función editar de la página): **no hay página nueva**, así no hacen falta filas en `conf__paginas` ni permisos; casillas en Sucursales (2 y 5) |
+| 3c | `cvta_completar_condicion` al final de `obtenerListaPrecioVigenteCliente` (pedidos), `obtenerListaPrecioVigenteClienteRemitos` y `vfObtenerCondicionCliente`; `lpre_lista_cliente` delega en `cvta_lista_cliente`; `en_lista` en los buscadores de pedidos y facturas con el aviso "Sin precio en la lista" (el de remitos ya solo ofrece productos de la lista) |
+| 3d | `cvta_exigir_venta_sucursal` al grabar (alta y edición) pedidos, remitos (sucursal del punto de venta) y facturas (`sucursal_id` del formulario); canal visible junto a la condición del cliente en remitos y facturas |
+
+Pruebas: `probar_cvta.php` (núcleo, en la copia y contra el maestro sin la estructura), caso de simulación
+`34_canales_venta.py` y comparación antes / después de los casos 03, 04, 06, 09 y 19b con el indicador apagado.
+
+Pendiente: el canal en la ficha de Clientes (`clientes*` / `entidades*`, ~5.000 líneas con el JS en la página: se
+deja para no tocarlo sin necesidad; el canal se ve en remitos y facturas); en la pantalla de pedidos no hay lugar
+donde se muestre la condición del cliente, así que ahí el aviso de sucursal llega como error al grabar. La
+importación de "Mis Comprobantes Emitidos" de ARCA no valida canal (son facturas ya emitidas).

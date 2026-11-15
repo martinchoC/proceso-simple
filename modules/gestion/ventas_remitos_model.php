@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
+require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/auditoria.php';
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;
@@ -1103,6 +1104,8 @@ function agregarRemitoVenta($conexion, $data)
             AccesosSucursalesHelper::exigirAccesoSucursal($conexion, $empresa_id_val, $sucursal_id_val);
             AccesosSucursalesHelper::exigirAccesoPuntoVenta($conexion, $empresa_id_val, $comprobante_pv_val);
         }
+        // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+        cvta_exigir_venta_sucursal($conexion, $empresa_id_val, $sucursal_id_val, $destinatario['entidad_id'] ?? null);
 
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $comprobante_nro_val = 0;
@@ -1289,6 +1292,8 @@ function editarRemitoVenta($conexion, $id, $data)
         if (isset($destinatario['error'])) {
             throw new Exception($destinatario['error']);
         }
+        // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+        cvta_exigir_venta_sucursal($conexion, intval($data['empresa_idx'] ?? 0), $sucursal_id_val, $destinatario['entidad_id'] ?? null);
 
         $comprobante_tipo_id_val = intval($data['comprobante_tipo_id']);
         $entidad_id_val = $destinatario['entidad_id'];
@@ -2024,7 +2029,7 @@ function obtenerListaPrecioVigenteClienteRemitos($conexion, $entidad_id)
     $row = mysqli_fetch_assoc($result);
     mysqli_stmt_close($stmt);
 
-    return $row ?: null;
+    return cvta_completar_condicion($conexion, $entidad_id, $row ?: null); // canales de venta: lista unificada (sin el indicador, igual que antes)
 }
 
 // Lista de precios que se aplica a los consumidores finales: la "Mostrador" de la
@@ -2144,5 +2149,6 @@ function buscarProductosClienteRemitos($conexion, $empresa_idx, $entidad_id, $q)
     }
     mysqli_stmt_close($stmt);
     // Venta por presentación: ofertas por producto (sin el indicador, las filas tal cual)
-    return vpre_agregar_ofertas($conexion, intval($empresa_idx), intval($lista_precio_id), $productos, 0, 'remito');
+    // en_lista: canales de venta, aviso "sin precio en la lista del cliente" (sin el indicador no se agrega)
+    return cvta_marcar_en_lista($conexion, intval($empresa_idx), intval($lista_precio_id), vpre_agregar_ofertas($conexion, intval($empresa_idx), intval($lista_precio_id), $productos, 0, 'remito'));
 }

@@ -416,3 +416,105 @@ if (!function_exists('cvta_despachar')) {
         return ['success' => false, 'data' => null, 'message' => 'Acción desconocida.'];
     }
 }
+
+if (!function_exists('cvta_completar_condicion')) {
+    /**
+     * Gancho de las funciones que devuelven la condición comercial del cliente (obtenerListaPrecioVigenteCliente de
+     * pedidos, obtenerListaPrecioVigenteClienteRemitos, vfObtenerCondicionCliente): con usa_canales_venta, la lista
+     * sale de cvta_lista_cliente() (condición → lista de la entidad → lista por defecto) y se agregan
+     * lista_origen, canal_venta_id y canal. Sin el indicador devuelve $row tal cual.
+     * Un cliente sin condición vigente devuelve una fila mínima con la lista (antes: null); el resto de los datos de la
+     * condición (pago, descuento, límite) quedan en null, como en una condición sin esos datos.
+     * $empresa_id 0: se toma la de la entidad.
+     */
+    function cvta_completar_condicion(mysqli $conexion, int $entidad_id, ?array $row, int $empresa_id = 0): ?array
+    {
+        if ($entidad_id <= 0 || !cvta_estructura($conexion)) {
+            return $row;
+        }
+        if ($empresa_id <= 0) {
+            $st = mysqli_prepare($conexion, "SELECT empresa_id FROM gestion__entidades WHERE entidad_id = ?");
+            mysqli_stmt_bind_param($st, "i", $entidad_id);
+            mysqli_stmt_execute($st);
+            $empresa_id = intval(mysqli_fetch_row(mysqli_stmt_get_result($st))[0] ?? 0);
+            mysqli_stmt_close($st);
+        }
+        if (!cvta_empresa_usa($conexion, $empresa_id)) {
+            return $row;
+        }
+        $r = cvta_lista_cliente($conexion, $empresa_id, $entidad_id);
+        if ($r['lista_precio_id'] <= 0) {
+            return $row; // ni condición, ni lista de la entidad, ni lista por defecto: como hoy
+        }
+        if ($row === null) {
+            $row = ['lista_precio_id' => null, 'condicion_pago_id' => null, 'cliente_descuento_general' => null, 'limite_credito' => null];
+        }
+        $row['lista_precio_id'] = $r['lista_precio_id'];
+        $row['lista_origen'] = $r['origen'];
+        $row['canal_venta_id'] = $r['canal_venta_id'];
+        $row['canal'] = $r['canal'];
+        if (array_key_exists('lista_precio_nombre', $row)) {
+            $st = mysqli_prepare($conexion, "SELECT lista_precio_nombre FROM gestion__listas_precios WHERE lista_precio_id = ? AND empresa_id = ?");
+            mysqli_stmt_bind_param($st, "ii", $r['lista_precio_id'], $empresa_id);
+            mysqli_stmt_execute($st);
+            $row['lista_precio_nombre'] = mysqli_fetch_row(mysqli_stmt_get_result($st))[0] ?? $row['lista_precio_nombre'];
+            mysqli_stmt_close($st);
+        }
+        return $row;
+    }
+}
+
+if (!function_exists('cvta_marcar_en_lista')) {
+    /**
+     * Buscadores de pedidos, remitos y facturas (doc 18, hallazgo 8): con usa_canales_venta agrega en_lista (bool) a
+     * cada producto: false = no tiene precio vigente en la lista del cliente (la pantalla avisa en vez de cargar 0 en
+     * silencio). Sin el indicador devuelve $productos tal cual.
+     */
+    function cvta_marcar_en_lista(mysqli $conexion, int $empresa_id, int $lista_precio_id, array $productos): array
+    {
+        if (!$productos || !cvta_empresa_usa($conexion, $empresa_id)) {
+            return $productos;
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', array_column($productos, 'producto_id')))));
+        $con_precio = [];
+        if ($ids && $lista_precio_id > 0) {
+            $ph = implode(',', array_fill(0, count($ids), '?'));
+            $st = mysqli_prepare($conexion, "SELECT DISTINCT producto_id FROM gestion__listas_precios_productos
+                                             WHERE lista_precio_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1
+                                               AND f_desde <= CURDATE() AND (f_hasta IS NULL OR f_hasta >= CURDATE())
+                                               AND producto_id IN ($ph)");
+            $params = array_merge([$lista_precio_id, $empresa_id], $ids);
+            mysqli_stmt_bind_param($st, str_repeat('i', count($params)), ...$params);
+            mysqli_stmt_execute($st);
+            $res = mysqli_stmt_get_result($st);
+            while ($r = mysqli_fetch_row($res)) {
+                $con_precio[(int) $r[0]] = true;
+            }
+            mysqli_stmt_close($st);
+        }
+        foreach ($productos as &$p) {
+            $p['en_lista'] = isset($con_precio[(int) ($p['producto_id'] ?? 0)]);
+        }
+        unset($p);
+        return $productos;
+    }
+}
+
+if (!function_exists('cvta_exigir_venta_sucursal')) {
+    /**
+     * Al grabar un pedido, remito o factura de venta: la sucursal tiene que vender al canal de la lista del cliente
+     * (o la de Mostrador, sin cliente). Sin usa_canales_venta no hace nada.
+     * @throws InvalidArgumentException con el mensaje para el usuario
+     */
+    function cvta_exigir_venta_sucursal(mysqli $conexion, int $empresa_id, int $sucursal_id, ?int $entidad_id): void
+    {
+        if (!cvta_empresa_usa($conexion, $empresa_id) || $sucursal_id <= 0) {
+            return;
+        }
+        $lista = cvta_lista_cliente($conexion, $empresa_id, $entidad_id ?: null)['lista_precio_id'];
+        $msg = cvta_validar_sucursal($conexion, $empresa_id, $sucursal_id, $lista);
+        if ($msg !== null) {
+            throw new InvalidArgumentException($msg);
+        }
+    }
+}

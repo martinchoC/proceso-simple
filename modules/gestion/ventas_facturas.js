@@ -237,10 +237,10 @@ $(function () {
             return;
         }
         if (c.es_consumidor_final) {
-            $('#condicionClienteInfo').html(badgeFiscal + ' &nbsp;|&nbsp; <strong>Precios:</strong> ' + esc(c.lista_precio_nombre || '-') + ' &nbsp;|&nbsp; <strong>Pago:</strong> ' + esc(c.condicion_pago || 'contado'));
+            $('#condicionClienteInfo').html(badgeFiscal + ' &nbsp;|&nbsp; <strong>Precios:</strong> ' + esc(c.lista_precio_nombre || '-') + ' &nbsp;|&nbsp; <strong>Pago:</strong> ' + esc(c.condicion_pago || 'contado') + (c.canal ? ' &nbsp;|&nbsp; <strong>Canal:</strong> ' + esc(c.canal) : ''));
             return;
         }
-        $('#condicionClienteInfo').html(badgeFiscal + ' &nbsp;|&nbsp; <strong>Lista De Precios:</strong> ' + (c.lista_precio_nombre || '-') + ' &nbsp;|&nbsp; <strong>Descuento:</strong> ' + descuentoGeneralCliente + '%');
+        $('#condicionClienteInfo').html(badgeFiscal + ' &nbsp;|&nbsp; <strong>Lista De Precios:</strong> ' + (c.lista_precio_nombre || '-') + ' &nbsp;|&nbsp; <strong>Descuento:</strong> ' + descuentoGeneralCliente + '%' + (c.canal ? ' &nbsp;|&nbsp; <strong>Canal:</strong> ' + esc(c.canal) : ''));
     }
     function cargarCliente() {
         var id = $('#factura_entidad_id').val();
@@ -530,6 +530,7 @@ $(function () {
                 return '<button type="button" class="list-group-item list-group-item-action" data-index="' + i + '">'
                     + '<strong>' + $('<div>').text(p.producto_codigo || '').html() + '</strong> - ' + $('<div>').text(p.producto_nombre || '').html()
                     + (p._oferta ? ' <span class="badge bg-secondary">' + esc(VentaPres.textoOferta(p._oferta)) + '</span>' : '')
+                    + (p.en_lista === false && !(p._oferta && p._oferta.presentacion_id) ? ' <span class="badge bg-warning text-dark ms-1" title="No tiene precio vigente en la lista del cliente: entra con precio 0">Sin precio en la lista</span>' : '')
                     + (p.compatibilidad_texto ? '<small class="d-block text-muted"><i class="fas fa-car-side me-1"></i>' + $('<div>').text(p.compatibilidad_texto).html() + '</small>' : '')
                     + '</button>';
             }).join(''));

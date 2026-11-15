@@ -533,7 +533,7 @@ $(document).ready(function () {
             success: function (res) {
                 if (res && res.success && res.data) {
                     var pct = parseFloat(res.data.cliente_descuento_general) || 0;
-                    info.html(`<i class="fas fa-tag me-1"></i>Descuento general del cliente: <strong>${Fmt.numero(pct, 2)}%</strong> (se aplica a todos los productos).`);
+                    info.html(`<i class="fas fa-tag me-1"></i>Descuento general del cliente: <strong>${Fmt.numero(pct, 2)}%</strong> (se aplica a todos los productos).` + (res.data.canal ? ` Canal: <strong>${$('<div>').text(res.data.canal).html()}</strong>.` : ''));
                 } else {
                     info.html('<i class="fas fa-triangle-exclamation me-1"></i>Este cliente no tiene una lista de precios vigente asignada.');
                 }
@@ -779,7 +779,7 @@ $(document).ready(function () {
                     var precioOf = parseFloat(of.precio || 0);
                     html += `<tr class="resultado-libre-fila">
                         <td>${item.producto_codigo || ''}</td>
-                        <td>${item.producto_nombre || ''}
+                        <td>${item.producto_nombre || ''}${!presId && item.en_lista === false ? '<span class="badge bg-warning text-dark ms-1" title="No tiene precio vigente en la lista del cliente: entra con precio 0">Sin precio en la lista</span>' : ''}
                             <span class="badge ${presId ? 'bg-secondary' : 'bg-light text-dark border'} ms-1">${escapeHtml(VentaPres.textoOferta(of))}</span>
                         </td>
                         <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>
@@ -809,7 +809,7 @@ $(document).ready(function () {
 
             html += `<tr class="resultado-libre-fila">
                 <td>${item.producto_codigo || ''}</td>
-                <td>${item.producto_nombre || ''}
+                <td>${item.producto_nombre || ''}${item.en_lista === false ? '<span class="badge bg-warning text-dark ms-1" title="No tiene precio vigente en la lista del cliente: entra con precio 0">Sin precio en la lista</span>' : ''}
                     ${item.compatibilidad_texto ? `<small class="text-muted d-block">${escapeHtml(item.compatibilidad_texto)}</small>` : ''}
                 </td>
                 <td class="text-center">${Fmt.numero(ivaPorcentaje, 2)}%</td>

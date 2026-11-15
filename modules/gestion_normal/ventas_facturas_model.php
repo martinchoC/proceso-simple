@@ -3,6 +3,7 @@ require_once __DIR__ . '/../../core/entidades_roles.php';
 require_once __DIR__ . '/../../core/formato.php';
 require_once __DIR__ . '/../../core/empresa_config.php';
 require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por presentación (vpre_*): inactiva sin el indicador
+require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 require_once __DIR__ . '/../../arca/arca_lib.php';
@@ -181,7 +182,7 @@ function vfObtenerCondicionCliente($conexion, $entidad_id, $empresa_id) {
             $row['condicion_fiscal_codigo'] = 'CF';
         }
     }
-    return $row ?: null;
+    return cvta_completar_condicion($conexion, intval($entidad_id), $row ?: null, intval($empresa_id)); // canales de venta: lista unificada (sin el indicador, igual que antes)
 }
 
 // Condición comercial de un consumidor final (factura sin cliente), con la misma forma que
@@ -609,7 +610,8 @@ function vfBuscarProductos($conexion, $empresa_id, $entidad_id, $q) {
     while ($row = mysqli_fetch_assoc($result)) $rows[] = $row;
     mysqli_stmt_close($stmt);
     // Venta por presentación: ofertas por producto (sin el indicador, las filas tal cual)
-    return vpre_agregar_ofertas($conexion, (int) $empresa_id, $lista, $rows, 0, 'factura');
+    // en_lista: canales de venta, aviso "sin precio en la lista del cliente" (sin el indicador no se agrega)
+    return cvta_marcar_en_lista($conexion, (int) $empresa_id, (int) $lista, vpre_agregar_ofertas($conexion, (int) $empresa_id, $lista, $rows, 0, 'factura'));
 }
 
 function vfEstadoInicial($conexion, $pagina_id) {
@@ -1325,6 +1327,8 @@ function guardarVentaFactura($conexion, $empresa_id, $pagina_id, $data) {
     mysqli_begin_transaction($conexion);
     try {
         $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
+        // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+        cvta_exigir_venta_sucursal($conexion, intval($empresa_id), intval($data['sucursal_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0));
         // Consumidor final: siempre contado (no tiene cuenta corriente), sin importar lo que mande el navegador.
         $condicion_pago_id = $destinatario['entidad_id']
             ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
@@ -1469,6 +1473,8 @@ function vfEditarVentaFactura($conexion, $id, $empresa_id, $pagina_id, $data) {
         mysqli_stmt_close($stmt);
 
         $cond = vfObtenerCondicionDestinatario($conexion, intval($destinatario['entidad_id']), $empresa_id);
+        // Canales de venta: la sucursal tiene que vender al canal del cliente (sin el indicador, no hace nada)
+        cvta_exigir_venta_sucursal($conexion, intval($empresa_id), intval($data['sucursal_id'] ?? 0), intval($destinatario['entidad_id'] ?? 0));
         $condicion_pago_id = $destinatario['entidad_id']
             ? intval(($data['condicion_pago_id'] ?? null) ?: ($cond['condicion_pago_id'] ?? 0))
             : intval($cond['condicion_pago_id'] ?? 0);
