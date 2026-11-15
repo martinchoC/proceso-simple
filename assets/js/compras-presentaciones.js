@@ -7,8 +7,8 @@
  * (cajas, precio de la caja). ComprasPres.convertir(linea) pasa la línea a unidad base (lo que siempre se grabó) y
  * le agrega presentacion_id / _cantidad / _precio, que el servidor vuelve a validar y recalcular.
  *
- * Uso: ComprasPres.init({ ajaxUrl, empresaIdx, cantidad: '#producto_cantidad', precio: '#producto_precio', onCambio });
- *      ComprasPres.cargar(productoId) al elegir un producto (preselecciona la de compra por defecto);
+ * Uso: ComprasPres.init({ ajaxUrl, empresaIdx, entidad: fn → proveedor, cantidad: '#producto_cantidad', precio: '#producto_precio', onCambio });
+ *      ComprasPres.cargar(productoId) al elegir un producto (preselecciona la del proveedor o la de compra por defecto);
  *      ComprasPres.cargar(productoId, presentacionId|null, cantidadPres, precioPres, true) al editar una línea;
  *      ComprasPres.convertir(detalle) antes de agregarlo; ComprasPres.etiqueta(detalle) para la tabla;
  *      ComprasPres.limpiar() al vaciar el formulario.
@@ -16,7 +16,7 @@
 var ComprasPres = (function ($) {
     'use strict';
 
-    var cfg = { ajaxUrl: '', empresaIdx: 0, cantidad: '#producto_cantidad', precio: '#producto_precio', onCambio: null };
+    var cfg = { ajaxUrl: '', empresaIdx: 0, entidad: null, cantidad: '#producto_cantidad', precio: '#producto_precio', onCambio: null };
     var opciones = [], factorActual = 1, pedido = 0;
 
     function esc(t) { return t === null || t === undefined ? '' : String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -57,7 +57,8 @@ var ComprasPres = (function ($) {
         var este = ++pedido;
         opciones = []; factorActual = 1; pintar(null);
         if (!productoId) return;
-        $.get(cfg.ajaxUrl, { accion: 'cpre_presentaciones', producto_id: productoId, empresa_idx: cfg.empresaIdx }, function (r) {
+        var entidad = typeof cfg.entidad === 'function' ? (cfg.entidad() || 0) : 0;
+        $.get(cfg.ajaxUrl, { accion: 'cpre_presentaciones', producto_id: productoId, entidad_id: entidad, empresa_idx: cfg.empresaIdx }, function (r) {
             if (este !== pedido) return; // llegó la respuesta de un producto anterior
             opciones = (r && r.success && r.data) || [];
             if (presentacionId) {
@@ -69,7 +70,9 @@ var ComprasPres = (function ($) {
                 return;
             }
             if (editando) { pintar(null); return; } // línea por unidad: queda en Unidad
-            var def = opciones.find(function (o) { return parseInt(o.es_compra_defecto, 10) === 1; });
+            // Primero la presentación en la que vende el proveedor (paso 8-4); si no, la de compra por defecto
+            var def = opciones.find(function (o) { return parseInt(o.es_proveedor, 10) === 1; })
+                || opciones.find(function (o) { return parseInt(o.es_compra_defecto, 10) === 1; });
             pintar(def ? def.presentacion_id : null);
             if (def) cambiarFactor(factorDe(def.presentacion_id));
         }, 'json');

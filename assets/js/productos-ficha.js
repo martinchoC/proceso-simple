@@ -10,7 +10,7 @@ var ProdFicha = (function ($) {
     'use strict';
 
     var cfg = { ajaxUrl: 'productos_ajax.php', preciosUrl: 'listas_precios_productos_ajax.php', empresaIdx: 0, paginaIdx: 0, soloLectura: false };
-    var productoId = 0, proveedores = null, vinculos = [], listas = null, precios = [], ubiOpciones = null, ro = false;   // ro: solo lectura (consulta o "ver")
+    var productoId = 0, proveedores = null, vinculos = [], presCompra = null, listas = null, precios = [], ubiOpciones = null, ro = false;   // ro: solo lectura (consulta o "ver")
 
     function activo() { return $('#pficSolapas').length > 0; }
     function esc(t) { return t === null || t === undefined ? '' : String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -40,29 +40,50 @@ var ProdFicha = (function ($) {
         if (!productoId) { $('#pficProvFilas').html(''); return; }
         pedir('ficha_proveedores_listar', {}, 'GET').done(function (r) {
             vinculos = (r && r.success && r.data) || [];
+            presCompra = (r && r.presentaciones_compra) || null;   // null = sin compra por presentación
+            pintarPresProveedor();
             var cols = ro ? 4 : 5;
             $('#pficProvFilas').html(vinculos.length ? vinculos.map(function (v) {
                 var principal = parseInt(v.es_principal, 10) === 1;
                 return '<tr><td>' + (principal ? '<span class="badge bg-primary">Principal</span>'
                         : (ro ? '' : '<button type="button" class="btn btn-sm btn-link p-0 pfic-prov-principal" data-id="' + v.producto_proveedor_id + '">Hacer principal</button>')) + '</td>'
-                    + '<td>' + esc(v.entidad_nombre) + '</td><td>' + esc(v.cuit) + '</td><td><code>' + esc(v.codigo_proveedor) + '</code></td>'
+                    + '<td>' + esc(v.entidad_nombre) + '</td><td>' + esc(v.cuit) + '</td><td><code>' + esc(v.codigo_proveedor) + '</code>'
+                    + (v.presentacion_nombre ? ' <small class="text-primary">vende en ' + esc(v.presentacion_nombre) + '</small>' : '') + '</td>'
                     + (ro ? '' : '<td class="text-end text-nowrap"><button type="button" class="btn btn-sm btn-outline-secondary pfic-prov-editar" data-id="' + v.producto_proveedor_id + '" title="Editar"><i class="fas fa-pen"></i></button> '
                         + '<button type="button" class="btn btn-sm btn-outline-danger pfic-prov-quitar" data-id="' + v.producto_proveedor_id + '" title="Quitar"><i class="fas fa-trash"></i></button></td>')
                     + '</tr>';
             }).join('') : '<tr><td colspan="' + cols + '" class="text-muted small p-3">Sin proveedores vinculados.</td></tr>');
         }).fail(fallo);
     }
+    /** Compra por presentación (doc 27, paso 8-4): "Vende en" Unidad / Caja x 12 / … junto al código del proveedor. */
+    function pintarPresProveedor() {
+        var $s = $('#pficProvPres');
+        if (!presCompra || !presCompra.length) { $s.closest('.pfic-prov-pres').remove(); return; }
+        if (!$s.length) {
+            $('#pficProvCodigo').closest('div[class*="col"]').after('<div class="col-6 col-md-2 pfic-prov-pres"><label class="form-label form-label-sm" for="pficProvPres">Vende en</label>'
+                + '<select class="form-select form-select-sm" id="pficProvPres"></select></div>');
+            $s = $('#pficProvPres');
+            $('#pficProvEntidad').closest('.col-md-5').removeClass('col-md-5').addClass('col-md-3');   // la fila sigue en 12 columnas
+        }
+        var actual = $s.val();
+        $s.html('<option value="0">Unidad</option>' + presCompra.map(function (p) {
+            return '<option value="' + p.presentacion_id + '">' + esc(p.presentacion_nombre) + '</option>';
+        }).join('')).val(actual && $s.find('option[value="' + actual + '"]').length ? actual : '0');
+    }
     function limpiarFormProveedor() {
         $('#pficProvId').val(''); $('#pficProvEntidad').val(''); $('#pficProvCodigo').val(''); $('#pficProvPrincipal').prop('checked', false);
+        $('#pficProvPres').val('0');
         $('#pficProvGuardar').text('Agregar'); $('#pficProvCancelar').addClass('d-none');
     }
     function guardarProveedor() {
         var entidad = $('#pficProvEntidad').val();
         if (!entidad) { if (window.UiSimple) UiSimple.aviso('Elija el proveedor.'); return; }
-        pedir('ficha_proveedor_guardar', {
+        var datos = {
             producto_proveedor_id: $('#pficProvId').val() || 0, entidad_id: entidad,
             codigo_proveedor: $.trim($('#pficProvCodigo').val()), es_principal: $('#pficProvPrincipal').is(':checked') ? 1 : 0
-        }).done(function (r) { respuesta(r, function () { limpiarFormProveedor(); listarProveedores(); }); }).fail(fallo);
+        };
+        if ($('#pficProvPres').length) datos.presentacion_id = $('#pficProvPres').val() || 0;
+        pedir('ficha_proveedor_guardar', datos).done(function (r) { respuesta(r, function () { limpiarFormProveedor(); listarProveedores(); }); }).fail(fallo);
     }
     function enlazarProveedores() {
         $('#pficProvGuardar').on('click', guardarProveedor);
@@ -75,6 +96,7 @@ var ProdFicha = (function ($) {
             $('#pficProvId').val(v.producto_proveedor_id); $('#pficProvEntidad').val(String(v.entidad_id));
             $('#pficProvCodigo').val(v.codigo_proveedor || '').trigger('focus');
             $('#pficProvPrincipal').prop('checked', parseInt(v.es_principal, 10) === 1);
+            $('#pficProvPres').val(String(v.presentacion_id || 0));
             $('#pficProvGuardar').text('Guardar'); $('#pficProvCancelar').removeClass('d-none');
         });
         $(document).on('click', '.pfic-prov-quitar', function () {

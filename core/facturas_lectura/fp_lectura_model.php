@@ -544,6 +544,14 @@ function fplGuardarBorrador($conexion, $empresa_id, $usuario_id, $adjunto_id, $s
         'empresa_idx' => $e,
         'pagina_idx' => FPL_PAGINA_IDX,
     ];
+    if (function_exists('cpre_preparar_lineas')) {   // compra por presentación: valida y deja la foto (doc 27)
+        try {
+            $data['detalles'] = cpre_preparar_lineas($conexion, $e, $data['detalles'], 'factura');
+        } catch (InvalidArgumentException $ex) {
+            bdj_lectura($conexion, $e, intval($adjunto['adjunto_id']), 'REVISAR', 'Al guardar: ' . $ex->getMessage());
+            return ['success' => false, 'message' => $ex->getMessage(), 'motivos' => []];
+        }
+    }
     $res = agregarFacturaProveedor($conexion, $data);
     if (empty($res['resultado'])) {
         $msg = $res['error'] ?? 'No se pudo guardar la factura.';
@@ -862,6 +870,11 @@ function fplArmarLineas($conexion, $empresa_id, ResultadoExtraccion $r, $entidad
     unset($d);
     foreach ($items_ref as &$ir) $ir['producto_codigo'] = $ir['producto_id'] ? ($codigos[$ir['producto_id']] ?? '') : '';
     unset($ir);
+    // Compra por presentación (doc 27, paso 8-4): ítems de un producto que el proveedor vende en caja / pack
+    if ($entidad_id && function_exists('cpre_lectura_lineas')) {
+        [$detalles, $av_pres] = cpre_lectura_lineas($conexion, intval($empresa_id), intval($entidad_id), $detalles);
+        $avisos = array_merge($avisos, $av_pres);
+    }
     return [$detalles, $items_ref, $avisos, $error, $descuento];
 }
 

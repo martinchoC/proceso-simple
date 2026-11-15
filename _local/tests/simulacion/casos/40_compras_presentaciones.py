@@ -1,10 +1,11 @@
 from simlib import *
 
-# Compra por presentación (doc 27): órdenes de compra (8-2) y facturas de proveedor con costo (8-3). Empresa 2, módulo 2.
-# Necesita en la copia: 20261112_productos_presentaciones_01 y 20261122_compra_presentaciones_01 (--scripts).
+# Compra por presentación (doc 27): órdenes de compra (8-2), facturas de proveedor con costo (8-3) y presentación del
+# proveedor con la carga de facturas desde archivo (8-4). Empresa 2, módulo 2.
+# Necesita en la copia: 20261112_productos_presentaciones_01 y 20261122_compra_presentaciones_01 / _02 (--scripts).
 # Prende los indicadores y crea una presentación de compra solo en la copia; al final deja los indicadores como estaban.
 #   python _local/tests/simulacion/run.py 40_compras_presentaciones.py --scripts <arca_off.sql> \
-#       _local/sql/mantenimiento/20261122_compra_presentaciones_01.sql
+#       _local/sql/mantenimiento/20261122_compra_presentaciones_01.sql _local/sql/mantenimiento/20261122_compra_presentaciones_02.sql
 
 PROV = 5765           # DLC MOTORS (AMERS SRL), el proveedor del caso 01
 P1, P2 = 1529, 1878
@@ -145,8 +146,115 @@ if CTX.get('ok') and oc:
     check(not ok_resp(r) and 'no es de ese producto' in err(r), 'factura: una presentación de otro producto se rechaza', err(r))
 
 # ---------------------------------------------------------------------------------------------
+# Paso 8-4: presentación en la que vende el proveedor y carga de facturas desde archivo.
+LECTURA_PHP = r"""<?php
+define('DB_NAME', $argv[1]);
+set_error_handler(function ($no, $str) { return strpos($str, 'already defined') !== false; });
+$raiz = $argv[2];
+require_once "$raiz/.env";
+require_once "$raiz/modules/gestion/facturas_proveedores_model.php";
+require_once "$raiz/modules/gestion/facturas_proveedores_lectura_model.php";
+$r = new ResultadoExtraccion();
+$r->set('neto_gravado', (float) $argv[5], 'alta', 'test');
+$r->set('iva_alicuotas', ['21.00' => round((float) $argv[5] * 0.21, 2)], 'alta', 'test');
+$r->items = json_decode($argv[6], true);
+[$detalles, $items_ref, $avisos, $error] = fplArmarLineas($conexion, (int) $argv[3], $r, (int) $argv[4], 'A');
+echo json_encode(['detalles' => $detalles, 'avisos' => $avisos, 'error' => $error]);
+"""
+
+
+def lectura(neto, items):
+    """fplArmarLineas (core/facturas_lectura) sobre la copia, con una lectura armada a mano."""
+    with tempfile.NamedTemporaryFile('w', suffix='.php', delete=False, encoding='utf-8') as f:
+        f.write(LECTURA_PHP)
+        ruta = f.name
+    raiz = os.path.abspath(os.path.join(AQUI, '..', '..', '..'))
+    try:
+        r = subprocess.run([PHP, ruta, DB, raiz, '2', str(PROV), str(neto), json.dumps(items)],
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
+    finally:
+        os.unlink(ruta)
+    s = r.stdout
+    try:
+        return json.loads(s[s.find('{'):])
+    except Exception:
+        return {'_raw': s[-1500:], '_stderr': r.stderr[-1500:]}
+
+
+caso('Compra por presentación: presentación del proveedor y lectura de facturas')
+tiene_col = int(val("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gestion__productos_proveedores' "
+                    "AND COLUMN_NAME = 'presentacion_id'")) == 1
+if not tiene_col:
+    brecha('falta 20261122_compra_presentaciones_02 en la copia', 'correr con --scripts ..._02.sql')
+elif CTX.get('ok'):
+    PR = CTX['pres']
+    # Restos de una corrida cortada antes de la limpieza
+    sql("UPDATE gestion__productos_presentaciones SET tabla_estado_registro_id = 2 WHERE empresa_id = 2 AND producto_id = %d "
+        "AND presentacion_nombre LIKE 'SIM %%' AND presentacion_id <> %d" % (P1, PR))
+    # Una segunda presentación de compra (por defecto de la empresa) para ver que la del proveedor gana
+    sql("UPDATE gestion__productos_presentaciones SET es_compra_defecto = 0 WHERE presentacion_id = %d" % PR)
+    sql("INSERT INTO gestion__productos_presentaciones (empresa_id, producto_id, presentacion_nombre, factor, aplica_compra, aplica_venta, "
+        "es_compra_defecto, es_venta_defecto, orden, tabla_estado_registro_id) VALUES (2, %d, 'SIM Pack x 6', 6, 1, 0, 1, 0, 98, 1)" % P1)
+    CTX['pres6'] = int(val("SELECT MAX(presentacion_id) FROM gestion__productos_presentaciones WHERE producto_id = %d AND presentacion_nombre = 'SIM Pack x 6'" % P1))
+    CTX['vinc'] = uno("SELECT producto_proveedor_id id, codigo_proveedor cod, presentacion_id pres FROM gestion__productos_proveedores "
+                      "WHERE empresa_id = 2 AND entidad_id = %d AND producto_id = %d AND tabla_estado_registro_id = 1" % (PROV, P1))
+    r = oc_ajax(dict(accion='cpre_presentaciones', producto_id=P1, entidad_id=PROV), 'GET')
+    d = (r.get('data') or []) if ok_resp(r) else []
+    check(d and int(d[0]['presentacion_id']) == CTX['pres6'] and not any(int(x.get('es_proveedor') or 0) for x in d),
+          'sin presentación del proveedor: primero la de compra por defecto, ninguna es_proveedor', str(d)[:200])
+    if CTX['vinc']:
+        sql("UPDATE gestion__productos_proveedores SET presentacion_id = %d, codigo_proveedor = 'SIMCJ12' WHERE producto_proveedor_id = %d" % (PR, int(CTX['vinc']['id'])))
+        r = oc_ajax(dict(accion='cpre_presentaciones', producto_id=P1, entidad_id=PROV), 'GET')
+        d = (r.get('data') or []) if ok_resp(r) else []
+        check(d and int(d[0]['presentacion_id']) == PR and int(d[0].get('es_proveedor') or 0) == 1,
+              'OC: la presentación del proveedor va primero y marcada', str(d)[:200])
+        r = fp_ajax(dict(accion='cpre_presentaciones', producto_id=P1, entidad_id=PROV), 'GET')
+        d = (r.get('data') or []) if ok_resp(r) else []
+        check(d and int(d[0]['presentacion_id']) == PR and int(d[0].get('es_proveedor') or 0) == 1, 'factura: también', str(d)[:200])
+        r = fp_ajax(dict(accion='cpre_presentaciones', producto_id=P1, entidad_id=999999), 'GET')
+        d = (r.get('data') or []) if ok_resp(r) else []
+        check(d and not any(int(x.get('es_proveedor') or 0) for x in d), 'otro proveedor: sin marca', str(d)[:200])
+        # Lectura: 2 cajas a $ 9.000 con el código del proveedor + un ítem sin código (imputación)
+        L = lectura(20000, [{'codigo': 'SIMCJ12', 'descripcion': 'Caja', 'cantidad': 2, 'precio_unitario': 9000, 'alicuota': 21, 'subtotal': 18000},
+                            {'codigo': 'ZZZ', 'descripcion': 'Otro', 'cantidad': 1, 'precio_unitario': 2000, 'alicuota': 21, 'subtotal': 2000}])
+        dets = L.get('detalles') or []
+        caja = next((x for x in dets if x.get('codigo_proveedor') == 'SIMCJ12'), {})
+        check(int(caja.get('presentacion_id') or 0) == PR and num(caja.get('cantidad')) == 24 and num(caja.get('presentacion_cantidad')) == 2
+              and abs(num(caja.get('precio_unitario')) - 750) < 0.000001 and num(caja.get('presentacion_precio')) == 9000 and num(caja.get('neto_gravado')) == 18000,
+              'lectura: el ítem del proveedor entra como 2 cajas = 24 u a $ 750, neto $ 18.000', str(L)[:400])
+        otras = [x for x in dets if x.get('codigo_proveedor') != 'SIMCJ12']
+        check(otras and not any(x.get('presentacion_id') for x in otras) and abs(sum(num(x['neto_gravado']) for x in otras) - 2000) < 0.01,
+              'lectura: el resto va a la línea de imputación, sin presentación', str(otras)[:300])
+        check(any('presentación del proveedor' in a for a in (L.get('avisos') or [])), 'lectura: aviso de los ítems en presentación', str(L.get('avisos'))[:200])
+        # Lo que arma la lectura se guarda por el formulario (agregar) y queda con la foto
+        if caja:
+            caja2 = dict(caja, ordenes_compra_detalle_id=None)
+            r = fp_ajax(dict(accion='agregar', comprobante_tipo_id=34, comprobante_pv=7, comprobante_nro=proximo_nro_proveedor(7, 940000),
+                             sucursal_id=1, deposito_id=1, entidad_id=PROV, f_emision=HOY, f_contabilidad=HOY, f_vencimiento=HOY, moneda_id=1,
+                             tipo_cambio=1, condicion_pago_id='', descuento_general_pct=0, impuestos_adicionales='[]',
+                             detalles=json.dumps([caja2]), **totales([linea(P1, 24, 750)])))
+            f = r.get('factura_proveedor_id') if isinstance(r, dict) else None
+            l = uno("SELECT cantidad, presentacion_id, presentacion_cantidad, neto_gravado FROM gestion__facturas_proveedores_detalle WHERE factura_proveedor_id = %d" % int(f or 0)) if f else None
+            check(l and num(l['cantidad']) == 24 and int(l['presentacion_id'] or 0) == PR and num(l['presentacion_cantidad']) == 2 and num(l['neto_gravado']) == 18000,
+                  'la línea leída se guarda con la foto (24 u = 2 cajas)', err(r) + ' ' + str(l))
+        # Apagado: la lectura no toca las líneas
+        sql("UPDATE conf__empresas SET usa_compra_presentaciones = 0 WHERE empresa_id = 2")
+        L = lectura(18000, [{'codigo': 'SIMCJ12', 'descripcion': 'Caja', 'cantidad': 2, 'precio_unitario': 9000, 'alicuota': 21, 'subtotal': 18000}])
+        caja = next((x for x in (L.get('detalles') or []) if x.get('codigo_proveedor') == 'SIMCJ12'), {})
+        check(caja and num(caja.get('cantidad')) == 2 and 'presentacion_id' not in caja, 'apagado: la lectura carga 2 a $ 9.000, como siempre', str(L)[:300])
+        r = oc_ajax(dict(accion='cpre_presentaciones', producto_id=P1, entidad_id=PROV), 'GET')
+        check(ok_resp(r) and r.get('data') == [], 'apagado: la pantalla no recibe presentaciones', str(r)[:200])
+        sql("UPDATE conf__empresas SET usa_compra_presentaciones = 1 WHERE empresa_id = 2")
+    else:
+        brecha('el proveedor del caso no tiene vínculo con el producto en la copia', str(PROV))
+
+# ---------------------------------------------------------------------------------------------
 caso('Compra por presentación: limpieza')
 if CTX.get('ind') is not None:
-    sql("UPDATE gestion__productos_presentaciones SET tabla_estado_registro_id = 2 WHERE presentacion_id = %d" % CTX.get('pres', 0))
+    sql("UPDATE gestion__productos_presentaciones SET tabla_estado_registro_id = 2 WHERE presentacion_id IN (%d, %d)" % (CTX.get('pres', 0), CTX.get('pres6', 0)))
+    if CTX.get('vinc'):
+        v = CTX['vinc']
+        sql("UPDATE gestion__productos_proveedores SET presentacion_id = %s, codigo_proveedor = %s WHERE producto_proveedor_id = %d"
+            % (v['pres'] if v['pres'] is not None else 'NULL', "'%s'" % v['cod'] if v['cod'] is not None else 'NULL', int(v['id'])))
     sql("UPDATE conf__empresas SET usa_presentaciones = %s, usa_compra_presentaciones = %s WHERE empresa_id = 2" % (CTX['ind']['p'], CTX['ind']['c']))
     check(True, 'indicadores de la copia como estaban')

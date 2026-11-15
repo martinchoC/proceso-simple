@@ -14,6 +14,7 @@
 require_once __DIR__ . '/base.php';
 require_once __DIR__ . '/../productos_proveedores.php';
 require_once __DIR__ . '/../entidades_roles.php';
+require_once __DIR__ . '/../compras_presentaciones.php';
 
 if (!function_exists('pfpv_listar')) {
     /** Vínculos activos del producto, el principal primero. */
@@ -26,8 +27,15 @@ if (!function_exists('pfpv_listar')) {
                LEFT JOIN gestion__entidades e ON e.entidad_id = pp.entidad_id
               WHERE pp.producto_id = ? AND pp.empresa_id = ? AND pp.tabla_estado_registro_id = 1
               ORDER BY es_principal DESC, entidad_nombre", 'ii', [$producto_id, $empresa_id]);
+        // Compra por presentación (doc 27, paso 8-4): en qué presentación vende cada proveedor (sin el indicador, nada)
+        $pres = cpre_vinculos_presentacion($conexion, $empresa_id, $producto_id);
         foreach ($filas as &$f) {
             $f['es_principal'] = (int) $f['es_principal'];
+            if ($pres !== [] || cpre_proveedor_activo($conexion, $empresa_id)) {
+                $p = $pres[(int) $f['producto_proveedor_id']] ?? null;
+                $f['presentacion_id'] = $p ? $p['presentacion_id'] : null;
+                $f['presentacion_nombre'] = $p ? $p['presentacion_nombre'] : null;
+            }
         }
         return $filas;
     }

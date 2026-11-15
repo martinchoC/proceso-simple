@@ -363,3 +363,174 @@ if (!function_exists('cpre_lineas_impresion')) {
         return $detalles;
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Paso 8-4: presentación en la que vende el proveedor (gestion__productos_proveedores.presentacion_id, script
+// 20261122_compra_presentaciones_02.sql). Sin la columna o sin el indicador, nada de esto se usa.
+// ---------------------------------------------------------------------------------------------------------------
+
+if (!function_exists('cpre_proveedor_activo')) {
+    /** ¿La empresa compra por presentación y gestion__productos_proveedores tiene presentacion_id? */
+    function cpre_proveedor_activo(mysqli $conexion, int $empresa_id): bool
+    {
+        static $col = null;
+        if (!cpre_empresa_usa($conexion, $empresa_id)) {
+            return false;
+        }
+        if ($col === null) {
+            $res = mysqli_query($conexion, "SHOW COLUMNS FROM gestion__productos_proveedores LIKE 'presentacion_id'");
+            $col = $res && mysqli_num_rows($res) > 0;
+        }
+        return $col;
+    }
+}
+
+if (!function_exists('cpre_presentaciones_proveedor')) {
+    /**
+     * Presentación del proveedor de cada producto (vínculo activo con presentacion_id, presentación activa y de
+     * compra): [producto_id => ['presentacion_id', 'presentacion_nombre', 'factor']]. Vacío sin el indicador / columna.
+     */
+    function cpre_presentaciones_proveedor(mysqli $conexion, int $empresa_id, int $entidad_id, array $producto_ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $producto_ids))));
+        if (!$ids || $entidad_id <= 0 || !cpre_proveedor_activo($conexion, $empresa_id)) {
+            return [];
+        }
+        $st = mysqli_prepare($conexion, "SELECT pp.producto_id, pr.presentacion_id, pr.presentacion_nombre, pr.factor
+                                           FROM gestion__productos_proveedores pp
+                                           JOIN gestion__productos_presentaciones pr ON pr.presentacion_id = pp.presentacion_id
+                                                AND pr.producto_id = pp.producto_id AND pr.empresa_id = pp.empresa_id
+                                                AND pr.tabla_estado_registro_id = 1 AND pr.aplica_compra = 1 AND pr.factor > 0
+                                          WHERE pp.empresa_id = ? AND pp.entidad_id = ? AND pp.tabla_estado_registro_id = 1
+                                            AND pp.producto_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")");
+        mysqli_stmt_bind_param($st, 'ii' . str_repeat('i', count($ids)), $empresa_id, $entidad_id, ...$ids);
+        mysqli_stmt_execute($st);
+        $res = mysqli_stmt_get_result($st);
+        $out = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $out[(int) $r['producto_id']] = ['presentacion_id' => (int) $r['presentacion_id'],
+                                             'presentacion_nombre' => $r['presentacion_nombre'], 'factor' => (float) $r['factor']];
+        }
+        mysqli_stmt_close($st);
+        return $out;
+    }
+}
+
+if (!function_exists('cpre_presentaciones_compra')) {
+    /**
+     * Para la pantalla (acción cpre_presentaciones): presentaciones de compra del producto; con proveedor, la suya
+     * va primero y con es_proveedor = 1 (la pantalla la propone antes que la de compra por defecto).
+     */
+    function cpre_presentaciones_compra(mysqli $conexion, int $empresa_id, int $producto_id, int $entidad_id = 0): array
+    {
+        $lista = cpre_presentaciones($conexion, $empresa_id, [$producto_id])[$producto_id] ?? [];
+        $prov = cpre_presentaciones_proveedor($conexion, $empresa_id, $entidad_id, [$producto_id])[$producto_id] ?? null;
+        foreach ($lista as &$o) {
+            $o['es_proveedor'] = ($prov && $o['presentacion_id'] === $prov['presentacion_id']) ? 1 : 0;
+        }
+        unset($o);
+        usort($lista, fn($a, $b) => $b['es_proveedor'] <=> $a['es_proveedor']);
+        return $lista;
+    }
+}
+
+if (!function_exists('cpre_validar_presentacion_proveedor')) {
+    /** 0 = por unidad; si no, una presentación activa y de compra del producto. @throws InvalidArgumentException */
+    function cpre_validar_presentacion_proveedor(mysqli $conexion, int $empresa_id, int $producto_id, int $presentacion_id): void
+    {
+        if ($presentacion_id <= 0) {
+            return;
+        }
+        $pres = cpre_presentacion($conexion, $empresa_id, $presentacion_id);
+        if (!$pres || (int) $pres['producto_id'] !== $producto_id) {
+            throw new InvalidArgumentException('La presentación no es de este producto o está inactiva.');
+        }
+        if (!(int) $pres['aplica_compra']) {
+            throw new InvalidArgumentException("La presentación \"{$pres['presentacion_nombre']}\" no se usa en compras.");
+        }
+    }
+}
+
+if (!function_exists('cpre_vinculos_presentacion')) {
+    /** Presentación del proveedor de los vínculos de un producto: [producto_proveedor_id => [presentacion_id, presentacion_nombre]]. */
+    function cpre_vinculos_presentacion(mysqli $conexion, int $empresa_id, int $producto_id): array
+    {
+        if (!cpre_proveedor_activo($conexion, $empresa_id)) {
+            return [];
+        }
+        $st = mysqli_prepare($conexion, "SELECT pp.producto_proveedor_id, pp.presentacion_id, pr.presentacion_nombre
+                                           FROM gestion__productos_proveedores pp
+                                           LEFT JOIN gestion__productos_presentaciones pr ON pr.presentacion_id = pp.presentacion_id AND pr.empresa_id = pp.empresa_id
+                                          WHERE pp.empresa_id = ? AND pp.producto_id = ? AND pp.presentacion_id IS NOT NULL");
+        mysqli_stmt_bind_param($st, 'ii', $empresa_id, $producto_id);
+        mysqli_stmt_execute($st);
+        $res = mysqli_stmt_get_result($st);
+        $out = [];
+        while ($r = mysqli_fetch_assoc($res)) {
+            $out[(int) $r['producto_proveedor_id']] = ['presentacion_id' => (int) $r['presentacion_id'], 'presentacion_nombre' => $r['presentacion_nombre']];
+        }
+        mysqli_stmt_close($st);
+        return $out;
+    }
+}
+
+if (!function_exists('cpre_guardar_presentacion_proveedor')) {
+    /**
+     * Fija (o quita, con 0) la presentación en la que vende el proveedor, en un UPDATE aparte. Tiene que ser una
+     * presentación activa y de compra del producto. Sin el indicador / columna no hace nada. @throws InvalidArgumentException
+     */
+    function cpre_guardar_presentacion_proveedor(mysqli $conexion, int $empresa_id, int $producto_id, int $producto_proveedor_id, int $presentacion_id): void
+    {
+        if (!cpre_proveedor_activo($conexion, $empresa_id)) {
+            return;
+        }
+        cpre_validar_presentacion_proveedor($conexion, $empresa_id, $producto_id, $presentacion_id);
+        $valor = $presentacion_id > 0 ? $presentacion_id : null;
+        $st = mysqli_prepare($conexion, "UPDATE gestion__productos_proveedores SET presentacion_id = ?
+                                          WHERE producto_proveedor_id = ? AND empresa_id = ? AND producto_id = ?");
+        mysqli_stmt_bind_param($st, 'iiii', $valor, $producto_proveedor_id, $empresa_id, $producto_id);
+        mysqli_stmt_execute($st);
+        mysqli_stmt_close($st);
+    }
+}
+
+if (!function_exists('cpre_lectura_lineas')) {
+    /**
+     * Carga de facturas desde archivo: un ítem reconocido por el código del proveedor, de un producto que ese
+     * proveedor vende en una presentación, viene en presentaciones (cantidad de cajas, precio de la caja). La línea
+     * (importes ya calculados) pasa a unidad base y lleva la foto; cpre_preparar_lineas() la vuelve a validar al
+     * guardar. Solo toca las líneas con 'codigo_proveedor' (las de imputación quedan igual). Devuelve [líneas, avisos].
+     */
+    function cpre_lectura_lineas(mysqli $conexion, int $empresa_id, int $entidad_id, array $detalles): array
+    {
+        if (!$detalles || !cpre_activo($conexion, $empresa_id, 'factura')) {
+            return [$detalles, []];
+        }
+        $con_codigo = array_filter($detalles, fn($d) => trim((string) ($d['codigo_proveedor'] ?? '')) !== '');
+        $pres = cpre_presentaciones_proveedor($conexion, $empresa_id, $entidad_id, array_column($con_codigo, 'producto_id'));
+        if (!$pres) {
+            return [$detalles, []];
+        }
+        $n = 0;
+        foreach ($detalles as &$d) {
+            $p = $pres[(int) ($d['producto_id'] ?? 0)] ?? null;
+            if (!$p || trim((string) ($d['codigo_proveedor'] ?? '')) === '' || (float) ($d['cantidad'] ?? 0) <= 0) {
+                continue;
+            }
+            $f = $p['factor'];
+            $pc = (float) $d['cantidad'];
+            $pp = (float) $d['precio_unitario'];
+            $d['presentacion_id'] = $p['presentacion_id'];
+            $d['presentacion_nombre'] = $p['presentacion_nombre'];
+            $d['presentacion_factor'] = $f;
+            $d['presentacion_cantidad'] = $pc;
+            $d['presentacion_precio'] = $pp;
+            $d['cantidad'] = round($pc * $f, 4);
+            $d['precio_unitario'] = round($pp / $f, 6);
+            $d['precio_unitario_bruto'] = round((float) ($d['precio_unitario_bruto'] ?? $pp) / $f, 6);
+            $n++;
+        }
+        unset($d);
+        return [$detalles, $n ? [$n . ' ítem(s) se cargaron en la presentación del proveedor (cantidad y precio por caja / pack).'] : []];
+    }
+}

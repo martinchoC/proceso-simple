@@ -2653,7 +2653,7 @@ function cargarFacturaParaVisualizar(facturaId) {
     });
 
     // Calcular descuentos e IVA
-    if (CPRE) CPRE.init({ ajaxUrl: 'facturas_proveedores_ajax.php', empresaIdx: empresa_idx, onCambio: function () { calcularDescuentos(); } });
+    if (CPRE) CPRE.init({ ajaxUrl: 'facturas_proveedores_ajax.php', empresaIdx: empresa_idx, entidad: function () { return proveedorActualId; }, onCambio: function () { calcularDescuentos(); } });
 
     function calcularDescuentos() {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;

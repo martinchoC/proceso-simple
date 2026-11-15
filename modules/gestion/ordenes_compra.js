@@ -1251,7 +1251,7 @@ $(document).ready(function () {
     });
 
     // Calcular IVA Importe automáticamente
-    if (CPRE) CPRE.init({ ajaxUrl: 'ordenes_compra_ajax.php', empresaIdx: empresa_idx, onCambio: function () { calcularIvaImporte(); } });
+    if (CPRE) CPRE.init({ ajaxUrl: 'ordenes_compra_ajax.php', empresaIdx: empresa_idx, entidad: function () { return proveedorActualId; }, onCambio: function () { calcularIvaImporte(); } });
 
     function calcularIvaImporte() {
         var cantidad = parseFloat($('#producto_cantidad').val()) || 0;

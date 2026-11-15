@@ -52,12 +52,22 @@ if (!function_exists('pfic_ajax_acciones')) {
         try {
             switch ($accion) {
                 case 'ficha_proveedores_listar':
-                    $responder(['success' => true, 'data' => pfpv_listar($conexion, $empresa_id, $producto_id), 'message' => '']);
+                    // presentaciones_compra: solo con la compra por presentación (la pantalla muestra el selector)
+                    $responder(['success' => true, 'data' => pfpv_listar($conexion, $empresa_id, $producto_id), 'message' => '',
+                        'presentaciones_compra' => cpre_proveedor_activo($conexion, $empresa_id)
+                            ? (cpre_presentaciones($conexion, $empresa_id, [$producto_id])[$producto_id] ?? []) : null]);
                 case 'ficha_proveedores_combo':
                     $responder(['success' => true, 'data' => pfpv_proveedores($conexion, $empresa_id), 'message' => '']);
                 case 'ficha_proveedor_guardar':
+                    $con_pres = isset($_POST['presentacion_id']) && cpre_proveedor_activo($conexion, $empresa_id);
+                    if ($con_pres) {
+                        cpre_validar_presentacion_proveedor($conexion, $empresa_id, $producto_id, intval($_POST['presentacion_id']));
+                    }
                     $id = pfpv_guardar($conexion, $empresa_id, $producto_id, intval($_POST['producto_proveedor_id'] ?? 0),
                         intval($_POST['entidad_id'] ?? 0), (string) ($_POST['codigo_proveedor'] ?? ''), !empty($_POST['es_principal']));
+                    if ($con_pres) {
+                        cpre_guardar_presentacion_proveedor($conexion, $empresa_id, $producto_id, $id, intval($_POST['presentacion_id']));
+                    }
                     $responder(['success' => true, 'data' => ['producto_proveedor_id' => $id], 'message' => 'Guardado']);
                 case 'ficha_proveedor_quitar':
                     pfpv_quitar($conexion, $empresa_id, $producto_id, intval($_POST['producto_proveedor_id'] ?? 0));

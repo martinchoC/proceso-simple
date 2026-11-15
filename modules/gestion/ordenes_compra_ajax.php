@@ -332,8 +332,9 @@ try {
         case 'cpre_presentaciones':
             // Compra por presentación (doc 27): presentaciones de compra del producto ([] sin el indicador)
             $producto_id = intval($_GET['producto_id'] ?? 0);
-            $pres = cpre_activo($conexion, (int) $empresa_idx, 'oc') ? cpre_presentaciones($conexion, (int) $empresa_idx, [$producto_id]) : [];
-            echo json_encode(['success' => true, 'data' => $pres[$producto_id] ?? []], JSON_UNESCAPED_UNICODE);
+            // Con proveedor (entidad_id), la presentación en la que él lo vende va primero con es_proveedor = 1 (paso 8-4)
+            $pres = cpre_activo($conexion, (int) $empresa_idx, 'oc') ? cpre_presentaciones_compra($conexion, (int) $empresa_idx, $producto_id, intval($_GET['entidad_id'] ?? 0)) : [];
+            echo json_encode(['success' => true, 'data' => $pres], JSON_UNESCAPED_UNICODE);
             break;
 
         case 'buscar_productos_proveedor':
