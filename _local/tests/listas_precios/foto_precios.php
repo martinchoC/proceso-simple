@@ -90,7 +90,8 @@ if (!$hay_copia || isset($opt['reiniciar-copia'])) {
 } else {
     foreach ($tablas as $t) {
         mysqli_query($prueba, "DELETE FROM `$t`");
-        mysqli_query($prueba, "INSERT INTO `$t` SELECT * FROM `zz_lp_$t`");
+        $cols = columnas_comunes($prueba, $t, "zz_lp_$t"); // la tabla pudo ganar columnas después de la copia
+        mysqli_query($prueba, "INSERT INTO `$t` ($cols) SELECT $cols FROM `zz_lp_$t`");
     }
     echo "Tablas restauradas desde zz_lp_*.\n";
 }
@@ -142,6 +143,19 @@ if (!empty($opt['comparar'])) {
 }
 
 // ================================================================= funciones
+
+/** Columnas que tienen las dos tablas, para restaurar aunque la original haya ganado columnas nuevas. */
+function columnas_comunes(mysqli $c, string $tabla, string $copia): string
+{
+    $res = mysqli_query($c, "SELECT a.COLUMN_NAME FROM information_schema.COLUMNS a
+                             JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA = a.TABLE_SCHEMA AND b.TABLE_NAME = '$copia' AND b.COLUMN_NAME = a.COLUMN_NAME
+                             WHERE a.TABLE_SCHEMA = DATABASE() AND a.TABLE_NAME = '$tabla' ORDER BY a.ORDINAL_POSITION");
+    $cols = [];
+    while ($r = mysqli_fetch_row($res)) {
+        $cols[] = "`{$r[0]}`";
+    }
+    return implode(', ', $cols);
+}
 
 /** Precios vigentes (estado 1) por lista y producto; sin ids de fila ni fechas, que cambian en cada corrida. */
 function guardar_foto(mysqli $c, string $archivo, int $empresa): void

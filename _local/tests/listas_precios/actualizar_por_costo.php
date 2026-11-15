@@ -46,7 +46,16 @@ $tablas = ['gestion__listas_precios', 'gestion__listas_precios_productos', 'gest
 mysqli_query($p, 'SET FOREIGN_KEY_CHECKS = 0');
 foreach ($tablas as $t) {
     mysqli_query($p, "DELETE FROM `$t`");
-    mysqli_query($p, "INSERT INTO `$t` SELECT * FROM `zz_lp_$t`");
+    // Columnas en común: la tabla pudo ganar columnas después de la copia
+    $res = mysqli_query($p, "SELECT a.COLUMN_NAME FROM information_schema.COLUMNS a
+                             JOIN information_schema.COLUMNS b ON b.TABLE_SCHEMA = a.TABLE_SCHEMA AND b.TABLE_NAME = 'zz_lp_$t' AND b.COLUMN_NAME = a.COLUMN_NAME
+                             WHERE a.TABLE_SCHEMA = DATABASE() AND a.TABLE_NAME = '$t' ORDER BY a.ORDINAL_POSITION");
+    $cols = [];
+    while ($r = mysqli_fetch_row($res)) {
+        $cols[] = "`{$r[0]}`";
+    }
+    $cols = implode(', ', $cols);
+    mysqli_query($p, "INSERT INTO `$t` ($cols) SELECT $cols FROM `zz_lp_$t`");
 }
 mysqli_query($p, 'SET FOREIGN_KEY_CHECKS = 1');
 
