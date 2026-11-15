@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por pre
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/vendedores.php'; // vendedores y carteras (vcar_*): inactivo sin el indicador
+require_once __DIR__ . '/../../core/distribucion/distribucion_service.php'; // distribución (vdis_*): inactivo sin el indicador
 $conexion = $conn;
 
 function obtenerFuncionesPagina($conexion, $pagina_id)
@@ -106,6 +107,10 @@ function obtenerBotonesPorEstado($conexion, $pagina_id, $estado_actual_id)
         }
     }
 
+    // Distribución: sin usa_distribucion no se ofrece "Liberar para distribución" (la función existe en la configuración)
+    if ((int) $estado_actual_id !== VDIS_ESTADO_PARA_DISTRIBUCION) {
+        $botones = vdis_filtrar_botones($conexion, (int) (permisos_contexto()[1] ?? 0), $botones);
+    }
     return $botones;
 }
 
@@ -311,6 +316,9 @@ function ejecutarTransicionEstado($conexion, $venta_pedido_id, $accion_js, $empr
     try {
         $numero_asignado = null;
         
+        // Distribución: al liberar (-> 42) exige el indicador y completa el depósito de despacho; al volver (42 -> 5) lo saca de la hoja en borrador
+        vdis_antes_de_transicion($conexion, intval($pedido['empresa_id']), $pedido, intval($estado_destino_id));
+
         if ($accion_js === 'confirmar_pedido') {
             
             // Reglas de precio de venta: un descuento manual que supera el tope de quien confirma no deja confirmar

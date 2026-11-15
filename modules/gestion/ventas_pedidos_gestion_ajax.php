@@ -78,8 +78,10 @@ try {
                 manejarError('Pedido no encontrado', 404);
             }
 
-            if (intval($pedido['tabla_estado_registro_id']) === 5) {
-                $accion_js = resolverAccionTransicion($conexion, $pagina_idx, 5, 9);
+            // Distribución: los liberados (42) también pasan a En preparación al abrirlos
+            $estado_al_abrir = intval($pedido['tabla_estado_registro_id']);
+            if ($estado_al_abrir === 5 || $estado_al_abrir === 42) {
+                $accion_js = resolverAccionTransicion($conexion, $pagina_idx, $estado_al_abrir, 9);
                 if (!$accion_js) {
                     manejarError('No hay una transición de estado 5 a 9 configurada para esta página en conf__paginas_funciones. Revisar el alta de la página.', 500);
                 }

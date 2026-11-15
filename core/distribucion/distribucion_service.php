@@ -464,13 +464,13 @@ if (!function_exists('vdis_filtrar_botones')) {
 }
 
 if (!function_exists('vdis_en_hoja')) {
-    /** Hoja no anulada en la que está el pedido (['hoja_id', 'numero', 'estado']) o null. */
+    /** Hoja activa (Borrador o Confirmada) en la que está el pedido (['hoja_id', 'numero', 'estado']) o null. */
     function vdis_en_hoja(mysqli $conexion, int $venta_pedido_id): ?array
     {
         $r = vcar_filas($conexion,
             "SELECT h.hoja_id, h.numero, h.tabla_estado_registro_id AS estado FROM gestion__distribucion_hojas_pedidos hp
                JOIN gestion__distribucion_hojas h ON h.hoja_id = hp.hoja_id
-              WHERE hp.venta_pedido_id = ? AND hp.tabla_estado_registro_id = 1 AND h.tabla_estado_registro_id <> 38
+              WHERE hp.venta_pedido_id = ? AND hp.tabla_estado_registro_id = 1 AND h.tabla_estado_registro_id IN (3, 5)
               ORDER BY h.hoja_id DESC LIMIT 1", 'i', [$venta_pedido_id]);
         return $r ? $r[0] : null;
     }
