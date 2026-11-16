@@ -225,6 +225,8 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     $usa_marcas_comerciales = !empty($data['usa_marcas_comerciales']) ? 1 : 0;
     $usa_ficha_producto_completa = !empty($data['usa_ficha_producto_completa']) ? 1 : 0;
     $usa_compra_presentaciones = !empty($data['usa_compra_presentaciones']) ? 1 : 0;
+    $usa_carrito_integrado = !empty($data['usa_carrito_integrado']) ? 1 : 0;
+    $usa_app_vendedor = !empty($data['usa_app_vendedor']) ? 1 : 0;
     $es_principal = !empty($data['es_principal']) ? 1 : 0;
 
     $cols = ['empresa', 'documento_tipo_id', 'documento_numero', 'telefono', 'domicilio', 'localidad_id', 'condicion_fiscal_id', 'email', 'tabla_estado_registro_id'];
@@ -306,6 +308,12 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     if (conf_empresa_columna_existe($conexion, 'usa_compra_presentaciones')) {
         $cols[] = 'usa_compra_presentaciones';
         $vals[] = "$usa_compra_presentaciones";
+    }
+    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor] as $col_x => $val_x) {
+        if (conf_empresa_columna_existe($conexion, $col_x)) {   // canales (doc 28)
+            $cols[] = $col_x;
+            $vals[] = "$val_x";
+        }
     }
 
     $sql = "INSERT INTO conf__empresas (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")";
@@ -412,6 +420,8 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     $usa_marcas_comerciales = isset($data['usa_marcas_comerciales']) ? (!empty($data['usa_marcas_comerciales']) ? 1 : 0) : 'usa_marcas_comerciales';
     $usa_ficha_producto_completa = isset($data['usa_ficha_producto_completa']) ? (!empty($data['usa_ficha_producto_completa']) ? 1 : 0) : 'usa_ficha_producto_completa';
     $usa_compra_presentaciones = isset($data['usa_compra_presentaciones']) ? (!empty($data['usa_compra_presentaciones']) ? 1 : 0) : 'usa_compra_presentaciones';
+    $usa_carrito_integrado = isset($data['usa_carrito_integrado']) ? (!empty($data['usa_carrito_integrado']) ? 1 : 0) : 'usa_carrito_integrado';
+    $usa_app_vendedor = isset($data['usa_app_vendedor']) ? (!empty($data['usa_app_vendedor']) ? 1 : 0) : 'usa_app_vendedor';
     $es_principal = isset($data['es_principal']) ? (!empty($data['es_principal']) ? 1 : 0) : null;
 
     $updates = [
@@ -478,6 +488,11 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     }
     if (conf_empresa_columna_existe($conexion, 'usa_compra_presentaciones')) {
         $updates[] = "usa_compra_presentaciones=$usa_compra_presentaciones";
+    }
+    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor] as $col_x => $val_x) {
+        if (conf_empresa_columna_existe($conexion, $col_x)) {   // canales (doc 28)
+            $updates[] = "$col_x=$val_x";
+        }
     }
     if ($es_principal !== null && conf_empresa_columna_existe($conexion, 'es_principal')) {
         $updates[] = "es_principal=$es_principal";

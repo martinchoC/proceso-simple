@@ -332,10 +332,26 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                     <?php endif; ?>
                                     <?php // Solo con el script 20261122_compra_presentaciones_01.sql aplicado
                                     $emp_col_cpre = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_compra_presentaciones'");
-                                    if ($emp_col_cpre && mysqli_num_rows($emp_col_dist) > 0): ?>
+                                    if ($emp_col_cpre && mysqli_num_rows($emp_col_cpre) > 0): ?>
                                     <div class="form-check form-switch mt-1">
                                         <input class="form-check-input" type="checkbox" id="usa_compra_presentaciones" name="usa_compra_presentaciones" value="1" />
                                         <label class="form-check-label" for="usa_compra_presentaciones">Usa compra por presentación <?= ui_ayuda('Órdenes de compra y facturas de proveedor en cajas, packs o bultos (las presentaciones de compra del producto). El stock y el costo se siguen llevando por unidad.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php // Solo con el script 20261123_canales_carrito_app_01.sql aplicado
+                                    $emp_col_x = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_carrito_integrado'");
+                                    if ($emp_col_x && mysqli_num_rows($emp_col_x) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_carrito_integrado" name="usa_carrito_integrado" value="1" />
+                                        <label class="form-check-label" for="usa_carrito_integrado">Usa el carrito integrado <?= ui_ayuda('El carrito del cliente calcula precios y graba el pedido con el mismo código del ERP: presentaciones, canal, escalas, promociones y vendedor de la cartera. Apagado, el carrito sigue como hoy.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php // Solo con el script 20261123_canales_carrito_app_01.sql aplicado
+                                    $emp_col_x = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_app_vendedor'");
+                                    if ($emp_col_x && mysqli_num_rows($emp_col_x) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_app_vendedor" name="usa_app_vendedor" value="1" />
+                                        <label class="form-check-label" for="usa_app_vendedor">Usa la aplicación del vendedor <?= ui_ayuda('Los vendedores cargan desde el celular los pedidos de los clientes de su cartera, con los mismos precios que el ERP.') ?></label>
                                     </div>
                                     <?php endif; ?>
                                 </div>
@@ -1159,6 +1175,8 @@ $(document).ready(function(){
                 $('#usa_marcas_comerciales').prop('checked', parseInt(res.usa_marcas_comerciales, 10) === 1);
                 $('#usa_ficha_producto_completa').prop('checked', parseInt(res.usa_ficha_producto_completa, 10) === 1);
                 $('#usa_compra_presentaciones').prop('checked', parseInt(res.usa_compra_presentaciones, 10) === 1);
+                $('#usa_carrito_integrado').prop('checked', parseInt(res.usa_carrito_integrado, 10) === 1);
+                $('#usa_app_vendedor').prop('checked', parseInt(res.usa_app_vendedor, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1318,6 +1336,8 @@ $(document).ready(function(){
         if ($('#usa_marcas_comerciales').length) formData.usa_marcas_comerciales = $('#usa_marcas_comerciales').is(':checked') ? 1 : 0;
         if ($('#usa_ficha_producto_completa').length) formData.usa_ficha_producto_completa = $('#usa_ficha_producto_completa').is(':checked') ? 1 : 0;
         if ($('#usa_compra_presentaciones').length) formData.usa_compra_presentaciones = $('#usa_compra_presentaciones').is(':checked') ? 1 : 0;
+        if ($('#usa_carrito_integrado').length) formData.usa_carrito_integrado = $('#usa_carrito_integrado').is(':checked') ? 1 : 0;
+        if ($('#usa_app_vendedor').length) formData.usa_app_vendedor = $('#usa_app_vendedor').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });
