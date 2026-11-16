@@ -1,6 +1,6 @@
 # Canales: carrito del cliente, aplicación del vendedor y mostrador (etapa 4)
 
-Estado: **aprobado** (2026-11-15) con las recomendaciones de §9. Respuestas: el ERP de producción y el carrito
+Estado: **implementado** (2026-11-15; ver §12). Aprobado con las recomendaciones de §9. Respuestas: el ERP de producción y el carrito
 corren en el **mismo servidor** → decisión 1 = **opción A**; base de pruebas `gestion_multipyme_sim` (prendido) y
 `ps_gestion_casalucho` local (sin la estructura); hay respaldo. Hechos: 9-0 (carrito `df9f190`, línea base
 actualizada) y 9-1 (`7b5da52`, migración `20261123_canales_carrito_app_01.sql` + `pven_empresa_usa` + interruptores).
@@ -196,3 +196,90 @@ recuperación de contraseña y exportación a Excel quedan como están.
 3. Base de pruebas de la etapa: propongo `gestion_multipyme_sim` (clon del maestro, con la estructura) para lo
    prendido y la copia local `ps_gestion_casalucho` para "sin la estructura". ¿Hay una copia de producción más nueva
    que quieras usar? ¿Hay respaldo de la base local y de las dos carpetas?
+
+## 12. Implementado (2026-11-15)
+
+| Paso | ERP (`casalucho`) | Carrito (`casalucho-carrito`) |
+|---|---|---|
+| 9-0 línea base del carrito | — | `850377e` (repositorio), `df9f190` (versión copiada a las 20:23) |
+| 9-1 indicadores | `7b5da52`: `20261123_canales_carrito_app_01.sql`, `pven_empresa_usa`, interruptores en Empresas | — |
+| 9-2 pedido de venta en core | `a10439c`: `core/pedidos_venta/pedidos_service.php` (pven_*), modelos 2 y 5 = envoltorios | — |
+| 9-3 ofertas y pedidos externos | `4c225ce`: `core/pedidos_venta/externo.php` | — |
+| 9-4 puente | `8eb6406` (ejecutor de pruebas) | `60c7b88`: `ERP_CORE_PATH`, `src/Support/ErpCore.php` |
+| 9-5 / 9-6 carrito integrado | `c585c36`: `20261123_canales_carrito_app_02_carrito_presentaciones.sql`, caso 42 | `9983ad5`: `CarritoIntegrado`, catálogo, carrito y confirmación |
+| 9-7 / 9-8 app del vendedor | `3b85d14`: `app_vendedor/`, `core/pedidos_venta/app_vendedor.php`, `assets/js` y `assets/css` `app-vendedor.*` | — |
+
+Diferencias con el diseño:
+- Ítems del carrito en presentación en una tabla nueva, `ecom__carritos_presentaciones`: `ecom__carritos_items` tiene
+  UNIQUE (carrito, producto) y cambiarla no es "solo agregar". La línea en presentación viaja con la clave
+  "producto-presentación" en el mismo `producto_id`, así `app.js` no cambia.
+- La app del vendedor guarda, edita y confirma con las funciones del modelo de pedidos del módulo de la empresa
+  (`agregarPedidoVenta`, `editarPedidoVenta`, `ejecutarTransicionEstado`: las mismas del ERP, con la sesión del
+  vendedor) y arma los datos con `pven_datos_pedido`. Exige las funciones agregar / confirmar_pedido de la página de
+  pedidos, como la pantalla.
+- `vcar_resolver_pedido`: un usuario vendedor que manda origen APP queda APP (antes siempre VENDEDOR); el ERP no manda
+  origen y sigue igual.
+- Entrega estimada: el próximo día de reparto de la zona del cliente después de hoy (las zonas no tienen hora de
+  corte). Cuenta del cliente: `ctacteResumen` del módulo (solo lectura).
+- El carrito no muestra presentaciones en la ficha del producto (`/productos/{id}`), solo en el listado del catálogo.
+- No se hizo la pantalla de mostrador (Prompt 9: opcional, a confirmar).
+
+Pruebas (simulador, empresa 2, sobre una copia recién clonada):
+- Con todo apagado, iguales a antes: ventas 03, 04, 06, 09, 19b (206 chequeos) y casos 33-37 y 39 prendidos (209),
+  con la misma foto de líneas; el código movido en 9-2 es idéntico salvo el contexto. Carrito apagado: un pedido
+  confirmado graba lo mismo que la línea base (`_local/tests/carrito/foto_carrito.py`), con `ERP_CORE_PATH` puesta.
+- Caso 41 (servicio externo = pantalla del ERP columna por columna, apagado y prendido) 23/23; caso 42 (carrito real
+  integrado: cajas y unidades, escala, mínimos, enteros, sin precio, canal de la sucursal, mismo pedido que el ERP)
+  16/16; caso 43 (app: apagada, no vendedor, solo su cartera, borrador real que se retoma, tope del descuento,
+  código de barras, CSRF, entrega estimada) 25/25. `probar_ped_ext.php` contra `ps_gestion_casalucho` (sin la
+  estructura) 6/6; `tests/ErpCoreTest.php` del carrito con y sin ruta y sin la columna.
+- La única falla es la preexistente de consistencia (2 asientos sin fecha / descripción).
+- **No se revisó la consola del navegador** ni las pantallas a mano (carrito, catálogo con presentaciones, app).
+- **No se hizo la prueba integral** del Prompt 10 (carrito + app + ERP, distribución, hoja de ruta, remito parcial,
+  factura y stock): queda pendiente.
+
+### Revisión de seguridad (lo nuevo)
+- Precio, descuentos, canal, mínimos y disponibilidad: siempre del servidor (carrito y app mandan producto,
+  presentación y cantidad; probado con precio y descuento manipulados).
+- App: sesión del ERP + indicador + vendedor activo; cliente validado contra la cartera vigente en cada lectura y
+  escritura; escrituras POST con CSRF y funciones de la página de pedidos; no edita un pedido que no sea su borrador
+  APP. Sin costos ni márgenes en las respuestas.
+- Carrito: rutas sin cambios (auth + permiso + csrf); los ítems en presentación se borran o cambian con `carrito_id`
+  en el WHERE (sin IDOR); el cliente solo ve su carrito y sus pedidos (sin cambios).
+- Sin secretos en los commits: `.env` y `.env.bak` del carrito fuera del repositorio (`.gitignore`); las pruebas arman
+  un `.env` temporal fuera de las carpetas y lo borran.
+- Hallazgos preexistentes, sin tocar: `dbtest.php`, `diag.php` (sin clave), `diagnostico.php`, `permisos.php` y los
+  `.bk` del carrito se sirven por HTTP; `PrecioRepository.php:45` cruza entidad con empresa (sin la integración);
+  ids fijos en 1 en `config/app.php` del carrito.
+- Sin API ni límites de uso (opción A: no hay endpoint nuevo expuesto entre sistemas).
+
+### Guía corta para el cliente (carrito)
+Buscá el producto: cada presentación (caja, pack) aparece debajo con su precio, el mínimo y la disponibilidad; la
+unidad suelta solo si tu lista la vende. Sumá cajas o unidades con + y −; si una escala o promoción aplica, el carrito
+lo muestra y lo descuenta solo. Confirmá el pedido como siempre: queda confirmado y numerado.
+
+### Guía corta para el vendedor (app)
+Entrá al sistema con tu usuario y abrí `/app_vendedor/` en el celular (agregala a la pantalla de inicio). Elegí el
+cliente de tu cartera, buscá por código, nombre o marca, o escaneá el código de barras (si el navegador no puede,
+escribilo). "Guardar" deja el pedido en preparación (lo retomás cuando quieras, también desde otro equipo);
+"Confirmar" lo confirma. Si tu descuento supera tu tope, queda guardado para que lo confirme alguien con tope.
+Si se corta la conexión, lo cargado queda en el teléfono.
+
+### Puesta en marcha
+1. Migraciones, en orden, en cada base: `20261123_canales_carrito_app_01.sql` y `_02_carrito_presentaciones.sql`
+   (requieren los scripts de la distribuidora 20261112 a 20261122).
+2. Código del ERP (espejo) y del carrito (rama `distribuidora`).
+3. Carrito: en su `.env`, `ERP_CORE_PATH=` la carpeta del ERP en el mismo servidor (la que contiene `core/`).
+4. Por empresa, en Configuración > Empresas: "Usa el carrito integrado" y / o "Usa la aplicación del vendedor"
+   (la app necesita además "Usa vendedores"; presentaciones, canales, escalas y distribución, según lo que se use).
+5. Clientes del carrito: como hoy (usuario = CUIT de una entidad con rol cliente y acceso web). Vendedores: usuario
+   del ERP ligado al vendedor (Vendedores y Carteras), con la cartera asignada y un perfil con agregar y
+   confirmar_pedido en Pedidos Realizados; tope de descuento por perfil en Escalas y promociones.
+6. Vuelta atrás: apagar los interruptores (o dejar vacía `ERP_CORE_PATH`): el carrito vuelve a su camino de siempre y
+   la app no se abre. Las tablas y columnas nuevas pueden quedar. Código: revertir los commits de la tabla de arriba.
+
+### Para la etapa 5
+Modo sin conexión de la app (service worker, cola de pedidos); comisiones de vendedores; saldo y facturas en el
+carrito; pedido mínimo en monto; presentaciones en la ficha del producto del carrito; pantalla de mostrador (si se
+confirma); prueba integral carrito + app + ERP hasta distribución, remito parcial, factura y stock; revisión en el
+navegador (consola) de carrito y app; sacar del servidor los diagnósticos del carrito.
