@@ -1,0 +1,217 @@
+{
+  "fecha_ejecucion": "2026-11-16 08:11:50",
+  "empresa_id": 1000,
+  "empresa_nombre": "GINESI MAURO NICOLAS",
+  "modulo": "gestion_normal",
+  "maestros": {
+    "permisos_perfil_592_pag_555": [
+      5241,
+      5242,
+      5247,
+      5250
+    ],
+    "lista_precio_mayorista_id": 19,
+    "precio_caja_inf002_lista19": 41000,
+    "regla_escala_id": "1",
+    "zona_id": "1",
+    "camion_id": 1
+  },
+  "casos": [
+    {
+      "numero": 1,
+      "titulo": "Compra por presentación (OC -> Factura de Proveedor -> Stock)",
+      "datos": {
+        "proveedor": "Industrias Alimentarias del Sud S.A. (5771)",
+        "orden_compra_id": 20,
+        "oc_nro": "15",
+        "oc_estado": 7,
+        "factura_proveedor_id": 254,
+        "fp_nro": "0001-90020",
+        "fp_estado": 5,
+        "stock_inf001": "170.0 -> 190.0",
+        "stock_inf002": "560.0 -> 580.0"
+      }
+    },
+    {
+      "numero": 2,
+      "titulo": "Venta mayorista por Carrito (casalucho-carrito) con escala y caja",
+      "datos": {
+        "cliente": "Almacén Don José (5783)",
+        "carrito_integrado": true,
+        "venta_pedido_id": 17,
+        "comprobante_nro": "9",
+        "origen": "CARRITO",
+        "estado": "5",
+        "total_pedido": "218768.00",
+        "descuentos": "5200.00",
+        "lineas_resumen": [
+          {
+            "producto_id": 6281,
+            "clave": "6281",
+            "nombre": "Yerba mate con palo 1 kg",
+            "cantidad": 25,
+            "precio": 4160,
+            "descuento_pct": 5,
+            "neto": 98800,
+            "etiqueta": "SIM_INT Escala INF-001"
+          },
+          {
+            "producto_id": 6282,
+            "clave": "6282-7",
+            "nombre": "Yerba mate con palo 500 g — Caja x 20 (20 u)",
+            "cantidad": 2,
+            "precio": 41000,
+            "descuento_pct": 0,
+            "neto": 82000,
+            "etiqueta": null
+          }
+        ]
+      }
+    },
+    {
+      "numero": 3,
+      "titulo": "Venta en la calle por App del Vendedor (santipasso)",
+      "datos": {
+        "vendedor": "Santiago Passoni (usuario 15 / entidad 5785)",
+        "cliente": "Kiosco y Polirrubro Central (5784)",
+        "venta_pedido_id": 18,
+        "comprobante_nro": "10",
+        "origen": "APP",
+        "estado": "5",
+        "total_pedido": "78408.00",
+        "entrega_estimada": {
+          "fecha": "2026-11-17",
+          "dia": "Mar",
+          "zona": "Zona Centro"
+        }
+      }
+    },
+    {
+      "numero": 4,
+      "titulo": "Distribución, Hoja de Ruta, Remito Parcial y Factura de Venta",
+      "datos": {
+        "hoja_ruta_id": 4,
+        "camion": "Camion Rojo (AA890ZK)",
+        "lista_carga": [
+          {
+            "producto_id": 6281,
+            "producto_codigo": "INF-001",
+            "producto_nombre": "Yerba mate con palo 1 kg",
+            "presentacion_id": null,
+            "presentacion_nombre": null,
+            "presentacion_factor": null,
+            "unidades": 30,
+            "bultos": null
+          },
+          {
+            "producto_id": 6282,
+            "producto_codigo": "INF-002",
+            "producto_nombre": "Yerba mate con palo 500 g",
+            "presentacion_id": 7,
+            "presentacion_nombre": "Caja x 20",
+            "presentacion_factor": "20.0000",
+            "unidades": 40,
+            "bultos": 2
+          },
+          {
+            "producto_id": 6283,
+            "producto_codigo": "INF-003",
+            "producto_nombre": "Yerba mate sin palo 1 kg",
+            "presentacion_id": 9,
+            "presentacion_nombre": "Caja x 10",
+            "presentacion_factor": "10.0000",
+            "unidades": 10,
+            "bultos": 1
+          }
+        ],
+        "venta_remito_id": 29,
+        "remito_nro": "9",
+        "remito_estado": "12",
+        "venta_factura_id": 153,
+        "factura_nro": "8",
+        "factura_estado": "5",
+        "factura_cae": null
+      }
+    }
+  ],
+  "stock_snapshot": {
+    "inicial": {
+      "INF-001 (6281)": 170.0,
+      "INF-002 (6282)": 560.0,
+      "INF-003 (6283)": 190.0
+    },
+    "final": {
+      "INF-001 (6281)": 180.0,
+      "INF-002 (6282)": 560.0,
+      "INF-003 (6283)": 190.0
+    }
+  },
+  "checks": [
+    {
+      "caso": "0. Preparación de maestros y permisos en Empresa 1000",
+      "chequeo": "Maestros y permisos listos en Empresa 1000",
+      "ok": true,
+      "detalle": "{\"permisos_perfil_592_pag_555\": [5241, 5242, 5247, 5250], \"lista_precio_mayorista_id\": 19, \"precio_caja_inf002_lista19\": 41000, \"regla_escala_id\": \"1\", \"zona_id\": \"1\", \"camion_id\": 1}"
+    },
+    {
+      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
+      "chequeo": "OC creada en Borrador",
+      "ok": true,
+      "detalle": "{\"resultado\": true, \"orden_compra_id\": 20}"
+    },
+    {
+      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
+      "chequeo": "OC confirmada y Pendiente de recepción (estado 7)",
+      "ok": true,
+      "detalle": "{'comprobante_nro': '15', 'tabla_estado_registro_id': '7', 'total': '118580.00'}"
+    },
+    {
+      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
+      "chequeo": "Factura Proveedor confirmada y stock actualizado (INF-001: 170.0->190.0, INF-002: 560.0->580.0)",
+      "ok": true,
+      "detalle": "{\"resultado\": true, \"factura_proveedor_id\": 254} Estado actualizado y stock registrado correctamente"
+    },
+    {
+      "caso": "2. Venta por Carrito (casalucho-carrito): Escala + Presentación",
+      "chequeo": "Pedido del carrito confirmado (origen CARRITO, estado 5)",
+      "ok": true,
+      "detalle": "{\"integrado\": true, \"ops\": [{\"ok\": true}, {\"ok\": true}, {\"ok\": true}, {\"ok\": true, \"total\": 218768, \"neto\": 180800, \"iva\": 37968, \"no_disponibles\": [], \"lineas\": [{\"producto_id\": 6281, \"clave\": \"6281\", \"nombre\": \"Yerba mate con palo 1 kg\", \"cantidad\": 25, \"precio\": 4160, \"descuento_pct\": 5, \"neto\": 98800, \"etiqueta\": \"SIM_INT Escala INF-001\"}, {\"producto_id\": 6282, \"clave\": \"6282-7\", \"nombre\": \"Ye"
+    },
+    {
+      "caso": "3. Venta por App del Vendedor (santipasso): Borrador -> Confirmado",
+      "chequeo": "App vendedor: borrador guardado (estado 3)",
+      "ok": true,
+      "detalle": "{'success': True, 'data': {'venta_pedido_id': 18, 'confirmado': False, 'comprobante_nro': 0, 'entrega': None}, 'message': 'Pedido guardado. Lo podés retomar cuando quieras.'}"
+    },
+    {
+      "caso": "3. Venta por App del Vendedor (santipasso): Borrador -> Confirmado",
+      "chequeo": "App vendedor: pedido confirmado (origen APP, estado 5)",
+      "ok": true,
+      "detalle": "{'success': True, 'data': {'venta_pedido_id': 18, 'confirmado': True, 'comprobante_nro': 10, 'entrega': {'fecha': '2026-11-17', 'dia': 'Mar', 'zona': 'Zona Centro'}}, 'message': 'Pedido confirmado.'}"
+    },
+    {
+      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
+      "chequeo": "Pedidos liberados para distribución (estado 42)",
+      "ok": true,
+      "detalle": "[17, 18]"
+    },
+    {
+      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
+      "chequeo": "Hoja de ruta creada y confirmada",
+      "ok": true,
+      "detalle": "Hoja creada 2 pedido(s) en la hoja Hoja confirmada"
+    },
+    {
+      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
+      "chequeo": "Remito parcial confirmado y stock descontado (-10 INF-001, -20 INF-002)",
+      "ok": true,
+      "detalle": "{\"resultado\": true, \"venta_remito_id\": 29, \"comprobante_id\": 643} Estado actualizado correctamente - Número asignado: 9"
+    },
+    {
+      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
+      "chequeo": "Factura de venta generada desde remito (confirmación: OK)",
+      "ok": true,
+      "detalle": "Factura guardada correctamente. Estado actualizado correctamente - Número asignado: 8"
+    }
+  ]
+}
