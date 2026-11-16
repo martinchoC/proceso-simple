@@ -129,6 +129,25 @@ def ajax(archivo, params, method='POST', usuario_id=1, modulo='gestion', empresa
     return {'_raw': salida[-3000:], '_stderr': r.stderr[-2000:]}
 
 
+def core(funcion, *args, requires=('core/pedidos_venta/externo.php',), base=None):
+    """Llama a una función de core/ con la conexión a la copia como primer argumento (run_core.php; canales externos,
+    doc 28). Devuelve el resultado, o {'_error': mensaje} si lanzó una excepción."""
+    with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as f:
+        json.dump({'requires': list(requires), 'funcion': funcion, 'args': list(args)}, f)
+        ruta = f.name
+    try:
+        r = subprocess.run([PHP, os.path.join(AQUI, 'run_core.php'), ruta, base or DB],
+                           capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300)
+    finally:
+        os.unlink(ruta)
+    salida = r.stdout.strip()
+    try:
+        j = json.loads(salida[salida.find('{'):])
+    except Exception:
+        return {'_error': 'salida no JSON: ' + salida[-1500:] + r.stderr[-800:]}
+    return j.get('resultado') if j.get('ok') else {'_error': j.get('error')}
+
+
 def ok_resp(r):
     return isinstance(r, dict) and bool(r.get('success') or r.get('resultado'))
 
