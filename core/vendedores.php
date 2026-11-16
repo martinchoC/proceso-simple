@@ -551,7 +551,7 @@ if (!function_exists('vcar_resolver_pedido')) {
      * - usuario vendedor → él, origen VENDEDOR (y el cliente tiene que estar en su cartera si está restringido);
      * - si no → $datos['vendedor_entidad_id'] si el usuario tiene "Asignar vendedor" y es un vendedor activo; si no,
      *   el de la cartera del cliente a la fecha (o el que ya tenía el pedido, $actual); origen ERP.
-     * $datos['origen'] solo se acepta si es CARRITO / APP (integraciones).
+     * $datos['origen'] solo se acepta si es CARRITO / APP (integraciones); un usuario vendedor queda VENDEDOR salvo APP.
      * @throws InvalidArgumentException
      */
     function vcar_resolver_pedido(mysqli $conexion, int $empresa_id, int $usuario_id, int $cliente_id, ?string $fecha, array $datos = [], ?array $actual = null): ?array
@@ -563,7 +563,8 @@ if (!function_exists('vcar_resolver_pedido')) {
         $origen_pedido = strtoupper(trim((string) ($datos['origen'] ?? '')));
         $propio = vcar_vendedor_de_usuario($conexion, $empresa_id, $usuario_id, $fecha);
         if ($propio !== null) {
-            return ['vendedor_entidad_id' => $propio, 'origen' => $actual['origen'] ?? 'VENDEDOR'];
+            // La aplicación del vendedor (doc 28) manda origen APP; el ERP no manda origen: VENDEDOR, como siempre
+            return ['vendedor_entidad_id' => $propio, 'origen' => $actual['origen'] ?? ($origen_pedido === 'APP' ? 'APP' : 'VENDEDOR')];
         }
         $origen = $actual['origen'] ?? (in_array($origen_pedido, ['CARRITO', 'APP'], true) ? $origen_pedido : 'ERP');
         $pedido_vendedor = intval($datos['vendedor_entidad_id'] ?? 0);

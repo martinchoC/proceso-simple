@@ -1,0 +1,50 @@
+/* Aplicación del vendedor (app_vendedor/, doc 28): pantallas chicas primero, botones grandes, sin librerías. */
+:root { --av-primario: #1f4e79; --av-borde: #d9dee5; --av-suave: #f4f6f9; --av-texto: #1d2733; --av-gris: #5b6675; --av-ok: #1e7b3c; --av-alerta: #b3261e; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--av-texto); background: #fff; font-size: 16px; }
+.av-barra { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem;
+            padding-top: calc(.75rem + env(safe-area-inset-top)); background: var(--av-primario); color: #fff; }
+.av-titulo { flex: 1; font-weight: 600; font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-volver { background: none; border: 0; color: #fff; font-size: 1.5rem; min-width: 44px; min-height: 44px; }
+.av-empresa { max-width: 45%; min-height: 40px; border-radius: 8px; border: 0; }
+main { padding: .75rem 1rem 6rem; }
+.av-centro { max-width: 420px; margin: 20vh auto 0; text-align: center; }
+.av-aviso { margin: .5rem 1rem 0; padding: .75rem 1rem; border-radius: 10px; background: var(--av-suave); }
+.av-aviso-ok { background: #e3f4e8; color: var(--av-ok); }
+.av-aviso-error { background: #fbe4e2; color: var(--av-alerta); }
+.av-buscador { display: flex; gap: .5rem; margin: .5rem 0; }
+.av-input { width: 100%; min-height: 48px; padding: .6rem .8rem; border: 1px solid var(--av-borde); border-radius: 10px; font-size: 1rem; background: #fff; }
+.av-btn { min-height: 48px; padding: 0 1rem; border: 1px solid var(--av-borde); border-radius: 10px; background: #fff; font-size: 1rem; font-weight: 600; color: var(--av-texto); }
+.av-btn-primario { background: var(--av-primario); color: #fff; border-color: var(--av-primario); }
+.av-btn-chico { min-width: 44px; min-height: 44px; padding: 0; }
+.av-btn:disabled { opacity: .5; }
+.av-lista { list-style: none; margin: 0; padding: 0; }
+.av-fila { width: 100%; text-align: left; display: flex; flex-direction: column; gap: .2rem; padding: .9rem .25rem; border: 0;
+           border-bottom: 1px solid var(--av-borde); background: none; font-size: 1rem; color: inherit; }
+.av-fila-estatica { display: flex; justify-content: space-between; gap: .5rem; padding: .6rem 0; border-bottom: 1px solid var(--av-borde); font-size: .95rem; }
+.av-fila-titulo { font-weight: 600; }
+.av-fila-sub { color: var(--av-gris); font-size: .9rem; }
+.av-chip { display: inline-block; margin: .15rem .25rem .15rem 0; padding: .2rem .55rem; border-radius: 999px; background: var(--av-suave); font-size: .82rem; }
+.av-chip-ok { background: #e3f4e8; color: var(--av-ok); }
+.av-chip-alerta { background: #fbe4e2; color: var(--av-alerta); }
+.av-vacio { display: block; padding: 1rem 0; color: var(--av-gris); }
+.av-ficha { margin: .25rem 0 .5rem; }
+.av-producto { padding: .75rem 0; border-bottom: 1px solid var(--av-borde); }
+.av-oferta { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .4rem; }
+.av-subtitulo { font-size: 1rem; margin: 1.25rem 0 .25rem; }
+.av-linea { display: grid; grid-template-columns: 1fr auto; gap: .4rem .75rem; padding: .75rem 0; border-bottom: 1px solid var(--av-borde); }
+.av-cantidad { display: flex; align-items: center; gap: .25rem; }
+.av-input-cant { width: 4.5rem; text-align: center; }
+.av-importe { grid-column: 1 / -1; text-align: right; font-weight: 600; }
+.av-campo { display: block; margin: .75rem 0; font-size: .95rem; }
+.av-campo .av-input { margin-top: .3rem; }
+.av-totales div { display: flex; justify-content: space-between; padding: .2rem 0; }
+.av-total { font-size: 1.15rem; font-weight: 700; border-top: 1px solid var(--av-borde); margin-top: .3rem; padding-top: .4rem !important; }
+.av-acciones { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: .5rem; padding: .75rem 1rem;
+               padding-bottom: calc(.75rem + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--av-borde); }
+.av-acciones .av-btn { flex: 1; }
+.av-escaner { margin: .5rem 0; }
+.av-escaner video { width: 100%; max-height: 50vh; border-radius: 10px; background: #000; }
+.av-historial { margin-top: 1rem; }
+.av-historial summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+@media (min-width: 720px) { main { max-width: 720px; margin: 0 auto; } }

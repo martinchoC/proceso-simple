@@ -322,6 +322,7 @@ if (!function_exists('pven_valorizar')) {
             $sd += $d['descuento_general'] * $d['cantidad'];
             $detalles[] = $d;
             $info[] = ['producto_id' => $l['producto_id'], 'presentacion_id' => $l['presentacion_id'] ?: null, 'descuento_pct' => $pct,
+                       'nombre' => $l['p']['producto_nombre'] . ($l['presentacion_id'] > 0 ? ' — ' . $l['of']['nombre'] : ''),
                        'etiqueta' => ($usa_prv && in_array($res[$k]['regla_tipo'], ['ESCALA', 'PROMOCION'], true)) ? $res[$k]['regla_nombre'] : null,
                        'requiere_aprobacion' => $usa_prv && !empty($res[$k]['requiere_aprobacion'])];
         }
@@ -338,6 +339,47 @@ if (!function_exists('pven_valorizar')) {
     }
 }
 
+if (!function_exists('pven_datos_pedido')) {
+    /**
+     * Datos del alta / edición del pedido ($data de agregarPedidoVenta / editarPedidoVenta) a partir de los ítems:
+     * página y punto de venta de la sucursal, líneas y totales de pven_valorizar, condición de pago del cliente y
+     * moneda base. $p: los de pven_crear_externo. Devuelve [$data, $valorizado]. @throws InvalidArgumentException
+     */
+    function pven_datos_pedido(mysqli $conexion, int $empresa_id, array $p): array
+    {
+        $origen = strtoupper((string) ($p['origen'] ?? ''));
+        if (!in_array($origen, ['CARRITO', 'APP'], true)) {
+            throw new InvalidArgumentException('Origen del pedido no válido.');
+        }
+        $pagina = pven_pagina_pedidos($conexion, $empresa_id);
+        if ($pagina <= 0) {
+            throw new InvalidArgumentException('La empresa no tiene la página de pedidos configurada.');
+        }
+        $sucursal_id = intval($p['sucursal_id'] ?? 0);
+        [$pv, $tipo] = pven_pv_tipo($conexion, $empresa_id, $pagina, $sucursal_id);
+        if ($pv <= 0) {
+            throw new InvalidArgumentException('La sucursal no tiene un punto de venta habilitado para pedidos.');
+        }
+        $fecha = (!empty($p['f_emision']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $p['f_emision'])) ? (string) $p['f_emision'] : date('Y-m-d');
+        $entidad_id = intval($p['entidad_id'] ?? 0);
+        $val = pven_valorizar($conexion, $empresa_id, $entidad_id, (array) ($p['items'] ?? []), [
+            'sucursal_id' => $sucursal_id, 'fecha' => $fecha, 'usuario_id' => intval($p['usuario_id'] ?? 0),
+            'descuento_manual_pct' => $origen === 'APP' ? (float) ($p['descuento_manual_pct'] ?? 0) : 0,
+        ]);
+        $data = $val['cabecera'] + [
+            'comprobante_tipo_id' => $tipo, 'sucursal_id' => $sucursal_id, 'punto_venta_id' => $pv, 'comprobante_nro' => '',
+            'entidad_id' => $entidad_id, 'entidad_sucursal_id' => intval($p['entidad_sucursal_id'] ?? 0), 'f_emision' => $fecha,
+            'f_entrega_estimada' => null, 'condicion_pago_id' => $val['cliente']['condicion_pago_id'],
+            'moneda_id' => emp_moneda_base_id($conexion, $empresa_id), 'tipo_cambio' => 1.0,
+            'direccion_entrega' => trim((string) ($p['direccion_entrega'] ?? '')),
+            'observaciones' => mb_substr(trim((string) ($p['observaciones'] ?? '')), 0, 500),
+            'vendedor_entidad_id' => 0, 'origen' => $origen, 'detalles' => $val['detalles'],
+            'empresa_idx' => $empresa_id, 'pagina_idx' => $pagina,
+        ];
+        return [$data, $val];
+    }
+}
+
 if (!function_exists('pven_crear_externo')) {
     /**
      * Crea (y, con 'confirmar', confirma) un pedido desde el carrito o la app. $p:
@@ -351,36 +393,9 @@ if (!function_exists('pven_crear_externo')) {
     function pven_crear_externo(mysqli $conexion, int $empresa_id, array $p): array
     {
         try {
-            $origen = strtoupper((string) ($p['origen'] ?? ''));
-            if (!in_array($origen, ['CARRITO', 'APP'], true)) {
-                throw new InvalidArgumentException('Origen del pedido no válido.');
-            }
-            $pagina = pven_pagina_pedidos($conexion, $empresa_id);
-            if ($pagina <= 0) {
-                throw new InvalidArgumentException('La empresa no tiene la página de pedidos configurada.');
-            }
-            $sucursal_id = intval($p['sucursal_id'] ?? 0);
-            [$pv, $tipo] = pven_pv_tipo($conexion, $empresa_id, $pagina, $sucursal_id);
-            if ($pv <= 0) {
-                throw new InvalidArgumentException('La sucursal no tiene un punto de venta habilitado para pedidos.');
-            }
-            $fecha = (!empty($p['f_emision']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $p['f_emision'])) ? (string) $p['f_emision'] : date('Y-m-d');
+            [$data, $val] = pven_datos_pedido($conexion, $empresa_id, $p);
+            $pagina = (int) $data['pagina_idx'];
             $usuario_id = intval($p['usuario_id'] ?? 0);
-            $entidad_id = intval($p['entidad_id'] ?? 0);
-            $val = pven_valorizar($conexion, $empresa_id, $entidad_id, (array) ($p['items'] ?? []), [
-                'sucursal_id' => $sucursal_id, 'fecha' => $fecha, 'usuario_id' => $usuario_id,
-                'descuento_manual_pct' => $origen === 'APP' ? (float) ($p['descuento_manual_pct'] ?? 0) : 0,
-            ]);
-            $data = $val['cabecera'] + [
-                'comprobante_tipo_id' => $tipo, 'sucursal_id' => $sucursal_id, 'punto_venta_id' => $pv, 'comprobante_nro' => '',
-                'entidad_id' => $entidad_id, 'entidad_sucursal_id' => intval($p['entidad_sucursal_id'] ?? 0), 'f_emision' => $fecha,
-                'f_entrega_estimada' => null, 'condicion_pago_id' => $val['cliente']['condicion_pago_id'],
-                'moneda_id' => emp_moneda_base_id($conexion, $empresa_id), 'tipo_cambio' => 1.0,
-                'direccion_entrega' => trim((string) ($p['direccion_entrega'] ?? '')),
-                'observaciones' => mb_substr(trim((string) ($p['observaciones'] ?? '')), 0, 500),
-                'vendedor_entidad_id' => 0, 'origen' => $origen, 'detalles' => $val['detalles'],
-                'empresa_idx' => $empresa_id, 'pagina_idx' => $pagina,
-            ];
             $ctx = ['usuario_id' => $usuario_id, 'accesos' => !empty($p['accesos'])];
             $r = pven_agregar($conexion, $data, $ctx);
             if (empty($r['resultado'])) {

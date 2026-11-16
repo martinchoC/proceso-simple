@@ -43,7 +43,8 @@ $_SESSION['csrf_token'] = 'sim-csrf';
 if (!$sin_csrf) $_SERVER['HTTP_X_CSRF_TOKEN'] = 'sim-csrf';
 
 $_SERVER['REQUEST_METHOD'] = $method;
-$_SERVER['SCRIPT_NAME'] = '/modules/' . $modulo . '/' . $argv[1];
+// _modulo "app_vendedor": la API de la aplicación del vendedor (app_vendedor/, fuera de modules/; doc 28)
+$_SERVER['SCRIPT_NAME'] = ($modulo === 'app_vendedor' ? '/app_vendedor/' : '/modules/' . $modulo . '/') . $argv[1];
 if ($method === 'GET') {
     $_GET = $params;
 } else {
@@ -51,6 +52,6 @@ if ($method === 'GET') {
 }
 $_REQUEST = $params;
 
-$gestion = realpath(__DIR__ . '/../../../modules/' . $modulo);
+$gestion = realpath(__DIR__ . '/../../../' . ($modulo === 'app_vendedor' ? 'app_vendedor' : 'modules/' . $modulo));
 chdir($gestion);
 include $gestion . '/' . $argv[1];
