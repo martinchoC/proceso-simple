@@ -222,6 +222,9 @@ Diferencias con el diseño:
 - Entrega estimada: el próximo día de reparto de la zona del cliente después de hoy (las zonas no tienen hora de
   corte). Cuenta del cliente: `ctacteResumen` del módulo (solo lectura).
 - El carrito no muestra presentaciones en la ficha del producto (`/productos/{id}`), solo en el listado del catálogo.
+- 2026-11-16 (Prompt 7b completo, carrito `f7c4551`): filtro por marca comercial en el catálogo y productos que se
+  venden solo en presentación (sin precio por unidad) también listados; caso 45 (canal mayorista / minorista,
+  múltiplos, escala que aparece al sumar, promoción, producto solo en caja, marca y pedido ajeno) 9/9.
 - No se hizo la pantalla de mostrador (Prompt 9: opcional, a confirmar).
 
 Pruebas (simulador, empresa 2, sobre una copia recién clonada):
