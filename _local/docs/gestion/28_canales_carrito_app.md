@@ -1,7 +1,10 @@
 # Canales: carrito del cliente, aplicación del vendedor y mostrador (etapa 4)
 
-Estado: **reconocimiento y diseño, a aprobar** (2026-11-15). Rama `distribuidora` en `casalucho` y en
-`casalucho-carrito` (repositorio creado el 2026-11-15, ver §0). Sigue a los docs 17 a 27. No se cambió código.
+Estado: **aprobado** (2026-11-15) con las recomendaciones de §9. Respuestas: el ERP de producción y el carrito
+corren en el **mismo servidor** → decisión 1 = **opción A**; base de pruebas `gestion_multipyme_sim` (prendido) y
+`ps_gestion_casalucho` local (sin la estructura); hay respaldo. Hechos: 9-0 (carrito `df9f190`, línea base
+actualizada) y 9-1 (`7b5da52`, migración `20261123_canales_carrito_app_01.sql` + `pven_empresa_usa` + interruptores).
+Rama `distribuidora` en `casalucho` y en `casalucho-carrito`. Sigue a los docs 17 a 27.
 
 ## 0. Antes de empezar: la carpeta del carrito cambió durante el reconocimiento
 
