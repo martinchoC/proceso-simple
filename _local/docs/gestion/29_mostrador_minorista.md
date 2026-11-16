@@ -1,6 +1,6 @@
 # Pantalla de mostrador minorista
 
-Estado: **plan a aprobar** (2026-11-16). Rama `distribuidora`. Prompt 9 de la etapa 4 (doc 28): solo el plan.
+Estado: **implementado** (2026-11-16, commit `47aa3c2`; plan aprobado el mismo día con las 5 recomendaciones). Rama `distribuidora`. Prompt 9 de la etapa 4 (doc 28): solo el plan.
 
 ## Pedido
 
@@ -68,3 +68,19 @@ unidades y cajas, cobro y factura en el momento, reutilizando `core/`. Mismo pre
 | 10-3 | Pantalla: lector, cajas / unidades, totales |
 | 10-4 | Cobro y factura (confirma + aprobada con medios), ticket, ARCA |
 | 10-5 | Caso del simulador y cierre del documento |
+
+## Implementado
+
+- `20261124_mostrador_01.sql`: `usa_mostrador`, página 150 / 650 bajo Ventas, funciones 3620 / 3621 y 8620 / 8621
+  (consultar, facturar), permisos a los perfiles base Administrador y a los perfiles que agregan facturas de venta.
+  Aplicado solo en la copia del simulador.
+- `core/ventas_mostrador/mostrador_ajax.php` (vmos_*), `templates/mostrador/mostrador_vista.php`, `assets/js/mostrador.js`;
+  en `modules/gestion*/` solo `mostrador.php` y `mostrador_ajax.php`. `pven_ofertas` / `pven_valorizar` aceptan
+  consumidor final (`pven_cliente_o_cf`: lista Mostrador). La impresión de la factura admite la página del mostrador.
+  Interruptor "Usa el mostrador" en Empresas.
+- La factura es una factura de venta común (página 56 / 556): `guardarVentaFactura` + `confirma` + `aprobada` con los
+  medios de contado (consumidor final; el vuelto sale del efectivo) o a la cuenta corriente del cliente.
+- Verificado: la factura directa del mostrador baja el stock (caso 46: −2 u y −12 u de una caja).
+- Pruebas: caso 46 (apagado, lista Mostrador, código de barras de la caja, medios que no cubren, factura aprobada y
+  numerada, stock, caja de tesorería, cliente, permisos y CSRF) 16/16; ventas 03-19b iguales.
+- No probado en el navegador. Sin caja / arqueo propio ni modo sin conexión (decisión 5).
