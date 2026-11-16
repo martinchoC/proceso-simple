@@ -109,6 +109,21 @@ if (!function_exists('pven_cliente')) {
     }
 }
 
+if (!function_exists('pven_cliente_o_cf')) {
+    /**
+     * pven_cliente(), o consumidor final con $entidad_id 0 (mostrador, doc 29): la lista Mostrador (cvta_lista_cliente
+     * sin cliente, como la factura del ERP), sin descuento de cliente ni condición de pago. @throws InvalidArgumentException
+     */
+    function pven_cliente_o_cf(mysqli $conexion, int $empresa_id, int $entidad_id): array
+    {
+        if ($entidad_id > 0) {
+            return pven_cliente($conexion, $empresa_id, $entidad_id);
+        }
+        return ['entidad_id' => 0, 'lista_precio_id' => (int) (cvta_lista_cliente($conexion, $empresa_id, null)['lista_precio_id'] ?? 0),
+                'cliente_descuento_general' => 0.0, 'condicion_pago_id' => 0];
+    }
+}
+
 if (!function_exists('pven_productos')) {
     /**
      * Datos de venta de los productos activos de la empresa: código, nombre, IVA y precio unitario vigente en la lista
@@ -171,7 +186,7 @@ if (!function_exists('pven_ofertas')) {
      */
     function pven_ofertas(mysqli $conexion, int $empresa_id, int $entidad_id, array $producto_ids, int $sucursal_id = 0, ?string $fecha = null): array
     {
-        $cli = pven_cliente($conexion, $empresa_id, $entidad_id);
+        $cli = pven_cliente_o_cf($conexion, $empresa_id, $entidad_id);
         $lista = $cli['lista_precio_id'];
         $canal = $lista > 0 ? cvta_canal_lista($conexion, $empresa_id, $lista) : null;
         $res = ['lista_precio_id' => $lista, 'canal' => $canal['nombre'] ?? null, 'productos' => []];
@@ -233,7 +248,7 @@ if (!function_exists('pven_valorizar')) {
      */
     function pven_valorizar(mysqli $conexion, int $empresa_id, int $entidad_id, array $items, array $opc = []): array
     {
-        $cli = pven_cliente($conexion, $empresa_id, $entidad_id);
+        $cli = pven_cliente_o_cf($conexion, $empresa_id, $entidad_id);
         $lista = $cli['lista_precio_id'];
         if ($lista <= 0) {
             throw new InvalidArgumentException('No hay una lista de precios vigente para el cliente.');

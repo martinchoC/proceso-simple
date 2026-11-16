@@ -354,6 +354,14 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <label class="form-check-label" for="usa_app_vendedor">Usa la aplicación del vendedor <?= ui_ayuda('Los vendedores cargan desde el celular los pedidos de los clientes de su cartera, con los mismos precios que el ERP.') ?></label>
                                     </div>
                                     <?php endif; ?>
+                                    <?php // Solo con el script 20261124_mostrador_01.sql aplicado
+                                    $emp_col_x = mysqli_query($conn, "SHOW COLUMNS FROM conf__empresas LIKE 'usa_mostrador'");
+                                    if ($emp_col_x && mysqli_num_rows($emp_col_x) > 0): ?>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" id="usa_mostrador" name="usa_mostrador" value="1" />
+                                        <label class="form-check-label" for="usa_mostrador">Usa el mostrador <?= ui_ayuda('Pantalla de venta rápida de mostrador: lector de códigos, cajas y unidades, cobro y factura en el momento.') ?></label>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="col-md-6">
@@ -1177,6 +1185,7 @@ $(document).ready(function(){
                 $('#usa_compra_presentaciones').prop('checked', parseInt(res.usa_compra_presentaciones, 10) === 1);
                 $('#usa_carrito_integrado').prop('checked', parseInt(res.usa_carrito_integrado, 10) === 1);
                 $('#usa_app_vendedor').prop('checked', parseInt(res.usa_app_vendedor, 10) === 1);
+                $('#usa_mostrador').prop('checked', parseInt(res.usa_mostrador, 10) === 1);
                 empSyncVentaPresentaciones();
                 $('#base_conf').val(res.base_conf || '');
                 $('#estado_registro_id').val(res.tabla_estado_registro_id || 1);
@@ -1338,6 +1347,7 @@ $(document).ready(function(){
         if ($('#usa_compra_presentaciones').length) formData.usa_compra_presentaciones = $('#usa_compra_presentaciones').is(':checked') ? 1 : 0;
         if ($('#usa_carrito_integrado').length) formData.usa_carrito_integrado = $('#usa_carrito_integrado').is(':checked') ? 1 : 0;
         if ($('#usa_app_vendedor').length) formData.usa_app_vendedor = $('#usa_app_vendedor').is(':checked') ? 1 : 0;
+        if ($('#usa_mostrador').length) formData.usa_mostrador = $('#usa_mostrador').is(':checked') ? 1 : 0;
         // multipart: viaja el archivo del logo junto con los datos
         var datos = new FormData();
         $.each(formData, function(clave, valor) { datos.append(clave, valor == null ? '' : valor); });

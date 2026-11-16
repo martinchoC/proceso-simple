@@ -4,7 +4,7 @@
 // receptor, detalle, totales y, en los comprobantes fiscales autorizados, QR + CAE (RG 4291).
 // Mismo guard que ventas_facturas_ajax.php: sesión + empresa del usuario + acceso a la página.
 require_once __DIR__ . '/../../core/ajax_guard.php';
-$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['ventas_facturas.php', 'ventas_remitos.php', 'ventas_remitos_pendientes_facturacion.php']]);
+$ctx = ajax_guard(['modulo_id' => 5, 'paginas_url' => ['ventas_facturas.php', 'ventas_remitos.php', 'ventas_remitos_pendientes_facturacion.php', 'mostrador.php']]);
 
 require_once __DIR__ . '/../../db.php';
 $conexion = $conn;

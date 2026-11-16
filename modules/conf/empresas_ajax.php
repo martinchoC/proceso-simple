@@ -96,6 +96,7 @@ try {
             'usa_compra_presentaciones' => $_REQUEST['usa_compra_presentaciones'] ?? null,
             'usa_carrito_integrado' => $_REQUEST['usa_carrito_integrado'] ?? null,
             'usa_app_vendedor' => $_REQUEST['usa_app_vendedor'] ?? null,
+            'usa_mostrador' => $_REQUEST['usa_mostrador'] ?? null,
             'es_principal' => !empty($_REQUEST['es_principal']) ? 1 : 0,
             // Uso de la IA en todos los módulos (core/ia_empresa.php); sin el campo, habilitada
             'ia_habilitada' => intval($_REQUEST['ia_habilitada'] ?? 1) === 1 ? 1 : 0,
@@ -160,6 +161,7 @@ try {
             'usa_compra_presentaciones' => $_REQUEST['usa_compra_presentaciones'] ?? null,
             'usa_carrito_integrado' => $_REQUEST['usa_carrito_integrado'] ?? null,
             'usa_app_vendedor' => $_REQUEST['usa_app_vendedor'] ?? null,
+            'usa_mostrador' => $_REQUEST['usa_mostrador'] ?? null,
             'es_principal' => !empty($_REQUEST['es_principal']) ? 1 : 0,
             // Uso de la IA en todos los módulos (core/ia_empresa.php); sin el campo, habilitada
             'ia_habilitada' => intval($_REQUEST['ia_habilitada'] ?? 1) === 1 ? 1 : 0,

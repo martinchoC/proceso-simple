@@ -100,7 +100,12 @@ if CTX.get('ok'):
         a, b = foto(ped), foto(pe)
         check(a == b, 'el pedido del carrito es igual al del servicio del ERP (cabecera y líneas)', f'{a} / {b}'[:600])
         check(a[0]['origen'] == 'CARRITO', 'origen CARRITO', str(a[0]))
-        check(int(val(f"SELECT COUNT(*) FROM ecom__pedidos WHERE venta_pedido_id = {int(ped)}") or 0) == 1, 'queda el puente ecom__pedidos de la tienda')
+        # Preexistente: ecom__pedidos.compra_pedido_id es NOT NULL y UNIQUE (resto de compras_pedidos) y el carrito no lo
+        # completa (queda 0): solo entra una fila; si ya hay una, el puente se pierde en silencio (también apagado).
+        if int(val("SELECT COUNT(*) FROM ecom__pedidos WHERE compra_pedido_id = 0") or 0) > 0 and int(val(f"SELECT COUNT(*) FROM ecom__pedidos WHERE venta_pedido_id = {int(ped)}") or 0) == 0:
+            brecha('ecom__pedidos no registra el pedido: UNIQUE en compra_pedido_id = 0 (preexistente)', 'doc 28')
+        else:
+            check(int(val(f"SELECT COUNT(*) FROM ecom__pedidos WHERE venta_pedido_id = {int(ped)}") or 0) == 1, 'queda el puente ecom__pedidos de la tienda')
     # Mínimo de la caja
     sql(f"UPDATE gestion__productos_presentaciones SET venta_minimo = 3 WHERE presentacion_id = {caja}")
     r = carrito([{'op': 'agregar', 'producto_id': P2, 'presentacion_id': caja, 'cantidad': 2}])

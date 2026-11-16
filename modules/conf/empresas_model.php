@@ -227,6 +227,7 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
     $usa_compra_presentaciones = !empty($data['usa_compra_presentaciones']) ? 1 : 0;
     $usa_carrito_integrado = !empty($data['usa_carrito_integrado']) ? 1 : 0;
     $usa_app_vendedor = !empty($data['usa_app_vendedor']) ? 1 : 0;
+    $usa_mostrador = !empty($data['usa_mostrador']) ? 1 : 0;
     $es_principal = !empty($data['es_principal']) ? 1 : 0;
 
     $cols = ['empresa', 'documento_tipo_id', 'documento_numero', 'telefono', 'domicilio', 'localidad_id', 'condicion_fiscal_id', 'email', 'tabla_estado_registro_id'];
@@ -309,7 +310,7 @@ function agregarempresa($conexion, $data, $usuario_id = null, &$nueva_empresa_id
         $cols[] = 'usa_compra_presentaciones';
         $vals[] = "$usa_compra_presentaciones";
     }
-    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor] as $col_x => $val_x) {
+    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor, 'usa_mostrador' => $usa_mostrador] as $col_x => $val_x) {
         if (conf_empresa_columna_existe($conexion, $col_x)) {   // canales (doc 28)
             $cols[] = $col_x;
             $vals[] = "$val_x";
@@ -422,6 +423,7 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     $usa_compra_presentaciones = isset($data['usa_compra_presentaciones']) ? (!empty($data['usa_compra_presentaciones']) ? 1 : 0) : 'usa_compra_presentaciones';
     $usa_carrito_integrado = isset($data['usa_carrito_integrado']) ? (!empty($data['usa_carrito_integrado']) ? 1 : 0) : 'usa_carrito_integrado';
     $usa_app_vendedor = isset($data['usa_app_vendedor']) ? (!empty($data['usa_app_vendedor']) ? 1 : 0) : 'usa_app_vendedor';
+    $usa_mostrador = isset($data['usa_mostrador']) ? (!empty($data['usa_mostrador']) ? 1 : 0) : 'usa_mostrador';
     $es_principal = isset($data['es_principal']) ? (!empty($data['es_principal']) ? 1 : 0) : null;
 
     $updates = [
@@ -489,7 +491,7 @@ function editarempresa($conexion, $id, $data, $usuario_id = null)
     if (conf_empresa_columna_existe($conexion, 'usa_compra_presentaciones')) {
         $updates[] = "usa_compra_presentaciones=$usa_compra_presentaciones";
     }
-    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor] as $col_x => $val_x) {
+    foreach (['usa_carrito_integrado' => $usa_carrito_integrado, 'usa_app_vendedor' => $usa_app_vendedor, 'usa_mostrador' => $usa_mostrador] as $col_x => $val_x) {
         if (conf_empresa_columna_existe($conexion, $col_x)) {   // canales (doc 28)
             $updates[] = "$col_x=$val_x";
         }
