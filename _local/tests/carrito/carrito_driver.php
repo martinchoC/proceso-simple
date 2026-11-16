@@ -53,6 +53,20 @@ foreach ($p['ops'] as $op) {
                 $r = ['ok' => true] + $kernel->pedidoService()->confirmar($u, $e, (string) ($op['observaciones'] ?? ''), (int) ($op['entidad_sucursal_id'] ?? 0),
                     (int) ($op['sucursal_compra_id'] ?? 0), (string) ($op['direccion'] ?? ''));
                 break;
+            case 'catalogo':
+                // Como CatalogoController: con la integración, productos solo en presentación y marca comercial
+                $filtros = array_merge(['terminos' => [], 'codigo' => '', 'marca_id' => 0, 'modelo_id' => 0, 'submodelo_id' => 0], (array) ($op['filtros'] ?? []));
+                if ($integrado) {
+                    $filtros['_con_presentaciones'] = true;
+                }
+                $res = $kernel->catalogo()->listar($e, $filtros, 1, 60);
+                $ids = array_map(static fn ($p) => (int) $p['producto_id'], $res['items'] ?? []);
+                $of = $integrado ? ($kernel->carritoIntegrado()->ofertas($e, $ids)['productos'] ?? []) : [];
+                $r = ['ok' => true, 'productos' => $ids, 'ofertas' => $of];
+                break;
+            case 'pedido_detalle':
+                $r = ['ok' => true, 'detalle' => $kernel->pedidoService()->detalle((int) $op['venta_pedido_id'], $e) !== null];
+                break;
             default:
                 $r = ['ok' => false, 'error' => 'operación desconocida'];
         }
