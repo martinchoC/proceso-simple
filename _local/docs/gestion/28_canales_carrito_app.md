@@ -235,8 +235,10 @@ Pruebas (simulador, empresa 2, sobre una copia recién clonada):
   estructura) 6/6; `tests/ErpCoreTest.php` del carrito con y sin ruta y sin la columna.
 - La única falla es la preexistente de consistencia (2 asientos sin fecha / descripción).
 - **No se revisó la consola del navegador** ni las pantallas a mano (carrito, catálogo con presentaciones, app).
-- **No se hizo la prueba integral** del Prompt 10 (carrito + app + ERP, distribución, hoja de ruta, remito parcial,
-  factura y stock): queda pendiente.
+- Prueba integral (caso 44, 2026-11-16): pedido mayorista por el carrito (cajas + escala), otro por la app y otro por el
+  ERP (origen CARRITO / APP / ERP), los tres liberados para distribución en una hoja de ruta confirmada (lista de carga
+  con las cajas en unidades), remito parcial del pedido del carrito (10 de 30 u y 1 de 2 cajas, hereda la caja) y
+  factura desde el remito (hereda caja y escala; el stock lo baja solo el remito) 20/20.
 
 ### Revisión de seguridad (lo nuevo)
 - Precio, descuentos, canal, mínimos y disponibilidad: siempre del servidor (carrito y app mandan producto,
