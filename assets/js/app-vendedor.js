@@ -19,6 +19,10 @@
     var inicio = null;          // datos de la acción inicio
     var ped = null;             // pedido en pantalla: {cliente, items: {clave: {producto_id, presentacion_id, cantidad, nombre, oferta}}, ...}
     var timerValorizar = null;
+    var timerAviso = null;
+    var ICONO_CODIGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">'
+        + '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10.5 8v8M14 8v8M17 8v8"/></svg>';
+    var VACIO_PEDIDO = 'Buscá o escaneá un producto para agregarlo.';
 
     function esc(t) {
         return String(t === null || t === undefined ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -29,12 +33,17 @@
         return '$ ' + (Number(v) || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     }
     function num(v) { return (Number(v) || 0).toLocaleString(undefined, {maximumFractionDigits: 2}); }
+    function iniciales(t) {
+        var p = String(t || '').trim().split(/\s+/).filter(Boolean);
+        return ((p[0] || '?').charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : '')).toUpperCase();
+    }
     function mostrarAviso(texto, tipo) {
+        clearTimeout(timerAviso);
         if (!texto) { aviso.hidden = true; return; }
         aviso.textContent = texto;
         aviso.className = 'av-aviso av-aviso-' + (tipo || 'info');
         aviso.hidden = false;
-        if (tipo !== 'error') setTimeout(function () { aviso.hidden = true; }, 3500);
+        timerAviso = setTimeout(function () { aviso.hidden = true; }, tipo === 'error' ? 8000 : 3000);
     }
     function api(accion, datos, metodo) {
         datos = datos || {};
@@ -83,7 +92,7 @@
         titulo.textContent = 'Clientes';
         btnVolver.hidden = true;
         vista.innerHTML = '<div class="av-buscador"><input type="search" class="av-input" placeholder="Buscar cliente o CUIT" data-av-q value="' + esc(q || '') + '"></div>'
-            + '<ul class="av-lista" data-av-clientes><li class="av-vacio">Cargando…</li></ul>';
+            + '<ul class="av-lista av-lista-tarjeta" data-av-clientes><li class="av-vacio av-cargando">Cargando…</li></ul>';
         var input = vista.querySelector('[data-av-q]');
         var t = null;
         input.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { cargarClientes(input.value); }, 300); });
@@ -97,9 +106,10 @@
                 var local = leerLocal(c.entidad_id);
                 var enCurso = c.borrador_id || (local && local.sucio);
                 return '<li><button type="button" class="av-fila" data-id="' + c.entidad_id + '">'
+                    + '<span class="av-avatar" aria-hidden="true">' + esc(iniciales(c.nombre)) + '</span><span class="av-fila-cuerpo">'
                     + '<span class="av-fila-titulo">' + esc(c.nombre) + '</span>'
                     + '<span class="av-fila-sub">' + esc(c.cuit || '') + (c.razon_social !== c.nombre ? ' · ' + esc(c.razon_social) : '') + '</span>'
-                    + (enCurso ? '<span class="av-chip">Pedido en preparación</span>' : '') + '</button></li>';
+                    + (enCurso ? '<span class="av-chip">Pedido en preparación</span>' : '') + '</span><span class="av-chevron" aria-hidden="true"></span></button></li>';
             }).join('');
             ul.querySelectorAll('[data-id]').forEach(function (b) {
                 b.addEventListener('click', function () {
@@ -115,21 +125,25 @@
         ped = {cliente: cliente, items: {}, observaciones: '', manual: 0, pedido_id: null, sucio: false, sucursal: (inicio.sucursales[0] || {}).sucursal_id || 0, valor: null};
         titulo.textContent = cliente.nombre;
         btnVolver.hidden = false;
-        vista.innerHTML = '<section class="av-ficha" data-av-ficha><span class="av-vacio">Cargando…</span></section>'
+        vista.innerHTML = '<section class="av-ficha" data-av-ficha><span class="av-vacio av-cargando">Cargando…</span></section>'
             + '<div class="av-buscador"><input type="search" class="av-input" placeholder="Código, nombre, marca o código de barras" data-av-buscar>'
-            + '<button type="button" class="av-btn" data-av-escanear aria-label="Escanear código de barras">Escanear</button></div>'
-            + '<div class="av-escaner" data-av-escaner hidden><video playsinline muted></video><button type="button" class="av-btn" data-av-cerrar-escaner>Cerrar</button></div>'
-            + '<ul class="av-lista" data-av-resultados></ul>'
-            + '<h2 class="av-subtitulo">Pedido</h2><ul class="av-lista av-lineas" data-av-lineas><li class="av-vacio">Sin productos.</li></ul>'
+            + '<button type="button" class="av-btn av-btn-icono" data-av-escanear aria-label="Escanear código de barras" title="Escanear">' + ICONO_CODIGO + '</button></div>'
+            + '<div class="av-escaner" data-av-escaner hidden><video playsinline muted></video><button type="button" class="av-btn" data-av-cerrar-escaner>Cerrar cámara</button></div>'
+            + '<ul class="av-lista av-lista-tarjeta av-resultados" data-av-resultados></ul>'
+            + '<h2 class="av-subtitulo">Pedido <span class="av-contador" data-av-contador hidden></span></h2>'
+            + '<ul class="av-lista av-lista-tarjeta av-lineas" data-av-lineas><li class="av-vacio">' + VACIO_PEDIDO + '</li></ul>'
+            + '<section class="av-tarjeta av-opciones">'
             + (inicio.descuento_manual ? '<label class="av-campo">Descuento manual % <small>(tu tope: ' + num(inicio.tope_descuento) + ' %)</small>'
                 + '<input type="number" class="av-input" min="0" max="100" step="0.5" value="0" data-av-manual></label>' : '')
             + (inicio.sucursales.length > 1 ? '<label class="av-campo">Sucursal<select class="av-input" data-av-sucursal>'
                 + inicio.sucursales.map(function (s) { return '<option value="' + s.sucursal_id + '">' + esc(s.nombre) + '</option>'; }).join('') + '</select></label>' : '')
             + '<label class="av-campo">Observaciones<textarea class="av-input" rows="2" maxlength="500" data-av-obs></textarea></label>'
-            + '<div class="av-totales" data-av-totales></div>'
-            + '<div class="av-acciones"><button type="button" class="av-btn" data-av-guardar>Guardar</button>'
-            + '<button type="button" class="av-btn av-btn-primario" data-av-confirmar>Confirmar pedido</button></div>'
-            + '<details class="av-historial"><summary>Historial y cuenta</summary><div data-av-historial></div></details>';
+            + '</section>'
+            + '<div class="av-tarjeta av-totales" data-av-totales></div>'
+            + '<details class="av-tarjeta av-historial"><summary>Historial y cuenta</summary><div data-av-historial></div></details>'
+            + '<div class="av-acciones"><div class="av-acciones-resumen"><span data-av-resumen-cant>Sin productos</span><strong data-av-resumen-total>' + plata(0) + '</strong></div>'
+            + '<button type="button" class="av-btn" data-av-guardar>Guardar</button>'
+            + '<button type="button" class="av-btn av-btn-primario" data-av-confirmar>Confirmar pedido</button></div>';
         var buscar = vista.querySelector('[data-av-buscar]');
         var t = null;
         buscar.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { buscarProductos(buscar.value); }, 350); });
@@ -149,7 +163,7 @@
             vista.querySelector('[data-av-ficha]').innerHTML = (d.canal ? '<span class="av-chip">' + esc(d.canal) + '</span>' : '')
                 + (d.descuento_cliente > 0 ? '<span class="av-chip">Desc. cliente ' + num(d.descuento_cliente) + ' %</span>' : '')
                 + (d.entrega ? '<span class="av-chip av-chip-ok">Entrega estimada: ' + esc(d.entrega.dia) + ' ' + esc(d.entrega.fecha.split('-').reverse().join('/')) + '</span>' : '')
-                + '<span class="av-chip">Saldo ' + plata(d.cuenta.saldo) + (d.cuenta.vencido > 0 ? ' · vencido ' + plata(d.cuenta.vencido) : '') + '</span>';
+                + '<span class="av-chip ' + (d.cuenta.vencido > 0 ? 'av-chip-alerta' : 'av-chip-neutro') + '">Saldo ' + plata(d.cuenta.saldo) + (d.cuenta.vencido > 0 ? ' · vencido ' + plata(d.cuenta.vencido) : '') + '</span>';
             vista.querySelector('[data-av-historial]').innerHTML = d.historial.length ? '<ul class="av-lista">' + d.historial.map(function (h) {
                 return '<li class="av-fila-estatica"><span>' + (h.comprobante_nro > 0 ? 'N° ' + esc(h.comprobante_nro) : 'Borrador') + ' · ' + esc(String(h.f_emision).split('-').reverse().join('/'))
                     + '</span><span>' + plata(h.total) + ' · ' + esc(h.estado || '') + '</span></li>';
@@ -187,11 +201,13 @@
             ul.innerHTML = prods.length ? prods.map(function (p, i) {
                 return '<li class="av-producto"><div class="av-fila-titulo">' + esc(p.nombre) + '</div><div class="av-fila-sub">' + esc(p.codigo) + (p.marca ? ' · ' + esc(p.marca) : '') + '</div>'
                     + p.ofertas.map(function (o, k) {
-                        return '<div class="av-oferta"><span><strong>' + esc(o.nombre) + '</strong> ' + plata(o.precio_final)
-                            + (o.minimo ? ' <small>mín. ' + num(o.minimo) + '</small>' : '') + (o.multiplo ? ' <small>de a ' + num(o.multiplo) + '</small>' : '')
-                            + (o.disponible !== null ? ' <small>disp. ' + num(o.disponible) + '</small>' : '')
+                        var datos = [o.minimo ? 'mín. ' + num(o.minimo) : '', o.multiplo ? 'de a ' + num(o.multiplo) : '',
+                                     o.disponible !== null ? 'disp. ' + num(o.disponible) : ''].filter(Boolean).join(' · ');
+                        return '<div class="av-oferta"><span class="av-oferta-info"><span class="av-oferta-nombre">' + esc(o.nombre)
                             + (o.etiqueta ? ' <span class="av-chip av-chip-ok">' + esc(o.etiqueta) + '</span>' : '') + '</span>'
-                            + '<button type="button" class="av-btn av-btn-chico" data-p="' + i + '" data-o="' + k + '">+</button></div>';
+                            + '<span class="av-precio">' + plata(o.precio_final) + '</span>'
+                            + (datos ? '<span class="av-oferta-datos">' + esc(datos) + '</span>' : '') + '</span>'
+                            + '<button type="button" class="av-btn av-btn-chico av-btn-agregar" data-p="' + i + '" data-o="' + k + '" aria-label="Agregar ' + esc(o.nombre) + '">+</button></div>';
                     }).join('') + '</li>';
             }).join('') : '<li class="av-vacio">Sin resultados con precio en la lista del cliente.</li>';
             ul.querySelectorAll('[data-p]').forEach(function (b) {
@@ -224,7 +240,7 @@
         timerValorizar = setTimeout(function () {
             var ul = vista.querySelector('[data-av-lineas]');
             var items = itemsLista();
-            if (!items.length) { ul.innerHTML = '<li class="av-vacio">Sin productos.</li>'; vista.querySelector('[data-av-totales]').innerHTML = ''; return; }
+            if (!items.length) { ul.innerHTML = '<li class="av-vacio">' + VACIO_PEDIDO + '</li>'; vista.querySelector('[data-av-totales]').innerHTML = ''; resumen(0, 0); return; }
             api('valorizar', {entidad_id: ped.cliente.entidad_id, sucursal_id: ped.sucursal, items: JSON.stringify(items), descuento_manual_pct: ped.manual}, 'POST')
                 .then(function (j) { pintarLineas(j.data); })
                 .catch(function (e) { mostrarAviso(e.message, 'error'); });
@@ -239,9 +255,9 @@
             return '<li class="av-linea"><div><div class="av-fila-titulo">' + esc(l.nombre || ('Producto ' + l.producto_id)) + '</div>'
                 + '<div class="av-fila-sub">' + (l.descuento_pct > 0 ? 'Desc. ' + num(l.descuento_pct) + ' %' : '') + (l.etiqueta ? ' · ' + esc(l.etiqueta) : '')
                 + (l.requiere_aprobacion ? ' <span class="av-chip av-chip-alerta">supera tu tope</span>' : '') + '</div></div>'
-                + '<div class="av-cantidad"><button type="button" class="av-btn av-btn-chico" data-k="' + clave + '" data-d="-1">−</button>'
-                + '<input type="number" inputmode="decimal" class="av-input av-input-cant" value="' + esc(it.cantidad) + '" data-k="' + clave + '">'
-                + '<button type="button" class="av-btn av-btn-chico" data-k="' + clave + '" data-d="1">+</button></div>'
+                + '<div class="av-cantidad"><button type="button" class="av-btn av-btn-chico" data-k="' + clave + '" data-d="-1" aria-label="Uno menos">−</button>'
+                + '<input type="number" inputmode="decimal" class="av-input av-input-cant" value="' + esc(it.cantidad) + '" data-k="' + clave + '" aria-label="Cantidad">'
+                + '<button type="button" class="av-btn av-btn-chico" data-k="' + clave + '" data-d="1" aria-label="Uno más">+</button></div>'
                 + '<div class="av-importe">' + plata(l.total_linea) + '</div></li>';
         }).join('');
         ul.querySelectorAll('button[data-k]').forEach(function (b) {
@@ -253,6 +269,16 @@
         vista.querySelector('[data-av-totales]').innerHTML = '<div><span>Neto</span><span>' + plata(v.cabecera.subtotal) + '</span></div>'
             + '<div><span>IVA</span><span>' + plata(v.cabecera.impuestos) + '</span></div>'
             + '<div class="av-total"><span>Total</span><span>' + plata(v.cabecera.total) + '</span></div>';
+        resumen(v.lineas.length, v.cabecera.total);
+    }
+
+    function resumen(n, total) {
+        var c = vista.querySelector('[data-av-contador]');
+        if (c) { c.textContent = n; c.hidden = !n; }
+        var rc = vista.querySelector('[data-av-resumen-cant]');
+        var rt = vista.querySelector('[data-av-resumen-total]');
+        if (rc) rc.textContent = n ? n + (n === 1 ? ' producto' : ' productos') : 'Sin productos';
+        if (rt) rt.textContent = plata(total);
     }
 
     function cambiar(clave, cant) {
@@ -325,6 +351,7 @@
 
     // ------------------------------------------------------------------ Arranque
     btnVolver.addEventListener('click', function () { cerrarEscaner(); verClientes(); });
+    aviso.addEventListener('click', function () { mostrarAviso(''); });
     var selEmpresa = raiz.querySelector('[data-av-empresa]');
     if (selEmpresa) selEmpresa.addEventListener('change', function () { location.href = '?empresa_id=' + encodeURIComponent(this.value); });
     window.addEventListener('offline', function () { mostrarAviso('Sin conexión. Lo cargado queda guardado en este teléfono.', 'error'); });
