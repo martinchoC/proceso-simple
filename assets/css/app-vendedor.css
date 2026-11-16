@@ -175,3 +175,19 @@ textarea.av-input { min-height: 72px; resize: vertical; }
 @keyframes av-entrar { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes av-girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+/* ---------------------------------------------------------------- Consulta cliente (solapas) */
+.av-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: .35rem; margin: .5rem 0; }
+.av-tabs-2 { grid-template-columns: repeat(2, 1fr); margin-bottom: .75rem; }
+.av-tabs-5 { grid-template-columns: repeat(5, 1fr); }
+.av-tab { min-height: 38px; padding: .25rem .35rem; border: 1px solid var(--av-borde); border-radius: 8px; background: var(--av-suave);
+          font-size: .82rem; font-weight: 600; color: var(--av-gris); cursor: pointer; }
+.av-tab-activa { background: var(--av-primario); color: #fff; border-color: var(--av-primario); }
+.av-deuda-resumen { display: flex; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; margin-bottom: .75rem; }
+.av-deuda-resumen > div { display: flex; flex-direction: column; gap: .15rem; }
+.av-deuda-resumen strong { font-size: 1.05rem; }
+.av-fila-linea { display: flex; justify-content: space-between; align-items: center; gap: .5rem; width: 100%; }
+.av-texto-alerta { color: var(--av-alerta); }
+.av-cc-resumen { display: flex; justify-content: space-between; align-items: center; padding: .5rem 0; border-bottom: 1px solid var(--av-borde); font-size: .92rem; }
+.av-der { text-align: right; }
+.av-texto-ok { color: var(--av-ok); }

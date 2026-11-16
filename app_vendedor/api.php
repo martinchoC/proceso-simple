@@ -25,6 +25,7 @@ header('Content-Type: application/json; charset=utf-8');
 $conexion = $conn;
 $empresa_id = (int) $ctx['empresa_id'];
 $usuario_id = (int) $ctx['usuario_id'];
+permisos_fijar_contexto($usuario_id, $empresa_id);
 
 function app_responder(bool $ok, $data = null, string $mensaje = '', int $status = 200): void
 {
@@ -100,6 +101,33 @@ try {
         case 'clientes':
             app_responder(true, pven_app_clientes($conexion, $empresa_id, $vendedor_id, (string) ($_GET['q'] ?? '')));
 
+        case 'deudas':
+            require_once __DIR__ . '/../modules/' . $carpeta . '/clientes_ctacte_model.php';
+            $res = ctacteSaldosClientes($conexion, $empresa_id, [
+                'usuario_id' => $usuario_id,
+                'solo_con_saldo' => true,
+                'texto' => (string) ($_GET['q'] ?? ''),
+            ]);
+            $filas = array_map(fn($f) => [
+                'entidad_id' => (int) $f['entidad_id'],
+                'nombre' => (string) ($f['entidad_fantasia'] ?: $f['entidad_nombre']),
+                'razon_social' => (string) $f['entidad_nombre'],
+                'cuit' => (string) ($f['cuit'] ?? ''),
+                'saldo' => (float) $f['saldo'],
+                'deuda' => (float) $f['deuda'],
+                'vencido' => (float) $f['vencido'],
+                'a_favor' => (float) $f['a_favor'],
+                'primer_vencimiento' => $f['primer_vencimiento'],
+                'comprobantes' => (int) $f['comprobantes'],
+            ], $res['filas'] ?? []);
+            app_responder(true, [
+                'configurado' => !empty($res['configurado']),
+                'total_saldo' => round(array_sum(array_column($filas, 'saldo')), 2),
+                'total_deuda' => round(array_sum(array_column($filas, 'deuda')), 2),
+                'total_vencido' => round(array_sum(array_column($filas, 'vencido')), 2),
+                'clientes' => $filas,
+            ]);
+
         case 'cliente':
             $cli = intval($_GET['entidad_id'] ?? 0);
             app_cliente($conexion, $empresa_id, $vendedor_id, $cli);
@@ -114,6 +142,49 @@ try {
                 'historial' => pven_app_historial($conexion, $empresa_id, $cli),
                 'cuenta' => ['saldo' => (float) ($cuenta['saldo'] ?? 0), 'vencido' => (float) ($cuenta['vencido'] ?? 0),
                              'comprobantes_pendientes' => (int) ($cuenta['comprobantes_pendientes'] ?? 0)],
+            ]);
+
+        case 'cliente_detalle':
+            $cli = intval($_GET['entidad_id'] ?? 0);
+            app_cliente($conexion, $empresa_id, $vendedor_id, $cli);
+            require_once __DIR__ . '/../modules/' . $carpeta . '/clientes_ctacte_model.php';
+            $movs = ctacteMovimientos($conexion, $empresa_id, $cli);
+            $pend = ctactePendientes($conexion, $empresa_id, $cli);
+            $lista_cc = array_slice(array_reverse($movs['movimientos'] ?? []), 0, 30);
+            $mapPend = fn($m) => [
+                'fecha' => (string) ($m['f_emision'] ?? ''),
+                'vto' => (string) ($m['f_vto'] ?? ''),
+                'tipo' => (string) ($m['comprobante_tipo'] ?? ''),
+                'numero' => ctacteNumeroComprobante($m),
+                'importe' => (float) ($m['importe_local'] ?? 0),
+                'pendiente' => (float) ($m['pendiente_local'] ?? 0),
+                'dias_atraso' => (int) ($m['dias_atraso'] ?? 0),
+            ];
+            app_responder(true, [
+                'pedidos' => pven_app_historial($conexion, $empresa_id, $cli, 20),
+                'facturas' => pven_app_facturas($conexion, $empresa_id, $cli, 20),
+                'pagos' => pven_app_pagos($conexion, $empresa_id, $cli, 20),
+                'deuda' => [
+                    'configurado' => !empty($pend['configurado']),
+                    'pendientes' => array_map($mapPend, $pend['deuda'] ?? []),
+                    'a_favor' => array_map($mapPend, $pend['a_favor'] ?? []),
+                ],
+                'ctacte' => [
+                    'configurado' => !empty($movs['configurado']),
+                    'saldo_final' => (float) ($movs['saldo_final'] ?? 0),
+                    'total_debe' => (float) ($movs['total_debe'] ?? 0),
+                    'total_haber' => (float) ($movs['total_haber'] ?? 0),
+                    'movimientos' => array_map(fn($m) => [
+                        'fecha' => (string) ($m['f_emision'] ?? ''),
+                        'vto' => (string) ($m['f_vto'] ?? ''),
+                        'tipo' => (string) ($m['comprobante_tipo'] ?? ''),
+                        'numero' => ctacteNumeroComprobante($m),
+                        'debe' => (float) ($m['debe'] ?? 0),
+                        'haber' => (float) ($m['haber'] ?? 0),
+                        'pendiente' => (float) ($m['pendiente_local'] ?? 0),
+                        'saldo' => (float) ($m['saldo'] ?? 0),
+                    ], $lista_cc),
+                ],
             ]);
 
         case 'buscar':

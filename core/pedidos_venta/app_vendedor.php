@@ -147,20 +147,67 @@ if (!function_exists('pven_app_borrador')) {
     }
 }
 
-if (!function_exists('pven_app_historial')) {
-    /** Últimos pedidos del cliente (cualquier origen, sin eliminados): número, fecha, total, estado. */
-    function pven_app_historial(mysqli $conexion, int $empresa_id, int $cliente_id, int $limite = 15): array
+if (!function_exists('pven_app_estado_col')) {
+    /** Columna de nombre de estado según la versión de conf__estados_registros. */
+    function pven_app_estado_col(mysqli $conexion): string
     {
-        // El nombre del estado según la versión de conf__estados_registros (estado_registro / nombre_estado / descripcion)
+        static $col = null;
+        if ($col !== null) {
+            return $col;
+        }
         $cols = array_column(pven_filas($conexion, "SHOW COLUMNS FROM conf__estados_registros"), 'Field');
-        $col = in_array('estado_registro', $cols, true) ? 'er.estado_registro' : (in_array('nombre_estado', $cols, true) ? 'er.nombre_estado'
+        return $col = in_array('estado_registro', $cols, true) ? 'er.estado_registro'
+            : (in_array('nombre_estado', $cols, true) ? 'er.nombre_estado'
             : (in_array('descripcion', $cols, true) ? 'er.descripcion' : 'NULL'));
+    }
+}
+
+if (!function_exists('pven_app_historial')) {
+    /** Últimos pedidos del cliente (cualquier origen, sin eliminados): número, fecha, origen, total, estado. */
+    function pven_app_historial(mysqli $conexion, int $empresa_id, int $cliente_id, int $limite = 20): array
+    {
+        $col = pven_app_estado_col($conexion);
         return pven_filas($conexion,
-            "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision, vp.total, $col AS estado
+            "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision, vp.origen, vp.total, vp.observaciones, $col AS estado
                FROM gestion__ventas_pedidos vp
                LEFT JOIN conf__estados_registros er ON er.estado_registro_id = vp.tabla_estado_registro_id
               WHERE vp.empresa_id = ? AND vp.entidad_id = ? AND vp.tabla_estado_registro_id <> 6
               ORDER BY vp.f_emision DESC, vp.venta_pedido_id DESC LIMIT " . max(1, min(50, $limite)), 'ii', [$empresa_id, $cliente_id]);
+    }
+}
+
+if (!function_exists('pven_app_facturas')) {
+    /** Últimas facturas del cliente (sin eliminadas): tipo, PV, número, fechas, total, CAE, estado. */
+    function pven_app_facturas(mysqli $conexion, int $empresa_id, int $cliente_id, int $limite = 20): array
+    {
+        $col = pven_app_estado_col($conexion);
+        return pven_filas($conexion,
+            "SELECT vf.venta_factura_id, ct.comprobante_tipo, ct.codigo AS tipo_codigo,
+                    pv.codigo_fiscal AS pv, vf.comprobante_nro, vf.f_emision, vf.f_vto,
+                    vf.importe_total, vf.CAE, $col AS estado
+               FROM gestion__ventas_facturas vf
+               LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = vf.comprobante_tipo_id
+               LEFT JOIN gestion__puntos_venta pv ON pv.punto_venta_id = vf.punto_venta_id
+               LEFT JOIN conf__estados_registros er ON er.estado_registro_id = vf.tabla_estado_registro_id
+              WHERE vf.empresa_id = ? AND vf.entidad_id = ? AND vf.tabla_estado_registro_id <> 6
+              ORDER BY vf.f_emision DESC, vf.venta_factura_id DESC LIMIT " . max(1, min(50, $limite)), 'ii', [$empresa_id, $cliente_id]);
+    }
+}
+
+if (!function_exists('pven_app_pagos')) {
+    /** Últimas cobranzas / pagos recibidos del cliente (sin eliminados). */
+    function pven_app_pagos(mysqli $conexion, int $empresa_id, int $cliente_id, int $limite = 20): array
+    {
+        $col = pven_app_estado_col($conexion);
+        return pven_filas($conexion,
+            "SELECT c.cobranza_id, ct.comprobante_tipo, ct.codigo AS tipo_codigo,
+                    c.comprobante_pv AS pv, c.comprobante_nro, c.f_emision,
+                    c.importe_total, c.observaciones, $col AS estado
+               FROM gestion__cobranzas c
+               LEFT JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
+               LEFT JOIN conf__estados_registros er ON er.estado_registro_id = c.tabla_estado_registro_id
+              WHERE c.empresa_id = ? AND c.entidad_id = ? AND c.tabla_estado_registro_id <> 6
+              ORDER BY c.f_emision DESC, c.cobranza_id DESC LIMIT " . max(1, min(50, $limite)), 'ii', [$empresa_id, $cliente_id]);
     }
 }
 

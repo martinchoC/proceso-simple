@@ -86,17 +86,68 @@
         try { localStorage.removeItem('av:' + EMPRESA + ':' + clienteId); } catch (e) { /* nada */ }
     }
 
-    // ------------------------------------------------------------------ Clientes
+    // ------------------------------------------------------------------ Clientes y Deudas
+    var vistaPrincipal = 'clientes';
     function verClientes(q) {
         ped = null;
-        titulo.textContent = 'Clientes';
         btnVolver.hidden = true;
-        vista.innerHTML = '<div class="av-buscador"><input type="search" class="av-input" placeholder="Buscar cliente o CUIT" data-av-q value="' + esc(q || '') + '"></div>'
+        titulo.textContent = vistaPrincipal === 'deudas' ? 'Listado de deuda' : 'Clientes';
+        vista.innerHTML = '<div class="av-tabs av-tabs-2" data-av-modo>'
+            + '<button type="button" class="av-tab' + (vistaPrincipal === 'clientes' ? ' av-tab-activa' : '') + '" data-modo="clientes">Clientes</button>'
+            + '<button type="button" class="av-tab' + (vistaPrincipal === 'deudas' ? ' av-tab-activa' : '') + '" data-modo="deudas">Listado de deuda</button>'
+            + '</div>'
+            + '<div class="av-buscador"><input type="search" class="av-input" placeholder="Buscar cliente o CUIT" data-av-q value="' + esc(q || '') + '"></div>'
+            + '<div data-av-resumen-deuda></div>'
             + '<ul class="av-lista av-lista-tarjeta" data-av-clientes><li class="av-vacio av-cargando">Cargando…</li></ul>';
         var input = vista.querySelector('[data-av-q]');
         var t = null;
-        input.addEventListener('input', function () { clearTimeout(t); t = setTimeout(function () { cargarClientes(input.value); }, 300); });
-        cargarClientes(q || '');
+        input.addEventListener('input', function () {
+            clearTimeout(t);
+            t = setTimeout(function () {
+                vistaPrincipal === 'deudas' ? cargarDeudas(input.value) : cargarClientes(input.value);
+            }, 300);
+        });
+        vista.querySelectorAll('[data-modo]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                vistaPrincipal = b.getAttribute('data-modo');
+                verClientes(input.value);
+            });
+        });
+        vistaPrincipal === 'deudas' ? cargarDeudas(q || '') : cargarClientes(q || '');
+    }
+    function cargarDeudas(q) {
+        var ul = vista.querySelector('[data-av-clientes]');
+        var resBox = vista.querySelector('[data-av-resumen-deuda]');
+        api('deudas', {q: q}).then(function (j) {
+            var d = j.data || {};
+            if (!d.configurado) {
+                resBox.innerHTML = '';
+                ul.innerHTML = '<li class="av-vacio">Cuenta corriente no configurada para la empresa.</li>';
+                return;
+            }
+            resBox.innerHTML = '<div class="av-tarjeta av-deuda-resumen">'
+                + '<div><span class="av-fila-sub">Deuda total</span><strong>' + plata(d.total_deuda) + '</strong></div>'
+                + '<div><span class="av-fila-sub">Vencido</span><strong class="' + (d.total_vencido > 0 ? 'av-texto-alerta' : '') + '">' + plata(d.total_vencido) + '</strong></div>'
+                + '</div>';
+            var lista = d.clientes || [];
+            if (!lista.length) {
+                ul.innerHTML = '<li class="av-vacio">Sin clientes con deuda' + (q ? ' para esa búsqueda' : '') + '.</li>';
+                return;
+            }
+            ul.innerHTML = lista.map(function (c) {
+                return '<li><button type="button" class="av-fila" data-id="' + c.entidad_id + '">'
+                    + '<div class="av-fila-linea"><span class="av-fila-titulo">' + esc(c.nombre) + '</span><strong>' + plata(c.deuda) + '</strong></div>'
+                    + '<div class="av-fila-linea"><span class="av-fila-sub">' + esc(c.cuit || '') + (c.primer_vencimiento ? ' · 1° vto ' + esc(fechaAr(c.primer_vencimiento)) : '') + '</span>'
+                    + (c.vencido > 0 ? '<span class="av-chip av-chip-alerta">Vencido ' + plata(c.vencido) + '</span>' : '<span class="av-chip av-chip-ok">Al día</span>') + '</div>'
+                    + '</button></li>';
+            }).join('');
+            ul.querySelectorAll('[data-id]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var c = lista.find(function (x) { return String(x.entidad_id) === b.getAttribute('data-id'); });
+                    verPedido(c);
+                });
+            });
+        }).catch(function (e) { resBox.innerHTML = ''; ul.innerHTML = '<li class="av-vacio">' + esc(e.message) + '</li>'; });
     }
     function cargarClientes(q) {
         var ul = vista.querySelector('[data-av-clientes]');
@@ -140,7 +191,15 @@
             + '<label class="av-campo">Observaciones<textarea class="av-input" rows="2" maxlength="500" data-av-obs></textarea></label>'
             + '</section>'
             + '<div class="av-tarjeta av-totales" data-av-totales></div>'
-            + '<details class="av-tarjeta av-historial"><summary>Historial y cuenta</summary><div data-av-historial></div></details>'
+            + '<details class="av-tarjeta av-historial" data-av-consulta><summary>Pedidos, deuda, cuenta corriente, facturas y pagos</summary>'
+            + '<div class="av-tabs av-tabs-5" data-av-tabs>'
+            + '<button type="button" class="av-tab av-tab-activa" data-tab="pedidos">Pedidos</button>'
+            + '<button type="button" class="av-tab" data-tab="deuda">Deuda</button>'
+            + '<button type="button" class="av-tab" data-tab="ctacte">Cta. Cte.</button>'
+            + '<button type="button" class="av-tab" data-tab="facturas">Facturas</button>'
+            + '<button type="button" class="av-tab" data-tab="pagos">Pagos</button>'
+            + '</div>'
+            + '<div data-av-historial><p class="av-vacio">Abrí para consultar…</p></div></details>'
             + '<div class="av-acciones"><div class="av-acciones-resumen"><span data-av-resumen-cant>Sin productos</span><strong data-av-resumen-total>' + plata(0) + '</strong></div>'
             + '<button type="button" class="av-btn" data-av-guardar>Guardar</button>'
             + '<button type="button" class="av-btn av-btn-primario" data-av-confirmar>Confirmar pedido</button></div>';
@@ -164,10 +223,7 @@
                 + (d.descuento_cliente > 0 ? '<span class="av-chip">Desc. cliente ' + num(d.descuento_cliente) + ' %</span>' : '')
                 + (d.entrega ? '<span class="av-chip av-chip-ok">Entrega estimada: ' + esc(d.entrega.dia) + ' ' + esc(d.entrega.fecha.split('-').reverse().join('/')) + '</span>' : '')
                 + '<span class="av-chip ' + (d.cuenta.vencido > 0 ? 'av-chip-alerta' : 'av-chip-neutro') + '">Saldo ' + plata(d.cuenta.saldo) + (d.cuenta.vencido > 0 ? ' · vencido ' + plata(d.cuenta.vencido) : '') + '</span>';
-            vista.querySelector('[data-av-historial]').innerHTML = d.historial.length ? '<ul class="av-lista">' + d.historial.map(function (h) {
-                return '<li class="av-fila-estatica"><span>' + (h.comprobante_nro > 0 ? 'N° ' + esc(h.comprobante_nro) : 'Borrador') + ' · ' + esc(String(h.f_emision).split('-').reverse().join('/'))
-                    + '</span><span>' + plata(h.total) + ' · ' + esc(h.estado || '') + '</span></li>';
-            }).join('') + '</ul>' : '<p class="av-vacio">Sin pedidos.</p>';
+            configurarConsultaCliente(cliente.entidad_id, d.cuenta);
             var local = leerLocal(cliente.entidad_id);
             if (local && local.sucio) {                       // lo cargado y no guardado en este teléfono
                 ped.items = local.items || {}; ped.observaciones = local.observaciones || ''; ped.manual = local.manual || 0;
@@ -185,6 +241,96 @@
             if (manual) manual.value = ped.manual;
             valorizar();
         }).catch(function (e) { mostrarAviso(e.message, 'error'); });
+    }
+
+    function fechaAr(f) {
+        if (!f) return '';
+        return String(f).slice(0, 10).split('-').reverse().join('/');
+    }
+    function pvNro(pv, nro) {
+        var n = Number(nro) || 0;
+        if (!n) return 'Borrador';
+        var p = pv ? String(pv).padStart(4, '0') + '-' : '';
+        return p + String(n).padStart(8, '0');
+    }
+    function configurarConsultaCliente(entidadId, cuentaResumen) {
+        var det = vista.querySelector('[data-av-consulta]');
+        var cont = vista.querySelector('[data-av-historial]');
+        if (!det || !cont) return;
+        var datos = null;
+        var tabActual = 'pedidos';
+
+        function pintarTab() {
+            if (!datos) return;
+            if (tabActual === 'pedidos') {
+                cont.innerHTML = datos.pedidos.length ? '<ul class="av-lista">' + datos.pedidos.map(function (h) {
+                    return '<li class="av-fila-estatica"><span><strong>' + (h.comprobante_nro > 0 ? 'N° ' + esc(h.comprobante_nro) : 'Borrador') + '</strong> · ' + esc(fechaAr(h.f_emision))
+                        + (h.origen ? ' <small class="av-chip">' + esc(h.origen) + '</small>' : '') + '</span>'
+                        + '<span><strong>' + plata(h.total) + '</strong><br><small class="av-fila-sub">' + esc(h.estado || '') + '</small></span></li>';
+                }).join('') + '</ul>' : '<p class="av-vacio">Sin pedidos registrados.</p>';
+            } else if (tabActual === 'deuda') {
+                var dd = datos.deuda || {};
+                if (!dd.configurado) { cont.innerHTML = '<p class="av-vacio">Cuenta corriente no configurada para la empresa.</p>'; return; }
+                var pends = dd.pendientes || [];
+                var favs = dd.a_favor || [];
+                var html = pends.length ? '<ul class="av-lista">' + pends.map(function (m) {
+                    return '<li class="av-fila-estatica"><span><strong>' + esc(m.tipo) + ' ' + esc(m.numero) + '</strong>'
+                        + '<br><small class="av-fila-sub">Em. ' + esc(fechaAr(m.fecha)) + (m.vto ? ' · Vto ' + esc(fechaAr(m.vto)) : '') + '</small>'
+                        + (m.dias_atraso > 0 ? ' <span class="av-chip av-chip-alerta">' + m.dias_atraso + ' d. atraso</span>' : '') + '</span>'
+                        + '<span class="av-der"><strong>' + plata(m.pendiente) + '</strong><br><small class="av-fila-sub">de ' + plata(m.importe) + '</small></span></li>';
+                }).join('') + '</ul>' : '<p class="av-vacio">Sin comprobantes impagos.</p>';
+                if (favs.length) {
+                    html += '<p class="av-fila-sub" style="margin:.6rem 0 .2rem">Saldo a favor sin aplicar</p><ul class="av-lista">' + favs.map(function (m) {
+                        return '<li class="av-fila-estatica"><span><strong>' + esc(m.tipo) + ' ' + esc(m.numero) + '</strong> · ' + esc(fechaAr(m.fecha)) + '</span>'
+                            + '<span class="av-der"><strong class="av-texto-ok">' + plata(m.pendiente) + '</strong></span></li>';
+                    }).join('') + '</ul>';
+                }
+                cont.innerHTML = html;
+            } else if (tabActual === 'ctacte') {
+                var cc = datos.ctacte || {};
+                if (!cc.configurado) { cont.innerHTML = '<p class="av-vacio">Cuenta corriente no configurada para la empresa.</p>'; return; }
+                var res = '<div class="av-cc-resumen"><span>Saldo actual: <strong>' + plata(cuentaResumen.saldo) + '</strong></span>'
+                    + (cuentaResumen.vencido > 0 ? '<span class="av-chip av-chip-alerta">Vencido: ' + plata(cuentaResumen.vencido) + '</span>' : '') + '</div>';
+                cont.innerHTML = res + (cc.movimientos && cc.movimientos.length ? '<ul class="av-lista">' + cc.movimientos.map(function (m) {
+                    var imp = m.debe > 0 ? ('+' + plata(m.debe)) : ('-' + plata(m.haber));
+                    return '<li class="av-fila-estatica"><span><strong>' + esc(m.tipo) + ' ' + esc(m.numero) + '</strong><br><small class="av-fila-sub">' + esc(fechaAr(m.fecha))
+                        + (m.vto ? ' · Vto ' + esc(fechaAr(m.vto)) : '') + (m.pendiente > 0 ? ' · Pend. ' + plata(m.pendiente) : '') + '</small></span>'
+                        + '<span class="av-der"><strong class="' + (m.debe > 0 ? '' : 'av-texto-ok') + '">' + imp + '</strong><br><small class="av-fila-sub">Saldo ' + plata(m.saldo) + '</small></span></li>';
+                }).join('') + '</ul>' : '<p class="av-vacio">Sin movimientos en cuenta corriente.</p>');
+            } else if (tabActual === 'facturas') {
+                cont.innerHTML = datos.facturas.length ? '<ul class="av-lista">' + datos.facturas.map(function (f) {
+                    return '<li class="av-fila-estatica"><span><strong>' + esc((f.tipo_codigo || f.comprobante_tipo || 'FAC') + ' ' + pvNro(f.pv, f.comprobante_nro)) + '</strong>'
+                        + '<br><small class="av-fila-sub">' + esc(fechaAr(f.f_emision)) + (f.f_vto ? ' · Vto ' + esc(fechaAr(f.f_vto)) : '')
+                        + (f.CAE ? ' · CAE ' + esc(f.CAE) : '') + '</small></span>'
+                        + '<span class="av-der"><strong>' + plata(f.importe_total) + '</strong><br><small class="av-fila-sub">' + esc(f.estado || '') + '</small></span></li>';
+                }).join('') + '</ul>' : '<p class="av-vacio">Sin facturas registradas.</p>';
+            } else if (tabActual === 'pagos') {
+                cont.innerHTML = datos.pagos.length ? '<ul class="av-lista">' + datos.pagos.map(function (p) {
+                    return '<li class="av-fila-estatica"><span><strong>' + esc((p.tipo_codigo || p.comprobante_tipo || 'REC') + ' ' + pvNro(p.pv, p.comprobante_nro)) + '</strong>'
+                        + '<br><small class="av-fila-sub">' + esc(fechaAr(p.f_emision)) + (p.observaciones ? ' · ' + esc(p.observaciones) : '') + '</small></span>'
+                        + '<span class="av-der"><strong class="av-texto-ok">' + plata(p.importe_total) + '</strong><br><small class="av-fila-sub">' + esc(p.estado || '') + '</small></span></li>';
+                }).join('') + '</ul>' : '<p class="av-vacio">Sin pagos recibidos.</p>';
+            }
+        }
+
+        det.querySelectorAll('[data-tab]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                tabActual = b.getAttribute('data-tab');
+                det.querySelectorAll('[data-tab]').forEach(function (x) { x.classList.toggle('av-tab-activa', x === b); });
+                pintarTab();
+            });
+        });
+
+        det.addEventListener('toggle', function () {
+            if (!det.open || datos) return;
+            cont.innerHTML = '<p class="av-vacio">Cargando…</p>';
+            api('cliente_detalle', {entidad_id: entidadId}).then(function (j) {
+                datos = j.data;
+                pintarTab();
+            }).catch(function (e) {
+                cont.innerHTML = '<p class="av-vacio">' + esc(e.message) + '</p>';
+            });
+        });
     }
 
     function buscarProductos(q, unico) {
