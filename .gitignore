@@ -40,3 +40,11 @@ _local/tests/*.pdf
 
 # Salidas de la prueba de comparación de listas de precios
 _local/tests/listas_precios/salidas/
+
+# Volcados de base (con datos reales): nunca al repositorio (2026-11-16, se sacaron de la historia de distribuidora)
+/casalucho*.sql
+/aecbb1.sql
+/aecbb1/*.sql
+/sql/casalucho*.sql
+/_local/sql/casalucho*.sql
+/_local/sql/aecbb1.sql
