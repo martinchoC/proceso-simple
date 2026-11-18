@@ -41,7 +41,7 @@ $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0);
 $pagina_idx = permisos_pagina_modulo($conexion, 2, (int)$pagina_idx, 'ventas_pedidos_gestion.php');
 
 // Vendedores y carteras: un usuario vendedor solo abre y opera pedidos de su cartera (sin el indicador, nada)
-if (in_array($accion, ['abrir_pedido', 'actualizar_cantidad_detalle'], true)) {
+if (in_array($accion, ['abrir_pedido', 'actualizar_cantidad_detalle', 'pasar_entrega_total'], true)) {
     try {
         vcar_exigir_pedido($conexion, intval($ctx['empresa_id']), intval($ctx['usuario_id']), intval($_POST['venta_pedido_id'] ?? $_GET['venta_pedido_id'] ?? 0));
     } catch (InvalidArgumentException $e) {
@@ -120,6 +120,11 @@ try {
                 floatval($_POST['cantidad'] ?? 0),
                 $empresa_idx
             );
+            echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
+            break;
+
+        case 'pasar_entrega_total':
+            $resultado = pasarPedidoAEntregaTotalGestion($conexion, intval($_POST['venta_pedido_id'] ?? 0), $empresa_idx);
             echo json_encode($resultado, JSON_UNESCAPED_UNICODE);
             break;
 

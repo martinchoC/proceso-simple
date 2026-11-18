@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/../../db.php';
 
-$pagina_idx = 92;
-$pagina_id = 92;
+$pagina_idx = 592;
+$pagina_id = 592;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 
@@ -15,22 +15,35 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
 ?>
 
 <style>
-    #tablaProveedorPrecios, #tablaProveedorPrecios td {
-        font-size: 0.82rem;
+    #tablaProveedorPrecios {
+        width: 100% !important;
+        font-size: 0.78rem;
+    }
+    #tablaProveedorPrecios th,
+    #tablaProveedorPrecios td {
+        padding: 0.22rem 0.35rem;
+        vertical-align: middle;
     }
     #tablaProveedorPrecios th {
-        font-size: 0.72rem;
+        font-size: 0.70rem;
+        white-space: nowrap;
     }
-    /* Producto: el nombre y la compatibilidad necesitan lugar; sin esto la
-       columna quedaba angosta frente a las de las listas de precio. */
+    #tablaProveedorPrecios td:first-child {
+        max-width: 120px;
+        white-space: normal;
+        word-break: break-word;
+    }
+    /* Producto se adapta al ancho disponible y parte líneas largas para que entren todas las columnas y botones */
     #tablaProveedorPrecios th.col-producto,
     #tablaProveedorPrecios td.col-producto {
-        min-width: 360px;
+        width: 22%;
+        min-width: 140px;
+        max-width: 220px;
         white-space: normal;
+        word-break: break-word;
     }
-    @media (max-width: 767.98px) {
-        #tablaProveedorPrecios th.col-producto,
-        #tablaProveedorPrecios td.col-producto { min-width: 220px; }
+    #tablaProveedorPrecios td:not(.col-producto):not(:first-child) {
+        white-space: nowrap;
     }
     #tablaImportaciones, #tablaDetalleImportacion { font-size: 0.82rem; }
 </style>
@@ -183,10 +196,12 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                         <input type="hidden" id="pagina_id_hidden" name="pagina_id_hidden" value="<?= $pagina_id ?>" />
 
                                         <div class="tab-pane fade show active" id="tab-listado" role="tabpanel" aria-labelledby="tab-listado-btn">
-                                            <table id="tablaProveedorPrecios" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
-                                                <thead class="table-light"></thead>
-                                                <tbody></tbody>
-                                            </table>
+                                            <div class="table-responsive">
+                                                <table id="tablaProveedorPrecios" class="table table-striped table-bordered table-sm table-slim" style="width:100%">
+                                                    <thead class="table-light"></thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
                                         </div>
 
                                         <div class="tab-pane fade" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-dashboard-btn">

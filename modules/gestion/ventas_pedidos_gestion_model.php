@@ -9,9 +9,147 @@ require_once __DIR__ . '/ventas_remitos_model.php';
 // NO es un filtro configurable: es la consulta fija decidida para esta página
 // separada de uso operativo (preparación de pedidos), distinta del ABM
 // genérico de ventas_pedidos.php que muestra todos los estados.
+// Revisa todos los pedidos en estados de preparación (5, 9, 10, 42) de la empresa y,
+// si ya no tienen nada pendiente de entregar (todo fue entregado en remitos confirmados
+// y/o ajustado en cantidad, sin remitos en borrador abiertos), los pasa automáticamente
+// al estado 11 ("Entrega Total") junto con su espejo en gestion__comprobantes.
+function sincronizarPedidosCompletosGestion($conexion, $empresa_idx)
+{
+    $empresa_idx = intval($empresa_idx);
+    $estados = "5, 9, 10" . (vdis_empresa_usa($conexion, $empresa_idx) ? ', ' . intval(VDIS_ESTADO_PARA_DISTRIBUCION) : '');
+
+    $sql = "SELECT vp.venta_pedido_id
+            FROM gestion__ventas_pedidos vp
+            JOIN gestion__ventas_pedidos_detalles vpd ON vpd.venta_pedido_id = vp.venta_pedido_id
+            LEFT JOIN (
+                SELECT rd.venta_pedido_detalle_id, SUM(rd.cantidad) AS cant
+                FROM gestion__ventas_remitos_detalles rd
+                JOIN gestion__ventas_remitos vr ON vr.venta_remito_id = rd.venta_remito_id
+                JOIN conf__estados_registros er ON er.estado_registro_id = vr.tabla_estado_registro_id
+                WHERE rd.tabla_estado_registro_id = 1
+                  AND er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
+                GROUP BY rd.venta_pedido_detalle_id
+            ) ent ON ent.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+            WHERE vp.empresa_id = ?
+              AND vp.tabla_estado_registro_id IN ($estados)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM gestion__ventas_remitos_detalles rd2
+                  JOIN gestion__ventas_remitos vr2 ON vr2.venta_remito_id = rd2.venta_remito_id
+                  JOIN conf__estados_registros er2 ON er2.estado_registro_id = vr2.tabla_estado_registro_id
+                  WHERE rd2.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                    AND rd2.tabla_estado_registro_id = 1
+                    AND vr2.comprobante_nro = 0
+                    AND er2.codigo_estandar NOT IN ('ELIMINADO', 'CANCELADO', 'ANULADO', 'CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
+              )
+            GROUP BY vp.venta_pedido_id
+            HAVING COUNT(*) > 0 AND SUM(COALESCE(ent.cant, 0) >= vpd.cantidad - 0.0001) = COUNT(*)";
+
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) return;
+    mysqli_stmt_bind_param($stmt, "i", $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $ids = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $ids[] = intval($r['venta_pedido_id']);
+    }
+    mysqli_stmt_close($stmt);
+
+    foreach ($ids as $pedido_id) {
+        pasarPedidoAEntregaTotalGestion($conexion, $pedido_id, $empresa_idx);
+    }
+}
+
+function pasarPedidoAEntregaTotalGestion($conexion, $venta_pedido_id, $empresa_idx)
+{
+    $venta_pedido_id = intval($venta_pedido_id);
+    $empresa_idx = intval($empresa_idx);
+    if ($venta_pedido_id <= 0) {
+        return ['success' => false, 'error' => 'Pedido inválido.'];
+    }
+
+    $sql_check = "SELECT vp.tabla_estado_registro_id AS estado,
+                         COUNT(vpd.venta_pedido_detalle_id) AS lineas,
+                         SUM(COALESCE(ent.cant, 0) >= vpd.cantidad - 0.0001) AS completas,
+                         SUM(COALESCE(borr.en_borrador, 0) > 0) AS con_borrador
+                  FROM gestion__ventas_pedidos vp
+                  LEFT JOIN gestion__ventas_pedidos_detalles vpd ON vpd.venta_pedido_id = vp.venta_pedido_id
+                  LEFT JOIN (
+                      SELECT rd.venta_pedido_detalle_id, SUM(rd.cantidad) AS cant
+                      FROM gestion__ventas_remitos_detalles rd
+                      JOIN gestion__ventas_remitos vr ON vr.venta_remito_id = rd.venta_remito_id
+                      JOIN conf__estados_registros er ON er.estado_registro_id = vr.tabla_estado_registro_id
+                      WHERE rd.tabla_estado_registro_id = 1
+                        AND er.codigo_estandar IN ('CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
+                      GROUP BY rd.venta_pedido_detalle_id
+                  ) ent ON ent.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                  LEFT JOIN (
+                      SELECT rd2.venta_pedido_detalle_id, COUNT(*) AS en_borrador
+                      FROM gestion__ventas_remitos_detalles rd2
+                      JOIN gestion__ventas_remitos vr2 ON vr2.venta_remito_id = rd2.venta_remito_id
+                      JOIN conf__estados_registros er2 ON er2.estado_registro_id = vr2.tabla_estado_registro_id
+                      WHERE rd2.tabla_estado_registro_id = 1
+                        AND vr2.comprobante_nro = 0
+                        AND er2.codigo_estandar NOT IN ('ELIMINADO', 'CANCELADO', 'ANULADO', 'CONFIRMADO', 'PEND_FACT', 'FACT_PARC', 'FACTURADO')
+                      GROUP BY rd2.venta_pedido_detalle_id
+                  ) borr ON borr.venta_pedido_detalle_id = vpd.venta_pedido_detalle_id
+                  WHERE vp.venta_pedido_id = ? AND vp.empresa_id = ?
+                  GROUP BY vp.venta_pedido_id, vp.tabla_estado_registro_id";
+
+    $stmt = mysqli_prepare($conexion, $sql_check);
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Error verificando el estado del pedido.'];
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $venta_pedido_id, $empresa_idx);
+    mysqli_stmt_execute($stmt);
+    $fila = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+
+    if (!$fila) {
+        return ['success' => false, 'error' => 'Pedido no encontrado.'];
+    }
+    if (intval($fila['con_borrador']) > 0) {
+        return ['success' => false, 'error' => 'El pedido tiene un remito en borrador sin confirmar. Confírmelo o elimínelo antes de pasar a Entrega Total.'];
+    }
+    if (intval($fila['lineas']) === 0 || intval($fila['completas']) < intval($fila['lineas'])) {
+        return ['success' => false, 'error' => 'El pedido todavía tiene cantidades pendientes de entregar o ajustar.'];
+    }
+    if (intval($fila['estado']) === 11) {
+        return ['success' => true, 'message' => 'El pedido ya estaba en Entrega Total.'];
+    }
+
+    mysqli_begin_transaction($conexion);
+    try {
+        $stmt_upd = mysqli_prepare($conexion, "UPDATE gestion__ventas_pedidos SET tabla_estado_registro_id = 11 WHERE venta_pedido_id = ? AND empresa_id = ?");
+        mysqli_stmt_bind_param($stmt_upd, "ii", $venta_pedido_id, $empresa_idx);
+        if (!mysqli_stmt_execute($stmt_upd)) {
+            throw new Exception('Error actualizando el estado del pedido.');
+        }
+        mysqli_stmt_close($stmt_upd);
+
+        $stmt_comp = mysqli_prepare($conexion, "UPDATE gestion__comprobantes SET tabla_estado_registro_id = 11
+                                                WHERE registro_origen_id = ?
+                                                  AND empresa_id = ?
+                                                  AND tabla_origen_id = (SELECT t.tabla_id FROM conf__tablas t WHERE t.tabla_nombre = 'gestion__ventas_pedidos' LIMIT 1)");
+        mysqli_stmt_bind_param($stmt_comp, "ii", $venta_pedido_id, $empresa_idx);
+        if (!mysqli_stmt_execute($stmt_comp)) {
+            throw new Exception('Error sincronizando el comprobante del pedido.');
+        }
+        mysqli_stmt_close($stmt_comp);
+
+        mysqli_commit($conexion);
+        return ['success' => true, 'message' => 'Pedido pasado a Entrega Total.'];
+    } catch (Exception $e) {
+        mysqli_rollback($conexion);
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 function obtenerPedidosGestion($conexion, $empresa_idx, $pagina_id)
 {
     $empresa_idx = intval($empresa_idx);
+    sincronizarPedidosCompletosGestion($conexion, $empresa_idx);
     $tabla_id = obtenerTablaOrigenPorPagina($conexion, intval($pagina_id));
 
     $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision, vp.f_entrega_estimada,

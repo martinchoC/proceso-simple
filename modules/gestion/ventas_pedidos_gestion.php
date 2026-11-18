@@ -113,7 +113,10 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                             <span class="ui-entidad-chip ui-chip-claro" id="picking_estado_badge">-</span>
                         </span>
                     </h5>
-                    <button type="button" class="btn btn-sm btn-light ms-auto me-2" id="btnImprimirPedidoPicking" title="Imprimir pedido"><i class="fas fa-print me-1"></i>Imprimir</button>
+                    <div class="ms-auto d-flex align-items-center">
+                        <button type="button" class="btn btn-sm btn-success me-2 d-none" id="btnEntregaTotalPicking" title="Pasar el pedido a Entrega Total"><i class="fas fa-check-double me-1"></i>Pasar a Entrega Total</button>
+                        <button type="button" class="btn btn-sm btn-light me-2" id="btnImprimirPedidoPicking" title="Imprimir pedido"><i class="fas fa-print me-1"></i>Imprimir</button>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
                 <div class="modal-body">

@@ -317,8 +317,7 @@ $(function () {
             '<th rowspan="2">Proveedor</th>' +
             '<th rowspan="2">Cód. Prov.</th><th rowspan="2">Código</th><th rowspan="2" class="col-producto">Producto</th>' +
             '<th rowspan="2" class="text-end">Precio Lista</th><th rowspan="2" class="text-end">Desc. %</th>' +
-            '<th rowspan="2" class="text-end">Costo Neto Compra</th><th rowspan="2" class="text-end">Último Costo</th>' +
-            '<th rowspan="2" class="text-end">% Var. Costo</th>' +
+            '<th rowspan="2" class="text-end">Costo Neto</th>' +
             '<th rowspan="2">Vigente desde</th>';
         var theadFila2 = '<tr>';
         listasPreciosActivas.forEach(function (lp, i) {
@@ -329,7 +328,7 @@ $(function () {
         // Acciones apiladas en 2 filas (ver render más abajo) — se achica el
         // ancho de la columna respecto de antes, ahora que no necesita entrar
         // todo en una sola fila de botones.
-        theadFila1 += '<th rowspan="2" width="160" class="text-center">Acciones</th></tr>';
+        theadFila1 += '<th rowspan="2" width="110" class="text-center">Acciones</th></tr>';
         theadFila2 += '</tr>';
         $('#tablaProveedorPrecios thead').html(theadFila1 + theadFila2);
 
@@ -374,39 +373,13 @@ $(function () {
             { data: 'descuento_general_pct', className: 'text-end', render: function (d) { return Fmt.numero((parseFloat(d) || 0), 2) + ' %'; } },
             {
                 // Costo neto de compra "debería ser" (según el precio de lista
-                // actual del proveedor). Coloreado igual que "Último Costo
-                // Registrado" — son las dos puntas de la misma comparación; el
-                // % en sí va en su propia columna ("% Var. Costo").
+                // actual del proveedor).
                 data: null,
                 className: 'text-end',
                 render: function (row) {
                     var neto = row.costo_neto_compra;
                     var registrado = row.costo_actual_registrado;
                     return '<strong class="' + claseColorVariacion(registrado, neto) + '">' + formatearMoneda(neto) + '</strong>';
-                }
-            },
-            {
-                // Último costo que ya está registrado en gestion__productos_costos,
-                // para comparar contra la columna anterior ANTES de tocar
-                // "Actualizar costo". null = el producto todavía no tiene costo cargado.
-                data: null,
-                className: 'text-end',
-                render: function (row) {
-                    var registrado = row.costo_actual_registrado;
-                    if (registrado === null || registrado === undefined) {
-                        return '<span class="text-muted">Sin costo</span>';
-                    }
-                    return '<span class="' + claseColorVariacion(registrado, row.costo_neto_compra) + '">' + formatearMoneda(registrado) + '</span>';
-                }
-            },
-            {
-                // % de variación entre Costo Neto de Compra y Último Costo
-                // Registrado — así salta a la vista qué productos están
-                // desactualizados y CUÁNTO, sin comparar columna por columna.
-                data: null,
-                className: 'text-end',
-                render: function (row) {
-                    return renderCeldaPorcentaje(row.costo_actual_registrado, row.costo_neto_compra);
                 }
             },
             {
@@ -517,7 +490,11 @@ $(function () {
             pageLength: 10,
             lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
             order: [[1, 'asc']],
-            responsive: true,
+            // Cabecera de 2 filas (colspan=3 por lista + rowspan=2): DataTables Responsive
+            // oculta subcolumnas sueltas sin achicar el colspan del grupo, desfasando los
+            // títulos en pantallas chicas. Se usa .table-responsive para scroll horizontal.
+            responsive: false,
+            autoWidth: false,
             initComplete: function () {
                 // Instancia de Buttons oculta (no se agrega al DOM visible):
                 // solo la usamos para que los botones del card-header

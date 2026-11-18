@@ -550,12 +550,58 @@ $(document).ready(function () {
         if (e.target === this) detallesPendientesAbiertos = {};
     });
 
+    function pedidoListoParaEntregaTotal() {
+        if (!pedidoActual || parseInt(pedidoActual.tabla_estado_registro_id, 10) === 11) return false;
+        if (remitoEditandoId || remitoDetallesNuevo.length > 0) return false;
+        var detalles = pedidoActual.detalles || [];
+        if (!detalles.length) return false;
+        return detalles.every(function (d) {
+            var cant = parseFloat(d.cantidad) || 0;
+            var entregada = cantidadEntregadaConfirmada(d.venta_pedido_detalle_id);
+            return (cant - entregada) <= 0.0001;
+        });
+    }
+
+    function pasarPedidoAEntregaTotal(pedidoId) {
+        if (!pedidoId) return;
+        $.post('ventas_pedidos_gestion_ajax.php', {
+            accion: 'pasar_entrega_total',
+            venta_pedido_id: pedidoId,
+            empresa_idx: empresa_idx,
+            pagina_idx: pagina_idx
+        }, function (res) {
+            if (res && res.success) {
+                Swal.fire({ icon: 'success', title: res.message || 'Pedido pasado a Entrega Total.', timer: 1800, showConfirmButton: false });
+                var modalEl = document.getElementById('modalPicking');
+                if (modalEl) {
+                    var inst = bootstrap.Modal.getInstance(modalEl);
+                    if (inst) inst.hide();
+                }
+                tabla.ajax.reload(null, false);
+            } else {
+                Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: (res && (res.error || res.message)) || 'Error al pasar a Entrega Total.', confirmButtonText: 'Entendido' });
+            }
+        }, 'json').fail(function () {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar con el servidor.', confirmButtonText: 'Entendido' });
+        });
+    }
+
+    $(document).on('click', '#btnEntregaTotalPicking, .btn-pasar-entrega-total', function () {
+        var id = $(this).data('id') || (pedidoActual && pedidoActual.venta_pedido_id);
+        pasarPedidoAEntregaTotal(id);
+    });
+
     function renderizarPendientesPedido() {
         var cont = $('#contenedor-picking-pendientes-pedido');
         var filas = filasConPendienteEfectivo(pendientesPedido);
+        var listoTotal = pedidoListoParaEntregaTotal();
+        $('#btnEntregaTotalPicking').toggleClass('d-none', !listoTotal);
 
         if (filas.length === 0) {
-            cont.html('<div class="text-muted small p-2">No hay líneas pendientes de este pedido.</div>');
+            var btnHtml = listoTotal
+                ? ` <button type="button" class="btn btn-sm btn-success btn-pasar-entrega-total" data-id="${pedidoActual.venta_pedido_id}"><i class="fas fa-check-double me-1"></i>Pasar a Entrega Total</button>`
+                : '';
+            cont.html('<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-2"><span class="text-muted small">No hay líneas pendientes de este pedido.</span>' + btnHtml + '</div>');
             return;
         }
 

@@ -1,0 +1,5 @@
+# Permitir archivos JSON estáticos de assets (ej. traducciones i18n de DataTables),
+# anulando la restricción global de .json en el .htaccess raíz.
+<FilesMatch "\.json$">
+    Require all granted
+</FilesMatch>
