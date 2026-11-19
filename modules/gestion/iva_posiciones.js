@@ -244,7 +244,7 @@ $(function () {
 
     // ---------------------------------------------------------------- inicio
     var hoy = new Date();
-    $('#ivaHasta').val(hoy.toISOString().slice(0, 7));
+    $('#ivaHasta').val(Fmt.isoLocal(hoy).slice(0, 7));
     $.getJSON(URL_AJAX, { accion: 'maestros' }, function (r) {
         if (r && r.success) {
             permisos.liquidar = !!r.data.puede_liquidar;

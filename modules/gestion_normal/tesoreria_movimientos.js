@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('btnNuevaTransferencia')?.addEventListener('click', function () {
         document.getElementById('formTransferencia').reset();
-        document.getElementById('transFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('transFecha').value = Fmt.hoyISO();
         actualizarSaldosVisuales();
         cargarMaestros(); // Refrescar saldos vivos
         modalTransferencia.show();

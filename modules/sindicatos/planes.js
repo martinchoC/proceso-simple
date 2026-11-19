@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar primer vto por defecto (+30 días)
     const fechaVtoDef = new Date();
     fechaVtoDef.setDate(fechaVtoDef.getDate() + 30);
-    planPrimerVto.value = fechaVtoDef.toISOString().split('T')[0];
+    planPrimerVto.value = Fmt.isoLocal(fechaVtoDef);
 
     cargarAuxiliares();
     cargarPlanes();

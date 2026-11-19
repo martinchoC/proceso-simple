@@ -584,3 +584,253 @@ function ctacteCorreoSolapa($conexion, $empresa_id, $usuario_id, $entidad_id, $s
 
     return ['asunto' => $titulo . ' - ' . $nombre_cliente . ($empresa !== '' ? ' - ' . $empresa : ''), 'html' => $html];
 }
+
+/**
+ * Aplica saldo a favor de un comprobante de crédito del cliente (RCX a cuenta o NC) contra un
+ * comprobante adeudado del mismo cliente y misma moneda, emitiendo un recibo RCX en $0 que
+ * documenta la compensación y su asiento contable de compensación (sin movimiento de fondos).
+ *
+ * @return array ['imputacion_id' => int, 'importe_aplicado' => float, 'cobranza_id' => int, 'recibo_numero' => string, 'asiento_id' => int]
+ */
+function ctacteAplicarSaldoFavor($conexion, int $empresa_id, int $usuario_id, int $entidad_id, int $comp_origen_id, int $comp_destino_id, float $importe): array
+{
+    require_once __DIR__ . '/tesoreria_core_model.php';
+    require_once __DIR__ . '/cobranzas_model.php';
+    require_once __DIR__ . '/../../core/cont_periodos.php';
+
+    if ($empresa_id <= 0 || $entidad_id <= 0 || $comp_origen_id <= 0 || $comp_destino_id <= 0) {
+        throw new RuntimeException('Parámetros inválidos para aplicar el saldo a favor.');
+    }
+    if ($comp_origen_id === $comp_destino_id) {
+        throw new RuntimeException('El comprobante origen y destino no pueden ser el mismo.');
+    }
+
+    $tipos = ctacteTiposCliente($conexion, $empresa_id);
+    if (empty($tipos['credito'])) {
+        throw new RuntimeException('La empresa no tiene configurada la matriz de cancelaciones del recibo de cobro (RCX).');
+    }
+
+    // Punto de venta y tipo de recibo (RCX) habilitados para cobranzas en la empresa
+    $pvs = obtenerPuntosVentaCobranza($conexion, $empresa_id, 105);
+    $pv_id = !empty($pvs) ? intval($pvs[0]['punto_venta_id']) : 0;
+    $sucursal_pv = !empty($pvs) ? intval($pvs[0]['sucursal_id']) : 0;
+    $tipo_rcx_id = 0;
+    if ($pv_id > 0) {
+        $tipos_pv = obtenerTiposComprobanteCobranza($conexion, $empresa_id, $pv_id, 105);
+        if (!empty($tipos_pv)) {
+            $tipo_rcx_id = intval($tipos_pv[0]['comprobante_tipo_id']);
+        }
+    }
+    if ($pv_id <= 0) {
+        $res_pv = mysqli_query($conexion, "SELECT punto_venta_id, sucursal_id FROM gestion__puntos_venta WHERE empresa_id = $empresa_id AND tabla_estado_registro_id = 1 ORDER BY (sistema_emision = 'NO_FISCAL') DESC, punto_venta_id ASC LIMIT 1");
+        if ($res_pv && ($rpv = mysqli_fetch_assoc($res_pv))) {
+            $pv_id = intval($rpv['punto_venta_id']);
+            $sucursal_pv = intval($rpv['sucursal_id']);
+        }
+    }
+    if ($tipo_rcx_id <= 0) {
+        $res_t = mysqli_query($conexion, "SELECT comprobante_tipo_id FROM gestion__comprobantes_tipos WHERE codigo = 'RCX' AND (empresa_id = $empresa_id OR empresa_id = 0) AND tabla_estado_registro_id = 1 ORDER BY empresa_id DESC LIMIT 1");
+        $tipo_rcx_id = ($res_t && ($rt = mysqli_fetch_assoc($res_t))) ? intval($rt['comprobante_tipo_id']) : TIPO_COMPROBANTE_RCX_ID;
+    }
+    if ($pv_id <= 0) {
+        throw new RuntimeException('La empresa no tiene un punto de venta activo para emitir el recibo en $0.');
+    }
+
+    mysqli_begin_transaction($conexion);
+    try {
+        // Lock ordenado por comprobante_id ASC para evitar deadlocks (RT16)
+        $id_menor = min($comp_origen_id, $comp_destino_id);
+        $id_mayor = max($comp_origen_id, $comp_destino_id);
+        $stmt_l = mysqli_prepare($conexion, "SELECT c.comprobante_id, c.entidad_id, c.sucursal_id, c.comprobante_tipo_id,
+                                                    c.comprobante_pv, c.comprobante_nro, c.moneda_id, c.tipo_cambio,
+                                                    c.importe_pendiente, c.tabla_estado_registro_id,
+                                                    ct.codigo AS tipo_codigo
+                                             FROM gestion__comprobantes c
+                                             JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
+                                             WHERE c.comprobante_id IN (?, ?) AND c.empresa_id = ?
+                                             ORDER BY c.comprobante_id ASC
+                                             FOR UPDATE");
+        if (!$stmt_l) {
+            throw new RuntimeException('Error preparando bloqueo de comprobantes.');
+        }
+        mysqli_stmt_bind_param($stmt_l, 'iii', $id_menor, $id_mayor, $empresa_id);
+        mysqli_stmt_execute($stmt_l);
+        $res_l = mysqli_stmt_get_result($stmt_l);
+        $filas = [];
+        while ($r = mysqli_fetch_assoc($res_l)) {
+            $filas[intval($r['comprobante_id'])] = $r;
+        }
+        mysqli_stmt_close($stmt_l);
+
+        $orig = $filas[$comp_origen_id] ?? null;
+        $dest = $filas[$comp_destino_id] ?? null;
+
+        if (!$orig || intval($orig['entidad_id']) !== $entidad_id) {
+            throw new RuntimeException('El comprobante a favor no pertenece al cliente.');
+        }
+        if (!in_array(intval($orig['comprobante_tipo_id']), $tipos['credito'], true)) {
+            throw new RuntimeException('El comprobante origen no es un crédito aplicable en cuenta corriente.');
+        }
+        if (!in_array(intval($orig['tabla_estado_registro_id']), [5, 39], true) || floatval($orig['importe_pendiente']) <= 0.001) {
+            throw new RuntimeException('El comprobante no tiene saldo a favor disponible para aplicar.');
+        }
+
+        if (!$dest || intval($dest['entidad_id']) !== $entidad_id) {
+            throw new RuntimeException('El comprobante adeudado no pertenece al cliente.');
+        }
+        if (!in_array(intval($dest['tabla_estado_registro_id']), [5, 39], true) || floatval($dest['importe_pendiente']) <= 0.001) {
+            throw new RuntimeException('El comprobante destino no tiene saldo pendiente.');
+        }
+        if (intval($dest['moneda_id']) !== intval($orig['moneda_id'])) {
+            throw new RuntimeException('El saldo a favor y la factura están en monedas distintas.');
+        }
+
+        // Validar que la matriz de cancelaciones permita origen -> destino
+        $stmt_tc = mysqli_prepare($conexion, "SELECT 1
+                                              FROM gestion__comprobantes_tipos_cancelaciones
+                                              WHERE empresa_id = ? AND comprobante_tipo_origen_id = ?
+                                                AND comprobante_tipo_destino_id = ? AND tabla_estado_registro_id = 1
+                                              LIMIT 1");
+        $tipo_orig = intval($orig['comprobante_tipo_id']);
+        $tipo_dest = intval($dest['comprobante_tipo_id']);
+        mysqli_stmt_bind_param($stmt_tc, 'iii', $empresa_id, $tipo_orig, $tipo_dest);
+        mysqli_stmt_execute($stmt_tc);
+        $permite = mysqli_fetch_row(mysqli_stmt_get_result($stmt_tc)) !== null;
+        mysqli_stmt_close($stmt_tc);
+        if (!$permite) {
+            throw new RuntimeException('La matriz de cancelaciones no permite imputar ese comprobante contra la factura elegida.');
+        }
+
+        $maximo = round(min(floatval($orig['importe_pendiente']), floatval($dest['importe_pendiente'])), 2);
+        $importe = round($importe, 2) > 0 ? round($importe, 2) : $maximo;
+        if ($importe > $maximo + 0.001) {
+            throw new RuntimeException('El importe supera el saldo disponible ($ ' . number_format($maximo, 2, ',', '.') . ').');
+        }
+
+        $hoy = date('Y-m-d');
+        cont_periodo_exigir_abierto($conexion, $empresa_id, $hoy, 'aplicar el saldo a favor');
+
+        // 1. Numeración atómica del recibo en $0
+        $stmt_num = mysqli_prepare($conexion, "SELECT numerador_id, ultimo_numero
+                                               FROM gestion__comprobantes_numeradores
+                                               WHERE empresa_id = ? AND punto_venta_id = ? AND comprobante_tipo_id = ?
+                                               FOR UPDATE");
+        mysqli_stmt_bind_param($stmt_num, 'iii', $empresa_id, $pv_id, $tipo_rcx_id);
+        mysqli_stmt_execute($stmt_num);
+        $row_num = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_num));
+        mysqli_stmt_close($stmt_num);
+
+        if (!$row_num) {
+            $stmt_in = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_numeradores (empresa_id, punto_venta_id, comprobante_tipo_id, ultimo_numero) VALUES (?, ?, ?, 0)");
+            mysqli_stmt_bind_param($stmt_in, 'iii', $empresa_id, $pv_id, $tipo_rcx_id);
+            mysqli_stmt_execute($stmt_in);
+            $num_id = mysqli_insert_id($conexion);
+            mysqli_stmt_close($stmt_in);
+            $row_num = ['numerador_id' => $num_id, 'ultimo_numero' => 0];
+        }
+        $res_mc = mysqli_query($conexion, "SELECT MAX(comprobante_nro) AS m FROM gestion__comprobantes WHERE empresa_id = $empresa_id AND comprobante_pv = $pv_id AND comprobante_tipo_id = $tipo_rcx_id");
+        $max_c = intval(mysqli_fetch_assoc($res_mc)['m'] ?? 0);
+        $res_mb = mysqli_query($conexion, "SELECT MAX(comprobante_nro) AS m FROM gestion__cobranzas WHERE empresa_id = $empresa_id AND comprobante_pv = $pv_id AND comprobante_tipo_id = $tipo_rcx_id");
+        $max_b = intval(mysqli_fetch_assoc($res_mb)['m'] ?? 0);
+        $proximo_nro = max(intval($row_num['ultimo_numero']), $max_c, $max_b) + 1;
+
+        $stmt_un = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_numeradores SET ultimo_numero = ? WHERE numerador_id = ?");
+        mysqli_stmt_bind_param($stmt_un, 'ii', $proximo_nro, $row_num['numerador_id']);
+        mysqli_stmt_execute($stmt_un);
+        mysqli_stmt_close($stmt_un);
+
+        // 2. Crear cabecera de cobranza + comprobante RCX en $0 (Confirmado)
+        $sucursal_id = $sucursal_pv > 0 ? $sucursal_pv : intval($dest['sucursal_id']);
+        $moneda_id = intval($orig['moneda_id']);
+        $tipo_cambio = floatval($orig['tipo_cambio']) > 0 ? floatval($orig['tipo_cambio']) : 1.0;
+        $nro_orig = trim($orig['tipo_codigo'] . ' ' . emp_numero_comprobante($conexion, $empresa_id, intval($orig['comprobante_pv']), intval($orig['comprobante_nro'])));
+        $nro_dest = trim($dest['tipo_codigo'] . ' ' . emp_numero_comprobante($conexion, $empresa_id, intval($dest['comprobante_pv']), intval($dest['comprobante_nro'])));
+        $obs_recibo = mb_substr("Compensación $nro_orig contra $nro_dest", 0, 255);
+        $est_conf = ESTADO_COBRANZA_CONFIRMADO;
+        $cero = 0.0;
+
+        $stmt_cob = mysqli_prepare($conexion, "INSERT INTO gestion__cobranzas (
+                                                   empresa_id, sucursal_id, comprobante_tipo_id, comprobante_pv, comprobante_nro,
+                                                   entidad_id, f_emision, f_contabilidad, moneda_id, tipo_cambio, importe_total,
+                                                   observaciones, tabla_estado_registro_id, usuario_id, usuario_modificacion_id
+                                               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt_cob, 'iiiiiissiddsiii',
+            $empresa_id, $sucursal_id, $tipo_rcx_id, $pv_id, $proximo_nro,
+            $entidad_id, $hoy, $hoy, $moneda_id, $tipo_cambio, $cero,
+            $obs_recibo, $est_conf, $usuario_id, $usuario_id
+        );
+        if (!mysqli_stmt_execute($stmt_cob)) {
+            throw new RuntimeException('Error creando el recibo en $0: ' . mysqli_stmt_error($stmt_cob));
+        }
+        $cobranza_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt_cob);
+
+        $tabla_cob_id = TABLA_COBRANZAS_ID;
+        $modulo_str = 'TESORERIA';
+        $stmt_rc = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes (
+                                                  tabla_origen_id, registro_origen_id, modulo, empresa_id, sucursal_id,
+                                                  comprobante_tipo_id, comprobante_pv, comprobante_nro, entidad_id,
+                                                  f_emision, f_contabilidad, moneda_id, tipo_cambio,
+                                                  importe_total, importe_pendiente, signo, tabla_estado_registro_id,
+                                                  observaciones, usuario_id, usuario_modificacion_id
+                                              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 1, ?, ?, ?, ?)");
+        mysqli_stmt_bind_param($stmt_rc, 'iisiiiiiissidisii',
+            $tabla_cob_id, $cobranza_id, $modulo_str, $empresa_id, $sucursal_id,
+            $tipo_rcx_id, $pv_id, $proximo_nro, $entidad_id,
+            $hoy, $hoy, $moneda_id, $tipo_cambio,
+            $est_conf, $obs_recibo, $usuario_id, $usuario_id
+        );
+        if (!mysqli_stmt_execute($stmt_rc)) {
+            throw new RuntimeException('Error registrando comprobante del recibo en $0: ' . mysqli_stmt_error($stmt_rc));
+        }
+        $recibo_comp_id = mysqli_insert_id($conexion);
+        mysqli_stmt_close($stmt_rc);
+
+        $stmt_link = mysqli_prepare($conexion, "UPDATE gestion__cobranzas SET comprobante_id = ? WHERE cobranza_id = ?");
+        mysqli_stmt_bind_param($stmt_link, 'ii', $recibo_comp_id, $cobranza_id);
+        mysqli_stmt_execute($stmt_link);
+        mysqli_stmt_close($stmt_link);
+
+        // 3. Registrar la imputación origen -> destino y ligarla al recibo en $0
+        $imputacion_id = tesoreriaRegistrarImputacion($conexion, [
+            'empresa_id'       => $empresa_id,
+            'comp_origen_id'   => $comp_origen_id,
+            'comp_destino_id'  => $comp_destino_id,
+            'f_imputacion'     => $hoy,
+            'importe_imputado' => $importe,
+            'importe_origen'   => $importe,
+            'moneda_origen_id' => $moneda_id,
+            'tipo_cambio'      => $tipo_cambio,
+            'usuario_id'       => $usuario_id,
+        ]);
+
+        if (($orig['tipo_codigo'] ?? '') !== 'RCX') {
+            recalcularEstadoDestino($conexion, $comp_origen_id, $usuario_id);
+        }
+
+        if (cobImputacionesTienenDocumento($conexion)) {
+            $stmt_doc = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_imputaciones SET documento_comprobante_id = ? WHERE imputacion_id = ? AND empresa_id = ?");
+            mysqli_stmt_bind_param($stmt_doc, 'iii', $recibo_comp_id, $imputacion_id, $empresa_id);
+            mysqli_stmt_execute($stmt_doc);
+            mysqli_stmt_close($stmt_doc);
+        }
+
+        // 4. Generar asiento contable de compensación vinculado al recibo en $0
+        $asiento_res = cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id);
+        $asiento_id = !empty($asiento_res['success']) ? intval($asiento_res['asiento_id'] ?? 0) : 0;
+
+        mysqli_commit($conexion);
+        $recibo_nro = emp_numero_comprobante($conexion, $empresa_id, $pv_id, $proximo_nro);
+        error_log("=== ctacteAplicarSaldoFavor empresa=$empresa_id entidad=$entidad_id origen=$comp_origen_id destino=$comp_destino_id importe=$importe imp_id=$imputacion_id recibo=$recibo_nro(cob=$cobranza_id) asiento=$asiento_id usuario=$usuario_id ===");
+        return [
+            'imputacion_id'    => intval($imputacion_id),
+            'importe_aplicado' => $importe,
+            'cobranza_id'      => intval($cobranza_id),
+            'recibo_numero'    => $recibo_nro,
+            'asiento_id'       => $asiento_id,
+        ];
+    } catch (Throwable $e) {
+        mysqli_rollback($conexion);
+        throw $e;
+    }
+}

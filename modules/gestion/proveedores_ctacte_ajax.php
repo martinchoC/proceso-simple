@@ -71,11 +71,11 @@ try {
             break;
 
         case 'buscar_proveedores':
-            ctacteResponder(['success' => true, 'data' => ctacteBuscarProveedores($conexion, $_REQUEST['q'] ?? ''), 'message' => '']);
+            ctacteResponder(['success' => true, 'data' => ctacteBuscarProveedores($conexion, $empresa_id, $_REQUEST['q'] ?? ''), 'message' => '']);
             break;
 
         case 'proveedor':
-            $datos = ctacteDatosProveedor($conexion, ctacteEntidadParam());
+            $datos = ctacteDatosProveedor($conexion, ctacteEntidadParam(), $empresa_id);
             if (!$datos) {
                 ctacteResponder(['success' => false, 'data' => null, 'message' => 'Proveedor no encontrado.'], 404);
             }

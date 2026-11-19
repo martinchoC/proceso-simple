@@ -819,7 +819,7 @@ $(document).ready(function() {
         actualizarArcaIntegracion();
         // y el mes de cierre del ejercicio vigente
         $('#mes_cierre_ejercicio').val(String(mesCierreVigente));
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_desde').val(today);
         $('#f_hasta').val('');
         $('#modalParametrosLabel').html('<i class="fas fa-sliders-h me-2"></i>Nueva Versión de Parámetros');

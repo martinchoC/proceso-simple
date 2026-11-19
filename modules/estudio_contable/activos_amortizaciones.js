@@ -183,7 +183,7 @@ $(document).ready(function() {
         $('#formActivo')[0].reset();
         $('#activo_id').val(0);
         $('#modalActivoTitle').text('Registrar Activo Fijo');
-        $('#modal_f_adquisicion').val(new Date().toISOString().substring(0, 10));
+        $('#modal_f_adquisicion').val(Fmt.hoyISO());
         $('#modal_vida_util_meses').val(60);
         $('#modal_valor_residual').val('0.00');
         $('#modalActivo').modal('show');

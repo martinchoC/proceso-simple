@@ -32,7 +32,7 @@ if (empty($accion)) {
 }
 
 $empresa_idx = intval($ctx['empresa_id']);
-$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 65);
+$pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 0);
 // Solo una página de este módulo (si no, la de ventas_pedidos.php del módulo): contra ella se validan botones y acciones
 $pagina_idx = permisos_pagina_modulo($conn, 5, (int)$pagina_idx, 'ventas_pedidos.php');
 
@@ -58,7 +58,7 @@ try {
             break;
 
         case 'obtener_boton_agregar':
-            $pagina_id = intval($_GET['pagina_idx'] ?? 0);
+            $pagina_id = (int)$pagina_idx; // validada por permisos_pagina_modulo()
             $boton_agregar = obtenerBotonAgregar($conexion, $pagina_id);
             error_log("Botón agregar obtenido: " . print_r($boton_agregar, true));
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
@@ -104,7 +104,7 @@ try {
             $venta_pedido_id = intval($_POST['venta_pedido_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
+            $pagina_id = (int)$pagina_idx; // validada por permisos_pagina_modulo()
             
             // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
             permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
@@ -257,7 +257,7 @@ try {
         // motores de estado independientes con sus propias transiciones.
         case 'obtener_remitos_pedido':
             $pedido_id = intval($_GET['venta_pedido_id'] ?? 0);
-            $pagina_idx_remitos = intval($_GET['pagina_idx_remitos'] ?? 88);
+            $pagina_idx_remitos = permisos_pagina_modulo($conexion, 5, intval($_GET['pagina_idx_remitos'] ?? 0), 'ventas_remitos.php');
             if (empty($pedido_id)) {
                 echo json_encode([], JSON_UNESCAPED_UNICODE);
                 break;

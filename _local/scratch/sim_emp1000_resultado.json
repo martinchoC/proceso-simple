@@ -1,217 +1,257 @@
 {
-  "fecha_ejecucion": "2026-11-16 08:11:50",
+  "fecha_ejecucion": "2026-11-18 21:13:43",
   "empresa_id": 1000,
   "empresa_nombre": "GINESI MAURO NICOLAS",
   "modulo": "gestion_normal",
-  "maestros": {
-    "permisos_perfil_592_pag_555": [
-      5241,
-      5242,
-      5247,
-      5250
-    ],
-    "lista_precio_mayorista_id": 19,
-    "precio_caja_inf002_lista19": 41000,
-    "regla_escala_id": "1",
-    "zona_id": "1",
-    "camion_id": 1
+  "usuarios": {
+    "admin": 1,
+    "ventas": 15,
+    "deposito": 18,
+    "compras": 19,
+    "tesoreria": 20,
+    "consulta": 21
   },
-  "casos": [
-    {
-      "numero": 1,
-      "titulo": "Compra por presentación (OC -> Factura de Proveedor -> Stock)",
-      "datos": {
-        "proveedor": "Industrias Alimentarias del Sud S.A. (5771)",
-        "orden_compra_id": 20,
-        "oc_nro": "15",
-        "oc_estado": 7,
-        "factura_proveedor_id": 254,
-        "fp_nro": "0001-90020",
-        "fp_estado": 5,
-        "stock_inf001": "170.0 -> 190.0",
-        "stock_inf002": "560.0 -> 580.0"
-      }
-    },
-    {
-      "numero": 2,
-      "titulo": "Venta mayorista por Carrito (casalucho-carrito) con escala y caja",
-      "datos": {
-        "cliente": "Almacén Don José (5783)",
-        "carrito_integrado": true,
-        "venta_pedido_id": 17,
-        "comprobante_nro": "9",
-        "origen": "CARRITO",
-        "estado": "5",
-        "total_pedido": "218768.00",
-        "descuentos": "5200.00",
-        "lineas_resumen": [
-          {
-            "producto_id": 6281,
-            "clave": "6281",
-            "nombre": "Yerba mate con palo 1 kg",
-            "cantidad": 25,
-            "precio": 4160,
-            "descuento_pct": 5,
-            "neto": 98800,
-            "etiqueta": "SIM_INT Escala INF-001"
-          },
-          {
-            "producto_id": 6282,
-            "clave": "6282-7",
-            "nombre": "Yerba mate con palo 500 g — Caja x 20 (20 u)",
-            "cantidad": 2,
-            "precio": 41000,
-            "descuento_pct": 0,
-            "neto": 82000,
-            "etiqueta": null
-          }
-        ]
-      }
-    },
-    {
-      "numero": 3,
-      "titulo": "Venta en la calle por App del Vendedor (santipasso)",
-      "datos": {
-        "vendedor": "Santiago Passoni (usuario 15 / entidad 5785)",
-        "cliente": "Kiosco y Polirrubro Central (5784)",
-        "venta_pedido_id": 18,
-        "comprobante_nro": "10",
-        "origen": "APP",
-        "estado": "5",
-        "total_pedido": "78408.00",
-        "entrega_estimada": {
-          "fecha": "2026-11-17",
-          "dia": "Mar",
-          "zona": "Zona Centro"
-        }
-      }
-    },
-    {
-      "numero": 4,
-      "titulo": "Distribución, Hoja de Ruta, Remito Parcial y Factura de Venta",
-      "datos": {
-        "hoja_ruta_id": 4,
-        "camion": "Camion Rojo (AA890ZK)",
-        "lista_carga": [
-          {
-            "producto_id": 6281,
-            "producto_codigo": "INF-001",
-            "producto_nombre": "Yerba mate con palo 1 kg",
-            "presentacion_id": null,
-            "presentacion_nombre": null,
-            "presentacion_factor": null,
-            "unidades": 30,
-            "bultos": null
-          },
-          {
-            "producto_id": 6282,
-            "producto_codigo": "INF-002",
-            "producto_nombre": "Yerba mate con palo 500 g",
-            "presentacion_id": 7,
-            "presentacion_nombre": "Caja x 20",
-            "presentacion_factor": "20.0000",
-            "unidades": 40,
-            "bultos": 2
-          },
-          {
-            "producto_id": 6283,
-            "producto_codigo": "INF-003",
-            "producto_nombre": "Yerba mate sin palo 1 kg",
-            "presentacion_id": 9,
-            "presentacion_nombre": "Caja x 10",
-            "presentacion_factor": "10.0000",
-            "unidades": 10,
-            "bultos": 1
-          }
-        ],
-        "venta_remito_id": 29,
-        "remito_nro": "9",
-        "remito_estado": "12",
-        "venta_factura_id": 153,
-        "factura_nro": "8",
-        "factura_estado": "5",
-        "factura_cae": null
-      }
-    }
-  ],
+  "casos": [],
   "stock_snapshot": {
     "inicial": {
-      "INF-001 (6281)": 170.0,
-      "INF-002 (6282)": 560.0,
-      "INF-003 (6283)": 190.0
+      "INF-001": 267.0,
+      "INF-002": 577.0,
+      "INF-003": 190.0
     },
     "final": {
-      "INF-001 (6281)": 180.0,
-      "INF-002 (6282)": 560.0,
-      "INF-003 (6283)": 190.0
+      "INF-001": 285.0,
+      "INF-002": 577.0,
+      "INF-003": 190.0
     }
   },
   "checks": [
     {
-      "caso": "0. Preparación de maestros y permisos en Empresa 1000",
-      "chequeo": "Maestros y permisos listos en Empresa 1000",
+      "caso": "0. Snapshot inicial, PV 306 (Fiscal) / PV 307 (Informal) y Roles",
+      "chequeo": "PV 306 (WSFE) y PV 307 (NO_FISCAL) activos en Empresa 1000",
       "ok": true,
-      "detalle": "{\"permisos_perfil_592_pag_555\": [5241, 5242, 5247, 5250], \"lista_precio_mayorista_id\": 19, \"precio_caja_inf002_lista19\": 41000, \"regla_escala_id\": \"1\", \"zona_id\": \"1\", \"camion_id\": 1}"
+      "detalle": "{'punto_venta_id': '306', 'codigo_fiscal': '1', 'sistema_emision': 'WSFE'} / {'punto_venta_id': '307', 'codigo_fiscal': '100001', 'sistema_emision': 'NO_FISCAL'}"
     },
     {
-      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
-      "chequeo": "OC creada en Borrador",
+      "caso": "0. Snapshot inicial, PV 306 (Fiscal) / PV 307 (Informal) y Roles",
+      "chequeo": "Usuarios operativos por rol listos (V=15, D=18, C=19, T=20, Q=21)",
       "ok": true,
-      "detalle": "{\"resultado\": true, \"orden_compra_id\": 20}"
+      "detalle": ""
     },
     {
-      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
-      "chequeo": "OC confirmada y Pendiente de recepción (estado 7)",
+      "caso": "1. Precios de Proveedor como usuario Compras (emp1000_comp)",
+      "chequeo": "Usuario Compras actualiza precio proveedor P1=$3.380",
       "ok": true,
-      "detalle": "{'comprobante_nro': '15', 'tabla_estado_registro_id': '7', 'total': '118580.00'}"
+      "detalle": "Precio actualizado correctamente."
     },
     {
-      "caso": "1. Compra por presentación: OC -> Factura Proveedor -> Stock",
-      "chequeo": "Factura Proveedor confirmada y stock actualizado (INF-001: 170.0->190.0, INF-002: 560.0->580.0)",
+      "caso": "2. Compra Formal (OC -> Factura A -> Stock + Cta Cte Proveedor) como Compras",
+      "chequeo": "Compras crea OC borrador",
       "ok": true,
-      "detalle": "{\"resultado\": true, \"factura_proveedor_id\": 254} Estado actualizado y stock registrado correctamente"
+      "detalle": "{\"resultado\": true, \"orden_compra_id\": 29}"
     },
     {
-      "caso": "2. Venta por Carrito (casalucho-carrito): Escala + Presentación",
-      "chequeo": "Pedido del carrito confirmado (origen CARRITO, estado 5)",
+      "caso": "2. Compra Formal (OC -> Factura A -> Stock + Cta Cte Proveedor) como Compras",
+      "chequeo": "Compras confirma OC y pasa a Pendiente de recepción (7)",
       "ok": true,
-      "detalle": "{\"integrado\": true, \"ops\": [{\"ok\": true}, {\"ok\": true}, {\"ok\": true}, {\"ok\": true, \"total\": 218768, \"neto\": 180800, \"iva\": 37968, \"no_disponibles\": [], \"lineas\": [{\"producto_id\": 6281, \"clave\": \"6281\", \"nombre\": \"Yerba mate con palo 1 kg\", \"cantidad\": 25, \"precio\": 4160, \"descuento_pct\": 5, \"neto\": 98800, \"etiqueta\": \"SIM_INT Escala INF-001\"}, {\"producto_id\": 6282, \"clave\": \"6282-7\", \"nombre\": \"Ye"
+      "detalle": "Estado actualizado correctamente - Número asignado: 24 Estado actualizado correctamente"
     },
     {
-      "caso": "3. Venta por App del Vendedor (santipasso): Borrador -> Confirmado",
-      "chequeo": "App vendedor: borrador guardado (estado 3)",
+      "caso": "2. Compra Formal (OC -> Factura A -> Stock + Cta Cte Proveedor) como Compras",
+      "chequeo": "Factura Proveedor A confirmada (+20 P1, +20 P2, total=$122936.00)",
       "ok": true,
-      "detalle": "{'success': True, 'data': {'venta_pedido_id': 18, 'confirmado': False, 'comprobante_nro': 0, 'entrega': None}, 'message': 'Pedido guardado. Lo podés retomar cuando quieras.'}"
+      "detalle": "{\"resultado\": true, \"factura_proveedor_id\": 271} Estado actualizado y stock registrado correctamente. Listas de venta: 1 precio(s) actualizado(s)."
     },
     {
-      "caso": "3. Venta por App del Vendedor (santipasso): Borrador -> Confirmado",
-      "chequeo": "App vendedor: pedido confirmado (origen APP, estado 5)",
+      "caso": "2. Compra Formal (OC -> Factura A -> Stock + Cta Cte Proveedor) como Compras",
+      "chequeo": "Multi-tenant Cta Cte Proveedores OK (9 proveedores, 0 ajenos)",
       "ok": true,
-      "detalle": "{'success': True, 'data': {'venta_pedido_id': 18, 'confirmado': True, 'comprobante_nro': 10, 'entrega': {'fecha': '2026-11-17', 'dia': 'Mar', 'zona': 'Zona Centro'}}, 'message': 'Pedido confirmado.'}"
+      "detalle": "{'success': True, 'data': [{'entidad_id': 5777, 'entidad_nombre': 'Alimentos del Litoral SA', 'entidad_fantasia': 'Alimentos del Litoral SA', 'cuit': 30719985039}, {'entidad_id': 5778, 'entidad_nombre"
     },
     {
-      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
-      "chequeo": "Pedidos liberados para distribución (estado 42)",
+      "caso": "3. NC Proveedor A + OP Mixta (Transferencia + Cheque Propio Diferido + Efectivo) como Tesorería",
+      "chequeo": "NC Proveedor A confirmada y devuelve/descuenta stock (287.0->285.0)",
       "ok": true,
-      "detalle": "[17, 18]"
+      "detalle": "{'resultado': True, 'factura_proveedor_id': 272}"
     },
     {
-      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
-      "chequeo": "Hoja de ruta creada y confirmada",
+      "caso": "3. NC Proveedor A + OP Mixta (Transferencia + Cheque Propio Diferido + Efectivo) como Tesorería",
+      "chequeo": "OP Mixta (Transf + Chq Propio Dif + Efec) cancela 100% Factura A (estado=40, pend=0.00)",
+      "ok": true,
+      "detalle": "Borrador de Orden de Pago guardado exitosamente Orden de Pago confirmada con éxito. OP N° 0001-00000011"
+    },
+    {
+      "caso": "3. NC Proveedor A + OP Mixta (Transferencia + Cheque Propio Diferido + Efectivo) como Tesorería",
+      "chequeo": "Tesorería exacta: Banco -61468.00 (chq diferido no debita aún), Caja -24587.20",
+      "ok": true,
+      "detalle": "bco -84443.02->-145911.02, caja -50690.13->-75277.33"
+    },
+    {
+      "caso": "4. Venta Mayorista por Carrito B2B (escala + caja + f_confirmacion)",
+      "chequeo": "Pedido Carrito confirmado (#37, f_confirmacion=2026-11-18 21:13:47)",
+      "ok": true,
+      "detalle": "{\"integrado\": true, \"ops\": [{\"ok\": true}, {\"ok\": true}, {\"ok\": true}, {\"ok\": true, \"total\": 225492.58, \"neto\": 186357.5, \"iva\": 39135.08, \"no_disponibles\": [], \"lineas\": [{\"producto_id\": 6281, \"clave\": \"6281\", \"nombre\": \"Yerba mate con palo 1 kg\", \"cantidad\": 25, \"precio\": 4394, \"descuento_pct\": 5, "
+    },
+    {
+      "caso": "5. App del Vendedor (santipasso): consulta clientes/deudas + borrador + confirmado",
+      "chequeo": "App vendedor consulta clientes (1 encontrados)",
+      "ok": true,
+      "detalle": "{'success': True, 'data': [{'entidad_id': 5784, 'nombre': 'Kiosco y Polirrubro Central', 'razon_social': 'Kiosco y Polirrubro Central', 'cuit': 20719986057, 'borrador_id': None}], 'message': ''}"
+    },
+    {
+      "caso": "5. App del Vendedor (santipasso): consulta clientes/deudas + borrador + confirmado",
+      "chequeo": "App vendedor borrador->confirmado (#38, f_confirmacion=2026-11-18 21:13:48)",
+      "ok": true,
+      "detalle": "{'success': True, 'data': {'venta_pedido_id': 38, 'confirmado': True, 'comprobante_nro': 31, 'entrega': {'fecha': '2026-11-19', 'dia': 'Jue', 'zona': 'Zona Centro'}}, 'message': 'Pedido confirmado.'}"
+    },
+    {
+      "caso": "6. Distribución, Hoja de Ruta, Picking y Remito Parcial A como Depósito (emp1000_dep)",
+      "chequeo": "Ventas (15) libera pedidos a distribución (42)",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "caso": "6. Distribución, Hoja de Ruta, Picking y Remito Parcial A como Depósito (emp1000_dep)",
+      "chequeo": "Depósito (18) crea y confirma Hoja de Ruta #12",
       "ok": true,
       "detalle": "Hoja creada 2 pedido(s) en la hoja Hoja confirmada"
     },
     {
-      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
-      "chequeo": "Remito parcial confirmado y stock descontado (-10 INF-001, -20 INF-002)",
+      "caso": "6. Distribución, Hoja de Ruta, Picking y Remito Parcial A como Depósito (emp1000_dep)",
+      "chequeo": "Depósito (18) abre pedido #38 -> En preparación (estado 9)",
       "ok": true,
-      "detalle": "{\"resultado\": true, \"venta_remito_id\": 29, \"comprobante_id\": 643} Estado actualizado correctamente - Número asignado: 9"
+      "detalle": "{\"pedido\": {\"venta_pedido_id\": 38, \"empresa_id\": 1000, \"sucursal_id\": 305, \"comprobante_tipo_id\": 433, \"comprobante_id\": 766, \"punto_venta_id\": 306, \"comprobante_nro\": 31, \"entidad_id\": 5784, \"entidad_sucursal_id\": null, \"f_emision\": \"2026-11-18\", \"f_confirmacion\": \"2026-11-18 21:13:48\", \"f_entrega_estimada\": null, \"condicion_pago_id\": 32, \"direccion_entrega\": \"\", \"moneda_id\": 6, \"tipo_cambio\": \"1"
     },
     {
-      "caso": "4. Distribución, Hoja de Ruta, Remito Parcial y Factura",
-      "chequeo": "Factura de venta generada desde remito (confirmación: OK)",
+      "caso": "6. Distribución, Hoja de Ruta, Picking y Remito Parcial A como Depósito (emp1000_dep)",
+      "chequeo": "Depósito (18) emite y confirma Remito Parcial A #43 (-10 P1, -20 P2)",
       "ok": true,
-      "detalle": "Factura guardada correctamente. Estado actualizado correctamente - Número asignado: 8"
+      "detalle": "{\"resultado\": true, \"venta_remito_id\": 43, \"comprobante_id\": 767} Estado actualizado correctamente - Número asignado: 20"
+    },
+    {
+      "caso": "7. Anulación de Remito sin factura, Factura A desde Remito y bloqueo de anulación con factura",
+      "chequeo": "Anulación de Remito sin factura revierte stock (275.0->272.0->275.0)",
+      "ok": true,
+      "detalle": "Estado actualizado correctamente"
+    },
+    {
+      "caso": "7. Anulación de Remito sin factura, Factura A desde Remito y bloqueo de anulación con factura",
+      "chequeo": "Factura A #182 emitida desde remito (remito->12 Facturado, sin doble descuento stock)",
+      "ok": true,
+      "detalle": "Factura guardada correctamente. Estado actualizado correctamente - Número asignado: 18 Estado actualizado correctamente - Número asignado: 18"
+    },
+    {
+      "caso": "7. Anulación de Remito sin factura, Factura A desde Remito y bloqueo de anulación con factura",
+      "chequeo": "Bloqueo correcto al intentar anular remito ya facturado",
+      "ok": true,
+      "detalle": "{'success': False, 'error': 'Acción no permitida para este estado'}"
+    },
+    {
+      "caso": "8. NC Venta A + Cobranza Mixta (NC + Cheque 3ro + Transf + Ret IIBB + Efec) como Tesorería",
+      "chequeo": "NC Venta A #183 confirmada ($9680.00) y devuelve stock (275.0->277.0)",
+      "ok": true,
+      "detalle": "Factura guardada correctamente. Estado actualizado correctamente - Número asignado: 4"
+    },
+    {
+      "caso": "8. NC Venta A + Cobranza Mixta (NC + Cheque 3ro + Transf + Ret IIBB + Efec) como Tesorería",
+      "chequeo": "Cobranza Mixta + NC cancela 100% Factura A (est=40, pend=0.00)",
+      "ok": true,
+      "detalle": "Borrador de cobranza guardado exitosamente Cobranza confirmada con éxito. Recibo N° 0001-00000017"
+    },
+    {
+      "caso": "8. NC Venta A + Cobranza Mixta (NC + Cheque 3ro + Transf + Ret IIBB + Efec) como Tesorería",
+      "chequeo": "NC A consumida (est=40) y Cheque 3ro #10 en cartera",
+      "ok": true,
+      "detalle": "nc={'comprobante_id': '770', 'importe_total': '9680.00', 'importe_pendiente': '0.00', 'tabla_estado_registro_id': '40'}, chq=10"
+    },
+    {
+      "caso": "8. NC Venta A + Cobranza Mixta (NC + Cheque 3ro + Transf + Ret IIBB + Efec) como Tesorería",
+      "chequeo": "Saldos Tesorería exactos (+Valores 31653.66, +Banco 31653.66, +Caja 22609.76)",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "caso": "9. Endoso de Cheque de Tercero a Proveedor en OP como Tesorería",
+      "chequeo": "Cheque #10 endosado al proveedor (estado=33 ENDOSADO, Valores -31653.66)",
+      "ok": true,
+      "detalle": "Borrador de Orden de Pago guardado exitosamente Orden de Pago confirmada con éxito. OP N° 0001-00000012"
+    },
+    {
+      "caso": "10. Anulación de Cobranza confirmada y reversión de saldo en Factura y Caja",
+      "chequeo": "Anulación de Cobranza revierte factura (40->5, pend=$4840.00) y Caja",
+      "ok": true,
+      "detalle": "Cobranza anulada exitosamente y saldos revertidos."
+    },
+    {
+      "caso": "11. Mostrador Formal PV 306 (valorizar con IVA + cobro mixto Efectivo+Transf) como Ventas",
+      "chequeo": "Mostrador PV 306 valoriza con IVA (total=$10890.00, IVA=$1890.00)",
+      "ok": true,
+      "detalle": "{\"success\": true, \"data\": {\"lineas\": [{\"producto_id\": 6281, \"presentacion_id\": null, \"descuento_pct\": 0, \"nombre\": \"Yerba mate con palo 1 kg\", \"etiqueta\": null, \"requiere_aprobacion\": false, \"total_linea\": 10890}], \"cabecera\": {\"subtotal\": 9000, \"descuentos\": 0, \"impuestos\": 1890, \"total\": 10890, \"descuento_general_pct\": 0}, \"comprobante_tipo\": \"Factura B\"}, \"message\": \"\"}"
+    },
+    {
+      "caso": "11. Mostrador Formal PV 306 (valorizar con IVA + cobro mixto Efectivo+Transf) como Ventas",
+      "chequeo": "Mostrador Formal PV 306 aprobado (Factura B N° 8, estado 40, stock -2)",
+      "ok": true,
+      "detalle": "Factura emitida."
+    },
+    {
+      "caso": "12. Compra Informal (Remito X C_RE) + Pago Informal OP PV 307 cancelando Cta Cte",
+      "chequeo": "Compra Informal C_RE confirmada (+15 P1, sin asiento oficial)",
+      "ok": true,
+      "detalle": "cre=273, asiento=0"
+    },
+    {
+      "caso": "12. Compra Informal (Remito X C_RE) + Pago Informal OP PV 307 cancelando Cta Cte",
+      "chequeo": "OP Informal PV 307 (100001) cancela 100% Remito X C_RE (est=40, pend=0.00)",
+      "ok": true,
+      "detalle": "Borrador de Orden de Pago guardado exitosamente Orden de Pago confirmada con éxito. OP N° 100001-00000005"
+    },
+    {
+      "caso": "13. Venta Informal Completa: Remito X + Factura X + NC X + Recibo X en PV 307",
+      "chequeo": "Factura X #186 emitida en PV 307 ($16.000 sin IVA, sin CAE, sin asiento, stock -4)",
+      "ok": true,
+      "detalle": "Factura guardada correctamente. Estado actualizado correctamente - Número asignado: 9"
+    },
+    {
+      "caso": "13. Venta Informal Completa: Remito X + Factura X + NC X + Recibo X en PV 307",
+      "chequeo": "NC X #187 confirmada en PV 307 (+1 stock)",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "caso": "13. Venta Informal Completa: Remito X + Factura X + NC X + Recibo X en PV 307",
+      "chequeo": "Recibo X PV 307 (100001) + NC X cancela 100% Factura X (FX est=40, NCX est=40)",
+      "ok": true,
+      "detalle": "Borrador de cobranza guardado exitosamente Cobranza confirmada con éxito. Recibo N° 100001-00000009"
+    },
+    {
+      "caso": "14. Mostrador Informal PV 307 (valorizar SIN IVA + facturar Factura X contado)",
+      "chequeo": "Mostrador PV 307 valoriza SIN IVA (total=$4500.00, IVA=$0.00)",
+      "ok": true,
+      "detalle": "{'success': True, 'data': {'lineas': [{'producto_id': 6281, 'presentacion_id': None, 'descuento_pct': 0, 'nombre': 'Yerba mate con palo 1 kg', 'etiqueta': None, 'requiere_aprobacion': False, 'total_linea': 4500}], 'cabecera': {'subtotal': 4500, 'desc"
+    },
+    {
+      "caso": "14. Mostrador Informal PV 307 (valorizar SIN IVA + facturar Factura X contado)",
+      "chequeo": "Mostrador Informal PV 307 aprobado al centavo (Factura X N° 10, total=$4500.00)",
+      "ok": true,
+      "detalle": "Factura emitida."
+    },
+    {
+      "caso": "15. Seguridad de Perfiles: Usuario Consulta (lee OK, bloquea toda escritura)",
+      "chequeo": "Usuario Consulta lee Cta Cte Clientes y Proveedores",
+      "ok": true,
+      "detalle": "{\"success\": true, \"data\": {\"saldo\": 1583628.58, \"deuda\": 2053759.8, \"vencido\": 292287.6, \"a_favor\": 470131.22, \"comprobantes_pendientes\": 15, \"comprobantes_vencidos\": 3, \"primer_vencimiento\": \"2026-11-16\", \"ultimo_cobro\": \"2026-11-18\", \"ultimo_cobro_importe\": 12000, \"configurado\": true}, \"message\": \"\"} {\"success\": true, \"data\": {\"saldo\": 619076.96, \"deuda\": 1375976, \"vencido\": 474320, \"a_favor\": 756899.04, \"comprobantes_pendientes\": 14, \"comprobantes_vencidos\": 4, \"primer_vencimiento\": \"2026-11-16\", \"ultimo_pago\": \"2026-11-18\", \"ultimo_pago_importe\": 45000, \"configurado\": true}, \"message\": \"\"}"
+    },
+    {
+      "caso": "15. Seguridad de Perfiles: Usuario Consulta (lee OK, bloquea toda escritura)",
+      "chequeo": "Servidor bloquea escrituras al perfil Consulta (hoja_crear, cobranzas, mostrador)",
+      "ok": true,
+      "detalle": "b1=False, b2=False, b3=False"
+    },
+    {
+      "caso": "16. Auditoría Contable: todos los asientos de hoy balanceados (DEBE == HABER)",
+      "chequeo": "91 asientos contables generados hoy en Empresa 1000, 0 desbalanceados",
+      "ok": true,
+      "detalle": "[]"
     }
   ]
 }

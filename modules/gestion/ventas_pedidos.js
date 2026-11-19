@@ -340,12 +340,20 @@ $(document).ready(function () {
                     className: 'text-center',
                     render: function(data, type, row) {
                         // 'sort'/'filter'/'type'/'export' reciben el ISO crudo (YYYY-MM-DD):
-                        // ordena y filtra bien. Solo 'display' formatea a DD/MM/YYYY.
+                        // ordena y filtra bien. Solo 'display' formatea a DD/MM/YYYY (+ hora de confirmación).
                         if (type !== 'display') {
-                            return data;
+                            return row.f_confirmacion || data;
                         }
                         if (!data) return '';
-                        return Fmt.fecha(data);
+                        var html = Fmt.fecha(data);
+                        if (row.f_confirmacion) {
+                            var m = String(row.f_confirmacion).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);
+                            if (m) {
+                                var etiquetaHora = (m[1] !== data ? (Fmt.fecha(m[1]) + ' ') : '') + m[2];
+                                html += `<small class="text-muted d-block" title="Confirmado: ${Fmt.fechaHora ? Fmt.fechaHora(row.f_confirmacion) : row.f_confirmacion}"><i class="far fa-clock me-1"></i>${etiquetaHora}</small>`;
+                            }
+                        }
+                        return html;
                     }
                 },
                 {
@@ -965,7 +973,7 @@ $(document).ready(function () {
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
                 actualizarVisibilidadCargarRemitoNuevo();
-                $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
+                $('#remito_f_emision').val(Fmt.hoyISO());
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -2018,7 +2026,7 @@ $(document).ready(function () {
         $('#punto_venta_id').html('<option value="">Primero seleccione sucursal</option>');
         $('#punto_venta_id').prop('disabled', true);
         $('#tipo_cambio').val('1.000000');
-        $('#f_entrega_estimada').val(new Date().toISOString().split('T')[0]);
+        $('#f_entrega_estimada').val(Fmt.hoyISO());
         $('#descuento_general_pct').val('0');
         $('#descuentos').val('0');
         $('#total_neto').val('0');
@@ -2057,7 +2065,7 @@ $(document).ready(function () {
         cargarCombosFormulario();
         cargarClientesYSucursales();
         
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_emision').val(today);
 
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaPedido'), { backdrop: 'static', keyboard: false });
@@ -2115,7 +2123,7 @@ $(document).ready(function () {
                 mostrarTabRemitos(true);
                 cargarRemitosDelPedido(res.venta_pedido_id);
                 actualizarVisibilidadCargarRemitoNuevo();
-                $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
+                $('#remito_f_emision').val(Fmt.hoyISO());
                 
                 $('#f_emision').val(res.f_emision);
                 $('#f_entrega_estimada').val(res.f_entrega_estimada);
@@ -2888,7 +2896,7 @@ $(document).ready(function () {
         $('#remito_observaciones').val('');
         $('#remito_punto_venta_id').val('');
         $('#remito_comprobante_tipo_id').html('<option value="">Primero seleccione punto de venta</option>');
-        $('#remito_f_emision').val(new Date().toISOString().split('T')[0]);
+        $('#remito_f_emision').val(Fmt.hoyISO());
         $('#titulo-card-remito').html('<i class="fas fa-plus-circle me-2"></i>Cargar Remito Nuevo');
         $('#btnCancelarEdicionRemito').addClass('d-none');
         actualizarVisibilidadCargarRemitoNuevo();

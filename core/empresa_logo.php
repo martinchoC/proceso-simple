@@ -455,8 +455,11 @@ function emp_empresa_principal(mysqli $conexion): ?array
         return $empresa_principal;
     }
 
+    $tiene_logo = emp_logo_columna_existe($conexion, 'conf__empresas', 'logo_archivo');
+    $col_logo = $tiene_logo ? 'logo_archivo' : 'NULL AS logo_archivo';
+
     if (emp_logo_columna_existe($conexion, 'conf__empresas', 'es_principal')) {
-        $stmt = mysqli_prepare($conexion, "SELECT empresa_id, empresa, logo_archivo, es_principal
+        $stmt = mysqli_prepare($conexion, "SELECT empresa_id, empresa, $col_logo, es_principal
                                            FROM conf__empresas
                                            WHERE es_principal = 1 AND tabla_estado_registro_id = 1
                                            LIMIT 1");
@@ -472,17 +475,19 @@ function emp_empresa_principal(mysqli $conexion): ?array
     }
 
     // Fallback: empresa activa con logo
-    $res = mysqli_query($conexion, "SELECT empresa_id, empresa, logo_archivo, 0 AS es_principal
-                                   FROM conf__empresas
-                                   WHERE tabla_estado_registro_id = 1 AND logo_archivo IS NOT NULL AND logo_archivo <> ''
-                                   ORDER BY empresa_id ASC LIMIT 1");
-    if ($res && ($fila = mysqli_fetch_assoc($res))) {
-        $empresa_principal = $fila;
-        return $empresa_principal;
+    if ($tiene_logo) {
+        $res = mysqli_query($conexion, "SELECT empresa_id, empresa, logo_archivo, 0 AS es_principal
+                                       FROM conf__empresas
+                                       WHERE tabla_estado_registro_id = 1 AND logo_archivo IS NOT NULL AND logo_archivo <> ''
+                                       ORDER BY empresa_id ASC LIMIT 1");
+        if ($res && ($fila = mysqli_fetch_assoc($res))) {
+            $empresa_principal = $fila;
+            return $empresa_principal;
+        }
     }
 
     // Fallback: primera empresa activa
-    $res = mysqli_query($conexion, "SELECT empresa_id, empresa, logo_archivo, 0 AS es_principal
+    $res = mysqli_query($conexion, "SELECT empresa_id, empresa, $col_logo, 0 AS es_principal
                                    FROM conf__empresas
                                    WHERE tabla_estado_registro_id = 1
                                    ORDER BY empresa_id ASC LIMIT 1");

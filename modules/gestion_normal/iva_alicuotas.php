@@ -1,11 +1,12 @@
 <?php
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 $pageTitle = "IVA Alícuotas";
 $currentPage = 'iva_alicuotas';
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
-$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 65; // ID de página para IVA alícuotas
+$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 565; // ID de página para IVA alícuotas
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $pagina_idx = $pagina_id;
 $ui_simple = true;

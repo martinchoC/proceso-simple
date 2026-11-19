@@ -58,7 +58,7 @@ $(document).ready(function () {
             const cols = d.columnas || {};
             Object.keys(cols).forEach(k => $('#col_' + k.toLowerCase()).val(letra(cols[k])));
         } else {
-            $('#f_desde').val(new Date().toISOString().substring(0, 10));
+            $('#f_desde').val(Fmt.hoyISO());
         }
         sincronizar();
         $('#formFormato :input').not('[data-bs-dismiss], #archivoPrueba, #btnProbar').prop('disabled', !!soloVer);

@@ -326,7 +326,7 @@ function abrirModalNuevoPago() {
     document.getElementById('pago_id').value = '0';
     document.getElementById('modalPagoLabel').innerHTML = '<i class="fas fa-money-check-alt me-2"></i>Nueva Orden de Pago (OP)';
 
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = Fmt.hoyISO();
     document.getElementById('inputFechaEmision').value = hoy;
     document.getElementById('inputFechaContable').value = hoy;
     elegirPuntoVentaDeSucursal();
@@ -1609,7 +1609,7 @@ function inicializarPendientesPago() {
             { data: 'obligacion_tipo', render: (d, t, r) => d ? `<span class="badge bg-light text-dark border">${escapeHtml(d)}</span>` : '<span class="text-muted small">Factura / nota de compra</span>' },
             { data: 'comprobante_codigo', render: (d, t, r) => `${escapeHtml(d || '')} ${String(r.comprobante_pv).padStart(4, '0')}-${String(r.comprobante_nro).padStart(8, '0')}` },
             { data: 'f_emision', className: 'ui-detalle' },
-            { data: 'f_vto', render: (d) => d ? `<span class="${d < new Date().toISOString().slice(0, 10) ? 'text-danger fw-bold' : ''}">${d}</span>` : '-' },
+            { data: 'f_vto', render: (d) => d ? `<span class="${d < Fmt.hoyISO() ? 'text-danger fw-bold' : ''}">${d}</span>` : '-' },
             { data: 'importe_pendiente', className: 'text-end', render: (d) => `$ ${formatearMoneda(d)}` },
             { data: null, orderable: false, className: 'text-center',
               render: (d, t, r) => `<button type="button" class="btn btn-sm btn-outline-primary btn-pagar-uno" data-entidad="${r.entidad_id}" data-id="${r.comprobante_id}" title="Armar la OP de este comprobante"><i class="fas fa-money-check-alt"></i></button>` }
@@ -1691,7 +1691,7 @@ async function pagarLote() {
 
 document.addEventListener('DOMContentLoaded', function () {
     const f = document.getElementById('loteFecha');
-    if (f) f.value = new Date().toISOString().split('T')[0];
+    if (f) f.value = Fmt.hoyISO();
     document.querySelector('[data-bs-target="#solapaPendientesPago"]')?.addEventListener('shown.bs.tab', () => {
         inicializarPendientesPago();
         tablaPendientesDT?.columns.adjust();

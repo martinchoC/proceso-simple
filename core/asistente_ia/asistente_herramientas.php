@@ -12,8 +12,8 @@
  *        'paginas' => ['facturas', 'remitos', 'clientes', 'proveedores'], 'conversacion_id']
  */
 
-/** Definiciones en JSON Schema (las convierte cada proveedor). */
-function asis_herramientas(): array
+/** Definiciones en JSON Schema filtradas por los permisos del usuario (las convierte cada proveedor). */
+function asis_herramientas(array $ctx = []): array
 {
     $item = [
         'type' => 'object',
@@ -42,14 +42,14 @@ function asis_herramientas(): array
         'remitos' => ['type' => 'array', 'items' => ['type' => 'integer'],
                       'description' => 'venta_remito_id de remitos pendientes (remitos_pendientes_facturar): factura todo lo pendiente de cada uno'],
     ];
-    return [
+    $base = [
         [
             'name' => 'buscar_entidades',
-            'description' => 'Busca clientes y/o proveedores de la empresa por nombre, nombre de fantasía o CUIT. '
+            'description' => 'Busca clientes, proveedores, empleados/socios u organismos de la empresa por nombre, nombre de fantasía o CUIT/CUIL. '
                 . 'Devuelve hasta 10 con su condición frente al IVA, roles y sucursales.',
             'input_schema' => ['type' => 'object', 'properties' => [
-                'texto' => ['type' => 'string', 'description' => 'Parte del nombre o el CUIT (con o sin guiones)'],
-                'rol' => ['type' => 'string', 'enum' => ['cliente', 'proveedor', 'cualquiera']],
+                'texto' => ['type' => 'string', 'description' => 'Parte del nombre o el CUIT/CUIL (con o sin guiones)'],
+                'rol' => ['type' => 'string', 'enum' => ['cliente', 'proveedor', 'empleado', 'organismo', 'cualquiera']],
             ], 'required' => ['texto', 'rol']],
         ],
         [
@@ -164,11 +164,13 @@ function asis_herramientas(): array
         ],
         [
             'name' => 'proponer_alta_entidad',
-            'description' => 'Arma el alta de un cliente y/o proveedor para que el usuario la confirme en pantalla (no graba nada). '
+            'description' => 'Arma el alta de un cliente, proveedor y/o empleado/socio para que el usuario la confirme en pantalla (no graba nada). '
                 . 'Si el CUIT ya existe en la empresa, propone agregarle el rol que le falta.',
             'input_schema' => ['type' => 'object', 'properties' => [
                 'es_cliente' => ['type' => 'boolean'],
                 'es_proveedor' => ['type' => 'boolean'],
+                'es_empleado' => ['type' => 'boolean', 'description' => 'true para dar de alta como Empleado / Socio (rol EMP)'],
+                'cont_cuenta_emp_id' => ['type' => 'integer', 'description' => 'Solo con es_empleado: cuenta contable imputable opcional para el rol EMP (ej: Cuenta Particular del socio)'],
                 'razon_social' => ['type' => 'string', 'description' => 'Apellido y nombre o denominación, como figura en ARCA'],
                 'nombre_fantasia' => ['type' => 'string'],
                 'cuit' => ['type' => 'string', 'description' => '11 dígitos'],
@@ -186,6 +188,40 @@ function asis_herramientas(): array
             ], 'required' => ['es_cliente', 'es_proveedor', 'razon_social', 'cuit']],
         ],
     ];
+
+    // Filtrar herramientas según los permisos reales del perfil del usuario
+    if (!empty($ctx)) {
+        $p_fact = asis_puede($ctx, 'facturas', 'agregar');
+        $p_rem  = asis_puede($ctx, 'remitos', 'agregar');
+        $p_comp = asis_puede($ctx, 'facturas_proveedores', 'agregar') || asis_puede($ctx, 'ordenes_compra', 'agregar');
+        $p_ent  = asis_puede($ctx, 'clientes', 'agregar') || asis_puede($ctx, 'proveedores', 'agregar') || asis_puede($ctx, 'obligaciones_pago', 'agregar');
+        $permitidas = [
+            'buscar_entidades'            => true,
+            'ofrecer_opciones'            => true,
+            'buscar_productos'            => $p_fact || $p_rem || $p_comp,
+            'opciones_comprobante'        => $p_fact || $p_rem,
+            'proponer_factura_venta'      => $p_fact,
+            'remitos_pendientes_facturar' => $p_fact,
+            'buscar_facturas_emitidas'    => $p_fact,
+            'proponer_copia_facturas'     => $p_fact,
+            'proponer_remito_venta'       => $p_rem,
+            'consultar_padron_arca'       => $p_ent,
+            'catalogos_alta_entidad'      => $p_ent,
+            'buscar_localidades'          => $p_ent,
+            'proponer_alta_entidad'       => $p_ent,
+        ];
+        $base = array_values(array_filter($base, fn($h) => !empty($permitidas[$h['name']])));
+        if (function_exists('asis_herramientas_contab')) {
+            $base = array_merge($base, asis_herramientas_contab($ctx));
+        }
+        if (function_exists('asis_herramientas_teso_ext')) {
+            $base = array_merge($base, asis_herramientas_teso_ext($ctx));
+        }
+        if (function_exists('asis_herramientas_compras_bco')) {
+            $base = array_merge($base, asis_herramientas_compras_bco($ctx));
+        }
+    }
+    return $base;
 }
 
 /** Ejecuta una herramienta. Devuelve el resultado (array) o lanza RuntimeException con el error para la IA. */
@@ -205,6 +241,18 @@ function asis_ejecutar_herramienta(array $ctx, string $nombre, array $e): array
         case 'catalogos_alta_entidad': return asis_h_catalogos_entidad($ctx);
         case 'buscar_localidades':     return asis_h_buscar_localidades($ctx, $e);
         case 'proponer_alta_entidad':  return asis_h_proponer_alta_entidad($ctx, $e);
+    }
+    if (function_exists('asis_ejecutar_herramienta_contab')) {
+        $res = asis_ejecutar_herramienta_contab($ctx, $nombre, $e);
+        if ($res !== null) return $res;
+    }
+    if (function_exists('asis_ejecutar_herramienta_teso_ext')) {
+        $res = asis_ejecutar_herramienta_teso_ext($ctx, $nombre, $e);
+        if ($res !== null) return $res;
+    }
+    if (function_exists('asis_ejecutar_herramienta_compras_bco')) {
+        $res = asis_ejecutar_herramienta_compras_bco($ctx, $nombre, $e);
+        if ($res !== null) return $res;
     }
     throw new RuntimeException("Herramienta desconocida: $nombre");
 }
@@ -275,9 +323,13 @@ function asis_h_buscar_entidades(array $ctx, array $e): array
     }
     if ($rol === 'cliente') $where .= ' AND ' . ent_sql_tiene_rol('e.entidad_id', 'CLI');
     if ($rol === 'proveedor') $where .= ' AND ' . ent_sql_tiene_rol('e.entidad_id', 'PRO');
+    if ($rol === 'empleado') $where .= ' AND ' . ent_sql_tiene_rol('e.entidad_id', 'EMP');
+    if ($rol === 'organismo') $where .= ' AND ' . ent_sql_tiene_rol('e.entidad_id', 'ORG');
     $filas = asis_filas($c, "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, e.domicilio_legal,
                    IF(" . ent_sql_tiene_rol('e.entidad_id', 'CLI') . ", 1, 0) AS es_cliente,
                    IF(" . ent_sql_tiene_rol('e.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor,
+                   IF(" . ent_sql_tiene_rol('e.entidad_id', 'EMP') . ", 1, 0) AS es_empleado,
+                   IF(" . ent_sql_tiene_rol('e.entidad_id', 'ORG') . ", 1, 0) AS es_organismo,
                    (SELECT cf.condicion_fiscal FROM gestion__entidades_condiciones_fiscales ecf
                       JOIN gestion__condiciones_fiscales cf ON cf.condicion_fiscal_id = ecf.condicion_fiscal_id
                      WHERE ecf.entidad_id = e.entidad_id AND ecf.tabla_estado_registro_id = 1
@@ -691,7 +743,16 @@ function asis_validar_alta_entidad(array $ctx, array $e): array
     $errores = [];
     $es_cliente = !empty($e['es_cliente']);
     $es_proveedor = !empty($e['es_proveedor']);
-    if (!$es_cliente && !$es_proveedor) $errores[] = 'Indicá si es cliente, proveedor o ambos.';
+    $es_empleado = !empty($e['es_empleado']);
+    if (!$es_cliente && !$es_proveedor && !$es_empleado) $errores[] = 'Indicá si es cliente, proveedor, empleado/socio o una combinación.';
+
+    $cta_emp_id = intval($e['cont_cuenta_emp_id'] ?? 0);
+    $cta_emp_txt = '';
+    if ($es_empleado && $cta_emp_id > 0) {
+        $ce = asis_fila($c, "SELECT codigo, nombre, es_imputable FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1", 'ii', $cta_emp_id, $empresa_id);
+        if (!$ce || intval($ce['es_imputable']) !== 1) $errores[] = 'La cuenta contable para el rol Empleado/Socio no existe o no es imputable.';
+        else $cta_emp_txt = $ce['codigo'] . ' - ' . $ce['nombre'];
+    }
 
     $razon = trim(preg_replace('/\s+/u', ' ', (string)($e['razon_social'] ?? '')));
     if ($razon === '') $errores[] = 'Falta la razón social.';
@@ -702,10 +763,11 @@ function asis_validar_alta_entidad(array $ctx, array $e): array
 
     $existente = $cuit !== '' ? asis_fila($c, "SELECT e.entidad_id, e.entidad_nombre,
                 IF(" . ent_sql_tiene_rol('e.entidad_id', 'CLI') . ", 1, 0) AS es_cliente,
-                IF(" . ent_sql_tiene_rol('e.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor
+                IF(" . ent_sql_tiene_rol('e.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor,
+                IF(" . ent_sql_tiene_rol('e.entidad_id', 'EMP') . ", 1, 0) AS es_empleado
             FROM gestion__entidades e WHERE e.empresa_id = ? AND e.cuit = ? ORDER BY e.tabla_estado_registro_id, e.entidad_id LIMIT 1",
             'is', $empresa_id, $cuit) : null;
-    if ($existente && (!$es_cliente || $existente['es_cliente']) && (!$es_proveedor || $existente['es_proveedor'])) {
+    if ($existente && (!$es_cliente || $existente['es_cliente']) && (!$es_proveedor || $existente['es_proveedor']) && (!$es_empleado || $existente['es_empleado'])) {
         $errores[] = "Ya existe {$existente['entidad_nombre']} (id {$existente['entidad_id']}) con ese CUIT y esos roles: no hace falta el alta.";
     }
     if (!$existente) {
@@ -763,7 +825,8 @@ function asis_validar_alta_entidad(array $ctx, array $e): array
         'tipo' => 'ALTA_ENTIDAD',
         'entidad_existente_id' => $existente ? intval($existente['entidad_id']) : 0,
         'entidad_existente' => $existente['entidad_nombre'] ?? null,
-        'es_cliente' => $es_cliente, 'es_proveedor' => $es_proveedor,
+        'es_cliente' => $es_cliente, 'es_proveedor' => $es_proveedor, 'es_empleado' => $es_empleado,
+        'cont_cuenta_emp_id' => $cta_emp_id, 'cuenta_emp_texto' => $cta_emp_txt,
         'razon_social' => $razon, 'nombre_fantasia' => mb_substr($fantasia, 0, 255), 'cuit' => $cuit,
         'tipo_persona' => in_array(substr($cuit, 0, 2), ['30', '33', '34'], true) ? 'Persona Jurídica' : 'Persona Física',
         'entidad_tipo_id' => in_array(substr($cuit, 0, 2), ['30', '33', '34'], true) ? 2 : 1,
@@ -971,7 +1034,7 @@ function asis_validar_copia_facturas(array $ctx, array $e): array
     $facturas = [];
     $omitidas = [];
     foreach ($origenes as $o) {
-        $base = ['origen_id' => intval($o['venta_factura_id']), 'origen_numero' => $o['numero'], 'origen_fecha' => $o['f_emision'],
+        return ['origen_id' => intval($o['venta_factura_id']), 'origen_numero' => $o['numero'], 'origen_fecha' => $o['f_emision'],
                  'origen_total' => round(floatval($o['importe_total']), 2)];
         try {
             if ($o['moneda_id'] && intval($o['moneda_id']) !== $moneda_base) throw new RuntimeException('está en otra moneda');

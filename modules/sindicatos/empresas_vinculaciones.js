@@ -241,7 +241,7 @@ $(document).ready(function () {
         $('#modoLectura').prop('checked', true);
         $('#permiso_sindicatos, #permiso_impuestos, #permiso_contabilidad, #permiso_ventas, #permiso_compras, #permiso_tesoreria').prop('checked', true);
         $('#permiso_stock').prop('checked', false);
-        $('#fecha_desde').val(new Date().toISOString().split('T')[0]);
+        $('#fecha_desde').val(Fmt.hoyISO());
         $('#tabla_estado_registro_id').val('1');
 
         cargarEmpresasDestinoModal();

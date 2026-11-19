@@ -77,7 +77,7 @@ try {
             $boca_id = intval($_POST['boca_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
+            $pagina_id = (int)$pagina_idx; // validada por permisos_pagina_modulo()
             // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
             permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));
             $resultado = ejecutarTransicionEstado($conexion, $boca_id, $accion_js, $empresa_idx, $pagina_id);

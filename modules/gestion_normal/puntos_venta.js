@@ -10,7 +10,7 @@ $(document).ready(function () {
     }
 
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 70;
+    const pagina_idx = 570;
 
     var tabla;
     var currentPage = 0;

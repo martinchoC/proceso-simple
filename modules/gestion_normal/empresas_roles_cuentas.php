@@ -1,4 +1,5 @@
 <?php
+$modudo_idx = 5; // gestion_normal
 /**
  * Vista: ABM de Roles de Entidades y Cuentas Contables por Empresa
  * Módulo: Gestión - Seteo Empresas (padre_id = 37, orden = 431)

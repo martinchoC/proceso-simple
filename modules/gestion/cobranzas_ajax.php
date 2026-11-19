@@ -159,7 +159,9 @@ try {
                 enviarRespuesta(['success' => true, 'data' => []]);
             }
             $pendientes = tesoreriaObtenerComprobantesCancelables($conexion, $empresa_idx, 'RCX', $entidad_id);
-            enviarRespuesta(['success' => true, 'data' => $pendientes]);
+            // Notas de crédito con saldo del cliente, para compensarlas con las facturas en el mismo recibo
+            $notas = cobNotasCreditoCliente($conexion, $empresa_idx, $entidad_id);
+            enviarRespuesta(['success' => true, 'data' => $pendientes, 'notas_credito' => $notas]);
             break;
 
         case 'guardar':
@@ -168,6 +170,19 @@ try {
             $data = json_decode($input_raw, true);
             if (!$data) {
                 $data = $_POST;
+            }
+
+            if (is_string($data['imputaciones'] ?? null)) {
+                $data['imputaciones'] = json_decode($data['imputaciones'], true) ?: [];
+            }
+            if (is_string($data['medios'] ?? null)) {
+                $data['medios'] = json_decode($data['medios'], true) ?: [];
+            }
+            if (is_string($data['retenciones'] ?? null)) {
+                $data['retenciones'] = json_decode($data['retenciones'], true) ?: [];
+            }
+            if (is_string($data['notas_credito'] ?? null)) {
+                $data['notas_credito'] = json_decode($data['notas_credito'], true) ?: [];
             }
 
             $data['empresa_id'] = $empresa_idx;

@@ -131,6 +131,16 @@
             var d = new Date();
             return d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
         },
+        // 'AAAA-MM-DD' de un Date armado en hora local (p. ej. hoy + 30 días). No usar con new Date('AAAA-MM-DD'),
+        // que JS interpreta en UTC: para esa, toISOString() es la correcta.
+        isoLocal: function (d) {
+            return d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
+        },
+        // Ahora en 'AAAA-MM-DDTHH:MM:SS' con la hora LOCAL (para inputs datetime-local).
+        ahoraISO: function () {
+            var d = new Date();
+            return Fmt.isoLocal(d) + 'T' + dos(d.getHours()) + ':' + dos(d.getMinutes()) + ':' + dos(d.getSeconds());
+        },
         // Para ordenar: 'AAAAMMDDHHMMSS' de una fecha en cualquiera de los formatos aceptados ('' si no es fecha)
         claveFecha: function (v) {
             var p = partes(v);

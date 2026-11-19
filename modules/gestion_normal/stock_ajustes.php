@@ -1,6 +1,7 @@
 <?php
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 $pageTitle = "Ajustes de Stock";
 $currentPage = 'stock_ajustes';

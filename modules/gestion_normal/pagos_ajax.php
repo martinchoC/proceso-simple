@@ -140,6 +140,16 @@ try {
             $input_raw = file_get_contents('php://input');
             $data = json_decode($input_raw, true) ?: $_POST;
 
+            if (is_string($data['imputaciones'] ?? null)) {
+                $data['imputaciones'] = json_decode($data['imputaciones'], true) ?: [];
+            }
+            if (is_string($data['medios'] ?? null)) {
+                $data['medios'] = json_decode($data['medios'], true) ?: [];
+            }
+            if (is_string($data['retenciones'] ?? null)) {
+                $data['retenciones'] = json_decode($data['retenciones'], true) ?: [];
+            }
+
             $data['empresa_id'] = $empresa_idx;
             $data['usuario_id'] = $usuario_id;
             pagoExigirFuncion($conexion, $pagina_idx, intval($data['pago_id'] ?? 0) > 0 ? 'editar' : 'agregar');

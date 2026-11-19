@@ -1663,6 +1663,26 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
         $info_destino = obtenerCodigoEstandarEstado($conexion, $estado_destino_id);
         $codigo_destino = $info_destino['codigo_estandar'] ?? '';
         $libera_pedido = in_array($codigo_destino, ['CANCELADO', 'ANULADO', 'ELIMINADO'], true);
+        // Anular un remito confirmado: solo si ninguna factura (tampoco un borrador) usa sus líneas;
+        // si no, primero se anula o se quita la línea de la factura.
+        if ($codigo_destino === 'ANULADO') {
+            $stmt = mysqli_prepare($conexion, "SELECT f.venta_factura_id, f.comprobante_nro
+                                               FROM gestion__ventas_remitos_detalles rd
+                                               JOIN gestion__ventas_facturas_detalles fd ON fd.venta_remito_detalle_id = rd.venta_remito_detalle_id
+                                                    AND fd.tabla_estado_registro_id <> 6
+                                               JOIN gestion__ventas_facturas f ON f.venta_factura_id = fd.venta_factura_id
+                                                    AND f.tabla_estado_registro_id NOT IN (6, 38)
+                                               WHERE rd.venta_remito_id = ?
+                                               LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "i", $venta_remito_id);
+            mysqli_stmt_execute($stmt);
+            $factura = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            mysqli_stmt_close($stmt);
+            if ($factura) {
+                throw new Exception('El remito tiene líneas en una factura (' . (intval($factura['comprobante_nro']) > 0 ? 'N° ' . intval($factura['comprobante_nro']) : 'borrador ID ' . intval($factura['venta_factura_id']))
+                    . '). Para anularlo, primero anulá la factura o quitá esas líneas.');
+            }
+        }
         if ($libera_pedido) {
             revertirCantidadEntregadaRemito($conexion, $venta_remito_id);
         }

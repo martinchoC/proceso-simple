@@ -605,7 +605,7 @@ $(document).ready(function () {
             hasta = new Date();
         }
 
-        const format = d => d.toISOString().split('T')[0];
+        const format = d => Fmt.isoLocal(d);
         $('#movFechaDesde').val(format(desde));
         $('#movFechaHasta').val(format(hasta));
 

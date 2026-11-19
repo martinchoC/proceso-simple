@@ -782,7 +782,7 @@ $(document).ready(function () {
         $('#modalLabel').text('Nuevo Ajuste de Stock');
         cargarCombosFormulario();
         
-        var today = new Date().toISOString().slice(0, 16);
+        var today = Fmt.ahoraISO().slice(0, 16);
         $('#fecha').val(today);
 
         var modal = new bootstrap.Modal(document.getElementById('modalStockAjuste'));

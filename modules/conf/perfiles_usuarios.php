@@ -1092,7 +1092,7 @@ $(document).ready(function() {
         var link = document.createElement("a");
         var url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `permisos_${usuarioDetalleNombre}_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `permisos_${usuarioDetalleNombre}_${Fmt.hoyISO()}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

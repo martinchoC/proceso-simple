@@ -162,7 +162,7 @@ $(document).ready(function () {
     $(document).on('click', '#btnNuevoEvento', function () {
         $('#formEvento')[0].reset();
         $('#empresa_evento_id').val(0);
-        $('#modal_fecha').val(new Date().toISOString().slice(0, 10));
+        $('#modal_fecha').val(Fmt.hoyISO());
         $('#modal_empresa_origen_id').val(empresa_idx);
         $('#tituloModalEvento').text('Registrar Evento Societario');
         $('#formEvento').removeClass('was-validated');

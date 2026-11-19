@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 // Mismo criterio que proveedor_precios.php / ventas_pedidos.php: sin default
 // hardcodeado de pagina_id, viene por GET desde el menú/acceso directo.

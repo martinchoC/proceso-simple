@@ -166,9 +166,26 @@ if (!function_exists('vmos_despachar')) {
                     if (!$items) {
                         $responder(true, ['lineas' => [], 'cabecera' => ['subtotal' => 0, 'impuestos' => 0, 'total' => 0]]);
                     }
-                    $v = pven_valorizar($conexion, $empresa_id, $entidad, $items, ['sucursal_id' => $pv_pedido($entidad)['sucursal_id'], 'usuario_id' => $usuario_id]);
+                    $pv = $pv_pedido($entidad);
+                    $v = pven_valorizar($conexion, $empresa_id, $entidad, $items, ['sucursal_id' => $pv['sucursal_id'], 'usuario_id' => $usuario_id]);
+                    // Comprobante no fiscal (Factura X, comprobante_fiscal_id = 0): no lleva IVA, igual que guardarVentaFactura()
+                    $cf = pven_filas($conexion, "SELECT comprobante_fiscal_id FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? LIMIT 1", 'i', [(int) $pv['comprobante_tipo_id']]);
+                    $comprobante_fiscal_id = intval($cf[0]['comprobante_fiscal_id'] ?? 0);
+                    if ($comprobante_fiscal_id === 0) {
+                        foreach ($v['detalles'] as $idx => $det) {
+                            $neto = round((float) ($det['neto_gravado'] ?? 0), 2);
+                            $v['detalles'][$idx]['iva_porcentaje'] = 0;
+                            $v['detalles'][$idx]['iva_importe'] = 0;
+                            $v['detalles'][$idx]['total_linea'] = $neto;
+                        }
+                        $sub = round(array_sum(array_column($v['detalles'], 'neto_gravado')), 2);
+                        $v['cabecera']['subtotal'] = $sub;
+                        $v['cabecera']['impuestos'] = 0.0;
+                        $v['cabecera']['total'] = $sub;
+                    }
                     $responder(true, ['lineas' => array_map(fn($d, $l) => $l + ['total_linea' => $d['total_linea']], $v['detalles'], $v['lineas']),
-                                      'cabecera' => $v['cabecera']]);
+                                      'cabecera' => $v['cabecera'],
+                                      'comprobante_tipo' => $pv['comprobante_tipo']]);
 
                 case 'facturar':
                     csrf_exigir();

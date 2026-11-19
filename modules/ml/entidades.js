@@ -379,7 +379,7 @@ $(document).ready(function () {
     $(document).on('click', '#btnNuevaEntidad', function () {
         $('#formEntidad')[0].reset();
         $('#entidad_id').val(0);
-        $('#modal_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_vigente_desde').val(Fmt.hoyISO());
         $('#modal_empresa_titular_id').val(empresa_idx);
         $('#bloqueTitularidadAlta').show();
         $('#modal_empresa_titular_id').prop('required', true);
@@ -464,7 +464,7 @@ $(document).ready(function () {
 
         $('#transf_entidad_id').val(id);
         $('#transf_nombre_entidad').text(nombre);
-        $('#transf_fecha').val(new Date().toISOString().slice(0, 10));
+        $('#transf_fecha').val(Fmt.hoyISO());
         $('#transf_nueva_empresa_id').val('');
 
         $('#modalTransferir').modal('show');
@@ -512,7 +512,7 @@ $(document).ready(function () {
 
         $('#ubi_entidad_id').val(id);
         $('#ubi_nombre_entidad').text(nombre);
-        $('#ubi_fecha').val(new Date().toISOString().slice(0, 10));
+        $('#ubi_fecha').val(Fmt.hoyISO());
         $('#ubi_nuevo_territorio_id').val(terr || '');
 
         $('#modalUbicacion').modal('show');

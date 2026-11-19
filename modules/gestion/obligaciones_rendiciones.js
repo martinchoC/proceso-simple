@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalNuevaObligacion = new bootstrap.Modal(document.getElementById('modalNuevaObligacion'));
     document.getElementById('btnNuevaObligacion').addEventListener('click', function () {
         document.getElementById('formNuevaObligacion').reset();
-        document.getElementById('liqPeriodo').value = new Date().toISOString().slice(0, 7);
+        document.getElementById('liqPeriodo').value = Fmt.hoyISO().slice(0, 7);
         modalNuevaObligacion.show();
     });
 
@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const pendiente = parseFloat(btn.data('pendiente')) || 0;
         $('#pagarPendiente').text(formatoMoneda.format(pendiente));
         $('#pagarImporte').val(pendiente.toFixed(2));
-        $('#pagarFecha').val(new Date().toISOString().split('T')[0]);
+        $('#pagarFecha').val(Fmt.hoyISO());
         modalPagarObligacion.show();
     });
 
@@ -334,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const modalNuevoAnticipo = new bootstrap.Modal(document.getElementById('modalNuevoAnticipo'));
     document.getElementById('btnNuevoAnticipo')?.addEventListener('click', function () {
         document.getElementById('formNuevoAnticipo').reset();
-        document.getElementById('antFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('antFecha').value = Fmt.hoyISO();
         modalNuevoAnticipo.show();
     });
 
@@ -402,7 +402,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         tr.innerHTML = `
-            <td><input type="date" class="form-control form-control-sm input-gasto-fecha" value="${new Date().toISOString().split('T')[0]}"></td>
+            <td><input type="date" class="form-control form-control-sm input-gasto-fecha" value="${Fmt.hoyISO()}"></td>
             <td><select class="form-select form-select-sm input-gasto-cat">${optionsCat}</select></td>
             <td><input type="text" class="form-control form-control-sm input-gasto-prov" placeholder="Comercio/Prov"></td>
             <td><input type="text" class="form-control form-control-sm input-gasto-ticket" placeholder="N° Ticket"></td>
@@ -424,7 +424,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('btnNuevaRendicion')?.addEventListener('click', function () {
         document.getElementById('formNuevaRendicion').reset();
-        document.getElementById('rendFecha').value = new Date().toISOString().split('T')[0];
+        document.getElementById('rendFecha').value = Fmt.hoyISO();
         tbodyGastos.innerHTML = '';
         agregarFilaGasto(); // Agregar al menos una fila
         recalcularTotalesRendicion();
@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#reemNro').text(btn.data('nro'));
         const monto = parseFloat(btn.data('monto')) || 0;
         $('#reemMonto').text(formatoMoneda.format(monto));
-        $('#reemFecha').val(new Date().toISOString().split('T')[0]);
+        $('#reemFecha').val(Fmt.hoyISO());
         modalReembolso.show();
     });
 

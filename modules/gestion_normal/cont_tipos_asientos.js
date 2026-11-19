@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_id = window.CONT_TIPOS_ASIENTOS_CTX ? window.CONT_TIPOS_ASIENTOS_CTX.empresa_id : window.EMPRESA_ID;
-    const pagina_id = window.CONT_TIPOS_ASIENTOS_CTX ? window.CONT_TIPOS_ASIENTOS_CTX.pagina_id : 87;
+    const pagina_id = window.CONT_TIPOS_ASIENTOS_CTX ? window.CONT_TIPOS_ASIENTOS_CTX.pagina_id : 587;
     
     var tabla;
     var currentPage = 0;

@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 77;
+    const pagina_idx = 577;
     
     var tabla;
     var currentPage = 0;
@@ -782,7 +782,7 @@ $(document).ready(function () {
         $('#modalLabel').text('Nuevo Ajuste de Stock');
         cargarCombosFormulario();
         
-        var today = new Date().toISOString().slice(0, 16);
+        var today = Fmt.ahoraISO().slice(0, 16);
         $('#fecha').val(today);
 
         var modal = new bootstrap.Modal(document.getElementById('modalStockAjuste'));

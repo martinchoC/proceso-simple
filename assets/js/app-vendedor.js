@@ -499,7 +499,21 @@
     btnVolver.addEventListener('click', function () { cerrarEscaner(); verClientes(); });
     aviso.addEventListener('click', function () { mostrarAviso(''); });
     var selEmpresa = raiz.querySelector('[data-av-empresa]');
-    if (selEmpresa) selEmpresa.addEventListener('change', function () { location.href = '?empresa_id=' + encodeURIComponent(this.value); });
+    if (selEmpresa) {
+        // La empresa elegida queda en la sesión (POST a index.php). Lo cargado sin guardar queda en este teléfono,
+        // separado por empresa, pero se avisa antes de salir del pedido.
+        selEmpresa.addEventListener('change', function () {
+            if (ped && ped.sucio) {
+                guardarLocal();
+                if (!window.confirm('El pedido de ' + (ped.cliente.nombre || 'este cliente') + ' no está guardado en el sistema. '
+                    + 'Queda en este teléfono y lo vas a ver al volver a esta empresa. ¿Cambiar de empresa?')) {
+                    this.value = EMPRESA;
+                    return;
+                }
+            }
+            raiz.querySelector('[data-av-empresa-form]').submit();
+        });
+    }
     window.addEventListener('offline', function () { mostrarAviso('Sin conexión. Lo cargado queda guardado en este teléfono.', 'error'); });
     window.addEventListener('online', function () { mostrarAviso('Conexión recuperada.', 'ok'); });
     api('inicio').then(function (j) { inicio = j.data; verClientes(); }).catch(function (e) {

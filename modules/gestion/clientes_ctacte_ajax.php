@@ -163,11 +163,35 @@ try {
             ctacteResponder(['success' => $envio['success'], 'data' => null, 'message' => $envio['message']]);
             break;
 
+        case 'aplicar_saldo_favor':
+            require_once __DIR__ . '/../../core/csrf.php';
+            csrf_exigir();
+            $entidad_id = ctacteEntidadParam();
+            if (!ctacteEntidadDeEmpresa($conexion, $empresa_id, $entidad_id)) {
+                ctacteResponder(['success' => false, 'data' => null, 'message' => 'Cliente no encontrado.'], 404);
+            }
+            $comp_origen_id = intval($_POST['comp_origen_id'] ?? 0);
+            $comp_destino_id = intval($_POST['comp_destino_id'] ?? 0);
+            $importe = floatval($_POST['importe'] ?? 0);
+            $res = ctacteAplicarSaldoFavor($conexion, $empresa_id, $usuario_id, $entidad_id, $comp_origen_id, $comp_destino_id, $importe);
+            $msg = 'Saldo a favor aplicado ($ ' . number_format($res['importe_aplicado'], 2, ',', '.') . ') · Recibo en $0 N° ' . $res['recibo_numero'];
+            if (!empty($res['asiento_id'])) {
+                $msg .= ' · Asiento #' . $res['asiento_id'];
+            }
+            ctacteResponder([
+                'success' => true,
+                'data'    => $res,
+                'message' => $msg,
+            ]);
+            break;
+
         default:
             ctacteResponder(['success' => false, 'data' => null, 'message' => 'Acción no definida.'], 400);
     }
 } catch (InvalidArgumentException $e) {
     ctacteResponder(['success' => false, 'data' => null, 'message' => $e->getMessage()], 403);
+} catch (RuntimeException $e) {
+    ctacteResponder(['success' => false, 'data' => null, 'message' => $e->getMessage()], 400);
 } catch (Throwable $e) {
     error_log("=== ERROR clientes_ctacte_ajax [$accion]: " . $e->getMessage());
     ctacteResponder(['success' => false, 'data' => null, 'message' => 'Error al consultar la cuenta corriente.'], 500);

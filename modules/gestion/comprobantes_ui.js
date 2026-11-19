@@ -196,7 +196,7 @@
     function hoyMenosDias(dias) {
         const d = new Date();
         d.setDate(d.getDate() - dias);
-        return d.toISOString().substring(0, 10);
+        return Fmt.isoLocal(d);
     }
 
     window.ComprobantesUI = {

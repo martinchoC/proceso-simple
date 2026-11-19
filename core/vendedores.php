@@ -532,6 +532,10 @@ if (!function_exists('vcar_exigir_cliente')) {
      */
     function vcar_exigir_cliente(mysqli $conexion, int $empresa_id, int $usuario_id, int $cliente_id, ?string $fecha = null): void
     {
+        // Consumidor final (entidad_id = 0): no tiene cartera asignada (mostrador / venta de contado)
+        if ($cliente_id <= 0) {
+            return;
+        }
         $v = vcar_restringido($conexion, $empresa_id, $usuario_id);
         if ($v === null) {
             return;

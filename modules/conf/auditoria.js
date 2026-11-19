@@ -188,7 +188,7 @@ $(document).ready(function () {
                     text: '<i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel',
                     className: 'btn btn-sm btn-outline-success rounded-2',
                     title: function () {
-                        return 'Logs_Auditoria_' + getAnioSeleccionado() + '_' + new Date().toISOString().slice(0, 10);
+                        return 'Logs_Auditoria_' + getAnioSeleccionado() + '_' + Fmt.hoyISO();
                     },
                     exportOptions: {
                         columns: [0, 1, 2, 3, 4, 5, 6, 7]

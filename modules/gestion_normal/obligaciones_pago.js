@@ -5,7 +5,7 @@ $(document).ready(function () {
     let importacionId = 0;
     const filas = {};
     const moneda = (v) => '$ ' + Bco.num(v);
-    const hoy = () => new Date().toISOString().slice(0, 10);
+    const hoy = () => Fmt.hoyISO();
 
     const tabla = $('#tablaObligaciones').DataTable({
         ajax: {

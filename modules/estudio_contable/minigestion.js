@@ -570,7 +570,7 @@ $(document).ready(function() {
                 (datos.percepciones || []).forEach(p => agregarPercepcion(p.tipo, p.jurisdiccion_id || 0, Number(p.importe)));
                 if (!(datos.iva_detalle || []).length) agregarLineaIva(21, 0);
             } else {
-                $('#comp_f_emision').val(new Date().toISOString().substring(0, 10));
+                $('#comp_f_emision').val(Fmt.hoyISO());
                 $('#comp_pv').val(1);
                 $('#comp_nograv').val('0.00');
                 agregarLineaIva(21, 0);

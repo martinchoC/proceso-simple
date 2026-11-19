@@ -15,7 +15,7 @@ require_once __DIR__ . '/../core/pedidos_venta/app_vendedor.php';
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 
-$destino = 'index.php' . (isset($_GET['empresa_id']) && ctype_digit((string) $_GET['empresa_id']) ? '?empresa_id=' . (int) $_GET['empresa_id'] : '');
+$destino = 'index.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'salir') {
     if (csrf_valido($_POST['csrf_token'] ?? null)) {
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? 'ingresar') ==
 
             if ($user && (int) $user['tabla_estado_registro_id'] === 1 && password_verify($clave, $user['password'])) {
                 session_regenerate_id(true);
-                unset($_SESSION['empresa_id'], $_SESSION['modulo_id']);
+                unset($_SESSION['empresa_id'], $_SESSION['modulo_id'], $_SESSION['av_empresa_id']);
                 $_SESSION['usuario_id'] = (int) $user['usuario_id'];
                 $_SESSION['usuario'] = $user['usuario'];
                 $_SESSION['usuario_nombre'] = $user['usuario_nombre'];
@@ -68,9 +68,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? 'ingresar') ==
 $usuario_id = (int) ($_SESSION['usuario_id'] ?? 0);
 $logueado = !empty($_SESSION['logueado']) && $_SESSION['logueado'] === true && $usuario_id > 0;
 $empresas = $logueado ? pven_app_empresas($conexion, $usuario_id) : [];
-$pedida = (int) ($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $ids = array_column($empresas, 'empresa_id');
-$empresa_id = in_array($pedida, $ids, true) ? $pedida : (int) ($ids[0] ?? 0);
+
+// Empresa de trabajo: con una sola, esa; con varias, la que eligió el vendedor (obligatorio, sin valor por defecto).
+// Va en una clave propia de la sesión para no cambiar la empresa activa del ERP, que comparte la sesión.
+if ($logueado && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['accion'] ?? '') === 'empresa') {
+    $elegida = (int) ($_POST['empresa_id'] ?? 0);
+    if (!csrf_valido($_POST['csrf_token'] ?? null)) {
+        $error = 'La sesión de la página venció. Volvé a intentar.';
+    } elseif (!in_array($elegida, $ids, true)) {
+        $error = 'Elegí una empresa de la lista.';
+    } else {
+        $_SESSION['av_empresa_id'] = $elegida;
+        header('Location: ' . $destino);
+        exit;
+    }
+}
+if (count($ids) === 1) {
+    $_SESSION['av_empresa_id'] = $ids[0];
+} elseif (!in_array((int) ($_SESSION['av_empresa_id'] ?? 0), $ids, true)) {
+    unset($_SESSION['av_empresa_id']);
+}
+$empresa_id = (int) ($_SESSION['av_empresa_id'] ?? 0);
 $csrf = csrf_token();
 $e = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 ?><!doctype html>
@@ -86,7 +105,7 @@ $e = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8')
   <link rel="apple-touch-icon" href="icono.svg">
   <link rel="stylesheet" href="<?= $e(asset_local('css/app-vendedor.css')) ?>">
 </head>
-<body<?= (!$logueado || !$empresas) ? ' class="av-pantalla-login"' : '' ?>>
+<body<?= (!$logueado || !$empresas || !$empresa_id) ? ' class="av-pantalla-login"' : '' ?>>
 <?php if (!$logueado): ?>
   <main class="av-centro"><div class="av-tarjeta">
     <img src="icono.svg" class="av-logo" alt="" width="64" height="64">
@@ -121,17 +140,50 @@ $e = static fn($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8')
       </form>
     </div>
   </div></main>
+<?php elseif (!$empresa_id): ?>
+  <main class="av-centro"><div class="av-tarjeta">
+    <img src="icono.svg" class="av-logo" alt="" width="64" height="64">
+    <h1>Elegí la empresa</h1>
+    <p class="av-fila-sub">Tu usuario vende en más de una empresa. Elegí en cuál vas a trabajar; después la podés cambiar desde la barra de arriba.</p>
+    <?php if ($error !== ''): ?>
+      <div class="av-aviso av-aviso-error av-login-aviso"><?= $e($error) ?></div>
+    <?php endif; ?>
+    <form method="post" class="av-login">
+      <input type="hidden" name="accion" value="empresa">
+      <input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>">
+      <label class="av-campo">Empresa
+        <select name="empresa_id" class="av-input" required autofocus>
+          <option value="" selected disabled>— Elegí una empresa —</option>
+          <?php foreach ($empresas as $em): ?>
+            <option value="<?= (int) $em['empresa_id'] ?>"><?= $e($em['empresa']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <button type="submit" class="av-btn av-btn-primario av-btn-ancho">Continuar</button>
+    </form>
+    <div class="av-login-acciones">
+      <form method="post">
+        <input type="hidden" name="accion" value="salir">
+        <input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>">
+        <button type="submit" class="av-btn av-btn-ancho">Cambiar de usuario</button>
+      </form>
+    </div>
+  </div></main>
 <?php else: ?>
   <div id="av" data-api="api.php" data-empresa="<?= $empresa_id ?>" data-csrf="<?= $e($csrf) ?>">
     <header class="av-barra">
       <button type="button" class="av-volver" data-av-volver hidden aria-label="Volver">&larr;</button>
       <div class="av-titulo" data-av-titulo>Clientes</div>
       <?php if (count($empresas) > 1): ?>
-        <select class="av-empresa" data-av-empresa aria-label="Empresa">
-          <?php foreach ($empresas as $em): ?>
-            <option value="<?= (int) $em['empresa_id'] ?>" <?= (int) $em['empresa_id'] === $empresa_id ? 'selected' : '' ?>><?= $e($em['empresa']) ?></option>
-          <?php endforeach; ?>
-        </select>
+        <form method="post" class="av-empresa-form" data-av-empresa-form>
+          <input type="hidden" name="accion" value="empresa">
+          <input type="hidden" name="csrf_token" value="<?= $e($csrf) ?>">
+          <select name="empresa_id" class="av-empresa" data-av-empresa aria-label="Empresa" title="Cambiar de empresa">
+            <?php foreach ($empresas as $em): ?>
+              <option value="<?= (int) $em['empresa_id'] ?>" <?= (int) $em['empresa_id'] === $empresa_id ? 'selected' : '' ?>><?= $e($em['empresa']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </form>
       <?php endif; ?>
       <form method="post" class="av-salir-form">
         <input type="hidden" name="accion" value="salir">

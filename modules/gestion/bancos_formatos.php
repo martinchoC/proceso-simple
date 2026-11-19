@@ -50,7 +50,7 @@ require_once ROOT_PATH . '/core/csrf.php';
                             <h5 class="modal-title fw-bold" id="modalFormatoLabel">Formato</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
-                        <form id="formFormato" novalidate>
+                        <form id="formFormato" class="d-flex flex-column flex-grow-1 overflow-hidden" style="min-height:0" novalidate>
                             <div class="modal-body p-4">
                                 <input type="hidden" id="formato_id" name="formato_id">
                                 <div class="ui-seccion">

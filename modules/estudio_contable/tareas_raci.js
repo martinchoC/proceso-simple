@@ -228,7 +228,7 @@ $(document).ready(function() {
         $('#formTarea')[0].reset();
         $('#tarea_id').val(0);
         $('#modalTareaTitle').text('Nueva Tarea RACI');
-        $('#modal_f_inicio').val(new Date().toISOString().substring(0, 10));
+        $('#modal_f_inicio').val(Fmt.hoyISO());
         $('#modal_estado_id').val(17); // Pendiente
         $('#modalTarea').modal('show');
     });

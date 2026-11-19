@@ -69,7 +69,7 @@ $(document).ready(function () {
         f.removeClass('was-validated');
         $('#regla_id, #tope_id').val('');
         $('#modalReglaLabel').text((d ? (soloVer ? '' : 'Editar ') : 'Nueva ') + (que === 'tope' ? 'habilitación para aprobar' : 'regla de aprobación'));
-        $('#f_desde').val(new Date().toISOString().slice(0, 10));
+        $('#f_desde').val(Fmt.hoyISO());
         if (d) {
             ['regla_id', 'tope_id', 'documento', 'obligacion_tipo_id', 'importe_desde', 'doble_aprobacion_desde', 'empresa_perfil_id', 'importe_maximo', 'f_desde', 'f_hasta']
                 .forEach(c => { if (c in d) $('#' + c).val(d[c] == null ? '' : d[c]); });

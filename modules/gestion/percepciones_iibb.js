@@ -70,7 +70,7 @@ $(function () {
         }).join(''));
         var hoy = new Date();
         hoy.setMonth(hoy.getMonth() - 1);   // por defecto, el mes anterior (el que se declara)
-        $('#perPeriodo').val(hoy.toISOString().slice(0, 7));
+        $('#perPeriodo').val(Fmt.isoLocal(hoy).slice(0, 7));
         cargar();
     });
 

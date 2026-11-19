@@ -6,7 +6,7 @@ $(function () {
     'use strict';
 
     const UI = window.ComprobantesUI;
-    const detalle = CtacteCliente.crear('#detalleCtacte', { empresaId: EMPRESA_ID, mostrarCabecera: true, csrfToken: CTACTE_CSRF });
+    const detalle = CtacteCliente.crear('#detalleCtacte', { empresaId: EMPRESA_ID, mostrarCabecera: true, csrfToken: CTACTE_CSRF, onCambio: function () { cargarSaldos(); } });
     let tabla = null;
 
     function filtros() {

@@ -22,7 +22,7 @@
     let contador = 0;
 
     function crear(selector, opciones) {
-        const opts = $.extend({ empresaId: 0, mostrarCabecera: false, enSolapa: false, csrfToken: '' }, opciones || {});
+        const opts = $.extend({ empresaId: 0, mostrarCabecera: false, enSolapa: false, csrfToken: '', onCambio: null }, opciones || {});
         if (opts.exportar === undefined) opts.exportar = !opts.enSolapa;
         const p = 'ctacte' + (++contador);
         const $root = $(selector);
@@ -30,6 +30,8 @@
         let cargadas = {};
         let tablas = {};
         let cliente = {};
+        let deudaActual = [];
+        let favorActual = [];
 
         $root.html(
             '<div class="ctacte-widget">' +
@@ -148,6 +150,148 @@
 
         function botonVer(id) {
             return '<button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1 ctacte-ver" data-id="' + id + '" title="Ver detalle"><i class="fas fa-eye"></i></button>';
+        }
+
+        function botonesFavor(id) {
+            let html = botonVer(id);
+            if (opts.csrfToken && deudaActual.length > 0) {
+                html += ' <button type="button" class="btn btn-xs btn-outline-success py-0 px-1 ctacte-aplicar" data-id="' + id + '" title="Imputar a comprobante adeudado"><i class="fas fa-link me-1"></i>Imputar</button>';
+            }
+            return html;
+        }
+
+        function asegurarModalImputar() {
+            if ($('#modalImputarSaldoFavor').length) return;
+            $('body').append(
+                '<div class="modal fade" id="modalImputarSaldoFavor" tabindex="-1" aria-hidden="true">' +
+                '  <div class="modal-dialog modal-dialog-centered">' +
+                '    <div class="modal-content">' +
+                '      <div class="modal-header bg-success text-white py-2">' +
+                '        <h5 class="modal-title fs-6 fw-bold"><i class="fas fa-link me-2"></i>Imputar saldo a favor</h5>' +
+                '        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>' +
+                '      </div>' +
+                '      <div class="modal-body small">' +
+                '        <div class="alert alert-danger py-2 d-none" id="ctacteImpError"></div>' +
+                '        <div class="alert alert-success py-2 mb-3" id="ctacteImpOrigenInfo"></div>' +
+                '        <div class="mb-2">' +
+                '          <label class="form-label mb-1 fw-semibold" for="ctacteImpDest">Comprobante a cancelar</label>' +
+                '          <select class="form-select form-select-sm" id="ctacteImpDest"></select>' +
+                '        </div>' +
+                '        <div class="mb-2">' +
+                '          <label class="form-label mb-1 fw-semibold" for="ctacteImpMonto">Importe a imputar</label>' +
+                '          <input type="number" step="0.01" min="0.01" class="form-control form-control-sm text-end" id="ctacteImpMonto">' +
+                '          <div class="form-text">Se emitirá un recibo en $0 y su asiento contable de compensación (sin movimiento de fondos).</div>' +
+                '        </div>' +
+                '      </div>' +
+                '      <div class="modal-footer bg-light py-2">' +
+                '        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>' +
+                '        <button type="button" class="btn btn-success btn-sm" id="ctacteImpConfirmar"><i class="fas fa-check me-1"></i>Imputar</button>' +
+                '      </div>' +
+                '    </div>' +
+                '  </div>' +
+                '</div>'
+            );
+            $('#modalImputarSaldoFavor').on('show.bs.modal', function () {
+                const abiertos = $('.modal.show').not(this).length;
+                $(this).css('z-index', 1055 + abiertos * 20);
+                setTimeout(function () {
+                    $('.modal-backdrop').last().css('z-index', 1050 + abiertos * 20);
+                }, 0);
+            }).on('hidden.bs.modal', function () {
+                if ($('.modal.show').length) $('body').addClass('modal-open');
+            });
+        }
+
+        function aplicarSaldoFavor(compOrigenId) {
+            const orig = favorActual.find(function (r) { return parseInt(r.comprobante_id, 10) === compOrigenId; });
+            if (!orig) return;
+            const candidatas = deudaActual.filter(function (f) { return parseInt(f.moneda_id, 10) === parseInt(orig.moneda_id, 10); });
+            if (!candidatas.length) {
+                aviso('No hay comprobantes adeudados en la misma moneda para imputar este saldo a favor.');
+                return;
+            }
+            asegurarModalImputar();
+
+            const disp = parseFloat(orig.pendiente) || 0;
+            // Preseleccionar la factura más vieja que coincida exactamente con el saldo disponible; si no, la primera
+            let selId = candidatas[0].comprobante_id;
+            for (let i = 0; i < candidatas.length; i++) {
+                if (Math.abs((parseFloat(candidatas[i].pendiente) || 0) - disp) < 0.01) {
+                    selId = candidatas[i].comprobante_id;
+                    break;
+                }
+            }
+            const opciones = candidatas.map(function (f) {
+                const pend = parseFloat(f.pendiente) || 0;
+                const label = UI.fecha(f.f_emision) + ' · ' + UI.numero(f) + ' — Pendiente: ' + UI.moneda(pend, f.moneda_simbolo);
+                return '<option value="' + f.comprobante_id + '" data-pend="' + pend.toFixed(2) + '"' + (f.comprobante_id === selId ? ' selected' : '') + '>' + UI.esc(label) + '</option>';
+            }).join('');
+            const selObj = candidatas.find(function (f) { return f.comprobante_id === selId; }) || candidatas[0];
+            const maxIni = Math.min(disp, parseFloat(selObj.pendiente) || 0);
+
+            $('#ctacteImpError').addClass('d-none').text('');
+            $('#ctacteImpOrigenInfo').html(
+                '<div><strong>Origen:</strong> ' + UI.esc(UI.numero(orig)) + ' (' + UI.fecha(orig.f_emision) + ')</div>' +
+                '<div><strong>Saldo disponible:</strong> ' + UI.moneda(disp, orig.moneda_simbolo) + '</div>'
+            );
+            $('#ctacteImpDest').html(opciones).off('change').on('change', function () {
+                const pendDest = parseFloat($(this).find(':selected').data('pend')) || 0;
+                const max = Math.min(disp, pendDest);
+                $('#ctacteImpMonto').attr('max', max.toFixed(2)).val(max.toFixed(2));
+                $('#ctacteImpError').addClass('d-none').text('');
+            });
+            $('#ctacteImpMonto').attr('max', maxIni.toFixed(2)).val(maxIni.toFixed(2));
+
+            const modalEl = document.getElementById('modalImputarSaldoFavor');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+            $('#ctacteImpConfirmar').prop('disabled', false).html('<i class="fas fa-check me-1"></i>Imputar').off('click').on('click', function () {
+                const $btn = $(this);
+                const destId = parseInt($('#ctacteImpDest').val(), 10) || 0;
+                const monto = parseFloat($('#ctacteImpMonto').val()) || 0;
+                const max = parseFloat($('#ctacteImpMonto').attr('max')) || 0;
+                if (destId <= 0) {
+                    $('#ctacteImpError').removeClass('d-none').text('Seleccioná un comprobante destino.');
+                    return;
+                }
+                if (monto <= 0 || monto > max + 0.001) {
+                    $('#ctacteImpError').removeClass('d-none').text('Ingresá un importe entre 0,01 y ' + UI.moneda(max, orig.moneda_simbolo) + '.');
+                    return;
+                }
+                $('#ctacteImpError').addClass('d-none').text('');
+                $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Imputando...');
+
+                $.ajax({
+                    url: URL_AJAX, type: 'POST', dataType: 'json',
+                    headers: { 'X-CSRF-Token': opts.csrfToken },
+                    data: params({
+                        accion: 'aplicar_saldo_favor',
+                        comp_origen_id: compOrigenId,
+                        comp_destino_id: destId,
+                        importe: monto.toFixed(2)
+                    })
+                }).done(function (r) {
+                    if (!r || !r.success) {
+                        $('#ctacteImpError').removeClass('d-none').text((r && r.message) || 'No se pudo aplicar el saldo a favor.');
+                        $btn.prop('disabled', false).html('<i class="fas fa-check me-1"></i>Imputar');
+                        return;
+                    }
+                    modal.hide();
+                    if (window.UiSimple && UiSimple.ok) {
+                        UiSimple.ok(r.message || 'Saldo a favor imputado.');
+                    } else if (window.Swal) {
+                        Swal.fire({ icon: 'success', title: 'Imputado', text: r.message, timer: 2500, showConfirmButton: false });
+                    }
+                    api.cargar(entidadId);
+                    if (typeof opts.onCambio === 'function') opts.onCambio();
+                }).fail(function (xhr) {
+                    const msg = (xhr.responseJSON && (xhr.responseJSON.message || xhr.responseJSON.error)) || 'Error de conexión con el servidor.';
+                    $('#ctacteImpError').removeClass('d-none').text(msg);
+                    $btn.prop('disabled', false).html('<i class="fas fa-check me-1"></i>Imputar');
+                });
+            });
+
+            modal.show();
         }
 
         // En la solapa: sin botones (B); Cuenta corriente y Comprobantes tampoco llevan el buscador
@@ -312,6 +456,8 @@
             $.getJSON(URL_AJAX, params({ accion: 'pendientes' })).done(function (res) {
                 if (!res.success) { aviso(res.message); return; }
                 const d = res.data;
+                deudaActual = d.deuda || [];
+                favorActual = d.a_favor || [];
                 let total = 0;
                 d.deuda.forEach(function (r) { total += r.pendiente_local; });
                 $('#' + p + 'TotDeuda').text(UI.moneda(total));
@@ -336,7 +482,7 @@
                     { data: null, render: function (r) { return UI.esc(UI.numero(r)); } },
                     { data: 'importe_total', className: 'text-end', render: function (v, t, r) { return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v; } },
                     { data: 'pendiente', className: 'text-end fw-semibold', render: function (v, t, r) { return t === 'display' ? UI.moneda(v, r.moneda_simbolo) : v; } },
-                    { data: 'comprobante_id', orderable: false, className: 'text-center no-export', render: botonVer }
+                    { data: 'comprobante_id', orderable: false, className: 'text-center text-nowrap no-export', render: botonesFavor }
                 ], { order: [[0, 'asc']], pageLength: 5, dom: 'rtip' });
             }).fail(error);
         }
@@ -423,6 +569,9 @@
         $root.on('click', '#' + p + 'Recargar', function () { if (entidadId) api.cargar(entidadId); });
         $root.on('click', '.ctacte-ver', function () {
             UI.mostrarDetalle(URL_AJAX, params({ accion: 'obtener_comprobante', comprobante_id: $(this).data('id') }));
+        });
+        $root.on('click', '.ctacte-aplicar', function () {
+            aplicarSaldoFavor(parseInt($(this).data('id'), 10) || 0);
         });
 
         const api = {

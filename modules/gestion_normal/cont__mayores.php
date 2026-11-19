@@ -1,12 +1,13 @@
 <?php
 // Configuración de la página
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 85;
+$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 585;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 

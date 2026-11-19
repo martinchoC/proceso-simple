@@ -331,7 +331,7 @@ $(document).ready(function () {
         $('#formAutorizacion')[0].reset();
         $('#aut_id').val('0');
         $('#modalAutorizacionLabel').html('<i class="fas fa-key text-primary me-2"></i>Otorgar Autorización a Otra Empresa');
-        $('#aut_fecha_desde').val(new Date().toISOString().split('T')[0]);
+        $('#aut_fecha_desde').val(Fmt.hoyISO());
         $('#aut_fecha_hasta').val('');
         $('#aut_tabla_estado_registro_id').val('1');
         $('.comp-chk').prop('checked', true);

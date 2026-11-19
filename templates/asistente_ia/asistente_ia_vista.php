@@ -29,9 +29,9 @@
 
 <main class="app-main">
     <?php ui_encabezado('Asistente IA', 'bi bi-chat-left-text',
-        'Pedile en tus palabras una factura o un remito de venta, copiar las facturas de un período o de un cliente con un porcentaje de aumento, o el alta de un cliente o proveedor (podés adjuntar la constancia de inscripción de ARCA). '
-        . 'El asistente arma la propuesta y vos la confirmás: se guarda en Borrador, como si la hubieras cargado a mano.',
-        ['Ventas'],
+        'Consultá cómo operar el sistema o pedí en lenguaje natural facturas, remitos, altas de entidades, imputaciones de cuenta corriente, cuentas contables, obligaciones de pago, órdenes de pago, asientos o movimientos de tesorería (según los permisos de tu perfil). '
+        . 'El asistente arma la propuesta y nada se graba hasta que vos la confirmes.',
+        ['Asistente'],
         '<button type="button" class="btn btn-primary" id="asisNueva"><i class="bi bi-plus-lg me-1"></i>Nueva conversación</button>'); ?>
 
     <div class="app-content">
@@ -55,11 +55,11 @@
                             <div id="asisBienvenida">
                                 <p class="mb-2"><strong>¿Qué necesitás?</strong> Por ejemplo:</p>
                                 <div class="asis-ejemplos d-flex flex-wrap gap-2">
+                                    <button type="button" class="btn btn-light border">¿Cómo cargo el pago de un sueldo o un FCI?</button>
+                                    <button type="button" class="btn btn-light border">Consultá la cuenta corriente de un cliente y sus saldos a favor</button>
+                                    <button type="button" class="btn btn-light border">Crear cuenta Cuenta Particular Socios y dos subcuentas particulares</button>
                                     <button type="button" class="btn btn-light border">Factura a Ferretería López con 10 tornillos 8 mm y 2 cajas de clavos</button>
-                                    <button type="button" class="btn btn-light border">Remito a consumidor final con 3 bolsas de cemento</button>
-                                    <button type="button" class="btn btn-light border">Facturar los remitos pendientes de Ferretería López</button>
                                     <button type="button" class="btn btn-light border">Copiar las facturas de octubre con un 5 % de aumento</button>
-                                    <button type="button" class="btn btn-light border">Dar de alta como cliente a Juan Pérez, monotributista, de Viedma</button>
                                     <button type="button" class="btn btn-light border" data-adjuntar="1">Dar de alta este proveedor (adjunto la constancia de ARCA)</button>
                                 </div>
                             </div>

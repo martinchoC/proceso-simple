@@ -1,4 +1,5 @@
 <?php
+$modudo_idx = 5; // gestion_normal
 /**
  * Vista: Parámetros Generales de Empresa e Historial Fiscal
  * Módulo: Gestión - Seteo Empresas (padre_id = 37, orden = 405)
@@ -819,7 +820,7 @@ $(document).ready(function() {
         actualizarArcaIntegracion();
         // y el mes de cierre del ejercicio vigente
         $('#mes_cierre_ejercicio').val(String(mesCierreVigente));
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_desde').val(today);
         $('#f_hasta').val('');
         $('#modalParametrosLabel').html('<i class="fas fa-sliders-h me-2"></i>Nueva Versión de Parámetros');

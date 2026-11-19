@@ -259,7 +259,7 @@ $(function () {
             if (!c) return;
             $('#factura_condicion_pago_id').html('<option value="' + c.condicion_pago_id + '">' + (c.condicion_pago || 'Sin condición') + '</option>');
             var dias = parseInt(c.dias_primer_vencimiento || 0, 10), fecha = $('#factura_f_emision').val();
-            if (fecha) { var f = new Date(fecha + 'T00:00:00'); f.setDate(f.getDate() + dias); $('#factura_f_vto').val(f.toISOString().slice(0, 10)); }
+            if (fecha) { var f = new Date(fecha + 'T00:00:00'); f.setDate(f.getDate() + dias); $('#factura_f_vto').val(Fmt.isoLocal(f)); }
         });
         $('#factura_entidad_sucursal_id').val(sucursalClienteId);
         $.getJSON('ventas_facturas_ajax.php', { accion: 'remitos_pendientes', empresa_idx: EMPRESA_ID, entidad_id: entidadIdConsulta(), entidad_sucursal_id: sucursalClienteId, excluir_factura_id: facturaEditId || 0 }, renderRemitos);
@@ -491,7 +491,7 @@ $(function () {
         $(document).off('click.facturaPag', '.btn-pagina-remito').on('click.facturaPag', '.btn-pagina-remito', function () { paginaRemitos = parseInt($(this).data('pagina'), 10); actualizarVisibilidadRemitos(); });
         actualizarVisibilidadRemitos();
     }
-    $('#factura_f_emision').val(new Date().toISOString().slice(0, 10));
+    $('#factura_f_emision').val(Fmt.hoyISO());
     $('#factura_entidad_id').on('change', function () { mostrarCampoConsumidorFinal(esConsumidorFinal()); cargarCliente(); });
     $('#factura_f_emision').on('change', cargarCliente);
     $('#factura_punto_venta_id').on('change', cargarTiposPorPuntoVenta);
@@ -805,7 +805,7 @@ $(function () {
         $('#factura_asociado_wrap').addClass('d-none');
         $('#factura_comprobante_asociado_id').html('<option value="">Sin comprobante asociado</option>');
         mostrarCampoConsumidorFinal(false);
-        $('#factura_f_emision').val(new Date().toISOString().slice(0, 10));
+        $('#factura_f_emision').val(Fmt.hoyISO());
         sincronizarVencimiento();
         descuentoGeneralCliente = 0;
         $('#contenedorRemitosFactura').html('<div class="text-muted small">Seleccione un cliente.</div>');
@@ -1116,7 +1116,8 @@ $(function () {
                 else if (res.cae) Swal.fire({ icon: 'success', title: 'Factura autorizada por ARCA', text: res.message });
                 else Swal.fire({ icon: 'success', title: '¡Listo!', text: res.message || (comprobanteInfo + ' actualizada.'), toast: true, position: 'top-end', showConfirmButton: false, timer: 4000 });
             } else {
-                Swal.fire(esArca ? 'No se pudo aprobar la factura' : 'Error', (res && res.error) || 'No se pudo ejecutar la acción.', 'error');
+                // El rechazo de ARCA viene en renglones (último autorizado, esta factura, motivo)
+                Swal.fire({ icon: 'error', title: esArca ? 'No se pudo aprobar la factura' : 'Error', text: (res && res.error) || 'No se pudo ejecutar la acción.', width: esArca ? 640 : undefined, didOpen: function (p) { var h = p.querySelector('.swal2-html-container'); if (h) { h.style.whiteSpace = 'pre-line'; if (h.textContent.indexOf('\n') >= 0) h.style.textAlign = 'left'; } } });
             }
         }).fail(function (xhr) {
             var msg = (xhr.responseJSON && xhr.responseJSON.error) || 'No se pudo ejecutar la acción.';
@@ -1266,7 +1267,7 @@ $(function () {
                         + esc((p.sucursal_nombre ? p.sucursal_nombre + ' - ' : '') + (p.boca_nombre ? p.boca_nombre + ' - ' : '') + p.nombre)
                         + (p.codigo_fiscal ? ' (' + esc(p.codigo_fiscal) + ')' : '') + '</option>';
                 }).join(''));
-                $('#cobro_f_emision').val(new Date().toISOString().slice(0, 10));
+                $('#cobro_f_emision').val(Fmt.hoyISO());
                 $('#cobro_observaciones').val('');
                 cargarTiposRecibo();
                 agregarFilaCobro(c.saldo);

@@ -59,7 +59,7 @@ function inicializarFechasFiltro() {
     const hoy = new Date();
     const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
     
-    const formato = d => d.toISOString().split('T')[0];
+    const formato = d => Fmt.isoLocal(d);
     const filtroDesde = document.getElementById('filtroDesde');
     const filtroHasta = document.getElementById('filtroHasta');
     
@@ -691,7 +691,7 @@ async function abrirModalNuevaCobranza() {
     const modalLabel = document.getElementById('modalCobranzaLabel');
     if (modalLabel) modalLabel.innerHTML = '<i class="bi bi-cash-coin me-2"></i>Nueva cobranza';
 
-    const hoy = new Date().toISOString().split('T')[0];
+    const hoy = Fmt.hoyISO();
     const inpEmision = document.getElementById('inputFechaEmision');
     const inpContable = document.getElementById('inputFechaContable');
     if (inpEmision) inpEmision.value = hoy;
@@ -758,17 +758,29 @@ async function cargarComprobantesPendientes(entidadId, imputacionesPrevias = [])
             comprobantesCliente = res.data;
             contenedor.classList.remove('d-none');
 
+            // Modo edición: lo que el borrador cancela de cada factura (dinero + NC) y lo que usa de cada NC.
+            // Las aplicaciones de NC vienen "documentadas": la factura en positivo y la NC en negativo.
+            const previoFactura = {};
+            const previoNota = {};
+            imputacionesPrevias.forEach(i => {
+                const monto = Math.abs(parseFloat(i.importe_imputado) || 0);
+                if (parseInt(i.documentada) === 1) {
+                    const id = parseInt(i.comprobante_id);
+                    if (parseInt(i.es_nota) === 1) previoNota[id] = (previoNota[id] || 0) + monto;
+                    else previoFactura[id] = (previoFactura[id] || 0) + monto;
+                } else {
+                    const id = parseInt(i.comp_destino_id);
+                    previoFactura[id] = (previoFactura[id] || 0) + monto;
+                }
+            });
+
             res.data.forEach(c => {
-                const compId = c.comprobante_id;
+                const compId = parseInt(c.comprobante_id);
                 const pendiente = parseFloat(c.importe_pendiente);
                 const nroFormateado = `${escapeHtml(c.comprobante_tipo)} ${String(c.comprobante_pv).padStart(4, '0')}-${String(c.comprobante_nro).padStart(8, '0')}`;
 
-                // Verificar si hay imputación previa para esta factura (en modo edición)
-                let montoImputarPrev = 0.0;
-                if (imputacionesPrevias.length > 0) {
-                    const match = imputacionesPrevias.find(i => parseInt(i.comp_destino_id) === compId);
-                    if (match) montoImputarPrev = parseFloat(match.importe_imputado);
-                }
+                // Imputación previa para esta factura (en modo edición)
+                const montoImputarPrev = Math.round((previoFactura[compId] || 0) * 100) / 100;
 
                 const checkedAttr = montoImputarPrev > 0 ? 'checked' : '';
                 const valInput = montoImputarPrev > 0 ? montoImputarPrev.toFixed(2) : '0.00';
@@ -814,6 +826,49 @@ async function cargarComprobantesPendientes(entidadId, imputacionesPrevias = [])
                     recalcularBalance();
                 });
 
+                tbody.appendChild(tr);
+            });
+
+            // Notas de crédito con saldo: se compensan con las facturas marcadas (restan de lo que hay que cobrar)
+            (res.notas_credito || []).forEach(n => {
+                const ncId = parseInt(n.comprobante_id);
+                const saldo = parseFloat(n.importe_pendiente);
+                const montoPrev = Math.round((previoNota[ncId] || 0) * 100) / 100;
+                const nro = `${escapeHtml(n.comprobante_tipo)} ${String(n.comprobante_pv).padStart(4, '0')}-${String(n.comprobante_nro).padStart(8, '0')}`;
+                const tr = document.createElement('tr');
+                tr.className = 'table-warning';
+                tr.innerHTML = `
+                    <td class="text-center">
+                        <input class="form-check-input check-nc" type="checkbox" data-id="${ncId}" data-pendiente="${saldo}" ${montoPrev > 0 ? 'checked' : ''}>
+                    </td>
+                    <td><strong class="text-dark">${nro}</strong> <span class="badge bg-warning text-dark" title="Nota de crédito: se descuenta de las facturas marcadas">NC</span></td>
+                    <td class="text-center small">${n.f_emision}</td>
+                    <td class="text-center small text-muted">${n.f_vto || '-'}</td>
+                    <td class="text-end">-$ ${formatearMoneda(n.importe_total)}</td>
+                    <td class="text-end fw-bold text-success">-$ ${formatearMoneda(saldo)}</td>
+                    <td class="text-end">
+                        <input type="number" step="0.01" min="0" max="${saldo}"
+                               class="form-control form-control-sm text-end input-nc"
+                               data-id="${ncId}" data-pendiente="${saldo}" value="${montoPrev.toFixed(2)}" title="Importe de la nota de crédito a compensar">
+                    </td>
+                `;
+                const chk = tr.querySelector('.check-nc');
+                const inp = tr.querySelector('.input-nc');
+                chk.addEventListener('change', function () {
+                    inp.value = this.checked ? Math.min(parseFloat(this.dataset.pendiente), maximoNotaCredito(inp)).toFixed(2) : '0.00';
+                    chk.checked = parseFloat(inp.value) > 0.001;
+                    recalcularBalance();
+                });
+                inp.addEventListener('input', function () {
+                    const max = parseFloat(this.dataset.pendiente);
+                    let val = parseFloat(this.value) || 0;
+                    if (val > max) {
+                        val = max;
+                        this.value = max.toFixed(2);
+                    }
+                    chk.checked = (val > 0.001);
+                    recalcularBalance();
+                });
                 tbody.appendChild(tr);
             });
 
@@ -1130,7 +1185,8 @@ function actualizarCajasMediosEfectivo() {
  * Auto imputa los valores recibidos entre los comprobantes más antiguos
  */
 function autoImputarPendientes() {
-    let disponible = calcularTotalMedios();
+    // Lo cobrado más las notas de crédito marcadas
+    let disponible = calcularTotalMedios() + calcularTotalNotasCredito();
     if (disponible <= 0) {
         UiSimple.aviso('Primero cargá los importes cobrados.');
         return;
@@ -1140,6 +1196,7 @@ function autoImputarPendientes() {
     rows.forEach(tr => {
         const chk = tr.querySelector('.check-pendiente');
         const inp = tr.querySelector('.input-imputar');
+        if (!chk || !inp) return;   // filas de notas de crédito
         const pendiente = parseFloat(inp.dataset.pendiente);
 
         if (disponible > 0.001) {
@@ -1165,8 +1222,8 @@ function autoImputarPendientes() {
 function limpiarImputaciones() {
     const rows = document.querySelectorAll('#tbodyPendientes tr');
     rows.forEach(tr => {
-        const inp = tr.querySelector('.input-imputar');
-        const chk = tr.querySelector('.check-pendiente');
+        const inp = tr.querySelector('.input-imputar, .input-nc');
+        const chk = tr.querySelector('.check-pendiente, .check-nc');
         if (inp) inp.value = '0.00';
         if (chk) chk.checked = false;
     });
@@ -1188,15 +1245,41 @@ function calcularTotalMedios() {
 }
 
 /**
- * Calcula el total de imputaciones ingresadas
+ * Total de las facturas marcadas (lo que se cancela de cada una, con dinero o con notas de crédito)
  */
-function calcularTotalImputado() {
+function calcularTotalFacturas() {
     let total = 0.0;
-    const inputs = document.querySelectorAll('.input-imputar');
-    inputs.forEach(inp => {
+    document.querySelectorAll('.input-imputar').forEach(inp => {
         total += parseFloat(inp.value) || 0.0;
     });
     return Math.round(total * 100) / 100;
+}
+
+/**
+ * Total de las notas de crédito que se compensan en el recibo
+ */
+function calcularTotalNotasCredito() {
+    let total = 0.0;
+    document.querySelectorAll('.input-nc').forEach(inp => {
+        total += parseFloat(inp.value) || 0.0;
+    });
+    return Math.round(total * 100) / 100;
+}
+
+/**
+ * Lo que se imputa con el dinero del recibo: facturas marcadas menos notas de crédito
+ */
+function calcularTotalImputado() {
+    return Math.round((calcularTotalFacturas() - calcularTotalNotasCredito()) * 100) / 100;
+}
+
+/** Máximo que se le puede dar a una NC: lo que falta cubrir de las facturas marcadas (sin contar esta NC). */
+function maximoNotaCredito(inpActual) {
+    let otras = 0.0;
+    document.querySelectorAll('.input-nc').forEach(inp => {
+        if (inp !== inpActual) otras += parseFloat(inp.value) || 0.0;
+    });
+    return Math.max(0, Math.round((calcularTotalFacturas() - otras) * 100) / 100);
 }
 
 /**
@@ -1205,6 +1288,8 @@ function calcularTotalImputado() {
 function recalcularBalance() {
     const totalMedios = calcularTotalMedios();
     const totalImputado = calcularTotalImputado();
+    const totalNotas = calcularTotalNotasCredito();
+    const notasExcedidas = totalNotas > calcularTotalFacturas() + 0.001;
     const diferencia = Math.round((totalMedios - totalImputado) * 100) / 100;
 
     // Actualizar visualizaciones
@@ -1224,8 +1309,15 @@ function recalcularBalance() {
     const btnGuardar = document.getElementById('btnGuardarBorrador');
     const btnConfirmar = document.getElementById('btnConfirmarEmision');
 
-    if (totalImputado > totalMedios + 0.001) {
-        // ERROR: Imputó más de lo cobrado
+    const textoDesbalance = alertaDesbalance?.querySelector('span');
+    if (textoDesbalance) {
+        textoDesbalance.innerText = notasExcedidas
+            ? 'Las notas de crédito superan las facturas marcadas. Marcá más facturas o bajá el importe de las notas.'
+            : 'Lo imputado supera lo cobrado. Ajustá los importes o agregá otro medio.';
+    }
+
+    if (notasExcedidas || totalImputado > totalMedios + 0.001) {
+        // ERROR: Imputó más de lo cobrado, o las NC superan las facturas
         if (elDif) {
             elDif.innerText = `-$ ${formatearMoneda(Math.abs(diferencia))}`;
             elDif.className = 'ui-kpi-valor text-danger';
@@ -1268,7 +1360,7 @@ function recopilarDatosCobranza() {
     const comprobantePv = parseInt(document.getElementById('selectPuntoVenta')?.value) || 0;
     const inpEmision = document.getElementById('inputFechaEmision');
     const inpContable = document.getElementById('inputFechaContable');
-    const fEmision = inpEmision ? inpEmision.value : new Date().toISOString().split('T')[0];
+    const fEmision = inpEmision ? inpEmision.value : Fmt.hoyISO();
     const fContabilidad = (inpContable && inpContable.value) ? inpContable.value : fEmision;
     const observaciones = document.getElementById('inputObservaciones')?.value?.trim() || '';
 
@@ -1299,12 +1391,15 @@ function recopilarDatosCobranza() {
     // Recopilar medios
     const medios = [];
     const filasMedios = document.querySelectorAll('#tbodyMedios tr');
-    if (filasMedios.length === 0) {
+    // Con notas de crédito el recibo puede no llevar dinero (compensación pura): las filas sin importe se ignoran
+    const conNotas = calcularTotalNotasCredito() > 0.001;
+    if (filasMedios.length === 0 && !conNotas) {
         UiSimple.aviso('Agregá al menos un medio de cobro.');
         return null;
     }
 
     for (const tr of filasMedios) {
+        if (conNotas && (parseFloat(tr.querySelector('.input-medio-importe')?.value) || 0) <= 0) continue;
         const select = tr.querySelector('.select-medio-tipo');
         if (!select || select.selectedIndex < 0) {
             UiSimple.aviso('Elegí el medio de cobro en cada fila.');
@@ -1401,9 +1496,23 @@ function recopilarDatosCobranza() {
         }
     });
 
+    // Notas de crédito a compensar con las facturas marcadas
+    const notasCredito = [];
+    document.querySelectorAll('.input-nc').forEach(inp => {
+        const monto = parseFloat(inp.value) || 0;
+        if (monto > 0.001) {
+            notasCredito.push({ nc_comprobante_id: parseInt(inp.dataset.id), importe: monto });
+        }
+    });
+
     const totalMedios = calcularTotalMedios();
     const totalImputado = calcularTotalImputado();
+    const totalNotas = calcularTotalNotasCredito();
 
+    if (totalNotas > calcularTotalFacturas() + 0.001) {
+        UiSimple.aviso(`Las notas de crédito ($ ${formatearMoneda(totalNotas)}) superan las facturas marcadas ($ ${formatearMoneda(calcularTotalFacturas())}).`);
+        return null;
+    }
     if (totalImputado > totalMedios + 0.001) {
         UiSimple.aviso(`Lo imputado ($ ${formatearMoneda(totalImputado)}) supera lo cobrado ($ ${formatearMoneda(totalMedios)}).`);
         return null;
@@ -1419,7 +1528,8 @@ function recopilarDatosCobranza() {
         f_contabilidad: fContabilidad,
         observaciones: observaciones,
         medios: medios,
-        imputaciones: imputaciones
+        imputaciones: imputaciones,
+        notas_credito: notasCredito
     };
 }
 

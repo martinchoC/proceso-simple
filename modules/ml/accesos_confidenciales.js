@@ -259,7 +259,7 @@ $(document).ready(function () {
     $(document).on('click', '#btnNuevoAcceso', function () {
         $('#formAcceso')[0].reset();
         $('.bloque-destino-acc').hide();
-        $('#acc_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#acc_vigente_desde').val(Fmt.hoyISO());
         new bootstrap.Modal(document.getElementById('modalAcceso')).show();
     });
 

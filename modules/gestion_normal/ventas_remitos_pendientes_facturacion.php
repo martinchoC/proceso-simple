@@ -1,9 +1,10 @@
 <?php
 // Configuración de la página: Cola de Facturación (Remitos Pendientes de Facturación)
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 // Obtener parámetros de la URL
-$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 364;
+$pagina_id = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 864;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;
 // Deep-link: permite abrir esta pantalla directo en modo edición/facturación de un remito

@@ -4,7 +4,7 @@ $(document).ready(function () {
     // Página propia de ventas_remitos (88 por defecto ahí), NO confundir con
     // pagina_idx de esta página — motores de estado independientes, mismo
     // criterio ya establecido en ventas_pedidos.js.
-    var REMITOS_PAGINA_IDX = 88;
+    var REMITOS_PAGINA_IDX = 588;
 
     var tabla;
     var pedidoActual = null;          // datos del pedido abierto (respuesta cruda de abrir_pedido.pedido)
@@ -100,9 +100,17 @@ $(document).ready(function () {
                 {
                     data: 'f_emision',
                     className: 'text-center',
-                    render: function (data, type) {
-                        if (type !== 'display') return data;
-                        return formatFechaCorta(data);
+                    render: function (data, type, row) {
+                        if (type !== 'display') return (row && row.f_confirmacion) || data;
+                        var html = formatFechaCorta(data);
+                        if (row && row.f_confirmacion) {
+                            var m = String(row.f_confirmacion).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/);
+                            if (m) {
+                                var etiquetaHora = (m[1] !== data ? (formatFechaCorta(m[1]) + ' ') : '') + m[2];
+                                html += `<small class="text-muted d-block" title="Confirmado: ${row.f_confirmacion}"><i class="far fa-clock me-1"></i>${etiquetaHora}</small>`;
+                            }
+                        }
+                        return html;
                     }
                 },
                 {
@@ -297,7 +305,7 @@ $(document).ready(function () {
                 var estado = pedidoActual.estado_info || { estado_registro: pedidoActual.estado_registro };
                 $('#picking_estado_badge').text(estado.estado_registro || pedidoActual.estado_registro || 'Sin estado');
 
-                $('#picking_remito_f_emision').val(new Date().toISOString().split('T')[0]);
+                $('#picking_remito_f_emision').val(Fmt.hoyISO());
                 $('#picking_remito_observaciones').val('');
 
                 // PV: acotado a los depósitos de la sucursal del pedido — nunca libre.

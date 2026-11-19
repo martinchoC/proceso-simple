@@ -408,7 +408,7 @@ $(document).ready(function () {
     $('#btnNuevaRegion').on('click', function () {
         $('#formRegion')[0].reset();
         $('#region_grupo_id').val(0);
-        $('#modal_region_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_region_vigente_desde').val(Fmt.hoyISO());
         $('#tituloModalRegion').text('Nueva Región de Gestión');
         $('#formRegion').removeClass('was-validated');
 
@@ -495,7 +495,7 @@ $(document).ready(function () {
     $('#btnAsignarEmpresa').on('click', function () {
         $('#formAsignarEmpresa')[0].reset();
         $('#empresa_region_id').val(0);
-        $('#modal_asignar_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_asignar_vigente_desde').val(Fmt.hoyISO());
         $('#modal_asignar_vigente_hasta').val('');
         $('#tituloModalAsignarEmpresa').text('Asignar Empresa a Región');
         $('#textoBotonGuardarAsignacion').text('Asignar Empresa');
@@ -511,7 +511,7 @@ $(document).ready(function () {
         const regId = $(this).data('id');
         $('#formAsignarEmpresa')[0].reset();
         $('#empresa_region_id').val(0);
-        $('#modal_asignar_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_asignar_vigente_desde').val(Fmt.hoyISO());
         $('#modal_asignar_vigente_hasta').val('');
         $('#modal_asignar_region_id').val(regId);
         $('#tituloModalAsignarEmpresa').text('Asignar Empresa a Región');
@@ -595,7 +595,7 @@ $(document).ready(function () {
             title: `Cerrar vigencia de ${empresaNombre}`,
             text: 'Indique la fecha de cierre de la empresa en esta región:',
             input: 'date',
-            inputValue: new Date().toISOString().slice(0, 10),
+            inputValue: Fmt.hoyISO(),
             showCancelButton: true,
             confirmButtonText: 'Cerrar Vigencia',
             cancelButtonText: 'Cancelar',

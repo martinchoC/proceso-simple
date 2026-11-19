@@ -1924,7 +1924,7 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
     try {
         // 1. Obtener cabecera de la factura
         $sql = "SELECT f.*,
-                       ct.comprobante_tipo, ct.letra, ct.signo AS tipo_signo,
+                       ct.comprobante_tipo, ct.letra, ct.signo AS tipo_signo, ct.impacta_contabilidad,
                        e.entidad_nombre, " . ent_sql_cuenta_rol('e.entidad_id', 'CLI') . " AS cont_cuenta_id_cliente,
                        pv.nombre AS pv_nombre
                 FROM gestion__ventas_facturas f
@@ -1941,6 +1941,10 @@ function vfGenerarAsientoContableFactura($conexion, $venta_factura_id, $empresa_
 
         if (!$factura) {
             return ['success' => false, 'error' => 'Factura no encontrada.'];
+        }
+
+        if (intval($factura['impacta_contabilidad'] ?? 1) === 0) {
+            return ['success' => true, 'message' => 'El tipo de comprobante no impacta contabilidad.', 'asiento_id' => null];
         }
 
         $comprobante_id = intval($factura['comprobante_id'] ?? 0);
@@ -2918,6 +2922,92 @@ function vfArcaCoincide($autorizado, $datos) {
         && (string)($autorizado['CbteFch'] ?? '') === (string)$datos['fecha'];
 }
 
+// Rechazo 10016 de ARCA ("el número o fecha del comprobante no se corresponde con el próximo a autorizar"): arma el
+// mensaje con la respuesta de ARCA, el último comprobante autorizado (número, fecha de emisión, cliente, total y CAE),
+// los datos de esta factura y el motivo. ARCA exige número = último + 1, fecha igual o posterior a la del último
+// autorizado del mismo PV y tipo y, con concepto productos (el que se envía), dentro de los 5 días anteriores o
+// posteriores al envío. Renglones separados por "\n": la pantalla los muestra con white-space: pre-line.
+function vfArcaExplicarRechazoCorrelatividad($conexion, $cfg, $datos, $factura, $empresa_id, $ultimo_nro, $nro_enviado, $mensaje_arca) {
+    $pv = intval($datos['pto_vta']);
+    $ultimo_nro = intval($ultimo_nro);
+    $nro_enviado = intval($nro_enviado);
+    $numero = function ($n) use ($pv) { return str_pad($pv, 5, '0', STR_PAD_LEFT) . '-' . str_pad(intval($n), 8, '0', STR_PAD_LEFT); };
+    $fecha_txt = function ($ymd) {
+        $d = DateTime::createFromFormat('!Ymd', (string)$ymd);
+        return $d ? fmt_fecha($d->format('Y-m-d')) : '(sin fecha)';
+    };
+
+    $stmt = mysqli_prepare($conexion, "SELECT comprobante_tipo FROM gestion__comprobantes_tipos WHERE comprobante_tipo_id = ? AND empresa_id IN (0, ?)");
+    $tipo_id = intval($factura['comprobante_tipo_id']);
+    mysqli_stmt_bind_param($stmt, 'ii', $tipo_id, $empresa_id);
+    mysqli_stmt_execute($stmt);
+    $tipo = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    mysqli_stmt_close($stmt);
+    $tipo_nombre = $tipo['comprobante_tipo'] ?? 'comprobante';
+
+    $respuesta = trim(preg_replace('/^ARCA rechazó el comprobante:\s*/u', '', (string)$mensaje_arca));
+    $lineas = ['Respuesta de ARCA: ' . $respuesta, ''];
+
+    // Último autorizado: lo que dice ARCA (FECompConsultar) y, si lo emitió el sistema, el cliente
+    $fecha_ultimo = null;
+    if ($ultimo_nro > 0) {
+        $cons = arca_wsfe_comp_consultar($conexion, $cfg, $pv, $datos['cbte_tipo'], $ultimo_nro);
+        $u = !empty($cons['ok']) ? ($cons['data'] ?? []) : [];
+        $fecha_ultimo = !empty($u['CbteFch']) ? (string)$u['CbteFch'] : null;
+
+        $stmt = mysqli_prepare($conexion,
+            "SELECT COALESCE(e.entidad_nombre, f.consumidor_final_nombre) AS cliente
+             FROM gestion__ventas_facturas f
+             LEFT JOIN gestion__entidades e ON e.entidad_id = f.entidad_id
+             WHERE f.empresa_id = ? AND f.punto_venta_id = ? AND f.comprobante_tipo_id = ? AND f.comprobante_nro = ?
+               AND f.CAE IS NOT NULL AND f.CAE <> '' LIMIT 1");
+        $pv_id = intval($factura['punto_venta_id']);
+        mysqli_stmt_bind_param($stmt, 'iiii', $empresa_id, $pv_id, $tipo_id, $ultimo_nro);
+        mysqli_stmt_execute($stmt);
+        $local = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        $lineas[] = "Último $tipo_nombre autorizado en ARCA: N° " . $numero($ultimo_nro);
+        $lineas[] = '• Fecha de emisión: ' . ($fecha_ultimo ? $fecha_txt($fecha_ultimo) : '(ARCA no la informó)');
+        $cliente = trim((string)($local['cliente'] ?? ''));
+        $doc = trim((string)($u['DocNro'] ?? ''));
+        if ($cliente !== '' || ($doc !== '' && $doc !== '0')) {
+            $lineas[] = '• Cliente: ' . ($cliente !== '' ? $cliente : '(no está en el sistema)') . ($doc !== '' && $doc !== '0' ? ' - CUIT/Doc. ' . $doc : '');
+        }
+        if (isset($u['ImpTotal']) && $u['ImpTotal'] !== '') $lineas[] = '• Total: ' . fmt_moneda(floatval($u['ImpTotal']));
+        if (!empty($u['CodAutorizacion'])) $lineas[] = '• CAE: ' . $u['CodAutorizacion'];
+    } else {
+        $lineas[] = "ARCA no tiene ningún $tipo_nombre autorizado en el punto de venta " . str_pad($pv, 5, '0', STR_PAD_LEFT) . '.';
+    }
+    $lineas[] = '';
+    $lineas[] = 'Esta factura: N° ' . $numero($nro_enviado);
+    $lineas[] = '• Fecha de emisión: ' . $fecha_txt($datos['fecha']);
+    $lineas[] = '• Total: ' . fmt_moneda(floatval($datos['imp_total'] ?? 0));
+    $lineas[] = '';
+
+    $motivos = [];
+    if ($ultimo_nro + 1 !== $nro_enviado) {
+        $motivos[] = 'el número. ARCA espera el N° ' . $numero($ultimo_nro + 1) . ' y la factura se envió con el N° ' . $numero($nro_enviado)
+            . '. Vuelva a aprobarla (el sistema toma el número de ARCA); si se repite, revise los comprobantes de ese punto de venta.';
+    }
+    if ($fecha_ultimo !== null && (string)$datos['fecha'] < $fecha_ultimo) {
+        $motivos[] = 'la fecha. La de esta factura (' . $fecha_txt($datos['fecha']) . ') es anterior a la del último autorizado ('
+            . $fecha_txt($fecha_ultimo) . ') y ARCA no acepta fechas anteriores. Vuelva la factura a Borrador, cambie la fecha de emisión al '
+            . $fecha_txt($fecha_ultimo) . ' o posterior y confírmela de nuevo.';
+    }
+    $f = DateTime::createFromFormat('!Ymd', (string)$datos['fecha']);
+    $hoy = new DateTime('today');
+    if ($f && abs((int)$hoy->diff($f)->format('%r%a')) > 5) {
+        $motivos[] = 'la fecha. ARCA solo acepta facturas de productos con fecha de hasta 5 días antes o después del día en que se piden (hoy '
+            . fmt_fecha($hoy->format('Y-m-d')) . '). Vuelva la factura a Borrador, corrija la fecha de emisión y confírmela de nuevo.';
+    }
+    if (!$motivos) {
+        $motivos[] = 'no se pudo identificar qué dato no coincide. Compare el número y la fecha de esta factura con los del último autorizado.';
+    }
+    foreach ($motivos as $m) $lineas[] = 'Motivo del rechazo: ' . $m;
+    return implode("\n", $lineas);
+}
+
 function vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagina_id) {
     $id = intval($factura['venta_factura_id']);
     error_log("=== INICIO vfArcaAutorizarFactura ID: $id ===");
@@ -3030,6 +3120,9 @@ function vfArcaAutorizarFactura($conexion, $factura, $fiscal, $empresa_id, $pagi
             if (empty($r['ok'])) {
                 $mensaje = $r['error'] ?? 'ARCA no autorizó la factura.';
                 foreach (($r['data']['observaciones'] ?? []) as $obs) $mensaje .= ' | ' . $obs['codigo'] . ': ' . $obs['mensaje'];
+                if (strpos($mensaje, '10016') !== false) {
+                    $mensaje = vfArcaExplicarRechazoCorrelatividad($conexion, $cfg, $datos, $factura, $empresa_id, $n, $nro_sistema, $mensaje);
+                }
                 return ['success' => false, 'error' => $mensaje];
             }
             $autorizacion = $r['data'];

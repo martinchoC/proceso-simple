@@ -6,7 +6,7 @@ $pageTitle = "Facturas de Proveedores";
 $currentPage = 'facturas_proveedores';
 
 $modudo_idx = 5;
-$pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 57;
+$pagina_idx = isset($_GET['pagina_id']) ? intval($_GET['pagina_id']) : 557;
 $ui_simple = true;
 $empresa_id = intval($_GET['empresa_id'] ?? $_SESSION['empresa_id'] ?? 0);
 $modulo_id = isset($_GET['modulo_id']) ? intval($_GET['modulo_id']) : 5;

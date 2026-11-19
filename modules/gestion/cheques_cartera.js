@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#depositoNumero').text('#' + btn.data('numero'));
         $('#depositoBanco').text(btn.data('banco'));
         $('#depositoImporte').text(formatoMoneda.format(parseFloat(btn.data('importe')) || 0));
-        $('#depositoFecha').val(new Date().toISOString().split('T')[0]);
+        $('#depositoFecha').val(Fmt.hoyISO());
         modalDepositar.show();
     });
 
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#debitoNumero').text('#' + btn.data('numero'));
         $('#debitoCuenta').text(btn.data('cuenta'));
         $('#debitoImporte').text(formatoMoneda.format(parseFloat(btn.data('importe')) || 0));
-        $('#debitoFecha').val(new Date().toISOString().split('T')[0]);
+        $('#debitoFecha').val(Fmt.hoyISO());
         modalDebitar.show();
     });
 
@@ -358,7 +358,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#rechazoNumero').text('#' + btn.data('numero'));
         $('#rechazoTipo').text(btn.data('tipo'));
         $('#rechazoImporte').text(formatoMoneda.format(parseFloat(btn.data('importe')) || 0));
-        $('#rechazoFecha').val(new Date().toISOString().split('T')[0]);
+        $('#rechazoFecha').val(Fmt.hoyISO());
         $('#rechazoMotivo').val('');
         modalRechazar.show();
     });

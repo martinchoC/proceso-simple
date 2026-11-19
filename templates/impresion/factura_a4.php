@@ -220,8 +220,9 @@ $fuente = impresion_fuente($cfg_impresion);
             <?php foreach ($percepciones_iibb as $p): ?>
             <tr><td class="lbl"><?= h($p['leyenda'] ?: ($p['descripcion'] ?? ('Percepción IIBB ' . $p['jurisdiccion_nombre']))) ?> <?= h($fmt_pct_perc($p['alicuota'])) ?>%: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($p['importe']) ?></td></tr>
             <?php endforeach; ?>
-            <?php if (round($otros, 2) != 0): ?>
-            <tr><td class="lbl">Importe Otros Tributos: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($otros) ?></td></tr>
+            <?php // Solo lo que no se detalló arriba: $otros ya incluye las percepciones (como factura_ticket80.php) ?>
+            <?php if (round($otros_nacionales, 2) != 0): ?>
+            <tr><td class="lbl">Importe Otros Tributos: <?= h($simbolo) ?></td><td class="imp"><?= vfPrintImporte($otros_nacionales) ?></td></tr>
             <?php endif; ?>
             <tr class="total-final"><td class="lbl">Importe Total: <?= h($simbolo) ?></td><td class="imp fw-bold"><?= vfPrintImporte($total) ?></td></tr>
         </table>

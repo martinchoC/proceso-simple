@@ -470,7 +470,7 @@ $(function () {
         $('#asig_posicion_area').text(`Área: ${pos.area_departamento}`);
         $('#asig_usuario_id').val('');
         $('#asig_es_titular').val(1);
-        $('#asig_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#asig_vigente_desde').val(Fmt.hoyISO());
 
         $('#modalAsignarUsuario').modal('show');
     });
@@ -567,7 +567,7 @@ $(function () {
     // Finalizar ocupación
     $(document).on('click', '.btn-finalizar-ocupacion', function () {
         const up_id = $(this).data('id');
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoy = Fmt.hoyISO();
 
         Swal.fire({
             title: '¿Finalizar ocupación del cargo?',

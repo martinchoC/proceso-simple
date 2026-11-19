@@ -285,7 +285,7 @@ $(document).ready(function () {
         $('#norma_codigo').prop('readonly', false);
         $('#norma_ambito_tipo_id').prop('disabled', false);
         $('.bloque-destino').hide();
-        $('#norma_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#norma_vigente_desde').val(Fmt.hoyISO());
         $('#modalNormaLabel').html('<i class="fas fa-book me-1"></i>Registrar Norma Jurídica o Corporativa');
         new bootstrap.Modal(document.getElementById('modalNorma')).show();
     });
@@ -402,7 +402,7 @@ $(document).ready(function () {
         $('#lblNormaCodigoVersiones').text(codigo);
         $('#ver_norma_id').val(id);
         $('#formNuevaVersion')[0].reset();
-        $('#ver_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#ver_vigente_desde').val(Fmt.hoyISO());
 
         cargarVersiones(id);
         new bootstrap.Modal(document.getElementById('modalVersiones')).show();
@@ -459,7 +459,7 @@ $(document).ready(function () {
         $('#lblNormaCodigoRelaciones').text(codigo);
         $('#rel_norma_origen_id').val(id);
         $('#formNuevaRelacion')[0].reset();
-        $('#rel_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#rel_vigente_desde').val(Fmt.hoyISO());
 
         // Cargar combo de normas destino excluyendo la norma actual
         let optDestinos = '<option value="">-- Seleccionar Norma Destino --</option>';

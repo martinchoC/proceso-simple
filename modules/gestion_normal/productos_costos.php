@@ -6,7 +6,7 @@ $pageTitle = "Productos Costos";
 $currentPage = 'productos_costos';
 $ui_simple = true;
 $modudo_idx = 5;
-$pagina_id = 81;
+$pagina_id = 581;
 
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
 require_once ROOT_PATH . '/templates/adminlte/header1.php';

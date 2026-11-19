@@ -1,6 +1,6 @@
 ﻿$(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 51;
+    const pagina_idx = 551;
     
     var tabla;
     var currentPage = 0;
@@ -1683,7 +1683,7 @@
         cargarCombosFormulario();
         cargarProveedoresYSucursales();
         
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_emision').val(today);
 
         var modal = new bootstrap.Modal(document.getElementById('modalOrdenCompra'));
@@ -2272,7 +2272,7 @@
         $('#cert_orden_compra_id').val(contratoActualId);
         $('#cert_certificacion_id').val('');
 
-        var hoy = new Date().toISOString().split('T')[0];
+        var hoy = Fmt.hoyISO();
         $('#cert_fecha_medicion').val(hoy);
         $('#cert_periodo_mes').val(hoy.substring(0, 7));
 

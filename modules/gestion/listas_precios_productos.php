@@ -1187,7 +1187,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                 var wbReporte = XLSX.utils.book_new();
                                 XLSX.utils.book_append_sheet(wbReporte, wsReporte, 'Resultado importación');
                                 var nombreArchivo = 'resultado_importacion_' +
-                                    new Date().toISOString().slice(0, 10) + '.xlsx';
+                                    Fmt.hoyISO() + '.xlsx';
                                 XLSX.writeFile(wbReporte, nombreArchivo);
                             } catch (errExcel) {
                                 console.error('Error generando el Excel de resultado:', errExcel);

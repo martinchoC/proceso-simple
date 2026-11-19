@@ -50,7 +50,7 @@ try {
         case 'ejecutar_accion':
             $registro_id = intval($_POST['id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
-            $pagina_id = intval($_POST['pagina_id'] ?? $pagina_id);
+            $pagina_id = (int)$pagina_id; // validada por permisos_pagina_modulo()
             
             if (empty($registro_id) || empty($accion_js)) {
                 enviarRespuesta(['success' => false, 'error' => 'Datos incompletos']);
@@ -65,7 +65,7 @@ try {
             
         case 'obtener_asiento':
             $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
-            $pagina_id = intval($_GET['pagina_id'] ?? $_POST['pagina_id'] ?? 84);
+            $pagina_id = (int)$pagina_id; // validada por permisos_pagina_modulo()
             
             if (empty($id)) {
                 enviarRespuesta(['error' => 'ID no proporcionado']);

@@ -269,7 +269,7 @@ $(document).ready(function () {
         $('#obl_id').val('0');
         $('#obl_codigo').prop('readonly', false);
         $('#obl_norma_id').prop('disabled', false);
-        $('#obl_vigente_desde').val(new Date().toISOString().split('T')[0]);
+        $('#obl_vigente_desde').val(Fmt.hoyISO());
         $('#modalOblLabel').html('<i class="fas fa-clipboard-check me-1"></i>Registrar Obligación');
         new bootstrap.Modal(document.getElementById('modalObligacion')).show();
     });

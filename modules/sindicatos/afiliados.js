@@ -6,7 +6,7 @@ $(document).ready(function () {
     const URL_AJAX = 'afiliados_ajax.php';
     let combos = { tipos: [], parentescos: [], bajas_motivos: [], empleadores: [] };
     let fichaActual = null;
-    const hoy = new Date().toISOString().substring(0, 10);
+    const hoy = Fmt.hoyISO();
 
     function esc(v) {
         return $('<div>').text(v == null ? '' : String(v)).html();

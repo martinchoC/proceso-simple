@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../core/ventas_presentaciones.php'; // venta por pre
 require_once __DIR__ . '/../../core/canales_venta.php'; // canales de venta (cvta_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/precios_venta.php'; // reglas de precio de venta (prv_*): inactivo sin el indicador
 require_once __DIR__ . '/../../core/vendedores.php';
+require_once __DIR__ . '/../../core/auditoria.php';
 require_once __DIR__ . '/../../db.php';
 require_once __DIR__ . '/../../core/permisos.php';
 $conexion = $conn;
@@ -1208,6 +1209,50 @@ function agregarRemitoVenta($conexion, $data)
         mysqli_stmt_close($stmt);
 
         mysqli_commit($conexion);
+
+        if (function_exists('auditoria_registrar_proceso_multitabla')) {
+            $destinatarioNombre = !empty($consumidor_final_nombre_val) ? $consumidor_final_nombre_val : ('Entidad #' . $entidad_id_val);
+            $cantRenglones = is_array($data['detalles'] ?? null) ? count($data['detalles']) : 0;
+            auditoria_registrar_proceso_multitabla($conexion, [
+                'accion' => 'ALTA',
+                'tabla_principal' => 'gestion__ventas_remitos',
+                'registro_id_principal' => $venta_remito_id,
+                'descripcion' => "Emisión de remito #{$venta_remito_id} para '{$destinatarioNombre}' ({$cantRenglones} renglones)",
+                'tablas' => [
+                    [
+                        'tabla' => 'gestion__ventas_remitos',
+                        'registro_id' => $venta_remito_id,
+                        'accion' => 'ALTA',
+                        'rol' => 'Cabecera de Remito',
+                        'datos_despues' => [
+                            'venta_remito_id' => $venta_remito_id,
+                            'f_emision' => $f_emision_val,
+                            'entidad_id' => $entidad_id_val,
+                            'destinatario' => $destinatarioNombre,
+                            'punto_venta_id' => $comprobante_pv_val,
+                            'comprobante_id' => $comprobante_id,
+                            'importe_neto' => $importes['importe_neto'] ?? 0,
+                            'importe_iva' => $importes['importe_iva'] ?? 0,
+                        ]
+                    ],
+                    [
+                        'tabla' => 'gestion__ventas_remitos_detalles',
+                        'registro_id' => $venta_remito_id,
+                        'accion' => 'ALTA',
+                        'rol' => "Renglones del Remito ({$cantRenglones} ítems)",
+                        'datos_despues' => $data['detalles']
+                    ],
+                    [
+                        'tabla' => 'gestion__comprobantes',
+                        'registro_id' => $comprobante_id,
+                        'accion' => 'ALTA',
+                        'rol' => 'Comprobante Asociado',
+                        'datos_despues' => $comprobante_data
+                    ]
+                ]
+            ]);
+        }
+
         return ['resultado' => true, 'venta_remito_id' => $venta_remito_id, 'comprobante_id' => $comprobante_id];
     } catch (Exception $e) {
         mysqli_rollback($conexion);
@@ -1680,6 +1725,55 @@ function ejecutarTransicionEstadoRemito($conexion, $venta_remito_id, $accion_js,
         sincronizarStockRemitoVenta($conexion, $venta_remito_id, intval($estado_destino_id), $pagina_id);
 
         mysqli_commit($conexion);
+
+        if (function_exists('auditoria_registrar_proceso_multitabla')) {
+            $accionAudit = strtoupper($accion_js);
+            $tablasTransicion = [
+                [
+                    'tabla' => 'gestion__ventas_remitos',
+                    'registro_id' => $venta_remito_id,
+                    'accion' => $accionAudit,
+                    'rol' => 'Cabecera Remito (Estado: ' . ($codigo_destino ?: $estado_destino_id) . ')',
+                    'datos_despues' => [
+                        'venta_remito_id' => $venta_remito_id,
+                        'comprobante_nro' => $numero_asignado,
+                        'tabla_estado_registro_id' => $estado_destino_id,
+                        'transicion' => $accion_js
+                    ]
+                ],
+                [
+                    'tabla' => 'gestion__comprobantes',
+                    'registro_id' => $remito['comprobante_id'] ?? $venta_remito_id,
+                    'accion' => $accionAudit,
+                    'rol' => 'Comprobante Numerado',
+                    'datos_despues' => [
+                        'comprobante_nro' => $numero_asignado,
+                        'tabla_estado_registro_id' => $estado_destino_id
+                    ]
+                ]
+            ];
+
+            if ($accion_js === 'confirmar') {
+                $tablasTransicion[] = [
+                    'tabla' => 'gestion__stock_movimientos',
+                    'registro_id' => $venta_remito_id,
+                    'accion' => 'DESCUENTO_STOCK',
+                    'rol' => 'Movimiento de Stock / Salida',
+                    'datos_despues' => [
+                        'venta_remito_id' => $venta_remito_id,
+                        'boca_id' => $remito['boca_id'] ?? null
+                    ]
+                ];
+            }
+
+            auditoria_registrar_proceso_multitabla($conexion, [
+                'accion' => $accionAudit,
+                'tabla_principal' => 'gestion__ventas_remitos',
+                'registro_id_principal' => $venta_remito_id,
+                'descripcion' => "Transición '{$accion_js}' de remito #{$venta_remito_id}" . ($numero_asignado ? " (N° Asignado: {$numero_asignado})" : ""),
+                'tablas' => $tablasTransicion
+            ]);
+        }
 
         $mensaje = 'Estado actualizado correctamente';
         if ($numero_asignado) {

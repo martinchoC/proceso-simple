@@ -16,7 +16,7 @@ $empresa_idx = intval($ctx['empresa_id']);
 $pagina_idx = intval($_GET['pagina_idx'] ?? $_POST['pagina_idx'] ?? 46); // Página ID para grupos de comprobantes
 // Solo una página de este módulo (si no, la de comprobantes_grupos.php del módulo): contra ella se validan botones y acciones
 $pagina_idx = permisos_pagina_modulo($conexion, 5, (int)$pagina_idx, 'comprobantes_grupos.php');
-$pagina_subgrupos_idx = 66; // Página para subgrupos
+$pagina_subgrupos_idx = 566; // Página para subgrupos
 
 header('Content-Type: application/json; charset=utf-8');
 

@@ -404,7 +404,7 @@ function ctacteSaldosProveedores($conexion, $empresa_id, array $filtros = [])
 }
 
 /** Cabecera mínima del proveedor (nombre, CUIT, condición fiscal vigente). */
-function ctacteDatosProveedor($conexion, $entidad_id)
+function ctacteDatosProveedor($conexion, $entidad_id, $empresa_id = 0)
 {
     $sql = "SELECT e.entidad_id, e.entidad_nombre, e.entidad_fantasia, e.cuit, IF(" . ent_sql_tiene_rol('e.entidad_id', 'PRO') . ", 1, 0) AS es_proveedor,
                    cf.condicion_fiscal
@@ -421,8 +421,9 @@ function ctacteDatosProveedor($conexion, $entidad_id)
                         LIMIT 1
                    )
             LEFT JOIN gestion__condiciones_fiscales cf ON cf.condicion_fiscal_id = ecf.condicion_fiscal_id
-            WHERE e.entidad_id = ?";
-    $fila = ctacteFetchAll($conexion, $sql, 'i', [intval($entidad_id)])[0] ?? null;
+            WHERE e.entidad_id = ? AND (? = 0 OR e.empresa_id = ?)";
+    $empresa_id = intval($empresa_id);
+    $fila = ctacteFetchAll($conexion, $sql, 'iii', [intval($entidad_id), $empresa_id, $empresa_id])[0] ?? null;
     if ($fila) {
         $fila['entidad_id'] = intval($fila['entidad_id']);
     }
@@ -430,7 +431,7 @@ function ctacteDatosProveedor($conexion, $entidad_id)
 }
 
 /** Búsqueda de proveedores para autocompletar o filtros. */
-function ctacteBuscarProveedores($conexion, $texto, $limite = 30)
+function ctacteBuscarProveedores($conexion, $empresa_id, $texto, $limite = 30)
 {
     $texto = trim((string) $texto);
     $like = '%' . $texto . '%';
@@ -438,13 +439,15 @@ function ctacteBuscarProveedores($conexion, $texto, $limite = 30)
 
     $sql = "SELECT entidad_id, entidad_nombre, entidad_fantasia, cuit
             FROM gestion__entidades
-            WHERE tabla_estado_registro_id IN (1, 2)
+            WHERE empresa_id = ?
+              AND tabla_estado_registro_id IN (1, 2)
               AND " . ent_sql_tiene_rol('gestion__entidades.entidad_id', 'PRO') . "
               AND (entidad_nombre LIKE ? OR entidad_fantasia LIKE ? OR CAST(cuit AS CHAR) LIKE ?)
             ORDER BY entidad_nombre LIMIT $limite";
 
     $stmt = mysqli_prepare($conexion, $sql);
-    mysqli_stmt_bind_param($stmt, "sss", $like, $like, $like);
+    $empresa_id = intval($empresa_id);
+    mysqli_stmt_bind_param($stmt, "isss", $empresa_id, $like, $like, $like);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $lista = [];

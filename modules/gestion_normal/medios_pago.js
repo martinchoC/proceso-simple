@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // Empresa activa
-    const pagina_idx = (typeof window.PAGINA_ID !== 'undefined' && window.PAGINA_ID) ? window.PAGINA_ID : 120;
+    const pagina_idx = (typeof window.PAGINA_ID !== 'undefined' && window.PAGINA_ID) ? window.PAGINA_ID : 620;
 
     let tabla;
     let currentPage = 0;

@@ -1374,7 +1374,7 @@ $(document).ready(function () {
         cargarCombosFormulario();
         cargarClientesYSucursales();
 
-        $('#f_emision').val(new Date().toISOString().split('T')[0]);
+        $('#f_emision').val(Fmt.hoyISO());
 
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
         modal.show();
@@ -1570,7 +1570,7 @@ $(document).ready(function () {
         $('#facturar_venta_remito_id').val(remitoId);
         resetFormularioFacturar(false);
         $('#facturarRemitoInfo').html('Generando factura para el remito <strong>#' + (comprobanteNro || remitoId) + '</strong>. Las líneas ya vienen con la cantidad pendiente cargada — se pueden ajustar antes de guardar.');
-        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(new Date().toISOString().slice(0, 10));
+        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(Fmt.hoyISO());
         lineasParaFacturar = [];
         renderFacturarTotales();
 
@@ -1593,7 +1593,7 @@ $(document).ready(function () {
     // facturó en partes) — con sus propios botones de acción por estado, para poder
     // confirmarlas/verlas/eliminarlas sin salir de acá.
     function cargarFacturasDeRemito(remitoId) {
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'facturas_de_remito', empresa_idx: empresa_idx, pagina_idx: 56, venta_remito_id: remitoId }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'facturas_de_remito', empresa_idx: empresa_idx, pagina_idx: 556, venta_remito_id: remitoId }, function (rows) {
             renderFacturasDeRemito(rows);
         });
     }
@@ -1656,7 +1656,7 @@ $(document).ready(function () {
         }
 
         function enviar(mediosContado) {
-            var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 56 };
+            var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 556 };
             if (mediosContado) datos.medios_contado = JSON.stringify(mediosContado);
             $.post('ventas_facturas_ajax.php', datos, function (res) {
                 if (res && res.success) {
@@ -1669,7 +1669,8 @@ $(document).ready(function () {
                         renderLineasFacturar(pendingRows);
                     });
                 } else {
-                    Swal.fire('Error', (res && res.error) || 'No se pudo ejecutar la acción.', 'error');
+                    // El rechazo de ARCA viene en renglones (último autorizado, esta factura, motivo)
+                    Swal.fire({ icon: 'error', title: accionJs === 'aprobada' ? 'No se pudo aprobar la factura' : 'Error', text: (res && res.error) || 'No se pudo ejecutar la acción.', width: accionJs === 'aprobada' ? 640 : undefined, didOpen: function (p) { var h = p.querySelector('.swal2-html-container'); if (h) { h.style.whiteSpace = 'pre-line'; if (h.textContent.indexOf('\n') >= 0) h.style.textAlign = 'left'; } } });
                 }
             }, 'json').fail(function () { Swal.fire('Error', 'No se pudo ejecutar la acción.', 'error'); });
         }
@@ -1703,7 +1704,7 @@ $(document).ready(function () {
     // verla ahí mismo — nunca se sale de ventas_remitos.php. soloVisualizar deja todo deshabilitado.
     function cargarFacturaEnPestana(facturaId, soloVisualizar) {
         var remitoId = $('#facturar_venta_remito_id').val();
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener', venta_factura_id: facturaId, empresa_idx: empresa_idx, pagina_idx: 56 }, function (res) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener', venta_factura_id: facturaId, empresa_idx: empresa_idx, pagina_idx: 556 }, function (res) {
             if (!res || !res.success || !res.data) { Swal.fire('Error', (res && res.error) || 'No se pudo obtener la factura.', 'error'); return; }
             var f = res.data;
             facturaEnEdicionId = facturaId;
@@ -1870,7 +1871,43 @@ $(document).ready(function () {
         recalcularFilaFacturar($(this).closest('tr'));
     });
 
+    // Percepciones (IIBB / IVA): vista previa del servidor (calcular_percepciones, no graba), igual que en
+    // ventas_facturas.js. Al guardar, el servidor las vuelve a calcular y las graba.
+    var percepcionesFacturar = [];
+    var percepcionesFacturarAvisos = [];
+    var timerPercepcionesFacturar = null;
+    var seqPercepcionesFacturar = 0;
+    function pedirPercepcionesFacturar() {
+        clearTimeout(timerPercepcionesFacturar);
+        var seq = ++seqPercepcionesFacturar;
+        var tipo = $('#facturar_comprobante_tipo_id').val();
+        if (!lineasParaFacturar.length || esConsumidorFinal || !clienteActualId || !tipo) {
+            percepcionesFacturar = []; percepcionesFacturarAvisos = [];
+            pintarFacturarTotales();
+            return;
+        }
+        timerPercepcionesFacturar = setTimeout(function () {
+            $.ajax({ url: 'ventas_facturas_ajax.php', type: 'POST', dataType: 'json', data: {
+                accion: 'calcular_percepciones', empresa_idx: empresa_idx, pagina_idx: 556,
+                entidad_id: clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
+                sucursal_id: $('#facturar_punto_venta_id option:selected').data('sucursal-id') || '',
+                comprobante_tipo_id: tipo, f_emision: Fmt.hoyISO(),
+                detalles: JSON.stringify(lineasParaFacturar)
+            } }).done(function (r) {
+                if (seq !== seqPercepcionesFacturar) return;   // llegó tarde: ya se pidió otra
+                percepcionesFacturar = (r && r.percepciones) || [];
+                percepcionesFacturarAvisos = (r && r.avisos) || [];
+                pintarFacturarTotales();
+            });
+        }, 400);
+    }
+
     function renderFacturarTotales() {
+        pintarFacturarTotales();
+        pedirPercepcionesFacturar();
+    }
+
+    function pintarFacturarTotales() {
         var bruto = 0, descuento = 0, neto = 0, iva = 0;
         var fiscal = parseInt($('#facturar_comprobante_tipo_id option:selected').data('fiscal') || 0, 10) > 0;
         lineasParaFacturar.forEach(function (d) {
@@ -1883,15 +1920,24 @@ $(document).ready(function () {
         // Igual que el servidor (vfCalcularDetallesFactura): neto e IVA en centavos y total = su suma
         var r2 = function (v) { return Math.round((v + Number.EPSILON) * 100) / 100; };
         bruto = r2(bruto); neto = r2(neto); descuento = r2(bruto - neto); iva = r2(iva);
-        var total = r2(neto + iva);
+        var esc = function (t) { return $('<div>').text(t == null ? '' : t).html(); };
+        var percepcion = 0, filasPerc = '';
+        (percepcionesFacturar || []).forEach(function (p) {
+            var imp = parseFloat(p.importe) || 0;
+            percepcion += imp;
+            if (imp > 0) filasPerc += '<div class="facturar-totales-item"><span class="label">' + esc(p.leyenda || ('Percepción IIBB ' + (p.jurisdiccion_nombre || ''))) + ' ' + formatMoneda(parseFloat(p.alicuota) || 0) + '%</span><span class="valor">$' + formatMoneda(imp) + '</span></div>';
+        });
+        var total = r2(neto + iva + percepcion);
         $('#facturarTotales').html(
             '<div class="facturar-totales-box">' +
                 '<div class="facturar-totales-item"><span class="label">Bruto</span><span class="valor">$' + formatMoneda(bruto) + '</span></div>' +
                 '<div class="facturar-totales-item"><span class="label">Descuento</span><span class="valor">$' + formatMoneda(descuento) + '</span></div>' +
                 '<div class="facturar-totales-item"><span class="label">Neto</span><span class="valor">$' + formatMoneda(neto) + '</span></div>' +
                 '<div class="facturar-totales-item"><span class="label">IVA</span><span class="valor">$' + formatMoneda(iva) + '</span></div>' +
+                filasPerc +
                 '<div class="facturar-totales-item facturar-totales-final"><span class="label">Total</span><span class="valor">$' + formatMoneda(total) + '</span></div>' +
-            '</div>'
+            '</div>' +
+            ((percepcionesFacturarAvisos || []).length ? '<div class="small text-warning mt-1"><i class="fas fa-exclamation-triangle me-1"></i>' + percepcionesFacturarAvisos.map(esc).join('<br>') + '</div>' : '')
         );
     }
 
@@ -1901,7 +1947,7 @@ $(document).ready(function () {
         var puntoVenta = $('#facturar_punto_venta_id').val();
         var tipoComprobante = $('#facturar_comprobante_tipo_id').val();
         var fVto = $('#facturar_f_vto').val();
-        var fEmision = new Date().toISOString().slice(0, 10);
+        var fEmision = Fmt.hoyISO();
 
         if (!puntoVenta || !tipoComprobante) { Swal.fire('Faltan datos', 'Elegí punto de venta y tipo de comprobante.', 'warning'); return; }
         if (!lineasParaFacturar.length) { Swal.fire('Sin líneas', 'No hay líneas con cantidad para facturar.', 'warning'); return; }
@@ -1911,7 +1957,7 @@ $(document).ready(function () {
         var remitoId = $('#facturar_venta_remito_id').val();
         var sucursalId = $('#facturar_punto_venta_id option:selected').data('sucursal-id') || '';
         var payload = {
-            accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 56,
+            accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 556,
             // Consumidor final: entidad_id vacío + nombre del remito; el servidor fuerza contado.
             entidad_id: esConsumidorFinal ? '' : clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
             consumidor_final_nombre: esConsumidorFinal ? $.trim($('#consumidor_final_nombre').val()) : '',

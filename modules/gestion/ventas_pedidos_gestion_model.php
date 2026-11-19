@@ -152,7 +152,7 @@ function obtenerPedidosGestion($conexion, $empresa_idx, $pagina_id)
     sincronizarPedidosCompletosGestion($conexion, $empresa_idx);
     $tabla_id = obtenerTablaOrigenPorPagina($conexion, intval($pagina_id));
 
-    $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision, vp.f_entrega_estimada,
+    $sql = "SELECT vp.venta_pedido_id, vp.comprobante_nro, vp.f_emision, vp.f_confirmacion, vp.f_entrega_estimada,
                    vp.total, vp.tabla_estado_registro_id, vp.entidad_id, vp.sucursal_id, vp.punto_venta_id,
                    ter.tabla_estado_registro as estado_registro, er.codigo_estandar,
                    c.color_clase, c.bg_clase, c.text_clase,

@@ -104,7 +104,7 @@ $(function () {
                 $('#usa_escala').prop('checked', parseInt(datos.usa_escala) === 1);
                 (datos.escalas || []).forEach(filaTramo);
             } else {
-                $('#f_desde').val(new Date().toISOString().substr(0, 10));
+                $('#f_desde').val(Fmt.hoyISO());
                 $('#minimo_no_sujeto, #minimo_retencion').val(0);
             }
             alternarIibb();

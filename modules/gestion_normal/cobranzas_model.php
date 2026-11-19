@@ -747,10 +747,6 @@ function cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $u
         $total_debe += $monto_linea;
     }
 
-    if ($total_debe <= 0.0001) {
-        return ['success' => false, 'error' => 'Recibo en $0 o sin medios: no requiere asiento contable'];
-    }
-
     $es_devolucion_proveedor = intval($cab['es_proveedor'] ?? 0) === 1 && intval($cab['es_cliente'] ?? 0) !== 1;
     if ($es_devolucion_proveedor) {
         $cta_cliente_id = intval($cab['cont_cuenta_id_proveedor'] ?? 0);
@@ -766,15 +762,67 @@ function cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $u
         $cta_cli_valida = tesoreriaResolverCuentaContable($conexion, $empresa_id, 'Deudores por Ventas', $cta_cliente_id);
     }
 
-    $lineas_asiento[] = [
-        'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
-        'debe'        => 0.0,
-        'haber'       => $total_debe,
-        'descripcion' => "Cancelación cuenta corriente cliente " . ($cab['entidad_nombre'] ?? '')
-    ];
+    if ($total_debe <= 0.0001) {
+        // Recibo en $0: si documenta compensaciones (NC / saldo a favor contra factura),
+        // genera asiento contable de compensación en la cuenta corriente (Debe = Haber, efecto neto $0).
+        if (!cobImputacionesTienenDocumento($conexion)) {
+            return ['success' => false, 'error' => 'Recibo en $0 o sin medios: no requiere asiento contable'];
+        }
+        $sql_comp = "SELECT ci.importe_imputado, ci.tipo_cambio,
+                            cto.codigo AS orig_codigo, co.comprobante_pv AS orig_pv, co.comprobante_nro AS orig_nro,
+                            ctd.codigo AS dest_codigo, cd.comprobante_pv AS dest_pv, cd.comprobante_nro AS dest_nro
+                     FROM gestion__comprobantes_imputaciones ci
+                     JOIN gestion__comprobantes co ON co.comprobante_id = ci.comp_origen_id
+                     JOIN gestion__comprobantes_tipos cto ON cto.comprobante_tipo_id = co.comprobante_tipo_id
+                     JOIN gestion__comprobantes cd ON cd.comprobante_id = ci.comp_destino_id
+                     JOIN gestion__comprobantes_tipos ctd ON ctd.comprobante_tipo_id = cd.comprobante_tipo_id
+                     WHERE ci.documento_comprobante_id = ? AND ci.empresa_id = ? AND ci.tabla_estado_registro_id = 5
+                     ORDER BY ci.imputacion_id ASC";
+        $stmt_comp = mysqli_prepare($conexion, $sql_comp);
+        if (!$stmt_comp) {
+            return ['success' => false, 'error' => 'Error consultando compensaciones del recibo en $0'];
+        }
+        mysqli_stmt_bind_param($stmt_comp, "ii", $comp_origen_id, $empresa_id);
+        mysqli_stmt_execute($stmt_comp);
+        $res_comp = mysqli_stmt_get_result($stmt_comp);
+        $total_comp = 0.0;
+        while ($ci = mysqli_fetch_assoc($res_comp)) {
+            $tc = floatval($ci['tipo_cambio'] ?? 1.0);
+            if ($tc <= 0) $tc = 1.0;
+            $monto_c = round(floatval($ci['importe_imputado']) * $tc, 2);
+            if ($monto_c <= 0) continue;
+            $nro_o = trim($ci['orig_codigo'] . ' ' . emp_numero_comprobante($conexion, $empresa_id, intval($ci['orig_pv']), intval($ci['orig_nro'])));
+            $nro_d = trim($ci['dest_codigo'] . ' ' . emp_numero_comprobante($conexion, $empresa_id, intval($ci['dest_pv']), intval($ci['dest_nro'])));
+            $lineas_asiento[] = [
+                'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
+                'debe'        => $monto_c,
+                'haber'       => 0.0,
+                'descripcion' => "Compensación " . $nro_o . " - " . ($cab['entidad_nombre'] ?? '')
+            ];
+            $lineas_asiento[] = [
+                'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
+                'debe'        => 0.0,
+                'haber'       => $monto_c,
+                'descripcion' => "Cancelación " . $nro_d . " - " . ($cab['entidad_nombre'] ?? '')
+            ];
+            $total_comp = round($total_comp + $monto_c, 2);
+        }
+        mysqli_stmt_close($stmt_comp);
+
+        if ($total_comp <= 0.0001) {
+            return ['success' => false, 'error' => 'Recibo en $0 sin compensaciones: no requiere asiento contable'];
+        }
+    } else {
+        $lineas_asiento[] = [
+            'cuenta_id'   => $cta_cli_valida['cont_cuenta_id'],
+            'debe'        => 0.0,
+            'haber'       => $total_debe,
+            'descripcion' => "Cancelación cuenta corriente cliente " . ($cab['entidad_nombre'] ?? '')
+        ];
+    }
 
     $nro_rec = emp_numero_comprobante($conexion, $empresa_id, intval($cab['comprobante_pv']), intval($cab['comprobante_nro']));
-    $descripcion_asiento = "Recibo Cobranza " . $nro_rec . " - " . ($cab['entidad_nombre'] ?? '');
+    $descripcion_asiento = ($total_debe <= 0.0001 ? "Compensación Recibo " : "Recibo Cobranza ") . $nro_rec . " - " . ($cab['entidad_nombre'] ?? '');
 
     $asiento_id = tesoreriaGenerarAsiento($conexion, [
         'empresa_id'           => $empresa_id,
@@ -819,7 +867,17 @@ function guardarCobranzaBorrador($conexion, $data)
     if ($empresa_id <= 0 || ($entidad_id <= 0 && !$es_consumidor_final)) {
         throw new Exception("Debe seleccionar un cliente y empresa válidos.");
     }
-    if (empty($medios) && !$es_recibo_cero) {
+
+    // Notas de crédito del cliente que compensan facturas en este recibo: cada una se reparte entre las
+    // facturas imputadas y lo que cubre deja de imputarse con el dinero del recibo (cobDistribuirNotasCredito).
+    $aplicaciones_nc = [];
+    if (!empty($data['notas_credito']) && is_array($data['notas_credito'])) {
+        $dist = cobDistribuirNotasCredito($conexion, $empresa_id, $entidad_id, $data['notas_credito'], $imputaciones);
+        $aplicaciones_nc = $dist['aplicaciones'];
+        $imputaciones = $dist['imputaciones'];
+    }
+
+    if (empty($medios) && !$es_recibo_cero && empty($aplicaciones_nc)) {
         throw new Exception("Debe agregar al menos un medio de cobro.");
     }
     // Consumidor final: entidad_id NULL en gestion__cobranzas (FK a entidades); en gestion__comprobantes queda 0
@@ -857,7 +915,7 @@ function guardarCobranzaBorrador($conexion, $data)
     }
 
     // Determinar punto de venta: respetar el punto de venta de la boca elegido por el usuario
-    $comprobante_pv = intval($data['comprobante_pv'] ?? 0);
+    $comprobante_pv = intval($data['comprobante_pv'] ?? $data['punto_venta_id'] ?? 0);
     if ($comprobante_pv <= 0) {
         $pvs_disponibles = obtenerPuntosVentaCobranza($conexion, $empresa_id, 105);
         if (!empty($pvs_disponibles)) {
@@ -904,6 +962,9 @@ function guardarCobranzaBorrador($conexion, $data)
         $cid = intval($res_cid->fetch_assoc()['comprobante_id'] ?? 0);
         if ($cid > 0) {
             $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $cid AND tabla_estado_registro_id = 3");
+            if (cobImputacionesTienenDocumento($conexion)) {
+                $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE documento_comprobante_id = $cid AND tabla_estado_registro_id = 3");
+            }
         }
     } else {
         // INSERT nuevo Borrador
@@ -1079,7 +1140,140 @@ function guardarCobranzaBorrador($conexion, $data)
         mysqli_stmt_close($stmt_ii);
     }
 
+    // Aplicaciones de NC en Borrador (3): NC (origen) -> factura (destino), documentadas por este recibo.
+    // No mueven saldos hasta confirmar (confirmarCobranza las aplica con tesoreriaAplicarNotaCredito).
+    if (!empty($aplicaciones_nc) && $comprobante_id > 0) {
+        $stmt_nc = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_imputaciones (
+                            empresa_id, comp_origen_id, comp_destino_id, f_imputacion,
+                            importe_imputado, moneda_origen_id, tipo_cambio, importe_origen,
+                            tabla_estado_registro_id, usuario_id, documento_comprobante_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 3, ?, ?)");
+        foreach ($aplicaciones_nc as $a) {
+            $nc_id = intval($a['nc_comprobante_id']);
+            $dest_id = intval($a['comprobante_destino_id']);
+            $monto = floatval($a['importe']);
+            mysqli_stmt_bind_param(
+                $stmt_nc, "iiisdiddii",
+                $empresa_id, $nc_id, $dest_id, $f_emision,
+                $monto, $moneda_id, $tipo_cambio, $monto,
+                $usuario_id, $comprobante_id
+            );
+            if (!mysqli_stmt_execute($stmt_nc)) {
+                throw new Exception('No se pudo guardar la nota de crédito del recibo: ' . mysqli_stmt_error($stmt_nc));
+            }
+        }
+        mysqli_stmt_close($stmt_nc);
+    }
+
     return $cobranza_id;
+}
+
+/**
+ * Notas de crédito del cliente con saldo que se pueden compensar en un recibo (confirmadas o canceladas en parte,
+ * de un tipo que cancela algún comprobante según gestion__comprobantes_tipos_cancelaciones).
+ */
+function cobNotasCreditoCliente($conexion, $empresa_id, $entidad_id)
+{
+    $empresa_id = intval($empresa_id);
+    $entidad_id = intval($entidad_id);
+    if ($empresa_id <= 0 || $entidad_id <= 0 || !cobImputacionesTienenDocumento($conexion)) return [];
+
+    $sql = "SELECT c.comprobante_id, ct.codigo AS comprobante_codigo, ct.comprobante_tipo,
+                   " . emp_sql_pv_mostrar('c.comprobante_pv', 'c.empresa_id', 'c.tabla_origen_id') . " AS comprobante_pv,
+                   c.comprobante_nro, c.f_emision, c.f_vto, c.importe_total, c.importe_pendiente
+            FROM gestion__comprobantes c
+            JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = c.comprobante_tipo_id
+            WHERE c.empresa_id = ? AND c.entidad_id = ?
+              AND ct.signo = '-'
+              AND c.tabla_estado_registro_id IN (5, 39)
+              AND c.importe_pendiente > 0.001
+              AND EXISTS (SELECT 1 FROM gestion__comprobantes_tipos_cancelaciones tc
+                          WHERE tc.comprobante_tipo_origen_id = c.comprobante_tipo_id
+                            AND tc.empresa_id = c.empresa_id AND tc.tabla_estado_registro_id = 1)
+            ORDER BY c.f_emision ASC, c.comprobante_id ASC";
+    $stmt = mysqli_prepare($conexion, $sql);
+    if (!$stmt) {
+        error_log("Error en cobNotasCreditoCliente: " . mysqli_error($conexion));
+        return [];
+    }
+    mysqli_stmt_bind_param($stmt, "ii", $empresa_id, $entidad_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $lista = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $r['comprobante_id'] = intval($r['comprobante_id']);
+        $lista[] = $r;
+    }
+    mysqli_stmt_close($stmt);
+    return $lista;
+}
+
+/**
+ * Reparte las NC elegidas en el recibo entre las facturas imputadas (en el orden en que vienen), solo donde la
+ * NC puede cancelar esa factura (tesoreriaNotasCreditoDisponibles: misma entidad, moneda y tipo compatible).
+ * $notas: [['nc_comprobante_id' => int, 'importe' => float], ...]
+ * $imputaciones: lo que el usuario cancela de cada factura (dinero + NC).
+ * Devuelve ['aplicaciones' => NC -> factura, 'imputaciones' => lo que queda para el dinero del recibo].
+ */
+function cobDistribuirNotasCredito($conexion, $empresa_id, $entidad_id, array $notas, array $imputaciones)
+{
+    if (!cobImputacionesTienenDocumento($conexion)) {
+        throw new Exception('Falta aplicar el script 20261103_imputaciones_documento_recibo_01.sql para compensar notas de crédito en el recibo.');
+    }
+    require_once __DIR__ . '/tesoreria_core_model.php';
+
+    // Saldo a cancelar por factura, en el orden de la pantalla
+    $facturas = [];
+    foreach ($imputaciones as $imp) {
+        $dest = intval($imp['comprobante_destino_id'] ?? 0);
+        $monto = round(floatval($imp['importe_imputado'] ?? 0), 2);
+        if ($dest > 0 && $monto > 0) {
+            $facturas[$dest] = round(($facturas[$dest] ?? 0) + $monto, 2);
+        }
+    }
+
+    $aplicaciones = [];
+    $disponibles_cache = [];
+    foreach ($notas as $n) {
+        $nc_id = intval($n['nc_comprobante_id'] ?? 0);
+        $resto = round(floatval($n['importe'] ?? 0), 2);
+        if ($nc_id <= 0 || $resto <= 0) continue;
+
+        $saldo_nc = null;
+        foreach ($facturas as $dest => $pendiente_fac) {
+            if ($resto <= 0.001) break;
+            if ($pendiente_fac <= 0.001) continue;
+            if (!isset($disponibles_cache[$dest])) {
+                $disponibles_cache[$dest] = [];
+                foreach (tesoreriaNotasCreditoDisponibles($conexion, $empresa_id, $dest) as $d) {
+                    $disponibles_cache[$dest][intval($d['comprobante_id'])] = floatval($d['importe_pendiente']);
+                }
+            }
+            if (!isset($disponibles_cache[$dest][$nc_id])) continue;
+            if ($saldo_nc === null) $saldo_nc = $disponibles_cache[$dest][$nc_id];
+            if ($resto > $saldo_nc + 0.001) {
+                throw new Exception('El importe de la nota de crédito (' . fmt_numero($resto, 2) . ') supera su saldo (' . fmt_numero($saldo_nc, 2) . ').');
+            }
+            $a = round(min($resto, $pendiente_fac), 2);
+            $aplicaciones[] = ['nc_comprobante_id' => $nc_id, 'comprobante_destino_id' => $dest, 'importe' => $a];
+            $facturas[$dest] = round($pendiente_fac - $a, 2);
+            $resto = round($resto - $a, 2);
+        }
+        if ($resto > 0.001) {
+            throw new Exception('Una nota de crédito no alcanza a compensarse con las facturas elegidas (sobran $' . fmt_numero($resto, 2)
+                . '): imputá más facturas compatibles o bajá el importe de la nota.');
+        }
+    }
+
+    // Lo que no cubren las NC lo cancela el dinero del recibo
+    $restantes = [];
+    foreach ($facturas as $dest => $monto) {
+        if ($monto > 0.001) {
+            $restantes[] = ['comprobante_destino_id' => $dest, 'importe_imputado' => $monto];
+        }
+    }
+
+    return ['aplicaciones' => $aplicaciones, 'imputaciones' => $restantes];
 }
 
 /**
@@ -1203,6 +1397,48 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
             $total_imputado += $imp_monto;
         }
 
+        // 3b. Notas de crédito compensadas en el recibo (guardadas en Borrador por guardarCobranzaBorrador):
+        // se aplican NC -> factura con tesoreriaAplicarNotaCredito (valida saldos y recalcula estados) y quedan
+        // documentadas por este recibo; anularlo las deshace (anularCobranza, paso 2b).
+        $tiene_compensaciones = false;
+        if (cobImputacionesTienenDocumento($conexion)) {
+            $stmt_nc = mysqli_prepare($conexion, "SELECT imputacion_id, comp_origen_id, comp_destino_id, importe_imputado
+                                                  FROM gestion__comprobantes_imputaciones
+                                                  WHERE documento_comprobante_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 3
+                                                  ORDER BY imputacion_id ASC");
+            mysqli_stmt_bind_param($stmt_nc, "ii", $comp_origen_id, $empresa_id);
+            mysqli_stmt_execute($stmt_nc);
+            $res_nc = mysqli_stmt_get_result($stmt_nc);
+            $notas_borrador = [];
+            while ($r = mysqli_fetch_assoc($res_nc)) $notas_borrador[] = $r;
+            mysqli_stmt_close($stmt_nc);
+
+            if (!empty($notas_borrador)) {
+                $tiene_compensaciones = true;
+                $stmt_del = mysqli_prepare($conexion, "DELETE FROM gestion__comprobantes_imputaciones WHERE imputacion_id = ? AND tabla_estado_registro_id = 3");
+                $stmt_doc = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_imputaciones SET documento_comprobante_id = ? WHERE imputacion_id = ? AND empresa_id = ?");
+                foreach ($notas_borrador as $nb) {
+                    $borrador_id = intval($nb['imputacion_id']);
+                    mysqli_stmt_bind_param($stmt_del, "i", $borrador_id);
+                    mysqli_stmt_execute($stmt_del);
+
+                    $pedido = round(floatval($nb['importe_imputado']), 2);
+                    $nueva_imp_id = null;
+                    $aplicado = tesoreriaAplicarNotaCredito($conexion, $empresa_id, intval($nb['comp_origen_id']), intval($nb['comp_destino_id']),
+                                                            $pedido, $usuario_id, $nueva_imp_id);
+                    if (abs($aplicado - $pedido) > 0.001 || !$nueva_imp_id) {
+                        throw new Exception('No se pudo aplicar la nota de crédito por $' . fmt_numero($pedido, 2) . ': revisá los saldos y volvé a guardar el recibo.');
+                    }
+                    mysqli_stmt_bind_param($stmt_doc, "iii", $comp_origen_id, $nueva_imp_id, $empresa_id);
+                    if (!mysqli_stmt_execute($stmt_doc)) {
+                        throw new Exception('No se pudo ligar la nota de crédito al recibo: ' . mysqli_stmt_error($stmt_doc));
+                    }
+                }
+                mysqli_stmt_close($stmt_del);
+                mysqli_stmt_close($stmt_doc);
+            }
+        }
+
         // Remanente queda como saldo a cuenta / anticipo en el RCX (D6)
         $saldo_rcx = max(0.0, round($importe_total - $total_imputado, 2));
 
@@ -1323,8 +1559,8 @@ function confirmarCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $e
         }
         unset($m);
 
-        // 6. Generar Asiento Contable Automático (D27 / D36 / Anexo D); un recibo en $0 no genera asiento
-        if ($importe_total > 0.0001) {
+        // 6. Generar Asiento Contable Automático (D27 / D36 / Anexo D); también en recibos en $0 con compensación
+        if ($importe_total > 0.0001 || $tiene_compensaciones) {
             cobranzaGenerarAsientoContable($conexion, $cobranza_id, $empresa_id, $usuario_id);
         }
 
@@ -1425,19 +1661,24 @@ function anularCobranza($conexion, $cobranza_id, $empresa_id, $usuario_id, $moti
         }
         mysqli_stmt_close($stmt_im);
 
-        // 2b. Recibo en $0 de aplicación de NC: se deshacen las aplicaciones que documenta (la factura y la NC
-        // recuperan su saldo; tesoreriaAnularImputacion recalcula el destino, la NC se recalcula acá)
+        // 2b. Recibo en $0 de compensación (NC o anticipo): se deshacen las aplicaciones que documenta (la factura y
+        // el crédito recuperan su saldo; tesoreriaAnularImputacion recalcula el destino, la NC se recalcula acá)
         if (cobImputacionesTienenDocumento($conexion)) {
-            $stmt_dm = mysqli_prepare($conexion, "SELECT imputacion_id, comp_origen_id FROM gestion__comprobantes_imputaciones
-                                                  WHERE documento_comprobante_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 5
-                                                  ORDER BY comp_origen_id, imputacion_id");
+            $stmt_dm = mysqli_prepare($conexion, "SELECT ci.imputacion_id, ci.comp_origen_id, ct.codigo AS orig_codigo
+                                                  FROM gestion__comprobantes_imputaciones ci
+                                                  JOIN gestion__comprobantes co ON co.comprobante_id = ci.comp_origen_id
+                                                  JOIN gestion__comprobantes_tipos ct ON ct.comprobante_tipo_id = co.comprobante_tipo_id
+                                                  WHERE ci.documento_comprobante_id = ? AND ci.empresa_id = ? AND ci.tabla_estado_registro_id = 5
+                                                  ORDER BY ci.comp_origen_id, ci.imputacion_id");
             mysqli_stmt_bind_param($stmt_dm, "ii", $comp_id, $empresa_id);
             mysqli_stmt_execute($stmt_dm);
             $res_dm = mysqli_stmt_get_result($stmt_dm);
             $notas = [];
             while ($imp = mysqli_fetch_assoc($res_dm)) {
                 tesoreriaAnularImputacion($conexion, intval($imp['imputacion_id']), $usuario_id, $motivo);
-                $notas[intval($imp['comp_origen_id'])] = true;
+                if (($imp['orig_codigo'] ?? '') !== 'RCX') {
+                    $notas[intval($imp['comp_origen_id'])] = true;
+                }
             }
             mysqli_stmt_close($stmt_dm);
             foreach (array_keys($notas) as $nc_id) {
@@ -1510,6 +1751,9 @@ function eliminarCobranzaBorrador($conexion, $cobranza_id, $empresa_id, $usuario
         $conexion->query("DELETE FROM gestion__cobranzas_medios WHERE cobranza_id = $cobranza_id");
         if ($comp_id > 0) {
             $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE comp_origen_id = $comp_id");
+            if (cobImputacionesTienenDocumento($conexion)) {
+                $conexion->query("DELETE FROM gestion__comprobantes_imputaciones WHERE documento_comprobante_id = $comp_id AND tabla_estado_registro_id = 3");
+            }
             $conexion->query("DELETE FROM gestion__comprobantes WHERE comprobante_id = $comp_id");
         }
         $conexion->query("DELETE FROM gestion__cobranzas WHERE cobranza_id = $cobranza_id");

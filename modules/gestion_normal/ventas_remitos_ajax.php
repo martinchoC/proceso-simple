@@ -54,7 +54,7 @@ try {
             break;
 
         case 'obtener_boton_agregar':
-            $pagina_id = intval($_GET['pagina_idx'] ?? 0);
+            $pagina_id = (int)$pagina_idx; // validada por permisos_pagina_modulo()
             $boton_agregar = obtenerBotonAgregarRemito($conexion, $pagina_id);
             echo json_encode($boton_agregar, JSON_UNESCAPED_UNICODE);
             break;
@@ -72,7 +72,7 @@ try {
             $venta_remito_id = intval($_POST['venta_remito_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx_local = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_idx'] ?? 0);
+            $pagina_id = (int)$pagina_idx; // validada por permisos_pagina_modulo()
 
             // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
             permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));

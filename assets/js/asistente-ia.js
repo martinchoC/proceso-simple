@@ -160,7 +160,10 @@
                 + (p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Abrir</a>` : '');
         }
         if (p.estado === 'DESCARTADA') return '<span class="badge text-bg-secondary">Descartada</span>';
-        return `<button type="button" class="btn btn-primary btn-sm asis-confirmar" data-id="${p.propuesta_id}"><i class="bi bi-check-lg me-1"></i>Confirmar y guardar en Borrador</button>
+        const esDirecto = ['ALTA_ENTIDAD', 'CUENTAS_CONTABLES', 'TIPO_OBLIGACION', 'ASIENTO_CONTABLE', 'MOV_TESORERIA', 'IMPUTAR_SALDO_FAVOR', 'CUENTA_TESORERIA', 'CONCILIAR_BANCO'].includes(p.tipo)
+            || (p.tipo === 'RECIBO_EXTRACTO' && p.datos && p.datos.confirmar);
+        const textoBtn = esDirecto ? 'Confirmar y guardar' : 'Confirmar y guardar en Borrador';
+        return `<button type="button" class="btn btn-primary btn-sm asis-confirmar" data-id="${p.propuesta_id}"><i class="bi bi-check-lg me-1"></i>${textoBtn}</button>
                 <button type="button" class="btn btn-light btn-sm asis-descartar" data-id="${p.propuesta_id}">Descartar</button>`;
     }
 
@@ -169,15 +172,16 @@
         let cuerpo = '';
         let titulo = '';
         if (p.tipo === 'ALTA_ENTIDAD') {
-            const roles = [d.es_cliente ? 'Cliente' : null, d.es_proveedor ? 'Proveedor' : null].filter(Boolean).join(' y ');
+            const roles = [d.es_cliente ? 'Cliente' : null, d.es_proveedor ? 'Proveedor' : null, d.es_empleado ? 'Empleado / Socio' : null].filter(Boolean).join(', ');
             titulo = d.entidad_existente_id ? `Agregar rol de ${roles} a ${d.entidad_existente}` : `Alta de ${roles}`;
             const fila = (k, v) => v ? `<tr><th class="text-muted fw-normal pe-3">${k}</th><td>${esc(v)}</td></tr>` : '';
             cuerpo = `<table class="table table-sm mb-2"><tbody>
                 ${fila('Razón social', d.razon_social)}${fila('Nombre de fantasía', d.nombre_fantasia !== d.razon_social ? d.nombre_fantasia : '')}
-                ${fila('CUIT', d.cuit)}${fila('Tipo', d.tipo_persona)}${fila('Condición IVA', d.condicion_fiscal)}
+                ${fila('CUIT / CUIL', d.cuit)}${fila('Tipo', d.tipo_persona)}${fila('Condición IVA', d.condicion_fiscal)}
                 ${fila('Ingresos Brutos', [d.regimen_iibb, d.numero_iibb, d.jurisdiccion_sede].filter(Boolean).join(' · '))}
                 ${fila('Domicilio', d.domicilio)}${fila('Localidad', d.localidad)}${fila('Teléfono', d.telefono)}${fila('Email', d.email)}
                 ${fila('Condición de pago', d.condicion_pago)}${fila('Lista de precios', d.lista_precio)}
+                ${fila('Cuenta contable (EMP)', d.cuenta_emp_texto)}
             </tbody></table>`;
         } else if (p.tipo === 'COPIA_FACTURAS') {
             const pct = Number(d.incremento_pct) || 0;
@@ -204,6 +208,122 @@
                 <div class="small text-muted mb-1">Precios sin IVA ${pct ? 'con el incremento aplicado' : 'iguales a los originales'}${Number(d.redondeo) > 0.01 ? ', redondeados a ' + dinero(d.redondeo) : ''}. `
                 + `Las percepciones, si corresponden, se calculan al guardar.</div>`
                 + ((d.reemplazos || []).length ? `<div class="small text-muted mb-1">Textos: ${d.reemplazos.map((r) => `"${esc(r.buscar)}" → "${esc(r.reemplazar)}"`).join(', ')}</div>` : '');
+        } else if (p.tipo === 'CUENTAS_CONTABLES') {
+            titulo = `Alta de ${(d.cuentas || []).length} cuenta(s) en el Plan de Cuentas`;
+            const filas = (d.cuentas || []).map((c) => `<tr>
+                <td class="font-monospace">${esc(c.codigo)}</td>
+                <td>${esc(c.nombre)}</td>
+                <td>${esc(c.codigo_padre)}${c.padre_nombre ? ' · ' + esc(c.padre_nombre) : ''}</td>
+                <td>${c.es_imputable ? '<span class="badge text-bg-primary">Imputable</span>' : '<span class="badge text-bg-secondary">Suma</span>'}</td>
+            </tr>`).join('');
+            cuerpo = `<div class="table-responsive"><table class="table table-sm mb-2">
+                <thead><tr><th>Código</th><th>Nombre</th><th>Padre</th><th>Tipo</th></tr></thead>
+                <tbody>${filas}</tbody></table></div>`;
+        } else if (p.tipo === 'TIPO_OBLIGACION') {
+            titulo = `Nuevo Tipo de Obligación: ${esc(d.codigo)}`;
+            const fila = (k, v) => v ? `<tr><th class="text-muted fw-normal pe-3">${k}</th><td>${esc(v)}</td></tr>` : '';
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                ${fila('Código', d.codigo)}${fila('Nombre', d.nombre)}
+                ${fila('Clase', d.clase + ' (' + (d.comprobante_tipo_codigo || '') + ')')}
+                ${fila('Rol beneficiario', d.rol_entidad_codigo || 'Cualquiera')}
+                ${fila('Cuenta Debe', d.cuenta_debe_texto || '(se elige en cada obligación)')}
+                ${fila('Cuenta Pasivo', d.cuenta_pasivo_texto)}
+            </tbody></table>`;
+        } else if (p.tipo === 'OBLIGACION_PAGO') {
+            titulo = `${(d.obligaciones || []).length} obligación(es) de pago`;
+            const filas = (d.obligaciones || []).map((o) => `<tr>
+                <td>${esc(Fmt.fecha(o.f_emision))}</td>
+                <td>${esc(o.tipo_codigo)} · ${esc(o.tipo_nombre)}</td>
+                <td>${esc(o.entidad_nombre)}${o.cuenta_debe_texto ? `<div class="small text-muted">${esc(o.cuenta_debe_texto)}</div>` : ''}</td>
+                <td>${esc(o.descripcion)}</td>
+                <td class="text-end fw-semibold">${dinero(o.importe)}</td>
+            </tr>`).join('');
+            cuerpo = `<div class="table-responsive"><table class="table table-sm mb-2">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Beneficiario</th><th>Descripción</th><th class="text-end">Importe</th></tr></thead>
+                <tbody>${filas}</tbody>
+                <tfoot><tr><td colspan="4" class="text-end text-muted">Total</td><td class="text-end fw-bold">${dinero(d.total)}</td></tr></tfoot></table></div>`;
+        } else if (p.tipo === 'ASIENTO_CONTABLE') {
+            titulo = `Asiento contable · ${esc(Fmt.fecha(d.f_asiento))}`;
+            const filas = (d.lineas || []).map((l) => `<tr>
+                <td><span class="font-monospace">${esc(l.codigo)}</span> ${esc(l.nombre)}${l.descripcion ? `<div class="small text-muted">${esc(l.descripcion)}</div>` : ''}</td>
+                <td class="text-end">${Number(l.debe) > 0 ? dinero(l.debe) : ''}</td>
+                <td class="text-end">${Number(l.haber) > 0 ? dinero(l.haber) : ''}</td>
+            </tr>`).join('');
+            cuerpo = `<div class="mb-2"><strong>${esc(d.descripcion)}</strong></div>
+                <div class="table-responsive"><table class="table table-sm mb-2">
+                <thead><tr><th>Cuenta</th><th class="text-end">Debe</th><th class="text-end">Haber</th></tr></thead>
+                <tbody>${filas}</tbody>
+                <tfoot><tr><td class="text-end text-muted">Totales</td><td class="text-end fw-bold">${dinero(d.total)}</td><td class="text-end fw-bold">${dinero(d.total)}</td></tr></tfoot></table></div>`;
+        } else if (p.tipo === 'MOV_TESORERIA') {
+            titulo = `Movimiento de Tesorería (${esc(d.tipo)}) · ${esc(Fmt.fecha(d.f_movimiento))}`;
+            const fila = (k, v) => v ? `<tr><th class="text-muted fw-normal pe-3">${k}</th><td>${esc(v)}</td></tr>` : '';
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                ${fila('Concepto', d.concepto)}
+                ${d.tipo === 'TRANSFERENCIA'
+                    ? fila('Cuenta origen', d.cuenta_origen_nombre) + fila('Cuenta destino', d.cuenta_destino_nombre)
+                    : fila('Cuenta tesorería', d.tesoreria_cuenta_nombre) + fila('Contrapartida contable', d.contrapartida_texto)}
+                <tr><th class="text-muted fw-normal pe-3">Importe</th><td class="fw-bold">${dinero(d.importe)}</td></tr>
+            </tbody></table><div class="small text-muted">Genera movimiento en tesorería (conciliable con banco) y asiento contable automático.</div>`;
+        } else if (p.tipo === 'IMPUTAR_SALDO_FAVOR') {
+            titulo = `Imputar saldo a favor · ${esc(d.cliente_nombre)}`;
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                <tr><th class="text-muted fw-normal pe-3">Origen (saldo a favor)</th><td>${esc(d.origen_numero)} <span class="text-muted small">(${esc(Fmt.fecha(d.origen_fecha))})</span></td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Factura a cancelar</th><td>${esc(d.destino_numero)} <span class="text-muted small">(${esc(Fmt.fecha(d.destino_fecha))})</span></td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Importe</th><td class="fw-bold">${dinero(d.importe)}</td></tr>
+            </tbody></table><div class="small text-muted">Emite recibo RCX en $0 y asiento contable de compensación (sin movimiento de fondos).</div>`;
+        } else if (p.tipo === 'CUENTA_TESORERIA') {
+            titulo = `Nueva Cuenta de Tesorería (${esc(d.cuenta_tipo)})`;
+            const fila = (k, v) => v ? `<tr><th class="text-muted fw-normal pe-3">${k}</th><td>${esc(v)}</td></tr>` : '';
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                ${fila('Nombre', d.tesoreria_cuenta)}${fila('Código', d.codigo)}
+                ${fila('Cuenta contable', d.cont_cuenta_texto)}${fila('Moneda', d.moneda_texto)}
+                ${fila('Sucursal', d.sucursal_nombre)}${fila('Banco', d.banco_nombre)}
+                ${fila('Tipo bancario', d.banco_cuenta_tipo)}${fila('Número', d.numero)}${fila('CBU / CVU', d.cbu)}${fila('Alias', d.alias)}
+            </tbody></table>`;
+        } else if (p.tipo === 'ORDEN_PAGO' || p.tipo === 'COBRANZA') {
+            const esCob = p.tipo === 'COBRANZA';
+            titulo = `${esCob ? 'Cobranza (Recibo RCX)' : 'Orden de Pago'} · ${esc(esCob ? d.cliente_nombre : d.entidad_nombre)} · ${esc(Fmt.fecha(d.f_emision))}`;
+            const mFilas = (d.medios || []).map((m) => `<tr><td>${esc(m.medio_pago_nombre)}${m.cuenta_nombre ? ' · ' + esc(m.cuenta_nombre) : ''}${m.nro_operacion ? ' · Op. ' + esc(m.nro_operacion) : ''}</td><td class="text-end">${dinero(m.importe)}</td></tr>`).join('');
+            const iFilas = (d.imputaciones || []).length
+                ? (d.imputaciones || []).map((i) => `<tr><td>${esc(i.numero)}</td><td class="text-end">${dinero(i.importe_imputado)}</td></tr>`).join('')
+                : '<tr><td colspan="2" class="text-muted">Sin imputaciones (a cuenta / anticipo)</td></tr>';
+            cuerpo = `<div class="small fw-semibold mb-1">Medios de ${esCob ? 'cobro' : 'pago'}</div>
+                <table class="table table-sm mb-2"><tbody>${mFilas}</tbody><tfoot><tr><td class="text-end text-muted">Total</td><td class="text-end fw-bold">${dinero(d.total_medios)}</td></tr></tfoot></table>
+                <div class="small fw-semibold mb-1">Comprobantes imputados</div>
+                <table class="table table-sm mb-2"><tbody>${iFilas}</tbody></table>
+                ${d.observaciones ? `<div class="small text-muted">Observaciones: ${esc(d.observaciones)}</div>` : ''}`;
+        } else if (p.tipo === 'CONCILIAR_BANCO') {
+            titulo = `Conciliación Bancaria · ${esc(d.cuenta_nombre)}`;
+            const eFilas = (d.extracto || []).map((x) => `<tr><td>${esc(Fmt.fecha(x.f_movimiento))}</td><td>${esc(x.descripcion)}</td><td class="text-end">${dinero(x.importe)}</td></tr>`).join('');
+            const mFilas = (d.movimientos || []).map((m) => `<tr><td>${esc(Fmt.fecha(m.fecha))}</td><td>${esc(m.tipo)} · ${esc(m.concepto)}</td><td class="text-end">${dinero(m.importe)}</td></tr>`).join('');
+            cuerpo = `<div class="small fw-semibold mb-1">Extracto bancario</div><table class="table table-sm mb-2"><tbody>${eFilas}</tbody></table>
+                <div class="small fw-semibold mb-1">Tesorería</div><table class="table table-sm mb-2"><tbody>${mFilas}</tbody></table>`;
+        } else if (p.tipo === 'RECIBO_EXTRACTO') {
+            titulo = `Recibo desde extracto · ${esc(d.cliente_nombre)} · ${esc(Fmt.fecha(d.fecha))}`;
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                <tr><th class="text-muted fw-normal pe-3">Extracto</th><td>${esc(d.descripcion)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Medio</th><td>${esc(d.medio_nombre)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Importe</th><td class="fw-bold">${dinero(d.importe)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Modo</th><td>${d.confirmar ? 'Confirmar y conciliar en el acto' : 'Guardar en Borrador'}</td></tr>
+            </tbody></table>`;
+        } else if (p.tipo === 'FACTURA_PROVEEDOR' || p.tipo === 'ORDEN_COMPRA') {
+            const esFp = p.tipo === 'FACTURA_PROVEEDOR';
+            titulo = esFp
+                ? `Factura de Proveedor ${esc(d.comprobante_tipo)} ${String(d.comprobante_pv || 0).padStart(4, '0')}-${String(d.comprobante_nro || 0).padStart(8, '0')}`
+                : `Orden de Compra · ${esc(d.proveedor_nombre)}`;
+            const filas = (d.lineas || []).map((l) => `<tr>
+                <td>${esc(l.producto_codigo)} ${esc(l.producto_nombre)}</td>
+                <td class="text-end">${num(l.cantidad)}</td>
+                <td class="text-end">${dinero(l.precio_unitario)}</td>
+                <td class="text-end">${num(l.iva_porcentaje)} %</td>
+                <td class="text-end">${dinero(l.total_linea)}</td>
+            </tr>`).join('');
+            cuerpo = `<div class="mb-2"><strong>${esc(d.proveedor_nombre)}</strong> · ${esc(Fmt.fecha(d.f_emision))}</div>
+                <div class="table-responsive"><table class="table table-sm mb-2">
+                <thead><tr><th>Producto</th><th class="text-end">Cant.</th><th class="text-end">Precio</th><th class="text-end">IVA</th><th class="text-end">Total</th></tr></thead>
+                <tbody>${filas}</tbody>
+                <tfoot><tr><td colspan="4" class="text-end text-muted">Subtotal ${dinero(d.subtotal)} · IVA ${dinero(d.impuestos)}</td><td class="text-end fw-bold">${dinero(d.total)}</td></tr></tfoot></table></div>
+                ${d.observaciones ? `<div class="small text-muted">Observaciones: ${esc(d.observaciones)}</div>` : ''}`;
         } else {
             titulo = `${p.tipo === 'REMITO_VENTA' ? 'Remito' : 'Factura'} ${esc(d.comprobante_tipo)} · PV ${esc(d.punto_venta)}`;
             const lineas = (d.lineas || []).map((l) => `<tr>

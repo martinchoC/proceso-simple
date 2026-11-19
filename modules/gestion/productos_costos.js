@@ -406,7 +406,7 @@ $(document).ready(function () {
         $('#producto_costo_id').val('');
         $('#formProductoCostos').removeClass('was-validated');
         
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_actualizacion').val(today);
     }
 

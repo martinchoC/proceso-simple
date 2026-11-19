@@ -215,7 +215,7 @@ $(document).ready(function () {
         $('#formDelegacion').removeClass('was-validated');
         
         // Fecha desde por defecto: hoy
-        const hoy = new Date().toISOString().split('T')[0];
+        const hoy = Fmt.hoyISO();
         $('#modal_vigente_desde').val(hoy);
         $('#modal_vigente_hasta').val('');
 

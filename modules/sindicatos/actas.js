@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let estadoActaActiva = null;
 
     // Inicializar fecha
-    nuevoFInicio.value = new Date().toISOString().split('T')[0];
+    nuevoFInicio.value = Fmt.hoyISO();
 
     cargarAuxiliares();
     cargarActas();
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnNuevaActa.addEventListener('click', () => {
         formNuevaActa.reset();
-        nuevoFInicio.value = new Date().toISOString().split('T')[0];
+        nuevoFInicio.value = Fmt.hoyISO();
         modalNuevaActa.show();
     });
 

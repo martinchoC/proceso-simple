@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_idx = 71;          // ID de página en conf__paginas
+    const pagina_idx = 571;          // ID de página en conf__paginas
 
     var tabla;
     var currentPage = 0;

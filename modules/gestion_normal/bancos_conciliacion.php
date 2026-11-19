@@ -196,7 +196,7 @@ function bco_conciliacion_periodo(): string
                     <div class="modal-content border-0 shadow">
                         <div class="modal-header bg-light"><h5 class="modal-title fw-bold">Generar recibo</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-                        <form id="formRecibo" novalidate>
+                        <form id="formRecibo" class="d-flex flex-column flex-grow-1 overflow-hidden" style="min-height:0" novalidate>
                             <div class="modal-body p-3">
                                 <div id="reciboAviso"></div>
                                 <div class="ui-seccion">

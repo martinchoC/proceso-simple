@@ -1451,7 +1451,7 @@ $(document).ready(function () {
         cargarCombosFormulario();
         cargarClientesYSucursales();
 
-        $('#f_emision').val(new Date().toISOString().split('T')[0]);
+        $('#f_emision').val(Fmt.hoyISO());
 
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
         modal.show();
@@ -1651,7 +1651,7 @@ $(document).ready(function () {
         $('#facturar_venta_remito_id').val(remitoId);
         resetFormularioFacturar(false);
         $('#facturarRemitoInfo').html('Generando factura para el remito <strong>#' + (comprobanteNro || remitoId) + '</strong>. Las líneas ya vienen con la cantidad pendiente cargada — se pueden ajustar antes de guardar.');
-        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(new Date().toISOString().slice(0, 10));
+        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(Fmt.hoyISO());
         lineasParaFacturar = [];
         renderFacturarTotales();
 
@@ -1985,7 +1985,7 @@ $(document).ready(function () {
         var puntoVenta = $('#facturar_punto_venta_id').val();
         var tipoComprobante = $('#facturar_comprobante_tipo_id').val();
         var fVto = $('#facturar_f_vto').val();
-        var fEmision = new Date().toISOString().slice(0, 10);
+        var fEmision = Fmt.hoyISO();
 
         if (!puntoVenta || !tipoComprobante) { Swal.fire('Faltan datos', 'Elegí punto de venta y tipo de comprobante.', 'warning'); return; }
         if (!lineasParaFacturar.length) { Swal.fire('Sin líneas', 'No hay líneas con cantidad para facturar.', 'warning'); return; }

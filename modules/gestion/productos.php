@@ -3193,7 +3193,7 @@ $usa_marcas_comerciales = pmar_empresa_usa($conexion, $empresa_idx);
                 $('#mensajeAlta').html('¿Está seguro de dar de ALTA el producto <strong>"' + producto + '"</strong>?');
                 $('#formAltaProducto')[0].reset();
                 $('#formAltaProducto').removeClass('was-validated');
-                $('#fecha_alta').val(new Date().toISOString().split('T')[0]);
+                $('#fecha_alta').val(Fmt.hoyISO());
                 new bootstrap.Modal(document.getElementById('modalAltaProducto')).show();
                 $('#motivo_alta').focus();
             }

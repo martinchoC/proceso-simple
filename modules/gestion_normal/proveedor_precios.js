@@ -176,7 +176,8 @@ $(function () {
     /* ============================ Filtros de compatibilidad ============================ */
 
     function inicializarFiltrosCompatibilidad() {
-        $.get({ url: 'proveedor_precios_ajax.php', dataType: 'json', data: { accion: 'obtener_marcas' } })
+        // gestion_normal: la fila de compatibilidad vehicular está oculta; no se piden marcas de vehículo.
+        if (!$('#filaFiltrosCompatibilidad').hasClass('d-none')) $.get({ url: 'proveedor_precios_ajax.php', dataType: 'json', data: { accion: 'obtener_marcas' } })
             .done(function (data) {
                 var options = '<option value="">Todas las marcas</option>';
                 (Array.isArray(data) ? data : []).forEach(function (m) {
@@ -533,7 +534,7 @@ $(function () {
         $('#producto_proveedor_precio_id').val('');
         $('#entidad_id_edicion').val('');
         $('#precio_lista').val('');
-        $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
+        $('#f_vigencia_desde').val(Fmt.hoyISO());
         productoSeleccionado = null;
 
         $('#bloqueBuscarProducto').removeClass('d-none');
@@ -553,7 +554,7 @@ $(function () {
         $('#entidad_id_edicion').val(row.entidad_id);
         $('#precio_lista').val(row.precio_lista);
         $('#moneda_id').val(row.moneda_id);
-        $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
+        $('#f_vigencia_desde').val(Fmt.hoyISO());
 
         productoSeleccionado = row;
         $('#bloqueBuscarProducto').addClass('d-none');

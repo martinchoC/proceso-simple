@@ -226,7 +226,7 @@ $(document).ready(function () {
         $('#formAmbito')[0].reset();
         $('.bloque-destino').hide();
         $('.bloque-destino select').prop('required', false);
-        $('#modal_vigente_desde').val(new Date().toISOString().slice(0, 10));
+        $('#modal_vigente_desde').val(Fmt.hoyISO());
         $('#formAmbito').removeClass('was-validated');
         $('#modalAmbito').modal('show');
     });
@@ -274,7 +274,7 @@ $(document).ready(function () {
             title: `Cerrar ámbito de ${usuario}`,
             text: 'Indique la fecha de finalización del alcance:',
             input: 'date',
-            inputValue: new Date().toISOString().slice(0, 10),
+            inputValue: Fmt.hoyISO(),
             showCancelButton: true,
             confirmButtonText: 'Cerrar Ámbito',
             cancelButtonText: 'Cancelar',

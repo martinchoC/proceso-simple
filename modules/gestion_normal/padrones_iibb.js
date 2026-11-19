@@ -47,7 +47,7 @@ $(function () {
         $('#padMaxUpload').text('Tamaño máximo del servidor: ' + (r.data.max_upload || '?') + '. Si el TXT es más grande, súbalo comprimido en ZIP.');
     });
     var hoy = new Date();
-    $('#padPeriodo').val(hoy.toISOString().slice(0, 7));
+    $('#padPeriodo').val(Fmt.isoLocal(hoy).slice(0, 7));
     cargarImportaciones();
     $('#btnPadRecargar').on('click', cargarImportaciones);
 

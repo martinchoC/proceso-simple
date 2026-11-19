@@ -3193,7 +3193,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         cargarCombosFormulario();
         cargarProveedoresYSucursales(); // Cargar combo unificado
         
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_emision').val(today);
         $('#f_contabilidad').val(today); // Inicializar contabilidad con misma fecha
 
@@ -3362,7 +3362,7 @@ function cargarFacturaParaVisualizar(facturaId) {
         });
         $('#comprobante_pv').val(form.comprobante_pv || 0);
         $('#comprobante_nro').val(form.comprobante_nro || 0);
-        $('#f_emision').val(form.f_emision || new Date().toISOString().split('T')[0]);
+        $('#f_emision').val(form.f_emision || Fmt.hoyISO());
         $('#f_contabilidad').val(form.f_contabilidad || form.f_emision || '');
         $('#observaciones').val(form.observaciones || '');
 
@@ -3898,7 +3898,7 @@ function cargarFacturaParaVisualizar(facturaId) {
     $('#arca_sucursal_id').on('change', function() {
         var sucId = $(this).val();
         if (!sucId) return;
-        $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_depositos_por_sucursal', sucursal_id: sucId }, function(res) {
+        $.getJSON('facturas_proveedores_ajax.php', { accion: 'obtener_depositos', sucursal_id: sucId }, function(res) {
             actualizarDepositosArca(res || []);
         });
     });

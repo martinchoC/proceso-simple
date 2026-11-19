@@ -1,6 +1,6 @@
 $(document).ready(function () {
     const empresa_idx = window.EMPRESA_ID; // empresa activa (header1.php)
-    const pagina_id = 81;
+    const pagina_id = 581;
     
     var tabla;
     var currentPage = 0;
@@ -406,7 +406,7 @@ $(document).ready(function () {
         $('#producto_costo_id').val('');
         $('#formProductoCostos').removeClass('was-validated');
         
-        var today = new Date().toISOString().split('T')[0];
+        var today = Fmt.hoyISO();
         $('#f_actualizacion').val(today);
     }
 

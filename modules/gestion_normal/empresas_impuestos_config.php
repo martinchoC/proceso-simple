@@ -996,7 +996,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 $('#aplica_siempre').prop('checked', true);
                 $('#prioridad').val(1);
                 $('#tipo_calculo').val('manual');
-                var today = new Date().toISOString().split('T')[0];
+                var today = Fmt.hoyISO();
                 $('#f_desde').val(today);
                 
                 // Limpiar y deshabilitar la tabla de métodos en nuevo registro
@@ -1224,7 +1224,7 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                 resetModalMetodo();
                 $('#modalMetodoLabel').text('Nuevo Método de Cálculo');
                 $('#metodo_config_id').val(currentConfigId);
-                var today = new Date().toISOString().split('T')[0];
+                var today = Fmt.hoyISO();
                 $('#metodo_f_desde').val(today);
                 var modal = new bootstrap.Modal(document.getElementById('modalMetodo'));
                 modal.show();

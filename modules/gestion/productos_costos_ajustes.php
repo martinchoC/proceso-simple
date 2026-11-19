@@ -669,8 +669,8 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
             $(document).on('click', '#btnNuevo', function () {
                 resetModal();
                 $('#modalLabel').text('Nuevo Ajuste de Costo');
-                $('#f_informado').val(new Date().toISOString().split('T')[0]);
-                $('#f_vigencia_desde').val(new Date().toISOString().split('T')[0]);
+                $('#f_informado').val(Fmt.hoyISO());
+                $('#f_vigencia_desde').val(Fmt.hoyISO());
                 $('#requiere_aprobacion').prop('checked', true);
                 detalles = [];
                 nextDetalleId = 1;

@@ -1451,7 +1451,7 @@ $(document).ready(function () {
         cargarCombosFormulario();
         cargarClientesYSucursales();
 
-        $('#f_emision').val(new Date().toISOString().split('T')[0]);
+        $('#f_emision').val(Fmt.hoyISO());
 
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modalVentaRemito'), { backdrop: 'static', keyboard: false });
         modal.show();
@@ -1651,7 +1651,7 @@ $(document).ready(function () {
         $('#facturar_venta_remito_id').val(remitoId);
         resetFormularioFacturar(false);
         $('#facturarRemitoInfo').html('Generando factura para el remito <strong>#' + (comprobanteNro || remitoId) + '</strong>. Las líneas ya vienen con la cantidad pendiente cargada — se pueden ajustar antes de guardar.');
-        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(new Date().toISOString().slice(0, 10));
+        if (!$('#facturar_f_vto').val()) $('#facturar_f_vto').val(Fmt.hoyISO());
         lineasParaFacturar = [];
         renderFacturarTotales();
 
@@ -1674,7 +1674,7 @@ $(document).ready(function () {
     // facturó en partes) — con sus propios botones de acción por estado, para poder
     // confirmarlas/verlas/eliminarlas sin salir de acá.
     function cargarFacturasDeRemito(remitoId) {
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'facturas_de_remito', empresa_idx: empresa_idx, pagina_idx: 56, venta_remito_id: remitoId }, function (rows) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'facturas_de_remito', empresa_idx: empresa_idx, pagina_idx: 556, venta_remito_id: remitoId }, function (rows) {
             renderFacturasDeRemito(rows);
         });
     }
@@ -1737,7 +1737,7 @@ $(document).ready(function () {
         }
 
         function enviar(mediosContado) {
-            var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 56 };
+            var datos = { accion: 'ejecutar_accion', venta_factura_id: id, accion_js: accionJs, empresa_idx: empresa_idx, pagina_idx: 556 };
             if (mediosContado) datos.medios_contado = JSON.stringify(mediosContado);
             $.post('ventas_facturas_ajax.php', datos, function (res) {
                 if (res && res.success) {
@@ -1787,7 +1787,7 @@ $(document).ready(function () {
     // verla ahí mismo — nunca se sale de ventas_remitos.php. soloVisualizar deja todo deshabilitado.
     function cargarFacturaEnPestana(facturaId, soloVisualizar) {
         var remitoId = $('#facturar_venta_remito_id').val();
-        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener', venta_factura_id: facturaId, empresa_idx: empresa_idx, pagina_idx: 56 }, function (res) {
+        $.getJSON('ventas_facturas_ajax.php', { accion: 'obtener', venta_factura_id: facturaId, empresa_idx: empresa_idx, pagina_idx: 556 }, function (res) {
             if (!res || !res.success || !res.data) { Swal.fire('Error', (res && res.error) || 'No se pudo obtener la factura.', 'error'); return; }
             var f = res.data;
             facturaEnEdicionId = facturaId;
@@ -1985,7 +1985,7 @@ $(document).ready(function () {
         var puntoVenta = $('#facturar_punto_venta_id').val();
         var tipoComprobante = $('#facturar_comprobante_tipo_id').val();
         var fVto = $('#facturar_f_vto').val();
-        var fEmision = new Date().toISOString().slice(0, 10);
+        var fEmision = Fmt.hoyISO();
 
         if (!puntoVenta || !tipoComprobante) { Swal.fire('Faltan datos', 'Elegí punto de venta y tipo de comprobante.', 'warning'); return; }
         if (!lineasParaFacturar.length) { Swal.fire('Sin líneas', 'No hay líneas con cantidad para facturar.', 'warning'); return; }
@@ -1995,7 +1995,7 @@ $(document).ready(function () {
         var remitoId = $('#facturar_venta_remito_id').val();
         var sucursalId = $('#facturar_punto_venta_id option:selected').data('sucursal-id') || '';
         var payload = {
-            accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 56,
+            accion: esEdicion ? 'editar' : 'agregar', empresa_idx: empresa_idx, pagina_idx: 556,
             // Consumidor final: entidad_id vacío + nombre del remito; el servidor fuerza contado.
             entidad_id: esConsumidorFinal ? '' : clienteActualId, entidad_sucursal_id: clienteSucursalActualId || 0,
             consumidor_final_nombre: esConsumidorFinal ? $.trim($('#consumidor_final_nombre').val()) : '',

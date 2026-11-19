@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../db.php';
+$modudo_idx = 5; // gestion_normal
 
 $pagina_idx = 592;
 $pagina_id = 592;
@@ -100,8 +101,9 @@ require_once ROOT_PATH . '/templates/adminlte/header1.php';
                                             </div>
                                         </div>
 
-                                        <!-- Filtros de compatibilidad — mismo criterio que productos.php -->
-                                        <div class="row align-items-center mt-2">
+                                        <!-- Filtros de compatibilidad vehicular: gestion_normal no maneja marcas/modelos de vehículo
+                                             (productos.php de este módulo tampoco), se dejan ocultos para que el .js no falle. -->
+                                        <div class="row align-items-center mt-2 d-none" id="filaFiltrosCompatibilidad">
                                             <div class="col-md-4">
                                                 <div class="input-group input-group-sm">
                                                     <span class="input-group-text"><i class="fas fa-trademark"></i></span>

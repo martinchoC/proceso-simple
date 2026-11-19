@@ -258,11 +258,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const form = document.getElementById('formExcepcion');
         form.reset();
 
-        document.getElementById('exc_vigente_desde').value = new Date().toISOString().split('T')[0];
+        document.getElementById('exc_vigente_desde').value = Fmt.hoyISO();
         // Por defecto 6 meses hacia adelante
         const dHasta = new Date();
         dHasta.setMonth(dHasta.getMonth() + 6);
-        document.getElementById('exc_vigente_hasta').value = dHasta.toISOString().split('T')[0];
+        document.getElementById('exc_vigente_hasta').value = Fmt.isoLocal(dHasta);
 
         if (preAsigId) {
             document.getElementById('exc_asignada_id').value = preAsigId;

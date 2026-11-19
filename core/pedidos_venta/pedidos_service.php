@@ -255,7 +255,8 @@ if (!function_exists('pven_ejecutar_transicion')) {
             }
 
             $sql_update = "UPDATE gestion__ventas_pedidos 
-                           SET tabla_estado_registro_id = ? 
+                           SET tabla_estado_registro_id = ?,
+                               f_confirmacion = IF(? = 5 AND f_confirmacion IS NULL, NOW(), f_confirmacion)
                            WHERE venta_pedido_id = ?";
 
             $stmt = mysqli_prepare($conexion, $sql_update);
@@ -263,7 +264,8 @@ if (!function_exists('pven_ejecutar_transicion')) {
                 throw new Exception('Error preparando update de estado: ' . mysqli_error($conexion));
             }
 
-            mysqli_stmt_bind_param($stmt, "ii", $estado_destino_id, $venta_pedido_id);
+            $estado_dest_int = intval($estado_destino_id);
+            mysqli_stmt_bind_param($stmt, "iii", $estado_dest_int, $estado_dest_int, $venta_pedido_id);
             if (!mysqli_stmt_execute($stmt)) {
                 throw new Exception('Error actualizando estado: ' . mysqli_stmt_error($stmt));
             }
@@ -336,6 +338,19 @@ if (!function_exists('pven_ejecutar_transicion')) {
             mysqli_stmt_close($stmt);
 
             mysqli_commit($conexion);
+
+            if (function_exists('auditoria_registrar_operacion')) {
+                $accion_aud = (intval($estado_destino_id) === 5 || $accion_js === 'confirmar_pedido') ? 'CONFIRMAR' : 'MODIFICACION';
+                auditoria_registrar_operacion(
+                    $conexion,
+                    $accion_aud,
+                    'gestion__ventas_pedidos',
+                    $venta_pedido_id,
+                    ['tabla_estado_registro_id' => intval($estado_actual_id)],
+                    ['tabla_estado_registro_id' => intval($estado_destino_id), 'comprobante_nro' => $pedido_data['comprobante_nro'] ?? null],
+                    "Cambio de estado de pedido #{$venta_pedido_id} ({$accion_js}: {$estado_actual_id} -> {$estado_destino_id})"
+                );
+            }
 
             $mensaje = 'Estado actualizado correctamente';
             if ($numero_asignado) {
@@ -545,7 +560,7 @@ if (!function_exists('pven_agregar')) {
                 throw new Exception("Error al sincronizar el comprobante");
             }
 
-            $sql_update_comprobante = "UPDATE gestion__ventas_pedidos SET comprobante_id = ? WHERE venta_pedido_id = ?";
+            $sql_update_comprobante = "UPDATE gestion__ventas_pedidos SET comprobante_id = ?, f_confirmacion = IF(tabla_estado_registro_id = 5 AND f_confirmacion IS NULL, NOW(), f_confirmacion) WHERE venta_pedido_id = ?";
             $stmt = mysqli_prepare($conexion, $sql_update_comprobante);
             mysqli_stmt_bind_param($stmt, "ii", $comprobante_id, $venta_pedido_id);
             mysqli_stmt_execute($stmt);

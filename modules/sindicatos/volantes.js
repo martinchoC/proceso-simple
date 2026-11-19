@@ -127,8 +127,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const vto1 = new Date(); vto1.setDate(hoy.getDate() + 10);
         const vto2 = new Date(); vto2.setDate(hoy.getDate() + 20);
 
-        $('#modalFechaPago1').val(vto1.toISOString().split('T')[0]);
-        $('#modalFechaPago2').val(vto2.toISOString().split('T')[0]);
+        $('#modalFechaPago1').val(Fmt.isoLocal(vto1));
+        $('#modalFechaPago2').val(Fmt.isoLocal(vto2));
 
         actualizarResumenTotales({
             importe_capital_1: 0, importe_interes_1: 0, importe_total_1: 0,

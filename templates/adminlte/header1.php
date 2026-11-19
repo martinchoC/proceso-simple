@@ -334,6 +334,13 @@ $color_fondo_avatar = $colores_avatar[$indice_color];
         if ($script_actual !== '' && $script_actual !== 'index.php') {
           $pagina_actual_id = pagina_id_por_url($conexion, (int)$current_modulo_id, $script_actual);
         }
+      } elseif ($pagina_actual_id > 0 && $current_modulo_id > 0) {
+        // Páginas copiadas entre módulos (gestion -> gestion_normal) que traen por defecto el pagina_id del otro
+        // módulo: se valida que pertenezca al módulo actual y, si no, se toma la página del módulo con esa url.
+        $script_actual = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        if ($script_actual !== '' && $script_actual !== 'index.php') {
+          $pagina_actual_id = permisos_pagina_modulo($conexion, (int)$current_modulo_id, (int)$pagina_actual_id, $script_actual);
+        }
       }
       $pagina_idx = $pagina_actual_id;
       $pagina_id = $pagina_actual_id;

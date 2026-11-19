@@ -56,7 +56,7 @@ try {
             $producto_costo_id = intval($_POST['producto_costo_id'] ?? 0);
             $accion_js = $_POST['accion_js'] ?? '';
             $empresa_idx = intval($_POST['empresa_idx'] ?? 0);
-            $pagina_id = intval($_POST['pagina_id'] ?? 0);
+            $pagina_id = (int)$pagina_id; // validada por permisos_pagina_modulo()
             
             // La función tiene que estar asignada al perfil del usuario (core/permisos.php), no solo existir para el estado
             permisos_exigir_funcion($conexion, (int)($pagina_id), (string)($accion_js));

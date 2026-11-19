@@ -533,7 +533,7 @@ $(function () {
         $('#producto_proveedor_precio_id').val('');
         $('#entidad_id_edicion').val('');
         $('#precio_lista').val('');
-        $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
+        $('#f_vigencia_desde').val(Fmt.hoyISO());
         productoSeleccionado = null;
 
         $('#bloqueBuscarProducto').removeClass('d-none');
@@ -553,7 +553,7 @@ $(function () {
         $('#entidad_id_edicion').val(row.entidad_id);
         $('#precio_lista').val(row.precio_lista);
         $('#moneda_id').val(row.moneda_id);
-        $('#f_vigencia_desde').val(new Date().toISOString().slice(0, 10));
+        $('#f_vigencia_desde').val(Fmt.hoyISO());
 
         productoSeleccionado = row;
         $('#bloqueBuscarProducto').addClass('d-none');

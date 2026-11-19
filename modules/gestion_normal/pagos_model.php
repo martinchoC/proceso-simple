@@ -538,7 +538,7 @@ function guardarPagoBorrador($conexion, $data)
     }
 
     $comprobante_tipo_id = !empty($data['comprobante_tipo_id']) ? intval($data['comprobante_tipo_id']) : pagoTipoComprobanteOpId($conexion, $empresa_id);
-    $comprobante_pv = pagoResolverPuntoVenta($conexion, $empresa_id, $sucursal_id, intval($data['comprobante_pv'] ?? 0), $comprobante_tipo_id);
+    $comprobante_pv = pagoResolverPuntoVenta($conexion, $empresa_id, $sucursal_id, intval($data['comprobante_pv'] ?? $data['punto_venta_id'] ?? 0), $comprobante_tipo_id);
     $estado_borrador     = ESTADO_PAGO_BORRADOR;
 
     if ($pago_id > 0) {
@@ -620,6 +620,12 @@ function guardarPagoBorrador($conexion, $data)
     foreach ($medios as $idx_medio => $m) {
         $medio_pago_id   = intval($m['medio_pago_id']);
         $tes_cuenta_id   = !empty($m['tesoreria_cuenta_id']) ? intval($m['tesoreria_cuenta_id']) : null;
+        if (empty($tes_cuenta_id) && $medio_pago_id > 0) {
+            $row_mp = $conexion->query("SELECT tesoreria_cuenta_id FROM gestion__medios_pago WHERE medio_pago_id = $medio_pago_id AND empresa_id = $empresa_id")->fetch_assoc();
+            if (!empty($row_mp['tesoreria_cuenta_id'])) {
+                $tes_cuenta_id = intval($row_mp['tesoreria_cuenta_id']);
+            }
+        }
         $mon_id          = emp_moneda_id($conexion, $empresa_id, $m['moneda_id'] ?? $moneda_id);
         $tc              = floatval($m['tipo_cambio'] ?? 1.0);
         $imp             = floatval($m['importe'] ?? 0);

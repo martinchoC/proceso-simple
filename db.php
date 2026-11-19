@@ -32,4 +32,8 @@ if (!$conn) {
 }
 
 mysqli_set_charset($conn, "utf8mb4");
+// Hora argentina también en MySQL (NOW(), CURDATE(), CURRENT_TIMESTAMP de las columnas de auditoría): el servidor
+// de producción puede tener otra zona. Desplazamiento fijo y no 'America/Argentina/Buenos_Aires' porque el nombre
+// requiere las tablas de zonas horarias cargadas en MySQL; Argentina no tiene horario de verano desde 2009.
+mysqli_query($conn, "SET time_zone = '-03:00'");
 $conexion = $conn;

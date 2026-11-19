@@ -74,7 +74,7 @@ $(function () {
     function limpiarForm() {
         $('#formInsp')[0].reset();
         $('#i_id').val(0);
-        $('#i_inicio').val(new Date().toISOString().slice(0, 10));
+        $('#i_inicio').val(Fmt.hoyISO());
         $('#bloqueHitos').addClass('d-none');
         $('#btnAnularInsp').addClass('d-none');
         $('#tbHitos').empty();
@@ -105,7 +105,7 @@ $(function () {
             $('#i_pdesde').val(i.periodo_desde || ''); $('#i_phasta').val(i.periodo_hasta || '');
             $('#i_reclamado').val(i.monto_reclamado); $('#i_aceptado').val(i.monto_aceptado); $('#i_pagado').val(i.monto_pagado);
             $('#i_resp').val(i.usuario_r_id || ''); $('#i_obs').val(i.observaciones || '');
-            $('#h_fecha').val(new Date().toISOString().slice(0, 10));
+            $('#h_fecha').val(Fmt.hoyISO());
             pintarHitos(i.hitos || []);
             $('#bloqueHitos').removeClass('d-none');
             $('#btnAnularInsp').removeClass('d-none');
