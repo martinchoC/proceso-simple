@@ -48,6 +48,7 @@ function asis_config(): array
         'esfuerzo_asistente' => 'medium',        // low / medium / high (Claude)
         'max_tokens_respuesta' => 16000,
         'modelo_gemini_asistente' => '',          // vacío = el modelo_gemini de la lectura de facturas
+        'gemini_thinking_budget' => 256,          // tope de tokens de pensamiento en Gemini 2.5+ (0=off, -1=default del modelo)
         'precio_entrada_mtok_claude' => 4.00,    // USD por millón de tokens (costo estimado del log)
         'precio_salida_mtok_claude' => 20.00,
     ], (array)(fl_config()['asistente'] ?? []));
@@ -66,16 +67,24 @@ function asis_proveedor(string $api_key = ''): ?AsisProveedor
     return $proveedor === 'claude' ? new AsisProveedorClaude($config) : new AsisProveedorGemini($config);
 }
 
-/** POST JSON con reintentos ante 429 / 5xx / red. [status, json, error de red, retry-after] por intento; devuelve el último. */
+/** POST JSON con reintentos ante 429 / 5xx / red. Reutiliza handle curl (Keep-Alive/HTTP2) y gzip. */
 function asis_http_post(string $url, array $headers, array $cuerpo, int $timeout): array
 {
+    static $ch = null;
+    if ($ch === null) {
+        $ch = curl_init();
+    } else {
+        curl_reset($ch);
+    }
     $retry_after = 0;
-    $ch = curl_init($url);
     curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($cuerpo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => '',
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_2TLS,
         CURLOPT_CONNECTTIMEOUT => 15,
         CURLOPT_TIMEOUT => $timeout,
         CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
@@ -87,7 +96,6 @@ function asis_http_post(string $url, array $headers, array $cuerpo, int $timeout
     $respuesta = curl_exec($ch);
     $error = $respuesta === false ? (curl_error($ch) ?: 'error de conexión') : null;
     $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
     $json = is_string($respuesta) ? json_decode($respuesta, true) : null;
     return [$status, $json, $error, $retry_after];
 }
@@ -295,12 +303,17 @@ class AsisProveedorGemini implements AsisProveedor
             if ((array)($h['input_schema']['properties'] ?? [])) $d['parameters'] = self::esquema($h['input_schema']);
             $declaraciones[] = $d;
         }
+        $gen_cfg = ['maxOutputTokens' => 4096];
+        $tb = isset($this->c['gemini_thinking_budget']) ? intval($this->c['gemini_thinking_budget']) : 256;
+        if ($tb >= 0) {
+            $gen_cfg['thinkingConfig'] = ['thinkingBudget' => $tb];
+        }
         $cuerpo = [
             'systemInstruction' => ['parts' => [['text' => $sistema]]],
             'contents' => $historial,
             'tools' => [['functionDeclarations' => $declaraciones]],
             'toolConfig' => ['functionCallingConfig' => ['mode' => 'AUTO']],
-            'generationConfig' => ['maxOutputTokens' => 8192],
+            'generationConfig' => $gen_cfg,
         ];
         $url = rtrim((string)($this->c['url_gemini'] ?? 'https://generativelanguage.googleapis.com/v1beta/models'), '/')
              . '/' . rawurlencode($this->modelo()) . ':generateContent';
@@ -314,6 +327,11 @@ class AsisProveedorGemini implements AsisProveedor
                 return $this->interpretar($json, $historial);
             }
             $mensaje = is_array($json) ? (string)($json['error']['message'] ?? '') : '';
+            if ($status === 400 && isset($cuerpo['generationConfig']['thinkingConfig']) && stripos($mensaje, 'thinking') !== false) {
+                unset($cuerpo['generationConfig']['thinkingConfig']);
+                $intentos++;
+                continue;
+            }
             $ultimo = $error_red ?? ('HTTP ' . $status . ($mensaje !== '' ? ': ' . $mensaje : ''));
             error_log("AsisProveedorGemini intento $i/$intentos: $ultimo");
             $reintentable = $error_red !== null || $status === 429 || $status >= 500;
@@ -384,8 +402,11 @@ class AsisProveedorGemini implements AsisProveedor
         }
         $out['type'] = strtoupper((string)$tipo);
         if (isset($s['description'])) $out['description'] = (string)$s['description'];
-        if (isset($s['enum'])) $out['enum'] = array_values(array_map('strval', $s['enum']));
-        if (isset($s['properties'])) {
+        if (isset($s['enum'])) {
+            $vals = array_values(array_filter(array_map('strval', $s['enum']), static fn($v) => $v !== ''));
+            if ($vals) $out['enum'] = $vals;
+        }
+        if (!empty($s['properties'])) {
             $out['properties'] = [];
             foreach ($s['properties'] as $k => $p) $out['properties'][$k] = self::esquema($p);
         }

@@ -93,7 +93,7 @@ function asis_herramientas_contab(array $ctx): array
                 'codigo' => ['type' => 'string', 'description' => 'Código corto en mayúsculas sin espacios (ej: ANT_SOCIO)'],
                 'nombre' => ['type' => 'string', 'description' => 'Nombre descriptivo (ej: Anticipo / Retiro a Socio)'],
                 'clase' => ['type' => 'string', 'enum' => ['OBLIGACION', 'ANTICIPO'], 'description' => 'ANTICIPO = no devenga al confirmar, la OP debita la cuenta elegida; OBLIGACION = devenga gasto a pasivo'],
-                'rol_entidad_codigo' => ['type' => 'string', 'enum' => ['EMP', 'PRO', 'ORG', ''], 'description' => 'Rol requerido del beneficiario o vacío para permitir cualquiera'],
+                'rol_entidad_codigo' => ['type' => 'string', 'enum' => ['EMP', 'PRO', 'ORG'], 'description' => 'Rol requerido del beneficiario (opcional: omitir para permitir cualquiera)'],
                 'cont_cuenta_debe_id' => ['type' => 'integer', 'description' => 'Cuenta contable imputable por defecto (opcional si se elige en cada obligación)'],
                 'cont_cuenta_pasivo_id' => ['type' => 'integer', 'description' => 'Solo para clase OBLIGACION: cuenta de pasivo a pagar (opcional)'],
                 'orden' => ['type' => 'integer'],
@@ -140,16 +140,17 @@ function asis_herramientas_contab(array $ctx): array
     if (asis_puede($ctx, 'tesoreria_movimientos', 'agregar')) {
         $out[] = [
             'name' => 'proponer_movimiento_tesoreria',
-            'description' => 'Propone un movimiento de tesorería con su asiento contable automático: '
+            'description' => 'Propone un comprobante soporte de tesorería (MC en Borrador para revisar/aprobar y confirmar): '
                 . 'INGRESO (ej. aporte de socio en banco contra Cuenta Particular o Capital Social), '
-                . 'EGRESO (salida directa de banco/caja contra una cuenta contable) o '
+                . 'EGRESO (salida directa de banco/caja contra una cuenta contable; NO usar para retiros de socios — para retiros/anticipos usar proponer_obligacion_pago + proponer_orden_pago) o '
                 . 'TRANSFERENCIA (entre dos cuentas propias de tesorería, ej. suscripción/rescate de FCI). '
-                . 'Genera movimiento conciliable en el extracto bancario. No graba hasta que el usuario confirme.',
+                . 'No graba hasta que el usuario confirme.',
             'input_schema' => ['type' => 'object', 'properties' => [
                 'tipo' => ['type' => 'string', 'enum' => ['INGRESO', 'EGRESO', 'TRANSFERENCIA']],
                 'f_movimiento' => ['type' => 'string', 'description' => 'AAAA-MM-DD (omitir = hoy)'],
                 'importe' => ['type' => 'number'],
                 'concepto' => ['type' => 'string'],
+                'entidad_id' => ['type' => 'integer', 'description' => 'Opcional para INGRESO/EGRESO: entidad_id del socio/aportante (buscar_entidades)'],
                 'tesoreria_cuenta_id' => ['type' => 'integer', 'description' => 'Para INGRESO o EGRESO: cuenta bancaria/caja afectada'],
                 'cont_cuenta_contrapartida_id' => ['type' => 'integer', 'description' => 'Para INGRESO o EGRESO: cuenta contable imputable contrapartida (ej: Cuenta Particular Socio o Capital Social)'],
                 'cuenta_origen_id' => ['type' => 'integer', 'description' => 'Solo TRANSFERENCIA: tesoreria_cuenta_id de origen'],
@@ -595,11 +596,21 @@ function asis_validar_movimiento_tesoreria(array $ctx, array $e): array
     $cp = asis_fila($c, "SELECT cont_cuenta_id, codigo, nombre, es_imputable FROM gestion__cont_cuentas WHERE cont_cuenta_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1", 'ii', $cp_id, $emp);
     if (!$cp || intval($cp['es_imputable']) !== 1) throw new RuntimeException("La cuenta contable contrapartida ID $cp_id no existe o no es imputable.");
 
+    $ent_id = intval($e['entidad_id'] ?? 0);
+    $ent_nom = '';
+    if ($ent_id > 0) {
+        $ent = asis_fila($c, "SELECT entidad_id, entidad_nombre FROM gestion__entidades WHERE entidad_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1", 'ii', $ent_id, $emp);
+        if (!$ent) throw new RuntimeException("Entidad ID $ent_id no encontrada.");
+        $ent_nom = (string)$ent['entidad_nombre'];
+    }
+
     return [
         'tipo'                         => $tipo,
         'f_movimiento'                 => $fecha,
         'importe'                      => $imp,
         'concepto'                     => $concepto,
+        'entidad_id'                   => $ent_id,
+        'entidad_nombre'               => $ent_nom,
         'tesoreria_cuenta_id'          => $tc_id,
         'tesoreria_cuenta_nombre'      => $tc['tesoreria_cuenta'],
         'tesoreria_cont_id'            => intval($tc['cont_cuenta_id']),
@@ -798,42 +809,23 @@ function asis_grabar_movimiento_tesoreria(array $ctx, array $d): array
         return [$comp_id ?: 1, "Transferencia por " . fmt_moneda($v['importe']) . " registrada" . ($asiento_id ? " (Asiento #$asiento_id)" : '') . '.'];
     }
 
-    mysqli_begin_transaction($c);
+    // INGRESO o EGRESO contra cuenta contable (ej. Aporte de socio): genera comprobante soporte MC en Borrador (3)
+    // para que pueda revisarse, imprimirse, aprobarse y confirmarse en tesoreria_movimientos.php.
+    require_once $ctx['modulo_dir'] . '/tesoreria_movimientos_model.php';
     try {
-        // INGRESO o EGRESO contra cuenta contable (ej. Aporte de socio)
-        $mov_id = tesoreriaRegistrarMovimiento($c, [
-            'empresa_id'          => $emp,
-            'sucursal_id'         => $suc_id,
-            'tesoreria_cuenta_id' => $v['tesoreria_cuenta_id'],
-            'tipo_movimiento'     => $v['tipo'],
-            'importe'             => $v['importe'],
-            'f_movimiento'        => $v['f_movimiento'],
-            'f_valor'             => $v['f_movimiento'],
-            'moneda_id'           => $v['moneda_id'],
-            'tipo_cambio'         => 1.0,
-            'concepto'            => $v['concepto'],
-            'usuario_id'          => $uid,
-        ]);
-        $lineas = $v['tipo'] === 'INGRESO'
-            ? [
-                ['cuenta_id' => $v['tesoreria_cont_id'],            'debe' => $v['importe'], 'haber' => 0.0,         'descripcion' => $v['concepto']],
-                ['cuenta_id' => $v['cont_cuenta_contrapartida_id'], 'debe' => 0.0,           'haber' => $v['importe'], 'descripcion' => $v['concepto']],
-              ]
-            : [
-                ['cuenta_id' => $v['cont_cuenta_contrapartida_id'], 'debe' => $v['importe'], 'haber' => 0.0,         'descripcion' => $v['concepto']],
-                ['cuenta_id' => $v['tesoreria_cont_id'],            'debe' => 0.0,           'haber' => $v['importe'], 'descripcion' => $v['concepto']],
-              ];
-        $asiento_id = tesoreriaGenerarAsiento($c, [
-            'empresa_id'  => $emp,
-            'sucursal_id' => $suc_id,
-            'f_asiento'   => $v['f_movimiento'],
-            'descripcion' => $v['concepto'],
-            'usuario_id'  => $uid,
-        ], $lineas);
-        mysqli_commit($c);
-        return [intval($mov_id), "{$v['tipo']} en {$v['tesoreria_cuenta_nombre']} por " . fmt_moneda($v['importe']) . " registrado (Asiento #$asiento_id)."];
-    } catch (Throwable $ex) {
-        mysqli_rollback($c);
-        throw $ex;
+        $res_om = registrarOtroMovimientoTesoreria($c, [
+            'tipo_movimiento'              => $v['tipo'],
+            'tesoreria_cuenta_id'          => $v['tesoreria_cuenta_id'],
+            'cont_cuenta_contrapartida_id' => $v['cont_cuenta_contrapartida_id'],
+            'entidad_id'                   => intval($v['entidad_id'] ?? 0),
+            'sucursal_id'                  => $suc_id,
+            'f_movimiento'                 => $v['f_movimiento'],
+            'importe'                      => $v['importe'],
+            'concepto'                     => $v['concepto'],
+            'estado_inicial'               => 3,
+        ], $emp, $uid);
+    } catch (Exception $ex) {
+        throw new RuntimeException($ex->getMessage());
     }
+    return [intval($res_om['comprobante_id'] ?? 1), (string)($res_om['message'] ?? "Comprobante {$v['tipo']} creado en Borrador.")];
 }

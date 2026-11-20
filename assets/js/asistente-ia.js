@@ -160,7 +160,7 @@
                 + (p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Abrir</a>` : '');
         }
         if (p.estado === 'DESCARTADA') return '<span class="badge text-bg-secondary">Descartada</span>';
-        const esDirecto = ['ALTA_ENTIDAD', 'CUENTAS_CONTABLES', 'TIPO_OBLIGACION', 'ASIENTO_CONTABLE', 'MOV_TESORERIA', 'IMPUTAR_SALDO_FAVOR', 'CUENTA_TESORERIA', 'CONCILIAR_BANCO'].includes(p.tipo)
+        const esDirecto = ['ALTA_ENTIDAD', 'CUENTAS_CONTABLES', 'TIPO_OBLIGACION', 'ASIENTO_CONTABLE', 'MOV_TESORERIA', 'IMPUTAR_SALDO_FAVOR', 'CUENTA_TESORERIA', 'CONCILIAR_BANCO', 'GASTOS_BANCARIOS'].includes(p.tipo)
             || (p.tipo === 'RECIBO_EXTRACTO' && p.datos && p.datos.confirmar);
         const textoBtn = esDirecto ? 'Confirmar y guardar' : 'Confirmar y guardar en Borrador';
         return `<button type="button" class="btn btn-primary btn-sm asis-confirmar" data-id="${p.propuesta_id}"><i class="bi bi-check-lg me-1"></i>${textoBtn}</button>
@@ -324,6 +324,26 @@
                 <tbody>${filas}</tbody>
                 <tfoot><tr><td colspan="4" class="text-end text-muted">Subtotal ${dinero(d.subtotal)} · IVA ${dinero(d.impuestos)}</td><td class="text-end fw-bold">${dinero(d.total)}</td></tr></tfoot></table></div>
                 ${d.observaciones ? `<div class="small text-muted">Observaciones: ${esc(d.observaciones)}</div>` : ''}`;
+        } else if (p.tipo === 'GASTOS_BANCARIOS') {
+            titulo = `Resumen de Gastos Bancarios · ${esc(d.cuenta_nombre)} (${esc(d.mes)})`;
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                <tr><th class="text-muted fw-normal pe-3">Fecha emisión</th><td>${esc(Fmt.fecha(d.f_emision))}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Líneas incluidas</th><td>${d.lineas_incluidas}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">IVA extracto</th><td>${dinero(d.iva_extracto)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Total resumen</th><td class="fw-bold">${dinero(d.total)}</td></tr>
+            </tbody></table><div class="small text-muted">Genera, confirma y concilia el comprobante C_RB y su débito en cuenta.</div>`;
+        } else if (p.tipo === 'AJUSTE_STOCK') {
+            titulo = `Ajuste de Stock · ${esc(d.deposito_nombre)} · ${esc(Fmt.fecha(d.fecha))}`;
+            const filas = (d.lineas || []).map((l) => `<tr>
+                <td>${esc(l.producto_codigo)} ${esc(l.producto_nombre)}${l.observacion ? `<div class="small text-muted">${esc(l.observacion)}</div>` : ''}</td>
+                <td class="text-end">${num(l.stock_sistema)}</td>
+                <td class="text-end fw-bold ${Number(l.cantidad_ajuste) >= 0 ? 'text-success' : 'text-danger'}">${Number(l.cantidad_ajuste) >= 0 ? '+' : ''}${num(l.cantidad_ajuste)}</td>
+                <td class="text-end">${num(l.stock_fisico)}</td>
+            </tr>`).join('');
+            cuerpo = `<div class="mb-2"><strong>${esc(d.descripcion)}</strong> <span class="text-muted small">(${esc(d.comprobante_tipo)})</span></div>
+                <div class="table-responsive"><table class="table table-sm mb-2">
+                <thead><tr><th>Producto</th><th class="text-end">Actual</th><th class="text-end">Ajuste</th><th class="text-end">Nuevo</th></tr></thead>
+                <tbody>${filas}</tbody></table></div>`;
         } else {
             titulo = `${p.tipo === 'REMITO_VENTA' ? 'Remito' : 'Factura'} ${esc(d.comprobante_tipo)} · PV ${esc(d.punto_venta)}`;
             const lineas = (d.lineas || []).map((l) => `<tr>

@@ -220,6 +220,9 @@ function asis_herramientas(array $ctx = []): array
         if (function_exists('asis_herramientas_compras_bco')) {
             $base = array_merge($base, asis_herramientas_compras_bco($ctx));
         }
+        if (function_exists('asis_herramientas_reportes')) {
+            $base = array_merge($base, asis_herramientas_reportes($ctx));
+        }
     }
     return $base;
 }
@@ -252,6 +255,10 @@ function asis_ejecutar_herramienta(array $ctx, string $nombre, array $e): array
     }
     if (function_exists('asis_ejecutar_herramienta_compras_bco')) {
         $res = asis_ejecutar_herramienta_compras_bco($ctx, $nombre, $e);
+        if ($res !== null) return $res;
+    }
+    if (function_exists('asis_ejecutar_herramienta_reportes')) {
+        $res = asis_ejecutar_herramienta_reportes($ctx, $nombre, $e);
         if ($res !== null) return $res;
     }
     throw new RuntimeException("Herramienta desconocida: $nombre");
