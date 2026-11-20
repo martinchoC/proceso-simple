@@ -1,5 +1,5 @@
 <?php
-// Sesión y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
+// SesiÃ³n y empresa validadas antes de cualquier otra cosa (ver core/ajax_guard.php).
 require_once __DIR__ . '/../../core/ajax_guard.php';
 $ctx = ajax_guard(['modulo_id' => 2, 'paginas_url' => ['comprobantes_consulta.php']]);
 /**
@@ -43,7 +43,7 @@ try {
             }
             foreach (['desde', 'hasta'] as $clave) {
                 if (!empty($filtros[$clave]) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filtros[$clave])) {
-                    cconsResponder(['success' => false, 'data' => null, 'message' => 'Fecha inválida.'], 400);
+                    cconsResponder(['success' => false, 'data' => null, 'message' => 'Fecha invÃ¡lida.'], 400);
                 }
             }
             $resultado = cconsListar($conexion, $empresa_id, $usuario_id, $filtros);
@@ -61,7 +61,7 @@ try {
         case 'obtener':
             $comprobante_id = intval($_REQUEST['comprobante_id'] ?? 0);
             if ($comprobante_id <= 0) {
-                cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante inválido.'], 400);
+                cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante invÃ¡lido.'], 400);
             }
             $detalle = cconsObtener($conexion, $empresa_id, $usuario_id, $comprobante_id);
             if (!$detalle) {
@@ -75,8 +75,56 @@ try {
             cconsResponder(['success' => true, 'data' => $lista, 'message' => '']);
             break;
 
+        case 'subir_adjunto':
+            $comprobante_id = intval($_POST['comprobante_id'] ?? 0);
+            if ($comprobante_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante invÃ¡lido.'], 400);
+            if (empty($_FILES['archivo'])) cconsResponder(['success' => false, 'data' => null, 'message' => 'SeleccionÃ¡ un archivo para adjuntar.'], 400);
+            $res = cconsSubirAdjunto($conexion, $empresa_id, $usuario_id, $comprobante_id, $_FILES['archivo'], (string)($_POST['descripcion'] ?? ''));
+            cconsResponder(['success' => true, 'data' => $res, 'message' => 'Documento adjuntado correctamente.']);
+            break;
+
+        case 'eliminar_adjunto':
+            $adjunto_id = intval($_POST['adjunto_id'] ?? 0);
+            if ($adjunto_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Adjunto invÃ¡lido.'], 400);
+            $ok = cconsEliminarAdjunto($conexion, $empresa_id, $adjunto_id, $usuario_id);
+            if (!$ok) cconsResponder(['success' => false, 'data' => null, 'message' => 'No se pudo quitar el adjunto.'], 404);
+            cconsResponder(['success' => true, 'data' => null, 'message' => 'Adjunto eliminado.']);
+            break;
+
+        case 'agregar_comentario':
+            $comprobante_id = intval($_POST['comprobante_id'] ?? 0);
+            $comentario = (string)($_POST['comentario'] ?? '');
+            if ($comprobante_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante invÃ¡lido.'], 400);
+            $res = cconsAgregarComentario($conexion, $empresa_id, $usuario_id, $comprobante_id, $comentario);
+            cconsResponder(['success' => true, 'data' => $res, 'message' => 'Comentario agregado.']);
+            break;
+
+        case 'eliminar_comentario':
+            $comentario_id = intval($_POST['comentario_id'] ?? 0);
+            if ($comentario_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comentario invÃ¡lido.'], 400);
+            $ok = cconsEliminarComentario($conexion, $empresa_id, $usuario_id, $comentario_id);
+            if (!$ok) cconsResponder(['success' => false, 'data' => null, 'message' => 'No se pudo eliminar el comentario.'], 404);
+            cconsResponder(['success' => true, 'data' => null, 'message' => 'Comentario eliminado.']);
+            break;
+
+        case 'ver_adjunto':
+            $origen = (string)($_GET['origen'] ?? '');
+            $id = intval($_GET['id'] ?? 0);
+            $f = cconsResolverArchivoAdjunto($conexion, $empresa_id, $origen, $id);
+            if (!$f) {
+                http_response_code(404);
+                echo 'Archivo no encontrado.';
+                exit;
+            }
+            while (ob_get_level() > 0) ob_end_clean();
+            header('Content-Type: ' . $f['mime']);
+            header('Content-Disposition: inline; filename="' . str_replace('"', '', basename($f['nombre'])) . '"');
+            header('Content-Length: ' . filesize($f['abs']));
+            readfile($f['abs']);
+            exit;
+
         default:
-            cconsResponder(['success' => false, 'data' => null, 'message' => 'Acción no definida.'], 400);
+            cconsResponder(['success' => false, 'data' => null, 'message' => 'AcciÃ³n no definida.'], 400);
     }
 } catch (Throwable $e) {
     error_log("=== ERROR comprobantes_consulta_ajax [$accion]: " . $e->getMessage());

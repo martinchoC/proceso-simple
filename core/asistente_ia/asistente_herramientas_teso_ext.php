@@ -422,7 +422,20 @@ function asis_validar_orden_pago(array $ctx, array $e): array
         throw new RuntimeException('Lo imputado supera el total de los medios de pago.');
     }
 
+    // Deudas del beneficiario que la OP todavía no puede imputar porque no están confirmadas (Borrador / Pendiente)
+    $avisos = [];
+    $sin_confirmar = asis_filas($ctx['c'], "SELECT o.obligacion_id, o.descripcion, o.importe_total, er.estado_registro
+            FROM gestion__obligaciones_pago o
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = o.tabla_estado_registro_id
+            WHERE o.empresa_id = ? AND o.entidad_id = ? AND o.tabla_estado_registro_id IN (3, 4)
+            ORDER BY o.obligacion_id DESC LIMIT 5", 'ii', $ctx['empresa_id'], $ent_id);
+    foreach ($sin_confirmar as $o) {
+        $avisos[] = "La obligación \"{$o['descripcion']}\" por " . fmt_moneda(floatval($o['importe_total'])) . " está en {$o['estado_registro']}: "
+            . 'no se puede imputar hasta confirmarla.' . ($imps ? '' : ' Esta OP queda a cuenta.');
+    }
+
     return [
+        'avisos'         => $avisos,
         'entidad_id'     => $ent_id,
         'entidad_nombre' => $ent['entidad_nombre'],
         'f_emision'      => $f_em,
@@ -440,7 +453,8 @@ function asis_h_proponer_orden_pago(array $ctx, array $e): array
     asis_exigir_permiso($ctx, 'pagos', 'crear órdenes de pago');
     $v = asis_validar_orden_pago($ctx, $e);
     $pid = asis_guardar_propuesta($ctx, 'ORDEN_PAGO', $v);
-    return ['propuesta_id' => $pid, 'total' => $v['total_medios'], 'imputaciones' => count($v['imputaciones'])];
+    return ['propuesta_id' => $pid, 'total' => $v['total_medios'], 'imputaciones' => count($v['imputaciones'])]
+        + ($v['avisos'] ? ['avisos' => $v['avisos']] : []);
 }
 
 function asis_grabar_orden_pago(array $ctx, array $d): array

@@ -45,6 +45,21 @@ function asis_despachar(mysqli $c, array $guard, int $pagina_idx, string $modulo
             case 'confirmar':
                 csrf_exigir();
                 asis_responder(true, asis_confirmar_propuesta($ctx, intval($_POST['propuesta_id'] ?? 0), intval($_POST['punto_venta_id'] ?? 0)), 'Guardado en Borrador.');
+            case 'sugerencias':
+                asis_responder(true, asis_sugerencias($ctx));
+            case 'accion_registro':
+                // Botón de un pendiente de la bienvenida: devuelve el registro con su estado y acciones nuevas
+                csrf_exigir();
+                $clave = (string)($_POST['clave'] ?? '');
+                $id = intval($_POST['id'] ?? 0);
+                [$texto] = asis_ciclo_ejecutar_registro($ctx, $clave, $id, (string)($_POST['accion_ciclo'] ?? ''), (string)($_POST['motivo'] ?? ''));
+                $r = asis_ciclo_leer($ctx, $clave, $id);
+                asis_responder(true, $r ? $r + ['clave' => $clave, 'id' => $id, 'nombre' => ASIS_CICLOS[$clave]['nombre'],
+                                                'acciones' => asis_ciclo_acciones($ctx, $clave, $r['estado_id'])] : null, $texto);
+            case 'accion_ciclo':
+                csrf_exigir();
+                $r = asis_ciclo_ejecutar($ctx, intval($_POST['propuesta_id'] ?? 0), (string)($_POST['accion_ciclo'] ?? ''), (string)($_POST['motivo'] ?? ''));
+                asis_responder(true, $r, (string)$r['mensaje_accion']);
             case 'descartar':
                 csrf_exigir();
                 asis_responder(true, asis_descartar_propuesta($ctx, intval($_POST['propuesta_id'] ?? 0)));

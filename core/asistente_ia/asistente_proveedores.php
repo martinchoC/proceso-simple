@@ -51,6 +51,7 @@ function asis_config(): array
         'gemini_thinking_budget' => 256,          // tope de tokens de pensamiento en Gemini 2.5+ (0=off, -1=default del modelo)
         'precio_entrada_mtok_claude' => 4.00,    // USD por millón de tokens (costo estimado del log)
         'precio_salida_mtok_claude' => 20.00,
+        'precio_cache_mtok_claude' => 0.20,      // lectura de caché de prompt
     ], (array)(fl_config()['asistente'] ?? []));
 }
 
@@ -237,11 +238,17 @@ class AsisProveedorClaude implements AsisProveedor
         $u = (array)($json['usage'] ?? []);
         $entrada = 0;
         $salida = 0;
+        $cache_leidos = 0;
+        $cache_creados = 0;
         foreach ((array)($u['iterations'] ?? []) ?: [$u] as $it) {
+            $cache_leidos += intval($it['cache_read_input_tokens'] ?? 0);
+            $cache_creados += intval($it['cache_creation_input_tokens'] ?? 0);
             $entrada += intval($it['input_tokens'] ?? 0) + intval($it['cache_creation_input_tokens'] ?? 0) + intval($it['cache_read_input_tokens'] ?? 0);
             $salida += intval($it['output_tokens'] ?? 0);
         }
-        return ['texto' => trim($texto), 'llamadas' => $llamadas, 'tokens_entrada' => $entrada, 'tokens_salida' => $salida];
+        // tokens_entrada incluye los de caché; cache_leidos / cache_creados permiten el costo real y medir la caché
+        return ['texto' => trim($texto), 'llamadas' => $llamadas, 'tokens_entrada' => $entrada, 'tokens_salida' => $salida,
+                'cache_leidos' => $cache_leidos, 'cache_creados' => $cache_creados];
     }
 
     public function agregarResultados(array &$historial, array $resultados): void
@@ -377,7 +384,8 @@ class AsisProveedorGemini implements AsisProveedor
         $u = (array)($json['usageMetadata'] ?? []);
         return ['texto' => trim($texto), 'llamadas' => $llamadas,
                 'tokens_entrada' => intval($u['promptTokenCount'] ?? 0),
-                'tokens_salida' => intval($u['candidatesTokenCount'] ?? 0) + intval($u['thoughtsTokenCount'] ?? 0)];
+                'tokens_salida' => intval($u['candidatesTokenCount'] ?? 0) + intval($u['thoughtsTokenCount'] ?? 0),
+                'cache_leidos' => intval($u['cachedContentTokenCount'] ?? 0), 'cache_creados' => 0];
     }
 
     public function agregarResultados(array &$historial, array $resultados): void

@@ -5,7 +5,8 @@
 (function () {
     'use strict';
 
-    const esc = (t) => $('<div>').text(t == null ? '' : String(t)).html();
+    // También escapa comillas: se usa dentro de atributos (title, data-*)
+    const esc = (t) => $('<div>').text(t == null ? '' : String(t)).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     const dinero = (v) => Fmt.moneda(Number(v) || 0);
     const num = (v) => Fmt.numero(Number(v) || 0, { maximumFractionDigits: 4 });
 
@@ -81,6 +82,90 @@
         $('#asisConversaciones .active').removeClass('active');
         $('#asisLateral').removeClass('abierto');
         $('#asisTexto').trigger('focus');
+        cargarSugerencias();
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Sugerencias de la bienvenida (asistente_sugerencias.php): pendientes del perfil, operaciones de los últimos
+    // 60 días para repetir, pedidos frecuentes y ejemplos que el perfil puede ejecutar
+    // ---------------------------------------------------------------------------------------------
+
+    function cargarSugerencias() {
+        if (!$('#asisBienvenida').length) return;
+        pedir('sugerencias', {}, 'GET').then((res) => pintarSugerencias(res.data))
+            .catch(() => { /* sin sugerencias quedan los ejemplos fijos de la plantilla */ });
+    }
+
+    const COLORES_ESTADO = { 3: 'text-bg-secondary', 4: 'text-bg-warning', 5: 'text-bg-success', 6: 'text-bg-dark', 38: 'text-bg-danger' };
+
+    function botonesCiclo(acciones, attrs) {
+        return (acciones || []).map((a) => `<button type="button" class="btn btn-sm ${esc(a.clase)} asis-accion-reg" ${attrs}
+                data-accion="${esc(a.accion)}" data-texto="${esc(a.texto)}" data-detalle="${esc(a.detalle)}"
+                data-motivo="${esc(a.motivo || '')}" title="${esc(a.detalle)}">${esc(a.texto)}</button>`).join(' ');
+    }
+
+    function registroPendiente(it) {
+        const attrs = `data-clave="${esc(it.clave)}" data-id="${it.id}"`;
+        const botones = botonesCiclo(it.acciones, attrs);
+        return `<div class="card asis-sug-reg mb-2" ${attrs}><div class="card-body">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <strong>${esc(it.nombre)} ${esc(it.numero)}</strong>
+                    <span class="badge ${COLORES_ESTADO[it.estado_id] || 'text-bg-light'}">${esc(it.estado)}</span>
+                    <span class="text-muted">${esc(it.detalle || '')}</span>
+                </div>
+                ${it.concepto ? `<div class="text-muted">${esc(it.concepto)}</div>` : ''}
+                <div class="mt-1 d-flex flex-wrap gap-1 asis-sug-acciones">${botones || '<span class="text-muted">Sin más acciones para tu perfil.</span>'}</div>
+            </div></div>`;
+    }
+
+    function botonPedido(titulo, detalle, pedido, extraClase) {
+        return `<button type="button" class="btn btn-light border asis-sug-btn asis-sug-pedido ${extraClase || ''}" data-pedido="${esc(pedido)}">
+                ${esc(titulo)}${detalle ? `<small>${esc(detalle)}</small>` : ''}</button>`;
+    }
+
+    function pintarSugerencias(s) {
+        const $b = $('#asisBienvenida');
+        if (!$b.length || !s) return;
+        let html = '';
+        const pend = s.pendientes || [];
+        if (pend.length) {
+            const regs = pend.filter((p) => p.tipo === 'registro').map(registroPendiente).join('');
+            const peds = pend.filter((p) => p.tipo === 'pedido')
+                .map((p) => botonPedido(p.titulo, p.detalle, p.pedido, p.urgente ? 'border-danger' : '')).join('');
+            html += `<div class="asis-sug-bloque"><div class="asis-sug-titulo"><i class="bi bi-hourglass-split me-1"></i>Para avanzar</div>
+                     ${regs}${peds ? `<div class="d-flex flex-wrap gap-2">${peds}</div>` : ''}</div>`;
+        }
+        if ((s.repetir || []).length) {
+            html += `<div class="asis-sug-bloque"><div class="asis-sug-titulo"><i class="bi bi-arrow-repeat me-1"></i>Repetir operaciones de los últimos 60 días</div>
+                     <div class="d-flex flex-wrap gap-2">${s.repetir.map((r) => botonPedido(r.titulo, r.detalle + (r.este_mes ? ' · ya cargada este mes' : ''),
+                         r.pedido, r.este_mes ? 'asis-sug-hecha' : '')).join('')}</div></div>`;
+        }
+        if ((s.frecuentes || []).length) {
+            html += `<div class="asis-sug-bloque"><div class="asis-sug-titulo"><i class="bi bi-clock-history me-1"></i>Tus pedidos frecuentes</div>
+                     <div class="d-flex flex-wrap gap-2">${s.frecuentes.map((f) => botonPedido(f.texto, `${f.veces} veces`, f.texto)).join('')}</div></div>`;
+        }
+        $b.find('.asis-sugerencias').html(html);
+        if (s.ejemplos) {
+            $b.find('.asis-ejemplos').html(s.ejemplos.map((e) => `<button type="button" class="btn btn-light border" ${e.adjuntar ? 'data-adjuntar="1"' : ''}>${esc(e.texto)}</button>`).join(''));
+        }
+    }
+
+    // Botón del ciclo de un pendiente: ejecuta y redibuja la fila con el estado y las acciones nuevas
+    function ejecutarAccionRegistro($btn) {
+        const accion = String($btn.data('accion'));
+        preguntarAccionCiclo(accion, String($btn.data('texto')), String($btn.data('detalle')), String($btn.data('motivo') || '')).then((r) => {
+            if (!r) return;
+            const $card = $btn.closest('.asis-sug-reg');
+            $card.find('button').prop('disabled', true);
+            pedir('accion_registro', { clave: $btn.data('clave'), id: $btn.data('id'), accion_ciclo: accion, motivo: r.motivo }).then((res) => {
+                if (res.data) $card.replaceWith(registroPendiente(res.data));
+                else $card.remove();
+                UiSimple.ok(res.message || 'Listo');
+            }).catch((m) => {
+                $card.find('button').prop('disabled', false);
+                UiSimple.error(m, 'No se pudo completar');
+            });
+        });
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -157,7 +242,8 @@
     function estadoPropuesta(p) {
         if (p.estado === 'CONFIRMADA') {
             return `<span class="badge text-bg-success me-2">Guardado</span>${esc(p.mensaje || '')}`
-                + (p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Abrir</a>` : '');
+                + (p.url ? ` <a href="${esc(p.url)}" target="_blank" rel="noopener">Abrir</a>` : '')
+                + accionesCiclo(p);
         }
         if (p.estado === 'DESCARTADA') return '<span class="badge text-bg-secondary">Descartada</span>';
         const esDirecto = ['ALTA_ENTIDAD', 'CUENTAS_CONTABLES', 'TIPO_OBLIGACION', 'ASIENTO_CONTABLE', 'MOV_TESORERIA', 'IMPUTAR_SALDO_FAVOR', 'CUENTA_TESORERIA', 'CONCILIAR_BANCO', 'GASTOS_BANCARIOS'].includes(p.tipo)
@@ -165,6 +251,57 @@
         const textoBtn = esDirecto ? 'Confirmar y guardar' : 'Confirmar y guardar en Borrador';
         return `<button type="button" class="btn btn-primary btn-sm asis-confirmar" data-id="${p.propuesta_id}"><i class="bi bi-check-lg me-1"></i>${textoBtn}</button>
                 <button type="button" class="btn btn-light btn-sm asis-descartar" data-id="${p.propuesta_id}">Descartar</button>`;
+    }
+
+    // Registro guardado (comprobante MC, Orden de Pago, Obligación, Cobranza): estado actual y botones de las acciones
+    // que habilitan su estado y el perfil del usuario (conf__paginas_funciones; asistente_ciclo.php)
+    function accionesCiclo(p) {
+        const ci = p.ciclo;
+        if (!ci) return '';
+        const colores = { 3: 'text-bg-secondary', 4: 'text-bg-warning', 5: 'text-bg-success', 6: 'text-bg-dark', 38: 'text-bg-danger' };
+        const botones = (ci.acciones || []).map((a) => `<button type="button" class="btn btn-sm ${esc(a.clase)} asis-accion-ciclo"
+                data-id="${p.propuesta_id}" data-accion="${esc(a.accion)}" data-texto="${esc(a.texto)}" data-detalle="${esc(a.detalle)}"
+                data-motivo="${esc(a.motivo || '')}" title="${esc(a.detalle)}">${esc(a.texto)}</button>`).join(' ');
+        return `<div class="mt-2 pt-2 border-top small">
+                <span class="text-muted me-1">${esc(ci.nombre)} ${esc(ci.numero)}:</span><span class="badge ${colores[ci.estado_id] || 'text-bg-light'} me-2">${esc(ci.estado)}</span>
+                ${botones ? `<div class="mt-2 d-flex flex-wrap gap-1">${botones}</div>`
+                          : '<span class="text-muted">Sin acciones disponibles para tu perfil en este estado.</span>'}</div>`;
+    }
+
+    // motivo: '' (no pide), 'opcional' u 'obligatorio'
+    function preguntarAccionCiclo(accion, texto, detalle, motivo) {
+        const peligro = ['eliminar', 'anular'].includes(accion);
+        if (!window.Swal) {
+            if (!window.confirm(detalle + '. ¿Continuar?')) return Promise.resolve(null);
+            if (!motivo) return Promise.resolve({ motivo: '' });
+            const m = window.prompt('Motivo' + (motivo === 'obligatorio' ? ':' : ' (opcional):')) || '';
+            if (motivo === 'obligatorio' && !m.trim()) return Promise.resolve(null);
+            return Promise.resolve({ motivo: m });
+        }
+        return Swal.fire({
+            title: '¿' + texto + '?', text: detalle, icon: peligro ? 'warning' : 'question', showCancelButton: true,
+            confirmButtonText: 'Sí, ' + texto.toLowerCase(), cancelButtonText: 'Cancelar', confirmButtonColor: peligro ? '#d33' : undefined,
+            input: motivo ? 'text' : undefined,
+            inputPlaceholder: motivo ? ('Motivo' + (motivo === 'obligatorio' ? '' : ' (opcional)')) : undefined,
+            inputValidator: motivo === 'obligatorio' ? (v) => (!v || !v.trim()) ? 'Ingresá el motivo.' : undefined : undefined
+        }).then((r) => r.isConfirmed ? { motivo: motivo ? (r.value || '') : '' } : null);
+    }
+
+    function ejecutarAccionCiclo($btn) {
+        const id = $btn.data('id');
+        const accion = String($btn.data('accion'));
+        preguntarAccionCiclo(accion, String($btn.data('texto')), String($btn.data('detalle')), String($btn.data('motivo') || '')).then((r) => {
+            if (!r) return;
+            const $estado = $btn.closest('.asis-prop-estado');
+            $estado.find('button').prop('disabled', true);
+            pedir('accion_ciclo', { propuesta_id: id, accion_ciclo: accion, motivo: r.motivo }).then((res) => {
+                $estado.html(estadoPropuesta(res.data));
+                UiSimple.ok(res.message || 'Listo');
+            }).catch((m) => {
+                $estado.find('button').prop('disabled', false);
+                UiSimple.error(m, 'No se pudo completar');
+            });
+        });
     }
 
     function tarjetaPropuesta(p) {
@@ -493,6 +630,12 @@
         });
         $(document).on('click', '.asis-confirmar',function () { resolverPropuesta('confirmar', $(this).data('id'), $(this)); });
         $(document).on('click', '.asis-descartar', function () { resolverPropuesta('descartar', $(this).data('id'), $(this)); });
+        $(document).on('click', '.asis-accion-ciclo', function () { ejecutarAccionCiclo($(this)); });
+        $(document).on('click', '.asis-accion-reg', function () { ejecutarAccionRegistro($(this)); });
+        // Pedido sugerido: queda en el cuadro de texto para revisarlo (importe, fecha) antes de enviarlo
+        $(document).on('click', '.asis-sug-pedido', function () {
+            $('#asisTexto').val(String($(this).data('pedido'))).trigger('focus');
+        });
 
         $('#asisConversaciones').on('click', '.list-group-item[data-id]', function (ev) {
             if ($(ev.target).closest('.asis-archivar').length) return;
@@ -510,5 +653,6 @@
 
         cargarEstado();
         cargarConversaciones();
+        cargarSugerencias();
     });
 })();

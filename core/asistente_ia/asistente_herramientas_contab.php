@@ -739,7 +739,8 @@ function asis_grabar_obligacion_pago(array $ctx, array $d): array
     try {
         $ids = [];
         foreach ($v['obligaciones'] as $o) {
-            $id = obl_guardar($c, $emp, $uid, [
+            // Mismo alta que la pantalla de Obligaciones de Pago (obligaciones_ajax.php > agregar): queda en Borrador
+            $r = obl_registrar($c, [
                 'obligacion_tipo_id'    => $o['obligacion_tipo_id'],
                 'entidad_id'            => $o['entidad_id'],
                 'f_emision'             => $o['f_emision'],
@@ -748,8 +749,10 @@ function asis_grabar_obligacion_pago(array $ctx, array $d): array
                 'descripcion'           => $o['descripcion'],
                 'cont_cuenta_debe_id'   => $o['cont_cuenta_debe_id'],
                 'cont_cuenta_pasivo_id' => $o['cont_cuenta_pasivo_id'],
-            ], true);
-            $ids[] = $id;
+                'origen'                => 'MANUAL',
+                'confirmar'             => 'NO',
+            ], $emp, $uid, true);
+            $ids[] = intval($r['obligacion_id']);
         }
         mysqli_commit($c);
         return [$ids[0], count($ids) . ' obligación(es) de pago guardada(s) en Borrador por ' . fmt_moneda($v['total']) . '.'];
@@ -858,6 +861,32 @@ function asis_grabar_movimiento_tesoreria(array $ctx, array $d): array
     return [intval($res_om['comprobante_id'] ?? 1), (string)($res_om['message'] ?? "Comprobante {$v['tipo']} creado en Borrador.")];
 }
 
+/**
+ * Ciclo de vida de los comprobantes soporte MC: estados desde los que se puede ejecutar cada función de la página
+ * Movimientos de Tesorería (las mismas reglas que los botones de la grilla, obtenerOtrosMovimientosListado).
+ * 3 = Borrador, 4 = Pendiente de aprobación, 5 = Confirmado.
+ */
+const ASIS_MC_ACCIONES = [
+    'confirmar'         => ['estados' => [3],    'texto' => 'Confirmar',            'detalle' => 'Confirmar e impactar caja y contabilidad (Borrador → Confirmado)', 'clase' => 'btn-success'],
+    'enviar_aprobacion' => ['estados' => [3],    'texto' => 'Enviar a aprobación',  'detalle' => 'Enviar a Aprobación (Borrador → Pendiente)', 'clase' => 'btn-outline-warning'],
+    'aprobar'           => ['estados' => [4],    'texto' => 'Aprobar',              'detalle' => 'Aprobar e impactar caja y contabilidad (Pendiente → Confirmado)', 'clase' => 'btn-success'],
+    'rechazar'          => ['estados' => [4],    'texto' => 'Rechazar',             'detalle' => 'Rechazar y devolver a Borrador (Pendiente → Borrador)', 'clase' => 'btn-outline-warning'],
+    'eliminar'          => ['estados' => [3, 4], 'texto' => 'Eliminar',             'detalle' => 'Eliminar Borrador', 'clase' => 'btn-outline-danger'],
+    'anular'            => ['estados' => [5],    'texto' => 'Anular',               'detalle' => 'Anular Comprobante y revertir caja/asiento (Confirmado → Anulado)', 'clase' => 'btn-outline-danger'],
+];
+
+/** Acciones que admite un MC en el estado $estado y que el perfil del usuario tiene habilitadas. */
+function asis_acciones_mc(array $ctx, int $estado): array
+{
+    $out = [];
+    foreach (ASIS_MC_ACCIONES as $accion => $a) {
+        if (in_array($estado, $a['estados'], true) && asis_puede($ctx, 'tesoreria_movimientos', $accion)) {
+            $out[] = ['accion' => $accion, 'texto' => $a['texto'], 'detalle' => $a['detalle'], 'clase' => $a['clase']];
+        }
+    }
+    return $out;
+}
+
 function asis_h_consultar_comprobantes_tesoreria(array $ctx, array $e): array
 {
     if (!asis_tiene_acceso_pagina($ctx, 'tesoreria_movimientos')) {
@@ -889,26 +918,13 @@ function asis_h_proponer_estado_comprobante_tesoreria(array $ctx, array $e): arr
     if (!$comp) throw new RuntimeException("Comprobante MC #$cid no encontrado.");
 
     $est = intval($comp['tabla_estado_registro_id']);
-    $reglas = [
-        'enviar_aprobacion' => [3],
-        'confirmar'         => [3],
-        'aprobar'           => [4],
-        'rechazar'          => [4],
-        'eliminar'          => [3, 4],
-        'anular'            => [5],
-    ];
-    if (!in_array($est, $reglas[$acc], true)) {
-        throw new RuntimeException("El comprobante {$comp['numero_formateado']} está en estado '{$comp['estado_registro']}' y no admite la acción '$acc'.");
+    if (!in_array($est, ASIS_MC_ACCIONES[$acc]['estados'], true)) {
+        $posibles = array_column(asis_acciones_mc($ctx, $est), 'accion');
+        throw new RuntimeException("El comprobante {$comp['numero_formateado']} está en estado '{$comp['estado_registro']}' y no admite la acción '$acc'."
+            . ($posibles ? ' Acciones posibles para tu perfil: ' . implode(', ', $posibles) . '.' : ' Tu perfil no tiene acciones habilitadas en ese estado.'));
     }
 
-    $etiquetas = [
-        'enviar_aprobacion' => 'Enviar a Aprobación (Borrador → Pendiente)',
-        'confirmar'         => 'Confirmar e impactar caja y contabilidad (Borrador → Confirmado)',
-        'aprobar'           => 'Aprobar e impactar caja y contabilidad (Pendiente → Confirmado)',
-        'rechazar'          => 'Rechazar y devolver a Borrador (Pendiente → Borrador)',
-        'eliminar'          => 'Eliminar Borrador',
-        'anular'            => 'Anular Comprobante y revertir caja/asiento (Confirmado → Anulado)',
-    ];
+    $etiquetas = array_map(static fn($a) => $a['detalle'], ASIS_MC_ACCIONES);
     $datos = [
         'comprobante_id'  => $cid,
         'numero'          => $comp['numero_formateado'],

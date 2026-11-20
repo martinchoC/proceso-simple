@@ -23,6 +23,13 @@
     .asis-entrada { margin-top: .75rem; }
     .asis-entrada textarea { resize: none; }
     .asis-ejemplos .btn { font-size: .8125rem; }
+    .asis-sug-titulo { font-size: .8125rem; font-weight: 600; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: .02em; margin: .25rem 0 .5rem; }
+    .asis-sug-bloque { margin-bottom: 1.1rem; }
+    .asis-sug-reg { max-width: 640px; font-size: .8125rem; }
+    .asis-sug-reg .card-body { padding: .5rem .75rem; }
+    .asis-sug-btn { font-size: .8125rem; text-align: start; max-width: 320px; }
+    .asis-sug-btn small { display: block; color: var(--bs-secondary-color); }
+    .asis-sug-btn.asis-sug-hecha { opacity: .65; }
     .asis-pensando { color: var(--bs-secondary-color); font-size: .875rem; }
     .asis-pensando .spinner-border { width: 1rem; height: 1rem; }
 </style>
@@ -53,6 +60,8 @@
                         </div>
                         <div class="asis-mensajes" id="asisMensajes">
                             <div id="asisBienvenida">
+                                <!-- Pendientes, operaciones para repetir y pedidos frecuentes (asis_sugerencias, se cargan por ajax) -->
+                                <div class="asis-sugerencias"></div>
                                 <p class="mb-2"><strong>¿Qué necesitás?</strong> Por ejemplo:</p>
                                 <div class="asis-ejemplos d-flex flex-wrap gap-2">
                                     <button type="button" class="btn btn-light border">¿Cómo cargo el pago de un sueldo o un FCI?</button>

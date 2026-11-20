@@ -75,6 +75,54 @@ try {
             cconsResponder(['success' => true, 'data' => $lista, 'message' => '']);
             break;
 
+        case 'subir_adjunto':
+            $comprobante_id = intval($_POST['comprobante_id'] ?? 0);
+            if ($comprobante_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante inválido.'], 400);
+            if (empty($_FILES['archivo'])) cconsResponder(['success' => false, 'data' => null, 'message' => 'Seleccioná un archivo para adjuntar.'], 400);
+            $res = cconsSubirAdjunto($conexion, $empresa_id, $usuario_id, $comprobante_id, $_FILES['archivo'], (string)($_POST['descripcion'] ?? ''));
+            cconsResponder(['success' => true, 'data' => $res, 'message' => 'Documento adjuntado correctamente.']);
+            break;
+
+        case 'eliminar_adjunto':
+            $adjunto_id = intval($_POST['adjunto_id'] ?? 0);
+            if ($adjunto_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Adjunto inválido.'], 400);
+            $ok = cconsEliminarAdjunto($conexion, $empresa_id, $adjunto_id, $usuario_id);
+            if (!$ok) cconsResponder(['success' => false, 'data' => null, 'message' => 'No se pudo quitar el adjunto.'], 404);
+            cconsResponder(['success' => true, 'data' => null, 'message' => 'Adjunto eliminado.']);
+            break;
+
+        case 'agregar_comentario':
+            $comprobante_id = intval($_POST['comprobante_id'] ?? 0);
+            $comentario = (string)($_POST['comentario'] ?? '');
+            if ($comprobante_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comprobante inválido.'], 400);
+            $res = cconsAgregarComentario($conexion, $empresa_id, $usuario_id, $comprobante_id, $comentario);
+            cconsResponder(['success' => true, 'data' => $res, 'message' => 'Comentario agregado.']);
+            break;
+
+        case 'eliminar_comentario':
+            $comentario_id = intval($_POST['comentario_id'] ?? 0);
+            if ($comentario_id <= 0) cconsResponder(['success' => false, 'data' => null, 'message' => 'Comentario inválido.'], 400);
+            $ok = cconsEliminarComentario($conexion, $empresa_id, $usuario_id, $comentario_id);
+            if (!$ok) cconsResponder(['success' => false, 'data' => null, 'message' => 'No se pudo eliminar el comentario.'], 404);
+            cconsResponder(['success' => true, 'data' => null, 'message' => 'Comentario eliminado.']);
+            break;
+
+        case 'ver_adjunto':
+            $origen = (string)($_GET['origen'] ?? '');
+            $id = intval($_GET['id'] ?? 0);
+            $f = cconsResolverArchivoAdjunto($conexion, $empresa_id, $origen, $id);
+            if (!$f) {
+                http_response_code(404);
+                echo 'Archivo no encontrado.';
+                exit;
+            }
+            while (ob_get_level() > 0) ob_end_clean();
+            header('Content-Type: ' . $f['mime']);
+            header('Content-Disposition: inline; filename="' . str_replace('"', '', basename($f['nombre'])) . '"');
+            header('Content-Length: ' . filesize($f['abs']));
+            readfile($f['abs']);
+            exit;
+
         default:
             cconsResponder(['success' => false, 'data' => null, 'message' => 'Acción no definida.'], 400);
     }

@@ -298,7 +298,502 @@ function cconsObtener($conexion, $empresa_id, $usuario_id, $comprobante_id, $ent
     }
     mysqli_stmt_close($stmt);
 
-    return ['comprobante' => $cab, 'imputaciones' => $imputaciones];
+    $asientos = cconsObtenerAsientos($conexion, $empresa_id, $comprobante_id);
+    $adjuntos = cconsObtenerAdjuntos($conexion, $empresa_id, $comprobante_id, intval($cab['tabla_origen_id']), intval($cab['registro_origen_id']));
+    $comentarios = cconsObtenerComentarios($conexion, $empresa_id, $comprobante_id, intval($usuario_id));
+    $historial = cconsObtenerHistorial($conexion, $empresa_id, $comprobante_id, $asientos, $adjuntos, $imputaciones);
+
+    return [
+        'comprobante'  => $cab,
+        'imputaciones' => $imputaciones,
+        'asientos'     => $asientos,
+        'adjuntos'     => $adjuntos,
+        'comentarios'  => $comentarios,
+        'historial'    => $historial,
+    ];
+}
+
+/**
+ * Asientos contables vinculados al comprobante (gestion__cont_asientos + detalles).
+ */
+function cconsObtenerAsientos($conexion, int $empresa_id, int $comprobante_id): array
+{
+    $col_estado = cconsColumnaNombreEstado($conexion);
+    $sql = "SELECT a.cont_asiento_id, a.f_asiento, a.descripcion, a.tabla_estado_registro_id AS estado_id,
+                   COALESCE(er.$col_estado, CASE WHEN a.tabla_estado_registro_id IN (1, 5) THEN 'Confirmado' WHEN a.tabla_estado_registro_id = 2 THEN 'Anulado' ELSE 'Borrador' END) AS estado
+            FROM gestion__cont_asientos a
+            LEFT JOIN conf__estados_registros er ON er.estado_registro_id = a.tabla_estado_registro_id
+            WHERE a.empresa_id = ? AND a.comprobante_id = ?
+            ORDER BY a.cont_asiento_id ASC";
+    $stmt = mysqli_prepare($conexion, $sql);
+    mysqli_stmt_bind_param($stmt, 'ii', $empresa_id, $comprobante_id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $asientos = [];
+    while ($a = mysqli_fetch_assoc($res)) {
+        $aid = intval($a['cont_asiento_id']);
+        $lineas = [];
+        $tot_debe = 0.0;
+        $tot_haber = 0.0;
+        $st_d = mysqli_prepare($conexion, "SELECT d.cuenta_id, cc.codigo, cc.nombre, d.importe_local, d.descripcion
+                                           FROM gestion__cont_asientos_detalles d
+                                           LEFT JOIN gestion__cont_cuentas cc ON cc.cont_cuenta_id = d.cuenta_id
+                                           WHERE d.cont_asiento_id = ? AND (d.estado = 'activo' OR d.estado IS NULL)
+                                           ORDER BY d.importe_local DESC, cc.codigo ASC");
+        mysqli_stmt_bind_param($st_d, 'i', $aid);
+        mysqli_stmt_execute($st_d);
+        $rd = mysqli_stmt_get_result($st_d);
+        while ($d = mysqli_fetch_assoc($rd)) {
+            $imp = floatval($d['importe_local'] ?? 0);
+            $debe = $imp > 0 ? round($imp, 2) : 0.0;
+            $haber = $imp < 0 ? round(-$imp, 2) : 0.0;
+            $tot_debe = round($tot_debe + $debe, 2);
+            $tot_haber = round($tot_haber + $haber, 2);
+            $lineas[] = [
+                'codigo'      => $d['codigo'] ?? '',
+                'nombre'      => $d['nombre'] ?? '',
+                'descripcion' => $d['descripcion'] ?? '',
+                'debe'        => $debe,
+                'haber'       => $haber,
+            ];
+        }
+        mysqli_stmt_close($st_d);
+        $asientos[] = [
+            'cont_asiento_id' => $aid,
+            'f_asiento'       => $a['f_asiento'],
+            'descripcion'     => $a['descripcion'] ?? '',
+            'estado_id'       => intval($a['estado_id']),
+            'estado'          => $a['estado'] ?? '',
+            'anulado'         => in_array(intval($a['estado_id']), [2, 38], true),
+            'total_debe'      => $tot_debe,
+            'total_haber'     => $tot_haber,
+            'lineas'          => $lineas,
+        ];
+    }
+    mysqli_stmt_close($stmt);
+    return $asientos;
+}
+
+/**
+ * Documentos escaneados / adjuntos vinculados al comprobante desde las 3 fuentes:
+ * 1) gestion__comprobantes_adjuntos (universal para cualquier comprobante)
+ * 2) gestion__facturas_proveedores_adjuntos (facturas de compra escaneadas)
+ * 3) gestion__bandeja_documentos (documentos de la bandeja asociados a la tabla/registro origen)
+ */
+function cconsObtenerAdjuntos($conexion, int $empresa_id, int $comprobante_id, int $tabla_origen_id, int $registro_origen_id): array
+{
+    $adjuntos = [];
+    $vistos_ruta = [];
+
+    // 1. Adjuntos universales del comprobante
+    $chk = @mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__comprobantes_adjuntos'");
+    if ($chk && mysqli_num_rows($chk) > 0) {
+        $st = mysqli_prepare($conexion, "SELECT a.comprobante_adjunto_id, a.archivo_ruta, a.nombre_original, a.mime,
+                                                a.tamanio_bytes, a.descripcion, a.fecha_alta, u.usuario_nombre
+                                         FROM gestion__comprobantes_adjuntos a
+                                         LEFT JOIN conf__usuarios u ON u.usuario_id = a.usuario_id
+                                         WHERE a.empresa_id = ? AND a.comprobante_id = ? AND a.tabla_estado_registro_id = 1
+                                         ORDER BY a.fecha_alta DESC, a.comprobante_adjunto_id DESC");
+        mysqli_stmt_bind_param($st, 'ii', $empresa_id, $comprobante_id);
+        mysqli_stmt_execute($st);
+        $res = mysqli_stmt_get_result($st);
+        while ($r = mysqli_fetch_assoc($res)) {
+            $vistos_ruta[$r['archivo_ruta']] = true;
+            $adjuntos[] = [
+                'origen'          => 'COMPROBANTE',
+                'origen_label'    => 'Adjunto',
+                'id'              => intval($r['comprobante_adjunto_id']),
+                'nombre_original' => $r['nombre_original'],
+                'mime'            => $r['mime'],
+                'tamanio_bytes'   => intval($r['tamanio_bytes']),
+                'descripcion'     => $r['descripcion'] ?? '',
+                'usuario_nombre'  => $r['usuario_nombre'] ?? '',
+                'fecha_alta'      => $r['fecha_alta'],
+                'puede_eliminar'  => true,
+            ];
+        }
+        mysqli_stmt_close($st);
+    }
+
+    // 2. Factura de proveedor escaneada (gestion__facturas_proveedores_adjuntos)
+    if ($tabla_origen_id > 0 && $registro_origen_id > 0) {
+        $st_fp = mysqli_prepare($conexion, "SELECT a.adjunto_id, a.archivo_ruta, a.nombre_original, a.mime,
+                                                   a.tamanio_bytes, a.fecha_alta, u.usuario_nombre
+                                            FROM gestion__facturas_proveedores_adjuntos a
+                                            JOIN conf__tablas t ON t.tabla_nombre = 'gestion__facturas_proveedores' AND t.tabla_id = ?
+                                            LEFT JOIN conf__usuarios u ON u.usuario_id = a.usuario_id
+                                            WHERE a.empresa_id = ? AND a.factura_proveedor_id = ? AND a.tabla_estado_registro_id = 1
+                                            ORDER BY a.fecha_alta DESC");
+        if ($st_fp) {
+            mysqli_stmt_bind_param($st_fp, 'iii', $tabla_origen_id, $empresa_id, $registro_origen_id);
+            mysqli_stmt_execute($st_fp);
+            $res = mysqli_stmt_get_result($st_fp);
+            while ($r = mysqli_fetch_assoc($res)) {
+                if (isset($vistos_ruta[$r['archivo_ruta']])) continue;
+                $vistos_ruta[$r['archivo_ruta']] = true;
+                $adjuntos[] = [
+                    'origen'          => 'FACTURA_PROVEEDOR',
+                    'origen_label'    => 'Factura escaneada',
+                    'id'              => intval($r['adjunto_id']),
+                    'nombre_original' => $r['nombre_original'],
+                    'mime'            => $r['mime'],
+                    'tamanio_bytes'   => intval($r['tamanio_bytes']),
+                    'descripcion'     => 'Documento asociado en Compras',
+                    'usuario_nombre'  => $r['usuario_nombre'] ?? '',
+                    'fecha_alta'      => $r['fecha_alta'],
+                    'puede_eliminar'  => false,
+                ];
+            }
+            mysqli_stmt_close($st_fp);
+        }
+
+        // 3. Documento desde Bandeja de Documentos
+        $st_b = mysqli_prepare($conexion, "SELECT b.bandeja_documento_id, b.archivo_ruta, b.nombre_original, b.mime,
+                                                  b.tamanio_bytes, b.tipo_documento, b.fecha_alta, u.usuario_nombre
+                                           FROM gestion__bandeja_documentos b
+                                           LEFT JOIN conf__usuarios u ON u.usuario_id = b.usuario_id
+                                           WHERE b.empresa_id = ? AND b.destino_tabla_id = ? AND b.destino_registro_id = ?
+                                           ORDER BY b.fecha_alta DESC");
+        if ($st_b) {
+            mysqli_stmt_bind_param($st_b, 'iii', $empresa_id, $tabla_origen_id, $registro_origen_id);
+            mysqli_stmt_execute($st_b);
+            $res = mysqli_stmt_get_result($st_b);
+            while ($r = mysqli_fetch_assoc($res)) {
+                if (isset($vistos_ruta[$r['archivo_ruta']])) continue;
+                $vistos_ruta[$r['archivo_ruta']] = true;
+                $adjuntos[] = [
+                    'origen'          => 'BANDEJA',
+                    'origen_label'    => 'Bandeja (' . ($r['tipo_documento'] ?: 'Doc') . ')',
+                    'id'              => intval($r['bandeja_documento_id']),
+                    'nombre_original' => $r['nombre_original'],
+                    'mime'            => $r['mime'],
+                    'tamanio_bytes'   => intval($r['tamanio_bytes']),
+                    'descripcion'     => 'Ingresado por Bandeja de Documentos',
+                    'usuario_nombre'  => $r['usuario_nombre'] ?? '',
+                    'fecha_alta'      => $r['fecha_alta'],
+                    'puede_eliminar'  => false,
+                ];
+            }
+            mysqli_stmt_close($st_b);
+        }
+    }
+
+    return $adjuntos;
+}
+
+/**
+ * Sube y asocia un documento escaneado (PDF, JPG, PNG, WebP hasta 10 MB) a cualquier comprobante.
+ */
+function cconsSubirAdjunto($conexion, int $empresa_id, int $usuario_id, int $comprobante_id, array $archivo, string $descripcion = ''): array
+{
+    $st_c = mysqli_prepare($conexion, "SELECT comprobante_id FROM gestion__comprobantes WHERE comprobante_id = ? AND empresa_id = ? LIMIT 1");
+    mysqli_stmt_bind_param($st_c, 'ii', $comprobante_id, $empresa_id);
+    mysqli_stmt_execute($st_c);
+    $existe = mysqli_fetch_assoc(mysqli_stmt_get_result($st_c));
+    mysqli_stmt_close($st_c);
+    if (!$existe) throw new Exception('Comprobante no encontrado.');
+
+    if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($archivo['tmp_name'])) {
+        throw new Exception('No se recibió el archivo o superó el límite permitido.');
+    }
+    $tam = intval(filesize($archivo['tmp_name']));
+    if ($tam <= 0 || $tam > 10 * 1024 * 1024) {
+        throw new Exception('El archivo debe pesar entre 1 byte y 10 MB.');
+    }
+    $mimes = [
+        'application/pdf' => 'pdf',
+        'image/jpeg'      => 'jpg',
+        'image/png'       => 'png',
+        'image/webp'      => 'webp',
+    ];
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($archivo['tmp_name']);
+    $ext = $mimes[$mime] ?? null;
+    if (!$ext) throw new Exception('Formato no permitido. Subí un archivo PDF, JPG, PNG o WebP.');
+
+    $dir_rel = 'uploads/comprobantes/' . $empresa_id;
+    $base_dir = __DIR__ . '/../../uploads/comprobantes';
+    $dir_abs = $base_dir . '/' . $empresa_id;
+    if (!is_dir($dir_abs) && !mkdir($dir_abs, 0755, true)) {
+        throw new Exception('No se pudo crear la carpeta de adjuntos.');
+    }
+    if (!file_exists($base_dir . '/.htaccess')) {
+        @file_put_contents($base_dir . '/.htaccess', "Require all denied\nDeny from all\n");
+    }
+
+    $nombre_arch = date('Ymd') . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
+    $ruta_abs = $dir_abs . '/' . $nombre_arch;
+    $ruta_rel = $dir_rel . '/' . $nombre_arch;
+    if (!move_uploaded_file($archivo['tmp_name'], $ruta_abs)) {
+        throw new Exception('No se pudo guardar el archivo en el servidor.');
+    }
+    $sha = hash_file('sha256', $ruta_abs);
+    $orig = mb_substr(basename(str_replace('\\', '/', (string)($archivo['name'] ?? "documento.$ext"))), 0, 255);
+    $desc = mb_substr(trim($descripcion), 0, 255);
+
+    $st = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_adjuntos
+        (empresa_id, comprobante_id, archivo_ruta, nombre_original, mime, tamanio_bytes, sha256, descripcion, usuario_id, fecha_alta, tabla_estado_registro_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)");
+    mysqli_stmt_bind_param($st, 'iisssissi', $empresa_id, $comprobante_id, $ruta_rel, $orig, $mime, $tam, $sha, $desc, $usuario_id);
+    if (!mysqli_stmt_execute($st)) {
+        @unlink($ruta_abs);
+        throw new Exception('Error registrando adjunto: ' . mysqli_stmt_error($st));
+    }
+    $id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($st);
+    cconsRegistrarLog($conexion, $empresa_id, $comprobante_id, $usuario_id, 'ADJUNTO_ALTA', "Adjuntó '$orig'" . ($desc !== '' ? " ($desc)" : ''));
+    return ['comprobante_adjunto_id' => intval($id), 'nombre_original' => $orig];
+}
+
+/**
+ * Quita (baja lógica) un adjunto universal del comprobante.
+ */
+function cconsEliminarAdjunto($conexion, int $empresa_id, int $adjunto_id, int $usuario_id = 0): bool
+{
+    $st_q = mysqli_prepare($conexion, "SELECT comprobante_id, nombre_original FROM gestion__comprobantes_adjuntos WHERE comprobante_adjunto_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1 LIMIT 1");
+    mysqli_stmt_bind_param($st_q, 'ii', $adjunto_id, $empresa_id);
+    mysqli_stmt_execute($st_q);
+    $prev = mysqli_fetch_assoc(mysqli_stmt_get_result($st_q));
+    mysqli_stmt_close($st_q);
+    if (!$prev) return false;
+
+    $st = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_adjuntos SET tabla_estado_registro_id = 6 WHERE comprobante_adjunto_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1");
+    mysqli_stmt_bind_param($st, 'ii', $adjunto_id, $empresa_id);
+    mysqli_stmt_execute($st);
+    $af = mysqli_stmt_affected_rows($st);
+    mysqli_stmt_close($st);
+    if ($af > 0) {
+        cconsRegistrarLog($conexion, $empresa_id, intval($prev['comprobante_id']), $usuario_id, 'ADJUNTO_BAJA', "Quitó adjunto '{$prev['nombre_original']}'");
+    }
+    return $af > 0;
+}
+
+/**
+ * Registra un evento en el log de historial del comprobante (defensivo si la tabla aún no existe).
+ */
+function cconsRegistrarLog($conexion, int $empresa_id, int $comprobante_id, int $usuario_id, string $accion, string $detalle = ''): void
+{
+    $chk = @mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__comprobantes_log'");
+    if (!$chk || mysqli_num_rows($chk) === 0) return;
+    $uid = $usuario_id > 0 ? $usuario_id : null;
+    $det = mb_substr(trim($detalle), 0, 500);
+    $st = @mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_log (empresa_id, comprobante_id, usuario_id, accion, detalle, fecha_evento) VALUES (?, ?, ?, ?, ?, NOW())");
+    if (!$st) return;
+    mysqli_stmt_bind_param($st, 'iiiss', $empresa_id, $comprobante_id, $uid, $accion, $det);
+    @mysqli_stmt_execute($st);
+    mysqli_stmt_close($st);
+}
+
+/**
+ * Comentarios multiusuario de un comprobante.
+ */
+function cconsObtenerComentarios($conexion, int $empresa_id, int $comprobante_id, int $usuario_actual_id = 0): array
+{
+    $chk = @mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__comprobantes_comentarios'");
+    if (!$chk || mysqli_num_rows($chk) === 0) return [];
+    $st = mysqli_prepare($conexion, "SELECT cm.comentario_id, cm.usuario_id, cm.comentario, cm.fecha_alta,
+                                            COALESCE(u.usuario_nombre, 'Usuario') AS usuario_nombre
+                                     FROM gestion__comprobantes_comentarios cm
+                                     LEFT JOIN conf__usuarios u ON u.usuario_id = cm.usuario_id
+                                     WHERE cm.empresa_id = ? AND cm.comprobante_id = ? AND cm.tabla_estado_registro_id = 1
+                                     ORDER BY cm.fecha_alta ASC, cm.comentario_id ASC");
+    mysqli_stmt_bind_param($st, 'ii', $empresa_id, $comprobante_id);
+    mysqli_stmt_execute($st);
+    $res = mysqli_stmt_get_result($st);
+    $out = [];
+    while ($r = mysqli_fetch_assoc($res)) {
+        $out[] = [
+            'comentario_id'  => intval($r['comentario_id']),
+            'usuario_id'     => intval($r['usuario_id']),
+            'usuario_nombre' => $r['usuario_nombre'],
+            'comentario'     => $r['comentario'],
+            'fecha_alta'     => $r['fecha_alta'],
+            'es_propio'      => $usuario_actual_id > 0 && intval($r['usuario_id']) === $usuario_actual_id,
+        ];
+    }
+    mysqli_stmt_close($st);
+    return $out;
+}
+
+function cconsAgregarComentario($conexion, int $empresa_id, int $usuario_id, int $comprobante_id, string $texto): array
+{
+    $texto = trim($texto);
+    if ($texto === '') throw new Exception('Escribí un comentario.');
+    $texto = mb_substr($texto, 0, 2000);
+
+    $st_c = mysqli_prepare($conexion, "SELECT comprobante_id FROM gestion__comprobantes WHERE comprobante_id = ? AND empresa_id = ? LIMIT 1");
+    mysqli_stmt_bind_param($st_c, 'ii', $comprobante_id, $empresa_id);
+    mysqli_stmt_execute($st_c);
+    $ok = mysqli_fetch_assoc(mysqli_stmt_get_result($st_c));
+    mysqli_stmt_close($st_c);
+    if (!$ok) throw new Exception('Comprobante no encontrado.');
+
+    $st = mysqli_prepare($conexion, "INSERT INTO gestion__comprobantes_comentarios (empresa_id, comprobante_id, usuario_id, comentario, fecha_alta, tabla_estado_registro_id) VALUES (?, ?, ?, ?, NOW(), 1)");
+    mysqli_stmt_bind_param($st, 'iiis', $empresa_id, $comprobante_id, $usuario_id, $texto);
+    if (!mysqli_stmt_execute($st)) throw new Exception('Error guardando comentario.');
+    $id = mysqli_insert_id($conexion);
+    mysqli_stmt_close($st);
+    cconsRegistrarLog($conexion, $empresa_id, $comprobante_id, $usuario_id, 'COMENTARIO', mb_substr($texto, 0, 140));
+    return ['comentario_id' => intval($id)];
+}
+
+function cconsEliminarComentario($conexion, int $empresa_id, int $usuario_id, int $comentario_id): bool
+{
+    $st = mysqli_prepare($conexion, "UPDATE gestion__comprobantes_comentarios SET tabla_estado_registro_id = 6
+                                     WHERE comentario_id = ? AND empresa_id = ? AND usuario_id = ? AND tabla_estado_registro_id = 1");
+    mysqli_stmt_bind_param($st, 'iii', $comentario_id, $empresa_id, $usuario_id);
+    mysqli_stmt_execute($st);
+    $af = mysqli_stmt_affected_rows($st);
+    mysqli_stmt_close($st);
+    return $af > 0;
+}
+
+/**
+ * Línea de tiempo unificada del comprobante (creación, modificación, aprobación MC, asientos, imputaciones, adjuntos y log).
+ */
+function cconsObtenerHistorial($conexion, int $empresa_id, int $comprobante_id, array $asientos, array $adjuntos, array $imputaciones): array
+{
+    $eventos = [];
+
+    // 1. Creación y última modificación del comprobante + aprobación soporte MC (si existe)
+    $st = mysqli_prepare($conexion, "SELECT c.fecha_creacion, c.fecha_modificacion,
+                                            u_c.usuario_nombre AS u_crea, u_m.usuario_nombre AS u_mod
+                                     FROM gestion__comprobantes c
+                                     LEFT JOIN conf__usuarios u_c ON u_c.usuario_id = c.usuario_id
+                                     LEFT JOIN conf__usuarios u_m ON u_m.usuario_id = c.usuario_modificacion_id
+                                     WHERE c.comprobante_id = ? AND c.empresa_id = ? LIMIT 1");
+    mysqli_stmt_bind_param($st, 'ii', $comprobante_id, $empresa_id);
+    mysqli_stmt_execute($st);
+    $meta = mysqli_fetch_assoc(mysqli_stmt_get_result($st));
+    mysqli_stmt_close($st);
+
+    if ($meta) {
+        if (!empty($meta['fecha_creacion'])) {
+            $eventos[] = [
+                'fecha'   => $meta['fecha_creacion'],
+                'tipo'    => 'ALTA',
+                'titulo'  => 'Comprobante creado',
+                'detalle' => 'Registrado en el sistema',
+                'usuario' => $meta['u_crea'] ?: 'Sistema',
+            ];
+        }
+        if (!empty($meta['fecha_modificacion']) && $meta['fecha_modificacion'] !== $meta['fecha_creacion']) {
+            $eventos[] = [
+                'fecha'   => $meta['fecha_modificacion'],
+                'tipo'    => 'MODIF',
+                'titulo'  => 'Última actualización',
+                'detalle' => 'Modificación o cambio de estado del comprobante',
+                'usuario' => $meta['u_mod'] ?: 'Sistema',
+            ];
+        }
+    }
+
+    // 2. Aprobación de comprobante soporte MC (si aplica)
+    $chk_sp = @mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__tesoreria_comprobantes_soporte'");
+    if ($chk_sp && mysqli_num_rows($chk_sp) > 0) {
+        $st_sp = mysqli_prepare($conexion, "SELECT sp.fecha_aprobacion, sp.observacion_aprobacion, u.usuario_nombre
+                                            FROM gestion__tesoreria_comprobantes_soporte sp
+                                            LEFT JOIN conf__usuarios u ON u.usuario_id = sp.usuario_aprobacion_id
+                                            WHERE sp.comprobante_id = ? AND sp.empresa_id = ? LIMIT 1");
+        mysqli_stmt_bind_param($st_sp, 'ii', $comprobante_id, $empresa_id);
+        mysqli_stmt_execute($st_sp);
+        $sp = mysqli_fetch_assoc(mysqli_stmt_get_result($st_sp));
+        mysqli_stmt_close($st_sp);
+        if ($sp && !empty($sp['fecha_aprobacion'])) {
+            $eventos[] = [
+                'fecha'   => $sp['fecha_aprobacion'],
+                'tipo'    => 'APROBACION',
+                'titulo'  => 'Comprobante confirmado / aprobado',
+                'detalle' => $sp['observacion_aprobacion'] ?: 'Impactó caja/banco y contabilidad',
+                'usuario' => $sp['usuario_nombre'] ?: 'Sistema',
+            ];
+        }
+    }
+
+    // 3. Asientos contables
+    foreach ($asientos as $a) {
+        $eventos[] = [
+            'fecha'   => ($a['f_asiento'] ?? '') . ' 00:00:00',
+            'tipo'    => $a['anulado'] ? 'ANULACION' : 'ASIENTO',
+            'titulo'  => 'Asiento contable #' . $a['cont_asiento_id'] . ($a['anulado'] ? ' (Anulado)' : ''),
+            'detalle' => trim((string)($a['descripcion'] ?? '')),
+            'usuario' => 'Contabilidad',
+        ];
+    }
+
+    // 4. Imputaciones
+    foreach ($imputaciones as $imp) {
+        $rel = ($imp['rol'] ?? '') === 'CANCELADO_POR' ? 'Cancelado por ' : 'Aplicado a ';
+        $nro = trim(($imp['otro_tipo_codigo'] ?? '') . ' ' . str_pad((string)($imp['otro_pv'] ?? 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string)($imp['otro_nro'] ?? 0), 8, '0', STR_PAD_LEFT));
+        $eventos[] = [
+            'fecha'   => ($imp['f_imputacion'] ?? '') . ' 00:00:00',
+            'tipo'    => 'IMPUTACION',
+            'titulo'  => 'Imputación registrada',
+            'detalle' => $rel . $nro,
+            'usuario' => 'Tesorería',
+        ];
+    }
+
+    // 5. Eventos explícitos en gestion__comprobantes_log (adjuntos, comentarios, etc.)
+    $chk_lg = @mysqli_query($conexion, "SHOW TABLES LIKE 'gestion__comprobantes_log'");
+    if ($chk_lg && mysqli_num_rows($chk_lg) > 0) {
+        $st_lg = mysqli_prepare($conexion, "SELECT l.accion, l.detalle, l.fecha_evento, COALESCE(u.usuario_nombre, 'Sistema') AS usuario_nombre
+                                            FROM gestion__comprobantes_log l
+                                            LEFT JOIN conf__usuarios u ON u.usuario_id = l.usuario_id
+                                            WHERE l.empresa_id = ? AND l.comprobante_id = ?
+                                            ORDER BY l.fecha_evento DESC, l.log_id DESC LIMIT 100");
+        mysqli_stmt_bind_param($st_lg, 'ii', $empresa_id, $comprobante_id);
+        mysqli_stmt_execute($st_lg);
+        $rl = mysqli_stmt_get_result($st_lg);
+        $titulos = [
+            'ADJUNTO_ALTA' => 'Documento adjuntado',
+            'ADJUNTO_BAJA' => 'Adjunto quitado',
+            'COMENTARIO'   => 'Nuevo comentario',
+        ];
+        while ($l = mysqli_fetch_assoc($rl)) {
+            $eventos[] = [
+                'fecha'   => $l['fecha_evento'],
+                'tipo'    => $l['accion'],
+                'titulo'  => $titulos[$l['accion']] ?? $l['accion'],
+                'detalle' => $l['detalle'] ?? '',
+                'usuario' => $l['usuario_nombre'],
+            ];
+        }
+        mysqli_stmt_close($st_lg);
+    }
+
+    usort($eventos, static fn($a, $b) => strcmp((string)$b['fecha'], (string)$a['fecha']));
+    return $eventos;
+}
+
+/**
+ * Resuelve la ruta absoluta segura de un adjunto (COMPROBANTE, FACTURA_PROVEEDOR o BANDEJA) validando empresa_id.
+ */
+function cconsResolverArchivoAdjunto($conexion, int $empresa_id, string $origen, int $id): ?array
+{
+    $origen = strtoupper(trim($origen));
+    $row = null;
+    if ($origen === 'COMPROBANTE') {
+        $st = mysqli_prepare($conexion, "SELECT archivo_ruta, nombre_original, mime FROM gestion__comprobantes_adjuntos WHERE comprobante_adjunto_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1 LIMIT 1");
+    } elseif ($origen === 'FACTURA_PROVEEDOR') {
+        $st = mysqli_prepare($conexion, "SELECT archivo_ruta, nombre_original, mime FROM gestion__facturas_proveedores_adjuntos WHERE adjunto_id = ? AND empresa_id = ? AND tabla_estado_registro_id = 1 LIMIT 1");
+    } elseif ($origen === 'BANDEJA') {
+        $st = mysqli_prepare($conexion, "SELECT archivo_ruta, nombre_original, mime FROM gestion__bandeja_documentos WHERE bandeja_documento_id = ? AND empresa_id = ? LIMIT 1");
+    } else {
+        return null;
+    }
+    if (!$st) return null;
+    mysqli_stmt_bind_param($st, 'ii', $id, $empresa_id);
+    mysqli_stmt_execute($st);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($st));
+    mysqli_stmt_close($st);
+    if (!$row) return null;
+
+    $base_uploads = realpath(__DIR__ . '/../../uploads');
+    $abs = realpath(__DIR__ . '/../../' . ltrim(str_replace('\\', '/', (string)$row['archivo_ruta']), '/'));
+    if (!$base_uploads || !$abs || strpos($abs, $base_uploads) !== 0 || !is_file($abs)) {
+        return null;
+    }
+    return ['abs' => $abs, 'nombre' => $row['nombre_original'], 'mime' => $row['mime'] ?: 'application/octet-stream'];
 }
 
 /** Combos de filtros: grupos, tipos, sucursales (según accesos), estados usados y monedas. */
