@@ -547,8 +547,8 @@ function obtenerOtrosMovimientosListado($conexion, $empresa_id, $filtros = [], $
     $res = mysqli_stmt_get_result($stmt);
 
     $puede_ver       = $pagina_id > 0 && (permisos_puede($conexion, $pagina_id, 'visualizar') || permisos_puede($conexion, $pagina_id, 'consultar'));
-    $puede_agregar   = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'agregar');
     $puede_editar    = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'editar');
+    $puede_env_apr   = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'enviar_aprobacion');
     $puede_confirmar = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'confirmar');
     $puede_aprobar   = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'aprobar');
     $puede_rechazar  = $pagina_id > 0 && permisos_puede($conexion, $pagina_id, 'rechazar');
@@ -583,7 +583,7 @@ function obtenerOtrosMovimientosListado($conexion, $empresa_id, $filtros = [], $
             'estado_registro'              => $r['estado_registro'] ?? ($est === 3 ? 'Borrador' : ($est === 4 ? 'Pendiente Aprobación' : ($est === 5 ? 'Confirmado' : 'Anulado'))),
             'puede_ver'                    => $puede_ver,
             'puede_editar'                 => $puede_editar && $est === 3,
-            'puede_enviar_aprobacion'      => ($puede_agregar || $puede_editar) && $est === 3,
+            'puede_enviar_aprobacion'      => $puede_env_apr && $est === 3,
             'puede_confirmar'              => $puede_confirmar && $est === 3,
             'puede_aprobar'                => $puede_aprobar && $est === 4,
             'puede_rechazar'               => $puede_rechazar && $est === 4,

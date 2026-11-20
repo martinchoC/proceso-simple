@@ -256,8 +256,8 @@ function asis_instrucciones(array $ctx): string
     if (asis_puede($ctx, 'obligaciones_pago', 'agregar')) {
         $capacidades[] = "- Cargar Obligaciones de Pago (sueldos, impuestos, anticipos/retiros de socios): consultá listar_tipos_obligacion, buscar_entidades y buscar_cuentas_contables (y si ayuda, buscar_extracto_bancario) y llamá a proponer_obligacion_pago.";
     }
-    if (asis_puede($ctx, 'tesoreria_movimientos', 'agregar')) {
-        $capacidades[] = "- Registrar comprobantes soporte de tesorería (MC en Borrador para revisar/aprobar/confirmar e imprimir): INGRESO por aporte de socio (con entidad_id del socio), EGRESO puntual, o TRANSFERENCIA entre cuentas propias (ej. FCI). Consultá listar_cuentas_tesoreria, buscar_cuentas_contables y buscar_entidades y llamá a proponer_movimiento_tesoreria. Importante: para retiros/anticipos de socios usá siempre el circuito formal de Obligación de Pago (SOL_ANT) + Orden de Pago (OP) en Borrador.";
+    if (asis_puede($ctx, 'tesoreria_movimientos', 'agregar') || asis_tiene_acceso_pagina($ctx, 'tesoreria_movimientos')) {
+        $capacidades[] = "- Comprobantes soporte de tesorería (MC): podés consultarlos (consultar_comprobantes_tesoreria), crear en Borrador (proponer_movimiento_tesoreria con entidad_id para aportes de socios o TRANSFERENCIA entre cuentas propias) y ejecutar su ciclo de vida según permisos del perfil en conf__ (proponer_estado_comprobante_tesoreria: enviar_aprobacion, confirmar, aprobar, rechazar, eliminar, anular). Para retiros/anticipos de socios usá siempre el circuito formal de Obligación de Pago (SOL_ANT) + Orden de Pago (OP) en Borrador.";
     }
     if (asis_puede($ctx, 'cont_asientos', 'agregar')) {
         $capacidades[] = "- Registrar asientos contables manuales balanceados (ej. rendimientos de FCI, reclasificaciones): consultá buscar_cuentas_contables (solo imputables) y llamá a proponer_asiento_contable.";
@@ -333,11 +333,12 @@ function asis_filtrar_herramientas_por_intencion(array $herramientas, string $te
             ],
         ],
         'teso_bancos' => [
-            're' => '/\b(banco[s]?|bancari[a-z]*|extracto[s]?|concilia[a-z]*|comision[a-z]*|tesorer[a-z]*|caja[s]?|fci|transfer[a-z]*|aporte[s]?|retiro[s]?|socio[s]?|anticipo[s]?|sueldo[s]?|obligacion[a-z]*|impuesto[s]?|flujo|disponib[a-z]*|resumen)\b/',
+            're' => '/\b(banco[s]?|bancari[a-z]*|extracto[s]?|concilia[a-z]*|comision[a-z]*|tesorer[a-z]*|caja[s]?|fci|transfer[a-z]*|aporte[s]?|retiro[s]?|socio[s]?|anticipo[s]?|sueldo[s]?|obligacion[a-z]*|impuesto[s]?|flujo|disponib[a-z]*|resumen|aproba[a-z]*|confirma[a-z]*|rechaza[a-z]*|anula[a-z]*|borrador[a-z]*|mc)\b/',
             'tools' => [
                 'buscar_cuentas_contables', 'listar_tipos_obligacion', 'listar_cuentas_tesoreria',
                 'buscar_extracto_bancario', 'proponer_cuentas_contables', 'proponer_tipo_obligacion',
                 'proponer_obligacion_pago', 'proponer_asiento_contable', 'proponer_movimiento_tesoreria',
+                'consultar_comprobantes_tesoreria', 'proponer_estado_comprobante_tesoreria',
                 'listar_catalogos_tesoreria', 'proponer_cuenta_tesoreria', 'consultar_deudas_pagar',
                 'proponer_orden_pago', 'listar_medios_cobro', 'proponer_cobranza',
                 'consultar_ctacte_cliente', 'consultar_pendientes_conciliacion',
@@ -547,7 +548,13 @@ function asis_propuesta_publica(array $ctx, array $p): array
             case 'TIPO_OBLIGACION':     $url = 'obligaciones_tipos.php?pagina_id=' . $ctx['paginas']['obligaciones_tipos']; break;
             case 'OBLIGACION_PAGO':     $url = 'obligaciones_pago.php?pagina_id=' . $ctx['paginas']['obligaciones_pago']; break;
             case 'ASIENTO_CONTABLE':    $url = 'cont_asientos.php?pagina_id=' . $ctx['paginas']['cont_asientos']; break;
-            case 'MOV_TESORERIA':       $url = 'tesoreria_movimientos.php?pagina_id=' . $ctx['paginas']['tesoreria_movimientos']; break;
+            case 'MOV_TESORERIA':
+                $es_otro = strtoupper((string)($p['datos']['tipo'] ?? '')) !== 'TRANSFERENCIA';
+                $url = 'tesoreria_movimientos.php?pagina_id=' . $ctx['paginas']['tesoreria_movimientos'] . ($es_otro ? '&tab=otros' : '');
+                break;
+            case 'ESTADO_TESO_MC':
+                $url = 'tesoreria_movimientos.php?pagina_id=' . $ctx['paginas']['tesoreria_movimientos'] . '&tab=otros';
+                break;
             case 'IMPUTAR_SALDO_FAVOR': $url = 'clientes_ctacte.php?pagina_id=' . $ctx['paginas']['clientes_ctacte']; break;
             case 'CUENTA_TESORERIA':    $url = 'tesoreria_cuentas.php?pagina_id=' . $ctx['paginas']['tesoreria_cuentas']; break;
             case 'ORDEN_PAGO':          $url = 'pagos.php?pagina_id=' . $ctx['paginas']['pagos']; break;
@@ -653,6 +660,7 @@ function asis_confirmar_propuesta(array $ctx, int $id, int $punto_venta_id = 0):
             case 'OBLIGACION_PAGO':   [$registro_id, $texto] = asis_grabar_obligacion_pago($ctx, $d); break;
             case 'ASIENTO_CONTABLE':    [$registro_id, $texto] = asis_grabar_asiento_contable($ctx, $d); break;
             case 'MOV_TESORERIA':       [$registro_id, $texto] = asis_grabar_movimiento_tesoreria($ctx, $d); break;
+            case 'ESTADO_TESO_MC':      [$registro_id, $texto] = asis_grabar_estado_comprobante_tesoreria($ctx, $d); break;
             case 'IMPUTAR_SALDO_FAVOR': [$registro_id, $texto] = asis_grabar_imputacion_saldo_favor($ctx, $d); break;
             case 'CUENTA_TESORERIA':    [$registro_id, $texto] = asis_grabar_cuenta_tesoreria($ctx, $d); break;
             case 'ORDEN_PAGO':          [$registro_id, $texto] = asis_grabar_orden_pago($ctx, $d); break;

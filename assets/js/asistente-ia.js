@@ -324,6 +324,17 @@
                 <tbody>${filas}</tbody>
                 <tfoot><tr><td colspan="4" class="text-end text-muted">Subtotal ${dinero(d.subtotal)} · IVA ${dinero(d.impuestos)}</td><td class="text-end fw-bold">${dinero(d.total)}</td></tr></tfoot></table></div>
                 ${d.observaciones ? `<div class="small text-muted">Observaciones: ${esc(d.observaciones)}</div>` : ''}`;
+        } else if (p.tipo === 'ESTADO_TESO_MC') {
+            titulo = `Comprobante ${esc(d.numero)} · ${esc(d.accion_texto)}`;
+            cuerpo = `<table class="table table-sm mb-2"><tbody>
+                <tr><th class="text-muted fw-normal pe-3">Tipo / Fecha</th><td>${esc(d.tipo_movimiento)} · ${esc(Fmt.fecha(d.f_emision))}</td></tr>
+                ${d.entidad_nombre ? `<tr><th class="text-muted fw-normal pe-3">Entidad / Socio</th><td>${esc(d.entidad_nombre)}</td></tr>` : ''}
+                <tr><th class="text-muted fw-normal pe-3">Cuenta tesorería</th><td>${esc(d.cuenta_nombre)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Concepto</th><td>${esc(d.concepto)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Importe</th><td class="fw-bold">${dinero(d.importe_total)}</td></tr>
+                <tr><th class="text-muted fw-normal pe-3">Estado actual</th><td>${esc(d.estado_actual)}</td></tr>
+                ${d.motivo ? `<tr><th class="text-muted fw-normal pe-3">Motivo</th><td>${esc(d.motivo)}</td></tr>` : ''}
+            </tbody></table>`;
         } else if (p.tipo === 'GASTOS_BANCARIOS') {
             titulo = `Resumen de Gastos Bancarios · ${esc(d.cuenta_nombre)} (${esc(d.mes)})`;
             cuerpo = `<table class="table table-sm mb-2"><tbody>

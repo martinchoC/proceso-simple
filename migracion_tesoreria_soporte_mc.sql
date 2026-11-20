@@ -35,11 +35,12 @@ SELECT p.pagina_id, f.icono_id, f.color_id, f.funcion_estandar_id,
 FROM (SELECT 108 AS pagina_id UNION ALL SELECT 608) p
 CROSS JOIN (
   SELECT 21 AS icono_id, 1 AS color_id, 1 AS funcion_estandar_id, 'Visualizar / Imprimir' AS nombre_funcion, 'visualizar' AS accion_js, 'Ver e imprimir comprobante soporte' AS descripcion, 0 AS origen, 0 AS destino, 10 AS orden
-  UNION ALL SELECT 21, 1, 1, 'Editar Borrador',      'editar',    'Modificar comprobante en borrador',       3, 3, 20
-  UNION ALL SELECT 21, 1, 1, 'Confirmar Movimiento', 'confirmar', 'Confirmar borrador e impactar tesorería', 3, 5, 30
-  UNION ALL SELECT 21, 1, 1, 'Aprobar Movimiento',   'aprobar',   'Aprobar comprobante pendiente',           4, 5, 40
-  UNION ALL SELECT 21, 1, 1, 'Rechazar Movimiento',  'rechazar',  'Devolver comprobante a borrador',         4, 3, 50
-  UNION ALL SELECT 21, 1, 1, 'Eliminar Borrador',    'eliminar',  'Eliminar comprobante en borrador',        3, 6, 60
+  UNION ALL SELECT 21, 1, 1, 'Editar Borrador',      'editar',            'Modificar comprobante en borrador',       3, 3, 20
+  UNION ALL SELECT 21, 1, 1, 'Enviar a Aprobación',  'enviar_aprobacion', 'Enviar borrador a pendiente de aprobación', 3, 4, 25
+  UNION ALL SELECT 21, 1, 1, 'Confirmar Movimiento', 'confirmar',         'Confirmar borrador e impactar tesorería', 3, 5, 30
+  UNION ALL SELECT 21, 1, 1, 'Aprobar Movimiento',   'aprobar',           'Aprobar comprobante pendiente',           4, 5, 40
+  UNION ALL SELECT 21, 1, 1, 'Rechazar Movimiento',  'rechazar',          'Devolver comprobante a borrador',         4, 3, 50
+  UNION ALL SELECT 21, 1, 1, 'Eliminar Borrador',    'eliminar',          'Eliminar comprobante en borrador',        3, 6, 60
 ) f
 WHERE EXISTS (SELECT 1 FROM `conf__paginas` cp WHERE cp.pagina_id = p.pagina_id)
   AND NOT EXISTS (
@@ -56,5 +57,5 @@ JOIN `conf__paginas_funciones` pf_new ON pf_new.pagina_id = pf_old.pagina_id
 WHERE pf_old.pagina_id IN (108, 608)
   AND pf_old.accion_js = 'agregar'
   AND epf.asignado = 1
-  AND pf_new.accion_js IN ('visualizar', 'editar', 'confirmar', 'aprobar', 'rechazar', 'eliminar')
+  AND pf_new.accion_js IN ('visualizar', 'editar', 'enviar_aprobacion', 'confirmar', 'aprobar', 'rechazar', 'eliminar')
   AND pf_new.tabla_estado_registro_id = 1;

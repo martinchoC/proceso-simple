@@ -547,4 +547,11 @@ document.addEventListener('DOMContentLoaded', function () {
     cargarMaestros();
     inicializarDataTable();
     inicializarTablaOtros();
+
+    // Si viene con ?tab=otros (ej. desde el link del Asistente IA), abrir directo esa solapa
+    const paramsUrl = new URLSearchParams(window.location.search);
+    if (paramsUrl.get('tab') === 'otros' || window.location.hash === '#paneOtros') {
+        const tabOtros = document.getElementById('tabOtrosBtn');
+        if (tabOtros) bootstrap.Tab.getOrCreateInstance(tabOtros).show();
+    }
 });

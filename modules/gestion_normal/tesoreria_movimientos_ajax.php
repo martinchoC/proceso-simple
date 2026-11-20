@@ -127,9 +127,7 @@ try {
             $data_json = json_decode($input_raw, true) ?: $_POST;
             $comprobante_id = intval($data_json['comprobante_id'] ?? 0);
             if ($comprobante_id <= 0) manejarError('ID de comprobante inválido', 400);
-            if (!permisos_puede($conexion, $teso_pagina_id, 'agregar') && !permisos_puede($conexion, $teso_pagina_id, 'editar')) {
-                manejarError('Tu perfil no tiene permiso para enviar a aprobación.', 403);
-            }
+            tesoExigirFuncion($conexion, $teso_pagina_id, 'enviar_aprobacion');
             enviarRespuesta(enviarAprobacionOtroMovimiento($conexion, $comprobante_id, $empresa_idx, $usuario_id));
             break;
 

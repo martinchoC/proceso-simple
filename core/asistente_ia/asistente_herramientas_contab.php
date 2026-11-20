@@ -159,6 +159,32 @@ function asis_herramientas_contab(array $ctx): array
         ];
     }
 
+    if (asis_tiene_acceso_pagina($ctx, 'tesoreria_movimientos')) {
+        $out[] = [
+            'name' => 'consultar_comprobantes_tesoreria',
+            'description' => 'Lista los comprobantes soporte de tesorería (MC - Otros ingresos/egresos como aportes de socios) con su estado actual (Borrador, Pendiente Aprobación, Confirmado, Anulado) y las acciones habilitadas para el perfil.',
+            'input_schema' => ['type' => 'object', 'properties' => [
+                'estado_id' => ['type' => 'integer', 'description' => 'Opcional: 3=Borrador, 4=Pendiente Aprobación, 5=Confirmado, 38=Anulado'],
+            ]],
+        ];
+
+        $acciones_mc = [];
+        foreach (['enviar_aprobacion', 'confirmar', 'aprobar', 'rechazar', 'eliminar', 'anular'] as $ac) {
+            if (asis_puede($ctx, 'tesoreria_movimientos', $ac)) $acciones_mc[] = $ac;
+        }
+        if ($acciones_mc) {
+            $out[] = [
+                'name' => 'proponer_estado_comprobante_tesoreria',
+                'description' => 'Propone avanzar o cambiar el estado del ciclo de vida de un comprobante soporte MC de tesorería según los permisos del perfil en conf__: enviar_aprobacion (3->4), confirmar (3->5), aprobar (4->5), rechazar (4->3), eliminar (3/4->6) o anular (5->38). No ejecuta hasta que el usuario confirme.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'comprobante_id' => ['type' => 'integer', 'description' => 'comprobante_id del MC (de consultar_comprobantes_tesoreria o del creado recién)'],
+                    'accion' => ['type' => 'string', 'enum' => $acciones_mc, 'description' => 'Transición del ciclo de vida habilitada para el perfil'],
+                    'motivo' => ['type' => 'string', 'description' => 'Opcional: motivo de rechazo'],
+                ], 'required' => ['comprobante_id', 'accion']],
+            ];
+        }
+    }
+
     return $out;
 }
 
@@ -176,6 +202,8 @@ function asis_ejecutar_herramienta_contab(array $ctx, string $nombre, array $e):
         case 'proponer_obligacion_pago':     return asis_h_proponer_obligacion_pago($ctx, $e);
         case 'proponer_asiento_contable':    return asis_h_proponer_asiento_contable($ctx, $e);
         case 'proponer_movimiento_tesoreria': return asis_h_proponer_movimiento_tesoreria($ctx, $e);
+        case 'consultar_comprobantes_tesoreria':       return asis_h_consultar_comprobantes_tesoreria($ctx, $e);
+        case 'proponer_estado_comprobante_tesoreria':  return asis_h_proponer_estado_comprobante_tesoreria($ctx, $e);
         default: return null;
     }
 }
@@ -828,4 +856,99 @@ function asis_grabar_movimiento_tesoreria(array $ctx, array $d): array
         throw new RuntimeException($ex->getMessage());
     }
     return [intval($res_om['comprobante_id'] ?? 1), (string)($res_om['message'] ?? "Comprobante {$v['tipo']} creado en Borrador.")];
+}
+
+function asis_h_consultar_comprobantes_tesoreria(array $ctx, array $e): array
+{
+    if (!asis_tiene_acceso_pagina($ctx, 'tesoreria_movimientos')) {
+        throw new RuntimeException('No tenés acceso a Movimientos de Tesorería.');
+    }
+    require_once $ctx['modulo_dir'] . '/tesoreria_core_model.php';
+    require_once $ctx['modulo_dir'] . '/tesoreria_movimientos_model.php';
+    $filtros = [];
+    if (!empty($e['estado_id'])) $filtros['estado_id'] = intval($e['estado_id']);
+    $res = obtenerOtrosMovimientosListado($ctx['c'], $ctx['empresa_id'], $filtros, intval($ctx['paginas']['tesoreria_movimientos'] ?? 0));
+    return ['comprobantes' => array_slice((array)($res['data'] ?? []), 0, 30)];
+}
+
+function asis_h_proponer_estado_comprobante_tesoreria(array $ctx, array $e): array
+{
+    $cid = intval($e['comprobante_id'] ?? 0);
+    $acc = trim((string)($e['accion'] ?? ''));
+    $motivo = mb_substr(trim((string)($e['motivo'] ?? '')), 0, 250);
+    $validas = ['enviar_aprobacion', 'confirmar', 'aprobar', 'rechazar', 'eliminar', 'anular'];
+    if ($cid <= 0) throw new RuntimeException('Indicá un comprobante_id válido.');
+    if (!in_array($acc, $validas, true)) throw new RuntimeException('Acción de ciclo de vida inválida.');
+    if (!asis_puede($ctx, 'tesoreria_movimientos', $acc)) {
+        throw new RuntimeException("Tu perfil no tiene habilitada la función '$acc' en Movimientos de Tesorería.");
+    }
+
+    require_once $ctx['modulo_dir'] . '/tesoreria_core_model.php';
+    require_once $ctx['modulo_dir'] . '/tesoreria_movimientos_model.php';
+    $comp = obtenerOtroMovimientoPorId($ctx['c'], $cid, $ctx['empresa_id']);
+    if (!$comp) throw new RuntimeException("Comprobante MC #$cid no encontrado.");
+
+    $est = intval($comp['tabla_estado_registro_id']);
+    $reglas = [
+        'enviar_aprobacion' => [3],
+        'confirmar'         => [3],
+        'aprobar'           => [4],
+        'rechazar'          => [4],
+        'eliminar'          => [3, 4],
+        'anular'            => [5],
+    ];
+    if (!in_array($est, $reglas[$acc], true)) {
+        throw new RuntimeException("El comprobante {$comp['numero_formateado']} está en estado '{$comp['estado_registro']}' y no admite la acción '$acc'.");
+    }
+
+    $etiquetas = [
+        'enviar_aprobacion' => 'Enviar a Aprobación (Borrador → Pendiente)',
+        'confirmar'         => 'Confirmar e impactar caja y contabilidad (Borrador → Confirmado)',
+        'aprobar'           => 'Aprobar e impactar caja y contabilidad (Pendiente → Confirmado)',
+        'rechazar'          => 'Rechazar y devolver a Borrador (Pendiente → Borrador)',
+        'eliminar'          => 'Eliminar Borrador',
+        'anular'            => 'Anular Comprobante y revertir caja/asiento (Confirmado → Anulado)',
+    ];
+    $datos = [
+        'comprobante_id'  => $cid,
+        'numero'          => $comp['numero_formateado'],
+        'tipo_movimiento' => $comp['tipo_movimiento'],
+        'f_emision'       => $comp['f_emision'],
+        'entidad_nombre'  => $comp['entidad_nombre'] ?? '',
+        'cuenta_nombre'   => $comp['cuenta_nombre'] ?? '',
+        'importe_total'   => floatval($comp['importe_total']),
+        'concepto'        => $comp['observaciones'],
+        'estado_actual'   => $comp['estado_registro'],
+        'accion'          => $acc,
+        'accion_texto'    => $etiquetas[$acc],
+        'motivo'          => $motivo,
+    ];
+    $pid = asis_guardar_propuesta($ctx, 'ESTADO_TESO_MC', $datos);
+    return ['propuesta_id' => $pid, 'numero' => $comp['numero_formateado'], 'accion' => $etiquetas[$acc]];
+}
+
+function asis_grabar_estado_comprobante_tesoreria(array $ctx, array $d): array
+{
+    $cid = intval($d['comprobante_id'] ?? 0);
+    $acc = trim((string)($d['accion'] ?? ''));
+    $motivo = trim((string)($d['motivo'] ?? ''));
+    if (!asis_puede($ctx, 'tesoreria_movimientos', $acc)) {
+        throw new RuntimeException("Tu perfil no tiene permiso para '$acc' en Movimientos de Tesorería.");
+    }
+    require_once $ctx['modulo_dir'] . '/tesoreria_core_model.php';
+    require_once $ctx['modulo_dir'] . '/tesoreria_movimientos_model.php';
+    try {
+        switch ($acc) {
+            case 'enviar_aprobacion': $r = enviarAprobacionOtroMovimiento($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id']); break;
+            case 'confirmar':         $r = confirmarOtroMovimientoTesoreria($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id'], false); break;
+            case 'aprobar':           $r = confirmarOtroMovimientoTesoreria($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id'], true); break;
+            case 'rechazar':          $r = rechazarOtroMovimiento($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id'], $motivo); break;
+            case 'eliminar':          $r = eliminarOtroMovimientoBorrador($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id']); break;
+            case 'anular':            $r = anularOtroMovimientoTesoreria($ctx['c'], $cid, $ctx['empresa_id'], $ctx['usuario_id']); break;
+            default: throw new RuntimeException('Acción desconocida.');
+        }
+    } catch (Exception $ex) {
+        throw new RuntimeException($ex->getMessage());
+    }
+    return [$cid, (string)($r['message'] ?? 'Estado del comprobante actualizado.')];
 }
